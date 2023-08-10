@@ -5,13 +5,7 @@ pluginManagement {
             name = "NeoForged"
             url = uri("https://maven.neoforged.net/")
         }
-        maven {
-            name = "Minecraft"
-            url = uri("https://libraries.minecraft.net")
-        }
     }
 }
 
-rootProject.name = "adapter"
-
-includeBuild("plugin")
+rootProject.name = "definition"

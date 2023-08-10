@@ -1,4 +1,4 @@
-package dev.su5ed.sinytra.adapter;
+package dev.su5ed.sinytra.adapter.gradle;
 
 import net.minecraftforge.gradle.common.util.Artifact;
 import net.minecraftforge.gradle.common.util.MavenArtifactDownloader;
