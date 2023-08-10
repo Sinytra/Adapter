@@ -36,14 +36,6 @@ dependencies {
     implementation(group = "net.neoforged", name = "NeoGradle", version = "6.0.+")
     compileOnly(group = "net.neoforged", "artifactural", version = "3.0.17")
 
-    implementation(group = "com.google.guava", "guava", version = "32.1.2-jre")
-    api(platform("org.ow2.asm:asm-bom:9.5"))
-    api(group = "org.ow2.asm", name = "asm")
-    api(group = "org.ow2.asm", name = "asm-commons")
-    api(group = "org.ow2.asm", name = "asm-tree")
-    api(group = "org.ow2.asm", name = "asm-analysis")
-    api(group = "org.ow2.asm", name = "asm-util")
-
     implementation("dev.su5ed.sinytra.adapter:definition")
 
     testImplementation(platform("org.junit:junit-bom:5.9.1"))

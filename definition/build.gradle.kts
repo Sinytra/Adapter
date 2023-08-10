@@ -1,8 +1,5 @@
-import net.minecraftforge.gradle.common.util.RunConfig
-
 plugins {
     `java-library`
-    id("net.neoforged.gradle") version "[6.0,6.2)"
     `maven-publish`
 }
 
@@ -18,51 +15,35 @@ java {
     }
 }
 
-minecraft {
-    mappings("official", versionMc)
-
-    runs {
-        val config = Action<RunConfig> {
-            property("forge.logging.console.level", "debug")
-            workingDirectory = project.file("run").canonicalPath
-
-            mods {
-                create("adapter") {
-                    sources(sourceSets.main.get())
-                }
-            }
-        }
-
-        create("client", config)
-        create("server", config)
-    }
-}
-
-configurations {
-    runtimeElements {
-        outgoing { 
-            exclude("net.minecraftforge", "forge")
-        }
-    }
-}
-
 repositories {
     mavenCentral()
     maven {
         name = "MinecraftForge"
         url = uri("https://maven.minecraftforge.net/")
     }
+    maven {
+        name = "Minecraft"
+        url = uri("https://libraries.minecraft.net")
+    }
 }
 
 dependencies {
-    minecraft(group = "net.minecraftforge", name = "forge", version = "$versionMc-$versionForge")
-    
     api(group = "com.mojang", name = "datafixerupper", version = "6.0.8")
     implementation(group = "com.mojang", name = "logging", version = "1.1.1")
+    implementation(group = "com.google.guava", "guava", version = "32.1.2-jre")
+    implementation(group = "org.slf4j", "slf4j-api", "2.0.0")
+    compileOnly(group = "org.jetbrains", name = "annotations", version = "24.0.1")
+
+    api(platform("org.ow2.asm:asm-bom:9.5"))
+    api(group = "org.ow2.asm", name = "asm")
+    api(group = "org.ow2.asm", name = "asm-commons")
+    api(group = "org.ow2.asm", name = "asm-tree")
+    api(group = "org.ow2.asm", name = "asm-analysis")
+    api(group = "org.ow2.asm", name = "asm-util")
 }
 
 publishing {
-    publications { 
+    publications {
         create<MavenPublication>("mavenJava") {
             from(components["java"])
         }
