@@ -14,7 +14,7 @@ java {
 gradlePlugin {
     plugins {
         register("adapter") {
-            id = "dev.su5ed.sinytra.adapter"
+            id = "dev.su5ed.sinytra.adapter.gradle"
             implementationClass = "dev.su5ed.sinytra.adapter.gradle.AdapterPlugin"
         }
     }

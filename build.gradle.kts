@@ -1,6 +1,6 @@
 plugins {
     id("net.neoforged.gradle") version "[6.0,6.2)"
-    id("dev.su5ed.sinytra.adapter")
+    id("dev.su5ed.sinytra.adapter.gradle")
 }
 
 group = "dev.su5ed.sinytra"

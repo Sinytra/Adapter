@@ -6,9 +6,6 @@ plugins {
 group = "dev.su5ed.sinytra.adapter"
 version = "1.0-SNAPSHOT"
 
-val versionMc: String by project
-val versionForge: String by project
-
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(17))
@@ -17,10 +14,6 @@ java {
 
 repositories {
     mavenCentral()
-    maven {
-        name = "MinecraftForge"
-        url = uri("https://maven.minecraftforge.net/")
-    }
     maven {
         name = "Minecraft"
         url = uri("https://libraries.minecraft.net")
