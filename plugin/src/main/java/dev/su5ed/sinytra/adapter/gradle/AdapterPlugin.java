@@ -3,9 +3,11 @@ package dev.su5ed.sinytra.adapter.gradle;
 import net.minecraftforge.gradle.common.util.Artifact;
 import net.minecraftforge.gradle.common.util.MavenArtifactDownloader;
 import net.minecraftforge.gradle.common.util.Utils;
+import net.minecraftforge.gradle.mcp.tasks.GenerateSRG;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.plugins.AppliedPlugin;
+import org.gradle.api.tasks.TaskProvider;
 
 import java.io.File;
 
@@ -27,6 +29,8 @@ public class AdapterPlugin implements Plugin<Project> {
                 return MavenArtifactDownloader.generate(project, CLEAN_ARTIFACT.formatted(mcpVersion), true);
             }));
             task.getDirtyJar().fileProvider(project.provider(() -> getBinpatchedArtifact(project)));
+            TaskProvider<GenerateSRG> createSrgToMcp = project.getTasks().named("createSrgToMcp", GenerateSRG.class);
+            task.getSrgToMcpMappings().set(createSrgToMcp.flatMap(GenerateSRG::getOutput));
         });
     }
 

@@ -19,18 +19,11 @@ import java.util.function.Function;
 
 import static dev.su5ed.sinytra.adapter.patch.PatchImpl.PATCHER;
 
-public record ModifyMethodParams(List<AddParameter> changes, @Nullable LVTFixer lvtFixer) implements MethodTransform {
-    public record AddParameter(int index, Type type) {
-        public static final Codec<AddParameter> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Codec.INT.fieldOf("index").forGetter(AddParameter::index),
-            PatchSerialization.TYPE_CODEC.fieldOf("type").forGetter(AddParameter::type)
-        ).apply(instance, AddParameter::new));
-    }
-
+public record ModifyMethodParams(List<Type> replacementTypes, @Nullable LVTFixer lvtFixer) implements MethodTransform {
     private static final Logger LOGGER = LogUtils.getLogger();
     public static final Codec<ModifyMethodParams> CODEC = RecordCodecBuilder
         .<ModifyMethodParams>create(instance -> instance.group(
-            AddParameter.CODEC.listOf().fieldOf("changes").forGetter(ModifyMethodParams::changes)
+            PatchSerialization.TYPE_CODEC.listOf().fieldOf("replacementTypes").forGetter(ModifyMethodParams::replacementTypes)
         ).apply(instance, changes -> new ModifyMethodParams(changes, null)))
         .comapFlatMap(obj -> obj.lvtFixer != null ? DataResult.error(() -> "Cannot serialize lvtFixer") : DataResult.success(obj), Function.identity());
 
@@ -47,12 +40,7 @@ public record ModifyMethodParams(List<AddParameter> changes, @Nullable LVTFixer 
     @Override
     public boolean apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
         Type[] parameterTypes = Type.getArgumentTypes(methodNode.desc);
-        List<Type> list = new ArrayList<>(Arrays.asList(parameterTypes));
-        for (AddParameter change : this.changes) {
-            int normalIndex = change.index < change.index ? list.indexOf(parameterTypes[change.index]) : change.index;
-            list.add(normalIndex, change.type);
-        }
-        Type[] newParameterTypes = list.toArray(Type[]::new);
+        Type[] newParameterTypes = this.replacementTypes.toArray(Type[]::new);
         Type returnType = Type.getReturnType(methodNode.desc);
         String newDesc = Type.getMethodDescriptor(returnType, newParameterTypes);
         LOGGER.info(PATCHER, "Changing descriptor of method {}.{}{} to {}", classNode.name, methodNode.name, methodNode.desc, newDesc);
@@ -61,17 +49,21 @@ public record ModifyMethodParams(List<AddParameter> changes, @Nullable LVTFixer 
         int offset = (methodNode.access & Opcodes.ACC_STATIC) == 0 ? 1 : 0;
 
         int i = 0;
-        for (int j = 0; j < newParameterTypes.length && i < methodNode.parameters.size(); j++) {
-            Type type = newParameterTypes[j];
-            if (!parameterTypes[i].equals(type)) {
-                if (i == j && this.lvtFixer != null) {
-                    replacementIndices.put(offset + j, type);
-                } else {
-                    insertionIndices.put(j, type);
-                    continue;
+        for (int j = 0; i < parameterTypes.length; ) {
+            if (j < newParameterTypes.length) {
+                Type type = newParameterTypes[j];
+                if (!parameterTypes[i].equals(type)) {
+                    if (i == j && this.lvtFixer != null) {
+                        replacementIndices.put(offset + j, type);
+                    } else {
+                        insertionIndices.put(j, type);
+                        j++;
+                        continue;
+                    }
                 }
+                i++;
+                j++;
             }
-            i++;
         }
         if (i != methodNode.parameters.size() && this.lvtFixer == null) {
             throw new RuntimeException("Unable to patch LVT capture, incompatible parameters");

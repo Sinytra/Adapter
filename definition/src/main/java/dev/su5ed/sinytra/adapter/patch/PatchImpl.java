@@ -285,13 +285,13 @@ public class PatchImpl implements Patch {
         }
 
         @Override
-        public Builder modifyParams(List<ModifyMethodParams.AddParameter> changes) {
-            return modifyParams(changes, null);
+        public Builder modifyParams(List<Type> replacementTypes) {
+            return modifyParams(replacementTypes, null);
         }
 
         @Override
-        public Builder modifyParams(List<ModifyMethodParams.AddParameter> changes, @Nullable LVTFixer lvtFixer) {
-            return transform(new ModifyMethodParams(changes, lvtFixer));
+        public Builder modifyParams(List<Type> replacementTypes, @Nullable LVTFixer lvtFixer) {
+            return transform(new ModifyMethodParams(replacementTypes, lvtFixer));
         }
 
         @Override

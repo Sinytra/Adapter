@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.mojang.serialization.JsonOps;
 import dev.su5ed.sinytra.adapter.patch.PatchImpl;
 import dev.su5ed.sinytra.adapter.patch.PatchSerialization;
+import net.minecraftforge.srgutils.IMappingFile;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.tasks.*;
@@ -31,6 +32,10 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
     @PathSensitive(PathSensitivity.RELATIVE)
     public abstract RegularFileProperty getDirtyJar();
 
+    @InputFile
+    @PathSensitive(PathSensitivity.RELATIVE)
+    public abstract RegularFileProperty getSrgToMcpMappings();
+
     @OutputFile
     public abstract RegularFileProperty getOutput();
 
@@ -45,8 +50,11 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
         logger.info("Generating Adapter patch data");
         logger.info("Clean jar: " + getCleanJar().get().getAsFile().getAbsolutePath());
         logger.info("Dirty jar: " + getDirtyJar().get().getAsFile().getAbsolutePath());
+        logger.info("Mappings : " + getSrgToMcpMappings().get().getAsFile().getAbsolutePath());
 
         List<PatchImpl> patches = new ArrayList<>();
+
+        IMappingFile mappings = IMappingFile.load(getSrgToMcpMappings().get().getAsFile());
 
         try (final ZipFile cleanJar = new ZipFile(getCleanJar().get().getAsFile());
              final ZipFile dirtyJar = new ZipFile(getDirtyJar().get().getAsFile())
@@ -69,7 +77,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
                     byte[] dirtyData = dirtyJar.getInputStream(entry).readAllBytes();
 
                     ClassAnalyzer analyzer = ClassAnalyzer.create(cleanData, dirtyData);
-                    ClassAnalyzer.AnalysisResults analysis = analyzer.analyze();
+                    ClassAnalyzer.AnalysisResults analysis = analyzer.analyze(mappings);
                     patches.addAll(analysis.patches());
 
                     counter.getAndIncrement();
@@ -81,7 +89,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
             stopwatch.stop();
             logger.info("Analyzed {} classes in {} ms", counter.get(), stopwatch.elapsed(TimeUnit.MILLISECONDS));
 
-            logger.info("Found {} overloaded methods", patches.size());
+            logger.info("Generated {} patches", patches.size());
         }
 
         JsonElement object = PatchSerialization.serialize(patches, JsonOps.INSTANCE);

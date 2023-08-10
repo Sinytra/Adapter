@@ -1,7 +1,7 @@
 package dev.su5ed.sinytra.adapter.patch;
 
-import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import org.jetbrains.annotations.Nullable;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 
 import java.util.List;
@@ -36,9 +36,9 @@ public interface Patch {
 
         Builder modifyInjectionPoint(String value, String target);
 
-        Builder modifyParams(List<ModifyMethodParams.AddParameter> changes);
+        Builder modifyParams(List<Type> replacementTypes);
 
-        Builder modifyParams(List<ModifyMethodParams.AddParameter> changes, @Nullable LVTFixer lvtFixer);
+        Builder modifyParams(List<Type> replacementTypes, @Nullable LVTFixer lvtFixer);
 
         Builder modifyTarget(String... methods);
 

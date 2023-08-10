@@ -34,6 +34,7 @@ repositories {
 
 dependencies {
     implementation(group = "net.neoforged", name = "NeoGradle", version = "6.0.+")
+    implementation(group = "net.minecraftforge", name = "srgutils", version = "0.5.3")
     compileOnly(group = "net.neoforged", "artifactural", version = "3.0.17")
 
     implementation("dev.su5ed.sinytra.adapter:definition")
