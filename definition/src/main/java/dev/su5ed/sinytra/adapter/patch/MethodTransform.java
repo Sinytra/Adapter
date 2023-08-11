@@ -9,14 +9,9 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
-public interface MethodTransform extends ClassTransform {
+public interface MethodTransform {
     default Codec<? extends MethodTransform> codec() {
         throw new UnsupportedOperationException("This transform is not serializable");
-    }
-
-    @Override
-    default Result apply(ClassNode classNode) {
-        return new Result(false, false);
     }
 
     default Collection<String> getAcceptedAnnotations() {

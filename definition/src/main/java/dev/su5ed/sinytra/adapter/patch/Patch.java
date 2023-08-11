@@ -20,7 +20,7 @@ public interface Patch {
         return new PatchImpl.BuilderImpl();
     }
 
-    boolean apply(ClassNode classNode);
+    boolean apply(ClassNode classNode, MixinRemaper remaper);
 
     interface Builder {
         Builder targetClass(String... targets);

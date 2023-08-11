@@ -27,6 +27,11 @@ public class SetMethodParams extends ModifyMethodParamsBase {
     }
 
     @Override
+    protected boolean areParamsComplete() {
+        return false;
+    }
+
+    @Override
     protected Type[] getReplacementParameters(Type[] original) {
         return this.replacementTypes.toArray(Type[]::new);
     }

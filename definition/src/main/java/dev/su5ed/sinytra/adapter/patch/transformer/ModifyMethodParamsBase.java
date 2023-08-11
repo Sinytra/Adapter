@@ -26,6 +26,8 @@ public abstract class ModifyMethodParamsBase implements MethodTransform {
 
     protected abstract Type[] getReplacementParameters(Type[] original);
 
+    protected abstract boolean areParamsComplete();
+
     @Override
     public Collection<String> getAcceptedAnnotations() {
         return Set.of(Patch.INJECT, Patch.MODIFY_ARG, Patch.OVERWRITE);
@@ -33,11 +35,10 @@ public abstract class ModifyMethodParamsBase implements MethodTransform {
 
     @Override
     public boolean apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
+        boolean complete = areParamsComplete();
         Type[] parameterTypes = Type.getArgumentTypes(methodNode.desc);
         Type[] newParameterTypes = getReplacementParameters(parameterTypes);
-        Type returnType = Type.getReturnType(methodNode.desc);
-        String newDesc = Type.getMethodDescriptor(returnType, newParameterTypes);
-        LOGGER.info(MIXINPATCH, "Changing descriptor of method {}.{}{} to {}", classNode.name, methodNode.name, methodNode.desc, newDesc);
+        List<Type> completeNewParams = new ArrayList<>(Arrays.asList(newParameterTypes));
         Int2ObjectMap<Type> insertionIndices = new Int2ObjectOpenHashMap<>();
         Int2ObjectMap<Type> replacementIndices = new Int2ObjectOpenHashMap<>();
         int offset = (methodNode.access & Opcodes.ACC_STATIC) == 0 ? 1 : 0;
@@ -55,13 +56,20 @@ public abstract class ModifyMethodParamsBase implements MethodTransform {
                         continue;
                     }
                 }
-                i++;
                 j++;
+            } else if (!complete) {
+                completeNewParams.add(parameterTypes[i]);
             }
+            i++;
         }
         if (i != methodNode.parameters.size() && this.lvtFixer == null) {
             throw new RuntimeException("Unable to patch LVT capture, incompatible parameters");
         }
+
+        Type returnType = Type.getReturnType(methodNode.desc);
+        String newDesc = Type.getMethodDescriptor(returnType, completeNewParams.toArray(Type[]::new));
+        LOGGER.info(MIXINPATCH, "Changing descriptor of method {}.{}{} to {}", classNode.name, methodNode.name, methodNode.desc, newDesc);
+
         insertionIndices.forEach((index, type) -> {
             ParameterNode newParameter = new ParameterNode(null, Opcodes.ACC_SYNTHETIC);
             if (index < methodNode.parameters.size()) methodNode.parameters.add(index, newParameter);

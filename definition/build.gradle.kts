@@ -42,4 +42,14 @@ publishing {
             from(components["java"])
         }
     }
+    repositories { 
+        maven { 
+            name = "Su5eD"
+            url = uri("https://maven.su5ed.dev/releases")
+            credentials { 
+                username = System.getenv("MAVEN_USERNAME") ?: "not"
+                password = System.getenv("MAVEN_PASSWORD") ?: "set"
+            }
+        }
+    }
 }

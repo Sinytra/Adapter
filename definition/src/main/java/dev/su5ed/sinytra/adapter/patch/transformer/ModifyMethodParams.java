@@ -19,6 +19,11 @@ public class ModifyMethodParams extends ModifyMethodParamsBase {
     }
 
     @Override
+    protected boolean areParamsComplete() {
+        return true;
+    }
+
+    @Override
     protected Type[] getReplacementParameters(Type[] original) {
         List<Type> list = new ArrayList<>(Arrays.asList(original));
         this.operator.accept(list);

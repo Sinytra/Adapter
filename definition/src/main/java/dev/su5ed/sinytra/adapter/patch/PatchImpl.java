@@ -34,7 +34,7 @@ public class PatchImpl implements Patch {
             Codec.STRING.listOf().optionalFieldOf("targetAnnotations", List.of()).forGetter(p -> p.targetAnnotations),
             PatchSerialization.METHOD_TRANSFORM_CODEC.listOf().fieldOf("transforms").forGetter(p -> p.transforms)
         ).apply(instance, PatchImpl::new))
-        .comapFlatMap(obj -> obj.targetAnnotationValues != null ? DataResult.error(() -> "Cannot serialize targetAnnotationValues") : DataResult.success(obj), Function.identity());
+        .flatComapMap(Function.identity(), obj -> obj.targetAnnotationValues != null ? DataResult.error(() -> "Cannot serialize targetAnnotationValues") : DataResult.success(obj));
 
     private final List<String> targetClasses;
     private final List<MethodMatcher> targetMethods;
@@ -58,15 +58,12 @@ public class PatchImpl implements Patch {
     }
 
     @Override
-    public boolean apply(ClassNode classNode) {
+    public boolean apply(ClassNode classNode, MixinRemaper remaper) {
         boolean applied = false;
         PatchContext context = new PatchContext();
         if (checkClassTarget(classNode, this.targetClasses)) {
-            for (MethodTransform transform : this.transforms) {
-                applied |= transform.apply(classNode).applied();
-            }
             for (MethodNode method : classNode.methods) {
-                Pair<AnnotationNode, Map<String, AnnotationValueHandle<?>>> annotationValues = checkMethodTarget(method).orElse(null);
+                Pair<AnnotationNode, Map<String, AnnotationValueHandle<?>>> annotationValues = checkMethodTarget(classNode.name, method, remaper).orElse(null);
                 if (annotationValues != null) {
                     for (MethodTransform transform : this.transforms) {
                         AnnotationNode annotation = annotationValues.getFirst();
@@ -123,11 +120,11 @@ public class PatchImpl implements Patch {
         return false;
     }
 
-    private Optional<Pair<AnnotationNode, Map<String, AnnotationValueHandle<?>>>> checkMethodTarget(MethodNode method) {
+    private Optional<Pair<AnnotationNode, Map<String, AnnotationValueHandle<?>>>> checkMethodTarget(String owner, MethodNode method, MixinRemaper remaper) {
         if (method.visibleAnnotations != null) {
             for (AnnotationNode annotation : method.visibleAnnotations) {
-                if (this.targetAnnotations.contains(annotation.desc)) {
-                    Map<String, AnnotationValueHandle<?>> values = checkAnnotation(method, annotation).orElse(null);
+                if (this.targetAnnotations.isEmpty() || this.targetAnnotations.contains(annotation.desc)) {
+                    Map<String, AnnotationValueHandle<?>> values = checkAnnotation(owner, method, annotation, remaper).orElse(null);
                     if (values != null && (this.targetAnnotationValues == null || this.targetAnnotationValues.test(values))) {
                         return Optional.of(Pair.of(annotation, values));
                     }
@@ -137,7 +134,7 @@ public class PatchImpl implements Patch {
         return Optional.empty();
     }
 
-    private Optional<Map<String, AnnotationValueHandle<?>>> checkAnnotation(MethodNode method, AnnotationNode annotation) {
+    private Optional<Map<String, AnnotationValueHandle<?>>> checkAnnotation(String owner, MethodNode method, AnnotationNode annotation, MixinRemaper remaper) {
         if (annotation.desc.equals(Patch.OVERWRITE)) {
             if (this.targetMethods.isEmpty() || this.targetMethods.stream().anyMatch(matcher -> matcher.matches(method.name, method.desc))) {
                 return Optional.of(Map.of());
@@ -146,11 +143,12 @@ public class PatchImpl implements Patch {
             return PatchImpl.<List<String>>findAnnotationValue(annotation.values, "method")
                 .flatMap(value -> {
                     for (String target : value.get()) {
+                        String remappedTarget = remaper.remap(owner, target);
                         // Remove owner class; it is always the same as the mixin target
-                        target = target.replaceAll(OWNER_PREFIX, "");
-                        int targetDescIndex = target.indexOf('(');
-                        String targetName = targetDescIndex == -1 ? target : target.substring(0, targetDescIndex);
-                        String targetDesc = targetDescIndex == -1 ? null : target.substring(targetDescIndex);
+                        remappedTarget = remappedTarget.replaceAll(OWNER_PREFIX, "");
+                        int targetDescIndex = remappedTarget.indexOf('(');
+                        String targetName = targetDescIndex == -1 ? remappedTarget : remappedTarget.substring(0, targetDescIndex);
+                        String targetDesc = targetDescIndex == -1 ? null : remappedTarget.substring(targetDescIndex);
                         if (this.targetMethods.isEmpty() || this.targetMethods.stream().anyMatch(matcher -> matcher.matches(targetName, targetDesc))) {
                             Map<String, AnnotationValueHandle<?>> map = new HashMap<>();
                             map.put("method", value);
@@ -158,7 +156,7 @@ public class PatchImpl implements Patch {
                                 map.put("index", PatchImpl.<Integer>findAnnotationValue(annotation.values, "index").orElse(null));
                             }
                             if (!this.targetInjectionPoints.isEmpty()) {
-                                Map<String, AnnotationValueHandle<?>> injectCheck = checkInjectionPoint(annotation).orElse(null);
+                                Map<String, AnnotationValueHandle<?>> injectCheck = checkInjectionPoint(owner, annotation, remaper).orElse(null);
                                 if (injectCheck != null) {
                                     map.putAll(injectCheck);
                                     return Optional.of(map);
@@ -174,7 +172,7 @@ public class PatchImpl implements Patch {
         return Optional.empty();
     }
 
-    private Optional<Map<String, AnnotationValueHandle<?>>> checkInjectionPoint(AnnotationNode annotation) {
+    private Optional<Map<String, AnnotationValueHandle<?>>> checkInjectionPoint(String owner, AnnotationNode annotation, MixinRemaper remaper) {
         return PatchImpl.findAnnotationValue(annotation.values, "at")
             .map(handle -> {
                 Object value = handle.get();
@@ -184,11 +182,14 @@ public class PatchImpl implements Patch {
                 AnnotationValueHandle<String> value = PatchImpl.<String>findAnnotationValue(node.values, "value").orElse(null);
                 String valueStr = value != null ? value.get() : null;
                 AnnotationValueHandle<String> target = PatchImpl.<String>findAnnotationValue(node.values, "target").orElse(null);
-                if (target != null && this.targetInjectionPoints.stream().anyMatch(pred -> pred.test(valueStr, target.get()))) {
-                    return Optional.of(Map.of(
-                        "value", value,
-                        "target", target
-                    ));
+                if (target != null) {
+                    String targetStr = remaper.remap(owner, target.get());
+                    if (this.targetInjectionPoints.stream().anyMatch(pred -> pred.test(valueStr, targetStr))) {
+                        return Optional.of(Map.of(
+                            "value", value,
+                            "target", target
+                        ));
+                    }
                 }
                 return Optional.empty();
             });
@@ -216,12 +217,13 @@ public class PatchImpl implements Patch {
 
         public MethodMatcher(String method) {
             int descIndex = method.indexOf('(');
-            this.name = descIndex == -1 ? method : method.substring(0, descIndex);
+            String name = descIndex == -1 ? method : method.substring(0, descIndex);
+            this.name = MixinRemaper.remapMethodName(name);
             this.desc = descIndex == -1 ? null : method.substring(descIndex);
         }
 
         public boolean matches(String name, String desc) {
-            return this.name.equals(name) && (this.desc == null || this.desc.equals(desc));
+            return this.name.equals(name) && (this.desc == null || desc == null || this.desc.equals(desc));
         }
     }
 
