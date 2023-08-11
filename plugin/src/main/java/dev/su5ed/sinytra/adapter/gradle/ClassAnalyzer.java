@@ -31,6 +31,9 @@ public class ClassAnalyzer {
     // Methods that exist in both, uses patched MethodNodes from the dirty class
     private final Multimap<String, MethodNode> dirtyCommonMethods;
 
+    private final Map<String, FieldNode> cleanFields;
+    private final Map<String, FieldNode> dirtyFields;
+
     public static ClassAnalyzer create(byte[] cleanData, byte[] dirtyData) {
         return new ClassAnalyzer(readClassNode(cleanData), readClassNode(dirtyData));
     }
@@ -73,6 +76,18 @@ public class ClassAnalyzer {
                 this.dirtyOnlyMethods.put(name, method);
             }
         });
+        this.cleanFields = new HashMap<>();
+        for (FieldNode field : this.cleanNode.fields) {
+            if (this.cleanFields.put(field.name, field) != null) {
+                throw new RuntimeException("Found duplicate field " + field.name + " in class " + this.cleanNode.name);
+            }
+        }
+        this.dirtyFields = new HashMap<>();
+        for (FieldNode field : this.dirtyNode.fields) {
+            if (this.dirtyFields.put(field.name, field) != null) {
+                throw new RuntimeException("Found duplicate field " + field.name + " in class " + this.dirtyNode.name);
+            }
+        }
     }
 
     private boolean loggedHeader = false;
@@ -84,7 +99,7 @@ public class ClassAnalyzer {
         }
     }
 
-    public record AnalysisResults(List<PatchImpl> patches) {
+    public record AnalysisResults(List<PatchImpl> patches, List<String> modifiedFieldWarnings) {
     }
 
     public AnalysisResults analyze(IMappingFile mappings) {
@@ -124,7 +139,16 @@ public class ClassAnalyzer {
         if (this.loggedHeader) {
             LOGGER.info("");
         }
-        return new AnalysisResults(patches);
+
+        List<String> modifiedFieldWarnings = new ArrayList<>();
+        this.dirtyFields.forEach((name, field) -> {
+            FieldNode cleanField = this.cleanFields.get(name);
+            if (cleanField != null && !field.desc.equals(cleanField.desc)) {
+                modifiedFieldWarnings.add("Field %s.%s changed its type from %s to %s".formatted(this.dirtyNode.name, name, cleanField.desc, field.desc));
+            }
+        });
+
+        return new AnalysisResults(patches, modifiedFieldWarnings);
     }
 
     private void findExpandedMethods(List<PatchImpl> patches, IMappingFile mappings) {

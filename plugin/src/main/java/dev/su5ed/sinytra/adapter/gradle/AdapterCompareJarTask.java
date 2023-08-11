@@ -53,6 +53,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
         logger.info("Mappings : " + getSrgToMcpMappings().get().getAsFile().getAbsolutePath());
 
         List<PatchImpl> patches = new ArrayList<>();
+        List<String> modifiedFieldWarnings = new ArrayList<>();
 
         IMappingFile mappings = IMappingFile.load(getSrgToMcpMappings().get().getAsFile());
 
@@ -79,6 +80,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
                     ClassAnalyzer analyzer = ClassAnalyzer.create(cleanData, dirtyData);
                     ClassAnalyzer.AnalysisResults analysis = analyzer.analyze(mappings);
                     patches.addAll(analysis.patches());
+                    modifiedFieldWarnings.addAll(analysis.modifiedFieldWarnings());
 
                     counter.getAndIncrement();
                 } catch (IOException e) {
@@ -90,6 +92,9 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
             logger.info("Analyzed {} classes in {} ms", counter.get(), stopwatch.elapsed(TimeUnit.MILLISECONDS));
 
             logger.info("Generated {} patches", patches.size());
+
+            logger.info("\n{} fields had their type changed", modifiedFieldWarnings.size());
+            modifiedFieldWarnings.forEach(logger::info);
         }
 
         JsonElement object = PatchSerialization.serialize(patches, JsonOps.INSTANCE);
