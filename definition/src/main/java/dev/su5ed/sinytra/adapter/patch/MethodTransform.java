@@ -10,7 +10,9 @@ import java.util.Map;
 import java.util.Set;
 
 public interface MethodTransform extends ClassTransform {
-    Codec<? extends MethodTransform> codec();
+    default Codec<? extends MethodTransform> codec() {
+        throw new UnsupportedOperationException("This transform is not serializable");
+    }
 
     @Override
     default Result apply(ClassNode classNode) {

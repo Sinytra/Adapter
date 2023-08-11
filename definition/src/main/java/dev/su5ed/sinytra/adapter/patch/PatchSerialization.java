@@ -19,7 +19,7 @@ public class PatchSerialization {
         .put("change_modified_variable", ChangeModifiedVariableIndex.CODEC)
         .put("modify_injection_point", ModifyInjectionPoint.CODEC)
         .put("modify_injection_target", ModifyInjectionTarget.CODEC)
-        .put("modify_method_params", ModifyMethodParams.CODEC)
+        .put("set_method_params", SetMethodParams.CODEC)
         .build();
 
     public static final Codec<MethodTransform> METHOD_TRANSFORM_CODEC =

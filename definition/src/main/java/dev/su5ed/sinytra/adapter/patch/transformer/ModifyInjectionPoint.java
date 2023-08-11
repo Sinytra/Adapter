@@ -14,7 +14,7 @@ import org.slf4j.Logger;
 import java.util.Map;
 import java.util.Objects;
 
-import static dev.su5ed.sinytra.adapter.patch.PatchImpl.PATCHER;
+import static dev.su5ed.sinytra.adapter.patch.PatchImpl.MIXINPATCH;
 
 public record ModifyInjectionPoint(String value, String target) implements MethodTransform {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -34,7 +34,7 @@ public record ModifyInjectionPoint(String value, String target) implements Metho
             ((AnnotationValueHandle<String>) Objects.requireNonNull(annotationValues.get("value"), "Missing value handle")).set(this.value);
         }
         AnnotationValueHandle<String> handle = (AnnotationValueHandle<String>) Objects.requireNonNull(annotationValues.get("target"), "Missing target handle, did you specify the target descriptor?");
-        LOGGER.info(PATCHER, "Changing mixin method target {}.{} to {}", classNode.name, methodNode.name, this.target);
+        LOGGER.info(MIXINPATCH, "Changing mixin method target {}.{} to {}", classNode.name, methodNode.name, this.target);
         handle.set(this.target);
         return true;
     }

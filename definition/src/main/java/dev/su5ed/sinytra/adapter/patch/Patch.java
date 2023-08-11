@@ -6,12 +6,15 @@ import org.objectweb.asm.tree.ClassNode;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 public interface Patch {
-    Predicate<String> INJECT = PatchImpl.INJECT_ANN::equals;
-    Predicate<String> REDIRECT = PatchImpl.REDIRECT_ANN::equals;
-    Predicate<String> MODIFY_ARG = PatchImpl.MODIFY_ARG_ANN::equals;
+    String INJECT = "Lorg/spongepowered/asm/mixin/injection/Inject;";
+    String REDIRECT = "Lorg/spongepowered/asm/mixin/injection/Redirect;";
+    String MODIFY_ARG = "Lorg/spongepowered/asm/mixin/injection/ModifyArg;";
+    String MODIFY_VAR = "Lorg/spongepowered/asm/mixin/injection/ModifyVariable;";
+    String OVERWRITE = "Lorg/spongepowered/asm/mixin/Overwrite;";
 
     static Builder builder() {
         return new PatchImpl.BuilderImpl();
@@ -36,9 +39,11 @@ public interface Patch {
 
         Builder modifyInjectionPoint(String value, String target);
 
-        Builder modifyParams(List<Type> replacementTypes);
+        Builder modifyParams(Consumer<List<Type>> operator);
 
-        Builder modifyParams(List<Type> replacementTypes, @Nullable LVTFixer lvtFixer);
+        Builder modifyParams(Consumer<List<Type>> operator, @Nullable LVTFixer lvtFixer);
+
+        Builder setParams(List<Type> parameters);
 
         Builder modifyTarget(String... methods);
 

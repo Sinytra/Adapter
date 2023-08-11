@@ -12,7 +12,7 @@ import org.slf4j.Logger;
 
 import java.util.Map;
 
-import static dev.su5ed.sinytra.adapter.patch.PatchImpl.PATCHER;
+import static dev.su5ed.sinytra.adapter.patch.PatchImpl.MIXINPATCH;
 
 public class DisableMixin implements MethodTransform {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -26,7 +26,7 @@ public class DisableMixin implements MethodTransform {
 
     @Override
     public boolean apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
-        LOGGER.debug(PATCHER, "Removing mixin method {}.{}{}", classNode.name, methodNode.name, methodNode.desc);
+        LOGGER.debug(MIXINPATCH, "Removing mixin method {}.{}{}", classNode.name, methodNode.name, methodNode.desc);
         context.postApply(() -> classNode.methods.remove(methodNode));
         return true;
     }

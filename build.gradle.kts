@@ -1,21 +1,17 @@
-@file:OptIn(ExperimentalPathApi::class)
-
-import java.nio.file.FileSystems
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import kotlin.io.path.ExperimentalPathApi
-import kotlin.io.path.deleteRecursively
 
 plugins {
     id("net.neoforged.gradle") version "[6.0,6.2)"
     id("dev.su5ed.sinytra.adapter.gradle")
+    `maven-publish`
 }
 
 val versionMc: String by project
 val versionForge: String by project
 val timestamp: String = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd.HHmmss"))
 
-group = "dev.su5ed.sinytra"
+group = "dev.su5ed.sinytra.adapter"
 version = "$versionMc-$timestamp"
 
 println("Project version: $version")
@@ -45,10 +41,13 @@ dependencies {
 tasks {
     jar {
         from(generateAdapterData.flatMap { it.output })
-        doLast { 
-            val fs = FileSystems.newFileSystem(archiveFile.get().asFile.toPath(), mapOf<String, Any>())
-            val path = fs.getPath("META-INF")
-            path.deleteRecursively()
+    }
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("mavenJava") {
+            from(components["java"])
         }
     }
 }

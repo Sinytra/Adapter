@@ -192,7 +192,7 @@ public class ClassAnalyzer {
                         .targetClass(this.dirtyNode.name)
                         .targetMethod(methodQualifier)
                         .modifyTarget(dirtyMethod.name + dirtyMethod.desc)
-                        .modifyParams(Arrays.asList(dirtyParameterTypes))
+                        .setParams(Arrays.asList(dirtyParameterTypes))
                         .build();
                     patches.add(patch);
                 }

@@ -16,20 +16,16 @@ import org.slf4j.Marker;
 import org.slf4j.MarkerFactory;
 
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
 public class PatchImpl implements Patch {
     private static final String MIXIN_ANN = "Lorg/spongepowered/asm/mixin/Mixin;";
-    public static final String INJECT_ANN = "Lorg/spongepowered/asm/mixin/injection/Inject;";
-    public static final String REDIRECT_ANN = "Lorg/spongepowered/asm/mixin/injection/Redirect;";
-    public static final String OVERWRITE_ANN = "Lorg/spongepowered/asm/mixin/Overwrite;";
-    public static final String MODIFY_VARIABLE_ANN = "Lorg/spongepowered/asm/mixin/injection/ModifyVariable;";
-    public static final String MODIFY_ARG_ANN = "Lorg/spongepowered/asm/mixin/injection/ModifyArg;";
     private static final String OWNER_PREFIX = "^(?<owner>L(?:.*?)+;)";
 
     private static final Logger LOGGER = LogUtils.getLogger();
-    public static final Marker PATCHER = MarkerFactory.getMarker("MIXINPATCH");
+    public static final Marker MIXINPATCH = MarkerFactory.getMarker("MIXINPATCH");
     public static final Codec<PatchImpl> CODEC = RecordCodecBuilder
         .<PatchImpl>create(instance -> instance.group(
             Codec.STRING.listOf().optionalFieldOf("targetClasses", List.of()).forGetter(p -> p.targetClasses),
@@ -142,11 +138,11 @@ public class PatchImpl implements Patch {
     }
 
     private Optional<Map<String, AnnotationValueHandle<?>>> checkAnnotation(MethodNode method, AnnotationNode annotation) {
-        if (annotation.desc.equals(OVERWRITE_ANN)) {
+        if (annotation.desc.equals(Patch.OVERWRITE)) {
             if (this.targetMethods.isEmpty() || this.targetMethods.stream().anyMatch(matcher -> matcher.matches(method.name, method.desc))) {
                 return Optional.of(Map.of());
             }
-        } else if (annotation.desc.equals(INJECT_ANN) || annotation.desc.equals(REDIRECT_ANN) || annotation.desc.equals(MODIFY_VARIABLE_ANN) || annotation.desc.equals(MODIFY_ARG_ANN)) {
+        } else if (annotation.desc.equals(Patch.INJECT) || annotation.desc.equals(Patch.REDIRECT) || annotation.desc.equals(Patch.MODIFY_VAR) || annotation.desc.equals(Patch.MODIFY_ARG)) {
             return PatchImpl.<List<String>>findAnnotationValue(annotation.values, "method")
                 .flatMap(value -> {
                     for (String target : value.get()) {
@@ -158,7 +154,7 @@ public class PatchImpl implements Patch {
                         if (this.targetMethods.isEmpty() || this.targetMethods.stream().anyMatch(matcher -> matcher.matches(targetName, targetDesc))) {
                             Map<String, AnnotationValueHandle<?>> map = new HashMap<>();
                             map.put("method", value);
-                            if (annotation.desc.equals(MODIFY_ARG_ANN)) {
+                            if (annotation.desc.equals(Patch.MODIFY_ARG)) {
                                 map.put("index", PatchImpl.<Integer>findAnnotationValue(annotation.values, "index").orElse(null));
                             }
                             if (!this.targetInjectionPoints.isEmpty()) {
@@ -285,13 +281,18 @@ public class PatchImpl implements Patch {
         }
 
         @Override
-        public Builder modifyParams(List<Type> replacementTypes) {
-            return modifyParams(replacementTypes, null);
+        public Builder modifyParams(Consumer<List<Type>> operator) {
+            return modifyParams(operator, null);
         }
 
         @Override
-        public Builder modifyParams(List<Type> replacementTypes, @Nullable LVTFixer lvtFixer) {
-            return transform(new ModifyMethodParams(replacementTypes, lvtFixer));
+        public Builder modifyParams(Consumer<List<Type>> operator, @Nullable LVTFixer lvtFixer) {
+            return transform(new ModifyMethodParams(operator, lvtFixer));
+        }
+
+        @Override
+        public Builder setParams(List<Type> parameters) {
+            return transform(new SetMethodParams(parameters));
         }
 
         @Override
