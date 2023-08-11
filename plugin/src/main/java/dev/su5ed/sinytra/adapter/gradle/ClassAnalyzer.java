@@ -7,6 +7,7 @@ import dev.su5ed.sinytra.adapter.patch.PatchImpl;
 import net.minecraftforge.srgutils.IMappingFile;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -22,6 +23,7 @@ public class ClassAnalyzer {
 
     private final ClassNode cleanNode;
     private final ClassNode dirtyNode;
+    private final IMappingFile mappings;
 
     private final Multimap<String, MethodNode> cleanMethods;
     private final Multimap<String, MethodNode> dirtyMethods;
@@ -34,8 +36,8 @@ public class ClassAnalyzer {
     private final Map<String, FieldNode> cleanFields;
     private final Map<String, FieldNode> dirtyFields;
 
-    public static ClassAnalyzer create(byte[] cleanData, byte[] dirtyData) {
-        return new ClassAnalyzer(readClassNode(cleanData), readClassNode(dirtyData));
+    public static ClassAnalyzer create(byte[] cleanData, byte[] dirtyData, IMappingFile mappings) {
+        return new ClassAnalyzer(readClassNode(cleanData), readClassNode(dirtyData), mappings);
     }
 
     private static ClassNode readClassNode(byte[] data) {
@@ -45,9 +47,10 @@ public class ClassAnalyzer {
         return classNode;
     }
 
-    public ClassAnalyzer(ClassNode cleanNode, ClassNode dirtyNode) {
+    public ClassAnalyzer(ClassNode cleanNode, ClassNode dirtyNode, IMappingFile mappings) {
         this.cleanNode = cleanNode;
         this.dirtyNode = dirtyNode;
+        this.mappings = mappings;
 
         this.cleanMethods = indexClassMethods(cleanNode);
         this.dirtyMethods = indexClassMethods(dirtyNode);
@@ -102,8 +105,8 @@ public class ClassAnalyzer {
     public record AnalysisResults(List<PatchImpl> patches, List<String> modifiedFieldWarnings) {
     }
 
-    public AnalysisResults analyze(IMappingFile mappings) {
-        // Try to find added method patches
+    public AnalysisResults analyze() {
+        // Try to find added dirtyMethod patches
         List<PatchImpl> patches = new ArrayList<>();
         this.dirtyMethods.asMap().forEach((name, methods) -> {
             for (MethodNode method : methods) {
@@ -134,7 +137,9 @@ public class ClassAnalyzer {
             }
         });
         if (!isAnonymousInnerClass(this.cleanNode.name)) {
-            findExpandedMethods(patches, mappings);
+            Set<String> replacedMethods = new HashSet<>();
+            findExpandedMethods(patches, replacedMethods);
+            findExpandedLambdas(patches, replacedMethods);
         }
         if (this.loggedHeader) {
             LOGGER.info("");
@@ -151,69 +156,152 @@ public class ClassAnalyzer {
         return new AnalysisResults(patches, modifiedFieldWarnings);
     }
 
-    private void findExpandedMethods(List<PatchImpl> patches, IMappingFile mappings) {
-        Set<String> replacedMethods = new HashSet<>();
-        // Find "expanded" methods where forge replaces a method with one that takes in additional parameters
+    private void findExpandedMethods(List<PatchImpl> patches, Set<String> replacedMethods) {
+        // Find "expanded" methods where forge replaces a dirtyMethod with one that takes in additional parameters
         this.cleanOnlyMethods.forEach((name, method) -> {
             // Skip lambdas for now
-            String mappedClean = Optional.ofNullable(mappings.getClass(this.cleanNode.name))
-                .map(cls -> cls.getMethod(method.name, method.desc))
-                .map(IMappingFile.INode::getMapped)
-                .orElse(method.name);
+            String mappedClean = remapMethodName(this.cleanNode, method.name, method.desc);
             if (mappedClean.startsWith(LAMBDA_PREFIX)) {
                 return;
             }
 
             this.dirtyOnlyMethods.forEach((dirtyName, dirtyMethod) -> {
-                // Skip methods with different return types
                 // Skip lambdas for now
-                if (!Type.getReturnType(method.desc).equals(Type.getReturnType(dirtyMethod.desc)) || dirtyName.startsWith(LAMBDA_PREFIX)
-                    // Make an educated guess and assume all method replacements keep the same name.
-                    || !dirtyName.equals(mappedClean)
-                ) {
-                    return;
-                }
-
-                Type[] parameterTypes = Type.getArgumentTypes(method.desc);
-                Type[] dirtyParameterTypes = Type.getArgumentTypes(dirtyMethod.desc);
-                if (parameterTypes.length > 0 && parameterTypes.length < dirtyParameterTypes.length && checkParameters(parameterTypes, dirtyParameterTypes)) {
-                    String methodQualifier = method.name + method.desc;
-                    logHeader();
-                    LOGGER.info("REPLACE");
-                    LOGGER.info("   " + methodQualifier);
-                    LOGGER.info("\\> " + dirtyMethod.name + dirtyMethod.desc);
-                    LOGGER.info("===");
-
-                    if (!replacedMethods.add(methodQualifier)) {
-                        throw new IllegalStateException("Duplicate replacement for %s.%s".formatted(this.cleanNode.name, methodQualifier));
-                    }
-
-                    PatchImpl patch = (PatchImpl) Patch.builder()
-                        .targetClass(this.dirtyNode.name)
-                        .targetMethod(methodQualifier)
-                        .modifyTarget(dirtyMethod.name + dirtyMethod.desc)
-                        .setParams(Arrays.asList(dirtyParameterTypes))
-                        .build();
-                    patches.add(patch);
+                if (!dirtyMethod.name.startsWith(LAMBDA_PREFIX)) {
+                    tryFindExpandedMethod(patches, replacedMethods, method, dirtyMethod, true);
                 }
             });
         });
     }
 
-    private boolean checkParameters(MethodNode clean, MethodNode dirty) {
-        return checkParameters(Type.getArgumentTypes(clean.desc), Type.getArgumentTypes(dirty.desc));
+    private void findExpandedLambdas(List<PatchImpl> patches, Set<String> replacedMethods) {
+        this.dirtyCommonMethods.forEach((dirtyName, dirtyMethod) -> {
+            String qualifier = dirtyMethod.name + dirtyMethod.desc;
+
+            this.cleanMethods.forEach((cleanName, cleanMethod) -> {
+                String cleanQualifier = cleanMethod.name + cleanMethod.desc;
+
+                if (qualifier.equals(cleanQualifier)) {
+                    // Find lambdas sorted by their call order. This increases our precision when looking for replaced lambdas that had their suffix number changed.
+                    List<String> cleanLambdas = findLambdasInMethod(this.cleanNode, cleanMethod);
+                    List<String> dirtyLambdas = findLambdasInMethod(this.dirtyNode, dirtyMethod);
+                    for (int cleanIdx = 0, dirtyIdx = 0; cleanIdx < cleanLambdas.size() && dirtyIdx < dirtyLambdas.size(); ) {
+                        String cleanLambda = cleanLambdas.get(cleanIdx);
+                        String dirtyLambda = dirtyLambdas.get(cleanIdx);
+                        if (cleanLambda.equals(dirtyLambda)) {
+                            cleanIdx++;
+                            dirtyIdx++;
+                        } else {
+                            boolean noDirty;
+                            // Lambda removed in Forge, ignore
+                            if (noDirty = !dirtyLambdas.contains(cleanLambda)) {
+                                cleanIdx++;
+                            }
+                            // Lambda added by Forge, ignore
+                            if (!cleanLambdas.contains(dirtyLambda)) {
+                                dirtyIdx++;
+
+                                // Lambda (likely) modified by Forge, proceed
+                                if (noDirty) {
+                                    MethodNode cleanLambdaMethod = findUniqueMethod(this.cleanMethods, cleanLambda);
+                                    MethodNode dirtyLambdaMethod = findUniqueMethod(this.dirtyMethods, dirtyLambda);
+                                    tryFindExpandedMethod(patches, replacedMethods, cleanLambdaMethod, dirtyLambdaMethod, false);
+                                }
+                            }
+                            else {
+                                cleanIdx++;
+                                dirtyIdx++;
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    }
+    
+    private void tryFindExpandedMethod(List<PatchImpl> patches, Set<String> replacedMethods, MethodNode clean, MethodNode dirty, boolean strictParams) {
+        // Skip methods with different return types
+        if (!Type.getReturnType(clean.desc).equals(Type.getReturnType(dirty.desc))
+            // Make an educated guess and assume all dirtyMethod replacements keep the same name.
+            || !dirty.name.equals(remapMethodName(this.cleanNode, clean.name, clean.desc))
+        ) {
+            return;
+        }
+
+        Type[] parameterTypes = Type.getArgumentTypes(clean.desc);
+        Type[] dirtyParameterTypes = Type.getArgumentTypes(dirty.desc);
+        if (parameterTypes.length > 0 && parameterTypes.length < dirtyParameterTypes.length && checkParameters(parameterTypes, dirtyParameterTypes, strictParams)) {
+            String methodQualifier = clean.name + clean.desc;
+            logHeader();
+            LOGGER.info("REPLACE");
+            LOGGER.info("   " + methodQualifier);
+            LOGGER.info("\\> " + dirty.name + dirty.desc);
+            LOGGER.info("===");
+
+            if (!replacedMethods.add(methodQualifier)) {
+                throw new IllegalStateException("Duplicate replacement for %s.%s".formatted(this.cleanNode.name, methodQualifier));
+            }
+
+            PatchImpl patch = (PatchImpl) Patch.builder()
+                .targetClass(this.dirtyNode.name)
+                .targetMethod(methodQualifier)
+                .modifyTarget(dirty.name + dirty.desc)
+                .setParams(Arrays.asList(dirtyParameterTypes))
+                .build();
+            patches.add(patch);
+        }
     }
 
-    // Check if dirty method begins with clean method's params
-    private boolean checkParameters(Type[] parameterTypes, Type[] dirtyParameterTypes) {
+    private List<String> findLambdasInMethod(ClassNode cls, MethodNode method) {
+        List<String> list = new ArrayList<>();
+        for (AbstractInsnNode insn : method.instructions) {
+            if (insn instanceof InvokeDynamicInsnNode indy && indy.bsmArgs.length >= 3) {
+                for (Object bsmArg : indy.bsmArgs) {
+                    if (bsmArg instanceof Handle handle && handle.getOwner().equals(cls.name)) {
+                        String lambdaName = remapMethodName(cls, handle.getName(), handle.getDesc());
+                        if (lambdaName.startsWith(LAMBDA_PREFIX)) {
+                            list.add(handle.getName());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        return list;
+    }
+
+    private MethodNode findUniqueMethod(Multimap<String, MethodNode> methods, String name) {
+        Collection<MethodNode> values = methods.get(name);
+        if (values != null) {
+            if (values.size() > 1) {
+                throw new IllegalStateException("Found multiple candidates for method " + name);
+            }
+            return values.iterator().next();
+        }
+        throw new NullPointerException("Method " + name + " not found");
+    }
+
+    private boolean checkParameters(MethodNode clean, MethodNode dirty, boolean strict) {
+        return checkParameters(Type.getArgumentTypes(clean.desc), Type.getArgumentTypes(dirty.desc), strict);
+    }
+
+    // Check if dirtyMethod begins with cleanMethod's params
+    private boolean checkParameters(Type[] parameterTypes, Type[] dirtyParameterTypes, boolean strict) {
         if (parameterTypes.length > dirtyParameterTypes.length) {
             return false;
         }
-        for (int i = 0; i < parameterTypes.length; i++) {
-            Type type = dirtyParameterTypes[i];
+        int i = 0;
+        for (int j = 0; i < parameterTypes.length && j < dirtyParameterTypes.length; j++) {
+            Type type = dirtyParameterTypes[j];
             if (!parameterTypes[i].equals(type)) {
-                return false;
+                if (strict) {
+                    return false;
+                }
+                else {
+                    continue;
+                }
             }
+            i++;
         }
         return true;
     }
@@ -222,7 +310,7 @@ public class ClassAnalyzer {
     private MethodNode findOverloadMethod(final String owner, final MethodNode method, final Collection<MethodNode> others) {
         List<MethodNode> found = new ArrayList<>();
         for (final MethodNode other : others) {
-            if (!checkParameters(other, method)) {
+            if (!checkParameters(other, method, true)) {
                 continue;
             }
             int labelCount = 0;
@@ -238,7 +326,7 @@ public class ClassAnalyzer {
                         if (next instanceof LabelNode || next instanceof LineNumberNode || next instanceof FrameNode) {
                             continue;
                         }
-                        // Find first (and single) return after the method call
+                        // Find first (and single) return after the dirtyMethod call
                         if (RETURN_OPCODES.contains(next.getOpcode())) {
                             // Multiple returns found
                             if (returnSeen) {
@@ -269,6 +357,13 @@ public class ClassAnalyzer {
         return methods;
     }
 
+    private String remapMethodName(ClassNode cls, String name, String desc) {
+        return Optional.ofNullable(this.mappings.getClass(cls.name))
+            .map(c -> c.getMethod(name, desc))
+            .map(IMappingFile.INode::getMapped)
+            .orElse(name);
+    }
+    
     private static boolean isAnonymousInnerClass(String name) {
         String[] array = name.split("\\$");
         return array.length > 1 && array[array.length - 1].matches("[0-9]+");

@@ -76,8 +76,8 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
                     byte[] cleanData = cleanJar.getInputStream(cleanEntry).readAllBytes();
                     byte[] dirtyData = dirtyJar.getInputStream(entry).readAllBytes();
 
-                    ClassAnalyzer analyzer = ClassAnalyzer.create(cleanData, dirtyData);
-                    ClassAnalyzer.AnalysisResults analysis = analyzer.analyze(mappings);
+                    ClassAnalyzer analyzer = ClassAnalyzer.create(cleanData, dirtyData, mappings);
+                    ClassAnalyzer.AnalysisResults analysis = analyzer.analyze();
                     patches.addAll(analysis.patches());
                     modifiedFieldWarnings.addAll(analysis.modifiedFieldWarnings());
 
