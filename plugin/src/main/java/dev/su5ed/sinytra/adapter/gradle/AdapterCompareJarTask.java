@@ -63,7 +63,6 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
             AtomicInteger counter = new AtomicInteger();
             Stopwatch stopwatch = Stopwatch.createStarted();
 
-            // TODO Parallel analysis
             dirtyJar.stream().forEach(entry -> {
                 logger.debug("Processing patched entry {}", entry.getName());
 
