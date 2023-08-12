@@ -67,7 +67,8 @@ public class PatchImpl implements Patch {
                 if (annotationValues != null) {
                     for (MethodTransform transform : this.transforms) {
                         AnnotationNode annotation = annotationValues.getFirst();
-                        if (transform.getAcceptedAnnotations().contains(annotation.desc)) {
+                        Collection<String> accepted = transform.getAcceptedAnnotations();
+                        if (accepted.isEmpty() || accepted.contains(annotation.desc)) {
                             applied |= transform.apply(classNode, method, annotationValues.getFirst(), annotationValues.getSecond(), context);
                         }
                     }
