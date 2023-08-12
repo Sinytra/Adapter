@@ -126,10 +126,12 @@ public class ClassAnalyzer {
                         LOGGER.info("===");
 
                         // TODO Unify interface and impl?
+                        Type[] dirtyParameterTypes = Type.getArgumentTypes(method.desc);
                         PatchImpl patch = (PatchImpl) Patch.builder()
                             .targetClass(this.dirtyNode.name)
                             .targetMethod(overloader.name + overloader.desc)
                             .modifyTarget(method.name + method.desc)
+                            .setParams(Arrays.asList(dirtyParameterTypes))
                             .build();
                         patches.add(patch);
                     }

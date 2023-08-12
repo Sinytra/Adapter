@@ -6,14 +6,11 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
 import dev.su5ed.sinytra.adapter.patch.transformer.*;
-import org.objectweb.asm.Type;
 
 import java.util.List;
 import java.util.Objects;
 
 public class PatchSerialization {
-    public static final Codec<Type> TYPE_CODEC = Codec.STRING.xmap(Type::getType, Type::getDescriptor);
-
     private static final BiMap<String, Codec<? extends MethodTransform>> TRANSFORMER_CODECS = ImmutableBiMap.<String, Codec<? extends MethodTransform>>builder()
         .put("disable_mixin", DisableMixin.CODEC)
         .put("change_modified_variable", ChangeModifiedVariableIndex.CODEC)
