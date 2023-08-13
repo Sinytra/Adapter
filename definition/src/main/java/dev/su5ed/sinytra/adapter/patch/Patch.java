@@ -1,5 +1,6 @@
 package dev.su5ed.sinytra.adapter.patch;
 
+import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
@@ -49,6 +50,8 @@ public interface Patch {
         Builder modifyTarget(String... methods);
 
         Builder modifyVariableIndex(int start, int offset);
+        
+        Builder modifyMethodAccess(ModifyMethodAccess.AccessChange... changes);
 
         Builder disable();
 

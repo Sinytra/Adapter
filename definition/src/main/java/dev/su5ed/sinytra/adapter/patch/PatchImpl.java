@@ -318,6 +318,11 @@ public class PatchImpl implements Patch {
         }
 
         @Override
+        public Builder modifyMethodAccess(ModifyMethodAccess.AccessChange... changes) {
+            return transform(new ModifyMethodAccess(List.of(changes)));
+        }
+
+        @Override
         public Builder disable() {
             return transform(DisableMixin.INSTANCE);
         }

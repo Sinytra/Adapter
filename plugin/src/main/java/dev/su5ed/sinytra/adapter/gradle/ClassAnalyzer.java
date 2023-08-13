@@ -4,6 +4,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.PatchImpl;
+import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import net.minecraftforge.srgutils.IMappingFile;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.ClassReader;
@@ -143,6 +144,7 @@ public class ClassAnalyzer {
             findExpandedMethods(patches, replacedMethods);
             findExpandedLambdas(patches, replacedMethods);
         }
+        checkAccess(patches);
         if (this.loggedHeader) {
             LOGGER.info("");
         }
@@ -156,6 +158,34 @@ public class ClassAnalyzer {
         });
 
         return new AnalysisResults(patches, modifiedFieldWarnings);
+    }
+
+    private void checkAccess(List<PatchImpl> patches) {
+        this.dirtyCommonMethods.forEach((dirtyName, dirtyMethod) -> {
+            String qualifier = dirtyMethod.name + dirtyMethod.desc;
+
+            this.cleanMethods.forEach((cleanName, cleanMethod) -> {
+                String cleanQualifier = cleanMethod.name + cleanMethod.desc;
+
+                if (qualifier.equals(cleanQualifier)) {
+                    if ((cleanMethod.access & Opcodes.ACC_STATIC) != 0 && (dirtyMethod.access & Opcodes.ACC_STATIC) == 0) {
+                        logHeader();
+                        LOGGER.info("UNSTATIC method {}", qualifier);
+
+                        PatchImpl patch = (PatchImpl) Patch.builder()
+                            .targetClass(this.dirtyNode.name)
+                            .targetMethod(qualifier)
+                            .modifyMethodAccess(new ModifyMethodAccess.AccessChange(false, Opcodes.ACC_STATIC))
+                            .build();
+                        patches.add(patch);
+                    }
+                    else if ((cleanMethod.access & Opcodes.ACC_STATIC) == 0 && (dirtyMethod.access & Opcodes.ACC_STATIC) != 0) {
+                        logHeader();
+                        LOGGER.warn("STATIC'd method {}", qualifier);
+                    }
+                }
+            });
+        });
     }
 
     private void findExpandedMethods(List<PatchImpl> patches, Set<String> replacedMethods) {
@@ -209,8 +239,7 @@ public class ClassAnalyzer {
                                     MethodNode dirtyLambdaMethod = findUniqueMethod(this.dirtyMethods, dirtyLambda);
                                     tryFindExpandedMethod(patches, replacedMethods, cleanLambdaMethod, dirtyLambdaMethod, false);
                                 }
-                            }
-                            else {
+                            } else {
                                 cleanIdx++;
                                 dirtyIdx++;
                             }
@@ -220,7 +249,7 @@ public class ClassAnalyzer {
             });
         });
     }
-    
+
     private void tryFindExpandedMethod(List<PatchImpl> patches, Set<String> replacedMethods, MethodNode clean, MethodNode dirty, boolean strictParams) {
         // Skip methods with different return types
         if (!Type.getReturnType(clean.desc).equals(Type.getReturnType(dirty.desc))
@@ -298,8 +327,7 @@ public class ClassAnalyzer {
             if (!parameterTypes[i].equals(type)) {
                 if (strict) {
                     return false;
-                }
-                else {
+                } else {
                     continue;
                 }
             }
@@ -365,7 +393,7 @@ public class ClassAnalyzer {
             .map(IMappingFile.INode::getMapped)
             .orElse(name);
     }
-    
+
     private static boolean isAnonymousInnerClass(String name) {
         String[] array = name.split("\\$");
         return array.length > 1 && array[array.length - 1].matches("[0-9]+");
