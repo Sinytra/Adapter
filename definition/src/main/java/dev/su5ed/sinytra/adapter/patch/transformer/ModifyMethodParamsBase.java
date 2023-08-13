@@ -30,7 +30,7 @@ public abstract class ModifyMethodParamsBase implements MethodTransform {
 
     @Override
     public Collection<String> getAcceptedAnnotations() {
-        return Set.of(Patch.INJECT, Patch.MODIFY_ARG, Patch.OVERWRITE);
+        return Set.of(Patch.INJECT, Patch.MODIFY_ARG, Patch.OVERWRITE, Patch.MODIFY_VAR);
     }
 
     @Override
@@ -64,6 +64,20 @@ public abstract class ModifyMethodParamsBase implements MethodTransform {
         }
         if (i != methodNode.parameters.size() && this.lvtFixer == null) {
             throw new RuntimeException("Unable to patch LVT capture, incompatible parameters");
+        }
+
+        if (annotation.desc.equals(Patch.MODIFY_VAR)) {
+            AnnotationValueHandle<Integer> indexHandle = (AnnotationValueHandle<Integer>) annotationValues.get("index");
+            if (indexHandle != null) {
+                insertionIndices.forEach((index, type) -> {
+                    int localIndex = offset + index;
+                    int indexValue = indexHandle.get();
+                    if (localIndex >= indexValue) {
+                        indexHandle.set(indexValue + 1);
+                    }
+                });
+            }
+            return true;
         }
 
         Type returnType = Type.getReturnType(methodNode.desc);

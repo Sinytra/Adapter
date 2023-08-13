@@ -23,6 +23,7 @@ import java.util.function.Predicate;
 public class PatchImpl implements Patch {
     private static final String MIXIN_ANN = "Lorg/spongepowered/asm/mixin/Mixin;";
     private static final String OWNER_PREFIX = "^(?<owner>L(?:.*?)+;)";
+    private static final Collection<String> KNOWN_MIXIN_TYPES = Set.of(Patch.INJECT, Patch.REDIRECT, Patch.MODIFY_ARG, Patch.MODIFY_VAR, Patch.MODIFY_CONST);
 
     private static final Logger LOGGER = LogUtils.getLogger();
     public static final Marker MIXINPATCH = MarkerFactory.getMarker("MIXINPATCH");
@@ -61,15 +62,21 @@ public class PatchImpl implements Patch {
     public boolean apply(ClassNode classNode, MixinRemaper remaper) {
         boolean applied = false;
         PatchContext context = new PatchContext();
-        if (checkClassTarget(classNode, this.targetClasses)) {
+        Pair<Boolean, @Nullable AnnotationValueHandle<?>> classTarget = checkClassTarget(classNode, this.targetClasses);
+        if (classTarget.getFirst()) {
+            AnnotationValueHandle<?> classAnnotation = classTarget.getSecond();
             for (MethodNode method : classNode.methods) {
                 Pair<AnnotationNode, Map<String, AnnotationValueHandle<?>>> annotationValues = checkMethodTarget(classNode.name, method, remaper).orElse(null);
                 if (annotationValues != null) {
+                    Map<String, AnnotationValueHandle<?>> map = new HashMap<>(annotationValues.getSecond());
+                    if (classAnnotation != null) {
+                        map.put("class_target", classAnnotation);
+                    }
                     for (MethodTransform transform : this.transforms) {
                         AnnotationNode annotation = annotationValues.getFirst();
                         Collection<String> accepted = transform.getAcceptedAnnotations();
                         if (accepted.isEmpty() || accepted.contains(annotation.desc)) {
-                            applied |= transform.apply(classNode, method, annotationValues.getFirst(), annotationValues.getSecond(), context);
+                            applied |= transform.apply(classNode, method, annotationValues.getFirst(), map, context);
                         }
                     }
                 }
@@ -90,35 +97,35 @@ public class PatchImpl implements Patch {
         }
     }
 
-    private static boolean checkClassTarget(ClassNode classNode, Collection<String> targets) {
+    private static Pair<Boolean, @Nullable AnnotationValueHandle<?>> checkClassTarget(ClassNode classNode, Collection<String> targets) {
         if (targets.isEmpty()) {
-            return true;
+            return Pair.of(true, null);
         } else if (classNode.invisibleAnnotations != null) {
             for (AnnotationNode annotation : classNode.invisibleAnnotations) {
                 if (annotation.desc.equals(MIXIN_ANN)) {
                     return PatchImpl.<List<Type>>findAnnotationValue(annotation.values, "value")
-                        .flatMap(types -> {
+                        .<Pair<Boolean, AnnotationValueHandle<?>>>map(types -> {
                             for (Type targetType : types.get()) {
                                 if (targets.contains(targetType.getInternalName())) {
-                                    return Optional.of(true);
+                                    return Pair.of(true, types);
                                 }
                             }
-                            return Optional.empty();
+                            return null;
                         })
                         .or(() -> PatchImpl.<List<String>>findAnnotationValue(annotation.values, "targets")
                             .map(types -> {
                                 for (String targetType : types.get()) {
                                     if (targets.contains(targetType)) {
-                                        return true;
+                                        return Pair.of(true, types);
                                     }
                                 }
-                                return false;
+                                return null;
                             }))
-                        .orElse(false);
+                        .orElse(Pair.of(false, null));
                 }
             }
         }
-        return false;
+        return Pair.of(false, null);
     }
 
     private Optional<Pair<AnnotationNode, Map<String, AnnotationValueHandle<?>>>> checkMethodTarget(String owner, MethodNode method, MixinRemaper remaper) {
@@ -140,7 +147,7 @@ public class PatchImpl implements Patch {
             if (this.targetMethods.isEmpty() || this.targetMethods.stream().anyMatch(matcher -> matcher.matches(method.name, method.desc))) {
                 return Optional.of(Map.of());
             }
-        } else if (annotation.desc.equals(Patch.INJECT) || annotation.desc.equals(Patch.REDIRECT) || annotation.desc.equals(Patch.MODIFY_VAR) || annotation.desc.equals(Patch.MODIFY_ARG)) {
+        } else if (KNOWN_MIXIN_TYPES.contains(annotation.desc)) {
             return PatchImpl.<List<String>>findAnnotationValue(annotation.values, "method")
                 .flatMap(value -> {
                     for (String target : value.get()) {
@@ -153,7 +160,7 @@ public class PatchImpl implements Patch {
                         if (this.targetMethods.isEmpty() || this.targetMethods.stream().anyMatch(matcher -> matcher.matches(targetName, targetDesc))) {
                             Map<String, AnnotationValueHandle<?>> map = new HashMap<>();
                             map.put("method", value);
-                            if (annotation.desc.equals(Patch.MODIFY_ARG)) {
+                            if (annotation.desc.equals(Patch.MODIFY_ARG) || annotation.desc.equals(Patch.MODIFY_VAR)) {
                                 map.put("index", PatchImpl.<Integer>findAnnotationValue(annotation.values, "index").orElse(null));
                             }
                             if (!this.targetInjectionPoints.isEmpty()) {
@@ -169,6 +176,8 @@ public class PatchImpl implements Patch {
                     }
                     return Optional.empty();
                 });
+        } else {
+            LOGGER.warn("Unhandled mixin annotation {} found", annotation.desc);
         }
         return Optional.empty();
     }

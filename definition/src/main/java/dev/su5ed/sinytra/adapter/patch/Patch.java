@@ -14,6 +14,7 @@ public interface Patch {
     String REDIRECT = "Lorg/spongepowered/asm/mixin/injection/Redirect;";
     String MODIFY_ARG = "Lorg/spongepowered/asm/mixin/injection/ModifyArg;";
     String MODIFY_VAR = "Lorg/spongepowered/asm/mixin/injection/ModifyVariable;";
+    String MODIFY_CONST = "Lorg/spongepowered/asm/mixin/injection/ModifyConstant;";
     String OVERWRITE = "Lorg/spongepowered/asm/mixin/Overwrite;";
 
     static Builder builder() {
