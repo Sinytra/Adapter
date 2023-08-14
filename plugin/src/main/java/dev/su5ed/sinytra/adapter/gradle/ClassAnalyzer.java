@@ -103,12 +103,12 @@ public class ClassAnalyzer {
         }
     }
 
-    public record AnalysisResults(List<PatchImpl> patches, List<String> modifiedFieldWarnings) {
-    }
+    public record AnalysisResults(List<PatchImpl> patches, Multimap<ChangeCategory, String> info) {}
 
     public AnalysisResults analyze() {
         // Try to find added dirtyMethod patches
         List<PatchImpl> patches = new ArrayList<>();
+        Multimap<ChangeCategory, String> info = HashMultimap.create();
         this.dirtyMethods.asMap().forEach((name, methods) -> {
             for (MethodNode method : methods) {
                 final String dirtyQualifier = method.name + method.desc;
@@ -149,15 +149,29 @@ public class ClassAnalyzer {
             LOGGER.info("");
         }
 
-        List<String> modifiedFieldWarnings = new ArrayList<>();
+        Collection<String> removedFields = new HashSet<>();
+        this.cleanFields.forEach((name, field) -> {
+            FieldNode dirtyField = this.dirtyFields.get(name);
+            if (dirtyField == null && !isAnonymousClass()) {
+                info.put(ChangeCategory.REMOVE_FIELD, "Removed field %s.%s %s".formatted(this.dirtyNode.name, name, field.desc));
+                removedFields.add(name);
+            }
+        });
         this.dirtyFields.forEach((name, field) -> {
             FieldNode cleanField = this.cleanFields.get(name);
-            if (cleanField != null && !field.desc.equals(cleanField.desc)) {
-                modifiedFieldWarnings.add("Field %s.%s changed its type from %s to %s".formatted(this.dirtyNode.name, name, cleanField.desc, field.desc));
+            if (cleanField == null && !isAnonymousClass() && !removedFields.isEmpty()) {
+                info.put(ChangeCategory.ADD_FIELD, "Added field %s.%s %s".formatted(this.dirtyNode.name, name, field.desc));
+            } else if (cleanField != null && !field.desc.equals(cleanField.desc)) {
+                info.put(ChangeCategory.MODIFY_FIELD, "Field %s.%s changed its type from %s to %s".formatted(this.dirtyNode.name, name, cleanField.desc, field.desc));
             }
         });
 
-        return new AnalysisResults(patches, modifiedFieldWarnings);
+        return new AnalysisResults(patches, info);
+    }
+
+    private boolean isAnonymousClass() {
+        // Regex: second to last char in class name must be '$', and the class name must end with a number
+        return this.dirtyNode.name.matches("^.+\\$\\d+$");
     }
 
     private void checkAccess(List<PatchImpl> patches) {
@@ -181,7 +195,7 @@ public class ClassAnalyzer {
                     }
                     else if ((cleanMethod.access & Opcodes.ACC_STATIC) == 0 && (dirtyMethod.access & Opcodes.ACC_STATIC) != 0) {
                         logHeader();
-                        LOGGER.warn("STATIC'd method {}", qualifier);
+                        LOGGER.info("STATIC'd method {}", qualifier);
                     }
                 }
             });

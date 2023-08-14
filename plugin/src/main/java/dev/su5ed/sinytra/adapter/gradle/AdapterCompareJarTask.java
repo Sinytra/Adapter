@@ -1,6 +1,8 @@
 package dev.su5ed.sinytra.adapter.gradle;
 
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.mojang.serialization.JsonOps;
@@ -53,7 +55,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
         logger.info("Mappings : " + getSrgToMcpMappings().get().getAsFile().getAbsolutePath());
 
         List<PatchImpl> patches = new ArrayList<>();
-        List<String> modifiedFieldWarnings = new ArrayList<>();
+        Multimap<ChangeCategory, String> info = HashMultimap.create();
 
         IMappingFile mappings = IMappingFile.load(getSrgToMcpMappings().get().getAsFile());
 
@@ -79,7 +81,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
                     ClassAnalyzer analyzer = ClassAnalyzer.create(cleanData, dirtyData, mappings);
                     ClassAnalyzer.AnalysisResults analysis = analyzer.analyze();
                     patches.addAll(analysis.patches());
-                    modifiedFieldWarnings.addAll(analysis.modifiedFieldWarnings());
+                    info.putAll(analysis.info());
 
                     counter.getAndIncrement();
                 } catch (IOException e) {
@@ -92,8 +94,12 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
 
             logger.info("Generated {} patches", patches.size());
 
-            logger.info("\n{} fields had their type changed", modifiedFieldWarnings.size());
-            modifiedFieldWarnings.forEach(logger::info);
+            logger.info("\n{} fields had their type changed", info.get(ChangeCategory.MODIFY_FIELD).size());
+            info.get(ChangeCategory.MODIFY_FIELD).forEach(logger::info);
+            logger.info("\n{} fields were added", info.get(ChangeCategory.ADD_FIELD).size());
+            info.get(ChangeCategory.ADD_FIELD).forEach(logger::info);
+            logger.info("\n{} fields were removed", info.get(ChangeCategory.REMOVE_FIELD).size());
+            info.get(ChangeCategory.REMOVE_FIELD).forEach(logger::info);
         }
 
         JsonElement object = PatchSerialization.serialize(patches, JsonOps.INSTANCE);
