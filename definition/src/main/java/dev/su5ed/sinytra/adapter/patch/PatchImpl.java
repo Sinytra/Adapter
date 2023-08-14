@@ -19,6 +19,7 @@ import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.regex.Matcher;
 
 public class PatchImpl implements Patch {
     private static final String MIXIN_ANN = "Lorg/spongepowered/asm/mixin/Mixin;";
@@ -88,9 +89,29 @@ public class PatchImpl implements Patch {
 
     private record InjectionPointMatcher(@Nullable String value, String target) {
         public static final Codec<InjectionPointMatcher> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Codec.STRING.optionalFieldOf("value", null).forGetter(InjectionPointMatcher::value),
+            Codec.STRING.optionalFieldOf("value").forGetter(i -> Optional.ofNullable(i.value())),
             Codec.STRING.fieldOf("target").forGetter(InjectionPointMatcher::target)
         ).apply(instance, InjectionPointMatcher::new));
+        
+        public InjectionPointMatcher(Optional<String> value, String target) {
+            this(value.orElse(null), target);
+        }
+
+        private InjectionPointMatcher(@Nullable String value, String target) {
+            this.value = value;
+
+            Matcher matcher = METHOD_REF_PATTERN.matcher(target);
+            if (matcher.matches()) {
+                String owner = matcher.group("owner");
+                String name = matcher.group("name");
+                String desc = matcher.group("desc");
+
+                String mappedName = MixinRemaper.remapMethodName(name);
+                this.target = Objects.requireNonNullElse(owner, "") + mappedName + Objects.requireNonNullElse(desc, "");
+            } else {
+                this.target = target;
+            }
+        }
 
         public boolean test(String value, String target) {
             return this.target.equals(target) && (this.value == null || this.value.equals(value));

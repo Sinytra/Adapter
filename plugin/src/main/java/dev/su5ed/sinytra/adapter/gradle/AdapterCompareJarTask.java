@@ -17,8 +17,7 @@ import org.slf4j.Logger;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipEntry;
@@ -56,6 +55,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
 
         List<PatchImpl> patches = new ArrayList<>();
         Multimap<ChangeCategory, String> info = HashMultimap.create();
+        Map<String, String> replacementCalls = new HashMap<>();
 
         IMappingFile mappings = IMappingFile.load(getSrgToMcpMappings().get().getAsFile());
 
@@ -65,6 +65,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
             AtomicInteger counter = new AtomicInteger();
             Stopwatch stopwatch = Stopwatch.createStarted();
 
+            Collection<ClassAnalyzer> analyzers = new ArrayList<>();
             dirtyJar.stream().forEach(entry -> {
                 logger.debug("Processing patched entry {}", entry.getName());
 
@@ -79,15 +80,23 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
                     byte[] dirtyData = dirtyJar.getInputStream(entry).readAllBytes();
 
                     ClassAnalyzer analyzer = ClassAnalyzer.create(cleanData, dirtyData, mappings);
-                    ClassAnalyzer.AnalysisResults analysis = analyzer.analyze();
-                    patches.addAll(analysis.patches());
-                    info.putAll(analysis.info());
+                    analyzers.add(analyzer);
+                    analyzer.analyze(patches, info, replacementCalls);
 
                     counter.getAndIncrement();
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
             });
+
+            List<PatchImpl> postPatches = new ArrayList<>();
+            logger.info("");
+            logger.info("===== Running post-analysis =====");
+            for (ClassAnalyzer analyzer : analyzers) {
+                analyzer.postAnalyze(postPatches, replacementCalls);
+            }
+            logger.info("Adding additonal {} patches from post-analysis", postPatches.size());
+            patches.addAll(postPatches);
 
             stopwatch.stop();
             logger.info("Analyzed {} classes in {} ms", counter.get(), stopwatch.elapsed(TimeUnit.MILLISECONDS));

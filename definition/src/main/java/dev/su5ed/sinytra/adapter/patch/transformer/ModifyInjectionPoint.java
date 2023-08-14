@@ -6,6 +6,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.su5ed.sinytra.adapter.patch.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.MethodTransform;
 import dev.su5ed.sinytra.adapter.patch.PatchContext;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -13,15 +14,20 @@ import org.slf4j.Logger;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import static dev.su5ed.sinytra.adapter.patch.PatchImpl.MIXINPATCH;
 
-public record ModifyInjectionPoint(String value, String target) implements MethodTransform {
+public record ModifyInjectionPoint(@Nullable String value, String target) implements MethodTransform {
     private static final Logger LOGGER = LogUtils.getLogger();
     public static final Codec<ModifyInjectionPoint> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        Codec.STRING.fieldOf("value").forGetter(ModifyInjectionPoint::value),
+        Codec.STRING.optionalFieldOf("value").forGetter(i -> Optional.ofNullable(i.value())),
         Codec.STRING.fieldOf("target").forGetter(ModifyInjectionPoint::target)
     ).apply(instance, ModifyInjectionPoint::new));
+
+    public ModifyInjectionPoint(Optional<String> value, String target) {
+        this(value.orElse(null), target);
+    }
 
     @Override
     public Codec<? extends MethodTransform> codec() {
