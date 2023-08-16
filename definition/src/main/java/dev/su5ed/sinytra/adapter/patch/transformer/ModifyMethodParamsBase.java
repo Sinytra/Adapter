@@ -2,8 +2,7 @@ package dev.su5ed.sinytra.adapter.patch.transformer;
 
 import com.mojang.logging.LogUtils;
 import dev.su5ed.sinytra.adapter.patch.*;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.*;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -24,9 +23,7 @@ public abstract class ModifyMethodParamsBase implements MethodTransform {
         this.lvtFixer = lvtFixer;
     }
 
-    protected abstract Type[] getReplacementParameters(Type[] original);
-
-    protected abstract boolean areParamsComplete();
+    protected abstract Type[] getReplacementParameters(Type[] original, AnnotationNode annotation);
 
     @Override
     public Collection<String> getAcceptedAnnotations() {
@@ -35,11 +32,9 @@ public abstract class ModifyMethodParamsBase implements MethodTransform {
 
     @Override
     public boolean apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
-        boolean complete = areParamsComplete();
         Type[] parameterTypes = Type.getArgumentTypes(methodNode.desc);
-        Type[] newParameterTypes = getReplacementParameters(parameterTypes);
-        List<Type> completeNewParams = new ArrayList<>(Arrays.asList(newParameterTypes));
-        Int2ObjectMap<Type> insertionIndices = new Int2ObjectOpenHashMap<>();
+        Type[] newParameterTypes = getReplacementParameters(parameterTypes, annotation);
+        Deque<IntObjectPair<Type>> insertionIndices = new ArrayDeque<>();
         Int2ObjectMap<Type> replacementIndices = new Int2ObjectOpenHashMap<>();
         int offset = (methodNode.access & Opcodes.ACC_STATIC) == 0 ? 1 : 0;
 
@@ -51,14 +46,12 @@ public abstract class ModifyMethodParamsBase implements MethodTransform {
                     if (i == j && this.lvtFixer != null) {
                         replacementIndices.put(offset + j, type);
                     } else {
-                        insertionIndices.put(j, type);
+                        insertionIndices.add(IntObjectPair.of(j, type));
                         j++;
                         continue;
                     }
                 }
                 j++;
-            } else if (!complete) {
-                completeNewParams.add(parameterTypes[i]);
             }
             i++;
         }
@@ -69,8 +62,8 @@ public abstract class ModifyMethodParamsBase implements MethodTransform {
         if (annotation.desc.equals(Patch.MODIFY_VAR)) {
             AnnotationValueHandle<Integer> indexHandle = (AnnotationValueHandle<Integer>) annotationValues.get("index");
             if (indexHandle != null) {
-                insertionIndices.forEach((index, type) -> {
-                    int localIndex = offset + index;
+                insertionIndices.forEach(pair -> {
+                    int localIndex = offset + pair.firstInt();
                     int indexValue = indexHandle.get();
                     if (localIndex >= indexValue) {
                         indexHandle.set(indexValue + 1);
@@ -81,20 +74,33 @@ public abstract class ModifyMethodParamsBase implements MethodTransform {
         }
 
         Type returnType = Type.getReturnType(methodNode.desc);
-        String newDesc = Type.getMethodDescriptor(returnType, completeNewParams.toArray(Type[]::new));
+        String newDesc = Type.getMethodDescriptor(returnType, newParameterTypes);
         LOGGER.info(MIXINPATCH, "Changing descriptor of method {}.{}{} to {}", classNode.name, methodNode.name, methodNode.desc, newDesc);
 
-        insertionIndices.forEach((index, type) -> {
+        LocalVariableNode self = methodNode.localVariables.stream().filter(lvn -> lvn.index == 0).findFirst().orElseThrow();
+        while (!insertionIndices.isEmpty()) {
+            IntObjectPair<Type> pair = insertionIndices.pop();
+            int index = pair.firstInt();
+            Type type = pair.second();
+            int lvtOrdinal = offset + index;
+            int lvtIndex;
+            if (index > offset) {
+                List<LocalVariableNode> lvt = methodNode.localVariables.stream().sorted(Comparator.comparingInt(lvn -> lvn.index)).toList();
+                lvtIndex = lvt.get(lvtOrdinal).index;
+            } else {
+                lvtIndex = lvtOrdinal;
+            }
             ParameterNode newParameter = new ParameterNode(null, Opcodes.ACC_SYNTHETIC);
+
             if (index < methodNode.parameters.size()) methodNode.parameters.add(index, newParameter);
             else methodNode.parameters.add(newParameter);
-
-            int localIndex = offset + index;
             for (LocalVariableNode localVariable : methodNode.localVariables) {
-                if (localVariable.index >= localIndex) {
+                if (localVariable.index >= lvtIndex) {
                     localVariable.index++;
                 }
             }
+            methodNode.localVariables.add(new LocalVariableNode("adapter_injected_" + index, type.getDescriptor(), null, self.start, self.end, lvtIndex));
+
             // TODO All visible/invisible annotations
             if (methodNode.invisibleParameterAnnotations != null) {
                 List<List<AnnotationNode>> annotations = new ArrayList<>(Arrays.asList(methodNode.invisibleParameterAnnotations));
@@ -120,18 +126,18 @@ public abstract class ModifyMethodParamsBase implements MethodTransform {
                     List<Integer> annotationIndices = localVariableAnnotation.index;
                     for (int j = 0; j < annotationIndices.size(); j++) {
                         Integer annoIndex = annotationIndices.get(j);
-                        if (annoIndex >= localIndex) {
+                        if (annoIndex >= lvtIndex) {
                             annotationIndices.set(j, annoIndex + 1);
                         }
                     }
                 }
             }
             for (AbstractInsnNode insn : methodNode.instructions) {
-                if (insn instanceof VarInsnNode varInsnNode && varInsnNode.var >= localIndex) {
+                if (insn instanceof VarInsnNode varInsnNode && varInsnNode.var >= lvtIndex) {
                     varInsnNode.var++;
                 }
             }
-        });
+        }
         replacementIndices.forEach((index, type) -> {
             LocalVariableNode localVar = methodNode.localVariables.get(index);
             localVar.desc = type.getDescriptor();

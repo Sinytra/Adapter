@@ -3,6 +3,7 @@ package dev.su5ed.sinytra.adapter.patch.transformer;
 import dev.su5ed.sinytra.adapter.patch.LVTFixer;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AnnotationNode;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -19,12 +20,7 @@ public class ModifyMethodParams extends ModifyMethodParamsBase {
     }
 
     @Override
-    protected boolean areParamsComplete() {
-        return true;
-    }
-
-    @Override
-    protected Type[] getReplacementParameters(Type[] original) {
+    protected Type[] getReplacementParameters(Type[] original, AnnotationNode annotation) {
         List<Type> list = new ArrayList<>(Arrays.asList(original));
         this.operator.accept(list);
         return list.toArray(Type[]::new);
