@@ -18,11 +18,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ClassAnalyzer {
     private static final Logger LOGGER = LoggerFactory.getLogger("ClassAnalyzer");
     private static final Collection<Integer> RETURN_OPCODES = Set.of(Opcodes.RETURN, Opcodes.ARETURN, Opcodes.DRETURN, Opcodes.IRETURN, Opcodes.LRETURN, Opcodes.FRETURN);
     private static final String LAMBDA_PREFIX = "lambda$";
+    private static final Pattern LAMBDA_PATTERN = Pattern.compile("^lambda\\$(.+)\\$.+$");
 
     private final ClassNode cleanNode;
     private final ClassNode dirtyNode;
@@ -116,6 +119,7 @@ public class ClassAnalyzer {
             findExpandedMethods(patches, replacedMethods);
             findExpandedLambdas(patches, replacedMethods);
         }
+        findUpdatedLambdaNames(patches);
         checkAccess(patches);
         if (this.loggedHeader) {
             LOGGER.info("");
@@ -145,6 +149,48 @@ public class ClassAnalyzer {
         if (this.loggedHeader) {
             LOGGER.info("");
         }
+    }
+
+    private void findUpdatedLambdaNames(List<? super PatchImpl> patches) {
+        Multimap<MethodNode, MethodNode> replacements = HashMultimap.create();
+        this.dirtyMethods.forEach((name, method) -> {
+            String dirtyLambdaName = getLambdaMethodName(this.dirtyNode, method);
+            if (dirtyLambdaName != null) {
+                this.cleanMethods.forEach((cleanName, cleanMethod) -> {
+                    String cleanLambdaName = getLambdaMethodName(this.cleanNode, cleanMethod);
+                    if (dirtyLambdaName.equals(cleanLambdaName) && !method.name.equals(cleanMethod.name)) {
+                        Type[] dirtyParams = Type.getArgumentTypes(method.desc);
+                        Type[] cleanParams = Type.getArgumentTypes(cleanMethod.desc);
+                        if (dirtyParams.length == cleanParams.length && checkParameters(cleanParams, dirtyParams, true)) {
+                            replacements.put(method, cleanMethod);
+                        }
+                    }
+                });
+            }
+        });
+        replacements.asMap().forEach((replacement, originals) -> {
+            if (originals.size() == 1) {
+                MethodNode original = originals.iterator().next();
+                logHeader();
+                LOGGER.info("LAMBDA UPDATE");
+                LOGGER.info(" << {} {}", remapMethodName(this.cleanNode, original.name, original.desc), original.desc);
+                LOGGER.info(" >> {} {}", replacement.name, replacement.desc);
+
+                PatchImpl patch = (PatchImpl) Patch.builder()
+                    .targetClass(this.dirtyNode.name)
+                    .targetMethod(original.name + original.desc)
+                    .modifyTarget(replacement.name + replacement.desc)
+                    .build();
+                patches.add(patch);
+            }
+        });
+    }
+
+    @Nullable
+    private String getLambdaMethodName(ClassNode cls, MethodNode method) {
+        String mappedName = remapMethodName(cls, method.name, method.desc);
+        Matcher matcher = LAMBDA_PATTERN.matcher(mappedName);
+        return matcher.matches() ? matcher.group(1) : null;
     }
 
     private void updateReplacedInjectionPoints(List<? super PatchImpl> patches, Map<? extends String, String> replacementCalls) {
