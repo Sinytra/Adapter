@@ -24,7 +24,7 @@ import java.util.regex.Matcher;
 public class PatchImpl implements Patch {
     private static final String MIXIN_ANN = "Lorg/spongepowered/asm/mixin/Mixin;";
     private static final String OWNER_PREFIX = "^(?<owner>L(?:.*?)+;)";
-    private static final Collection<String> KNOWN_MIXIN_TYPES = Set.of(Patch.INJECT, Patch.REDIRECT, Patch.MODIFY_ARG, Patch.MODIFY_VAR, Patch.MODIFY_CONST);
+    private static final Collection<String> KNOWN_MIXIN_TYPES = Set.of(Patch.INJECT, Patch.REDIRECT, Patch.MODIFY_ARG, Patch.MODIFY_VAR, Patch.MODIFY_CONST, Patch.MODIFY_EXPR_VAL, Patch.WRAP_OPERATION);
 
     private static final Logger LOGGER = LogUtils.getLogger();
     public static final Marker MIXINPATCH = MarkerFactory.getMarker("MIXINPATCH");

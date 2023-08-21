@@ -18,6 +18,9 @@ public interface Patch {
     String MODIFY_VAR = "Lorg/spongepowered/asm/mixin/injection/ModifyVariable;";
     String MODIFY_CONST = "Lorg/spongepowered/asm/mixin/injection/ModifyConstant;";
     String OVERWRITE = "Lorg/spongepowered/asm/mixin/Overwrite;";
+    // Mixinextras annotations
+    String MODIFY_EXPR_VAL = "Lcom/llamalad7/mixinextras/injector/ModifyExpressionValue;";
+    String WRAP_OPERATION = "Lcom/llamalad7/mixinextras/injector/wrapoperation/WrapOperation;";
 
     Pattern METHOD_REF_PATTERN = Pattern.compile("^(?<owner>L[a-zA-Z0-9/_$]+;)?(?<name>[a-zA-Z0-9_]+|<[a-z0-9_]+>)(?<desc>\\((?:\\[?[VZCBSIFJD]|\\[?L[a-zA-Z0-9/_$]+;)*\\)(?:[VZCBSIFJD]|\\[?L[a-zA-Z0-9/_;$]+))$");
 
