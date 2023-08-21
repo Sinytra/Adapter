@@ -154,27 +154,37 @@ public class ClassAnalyzer {
     private void findUpdatedLambdaNames(List<? super PatchImpl> patches) {
         Multimap<MethodNode, MethodNode> replacements = HashMultimap.create();
         this.dirtyMethods.forEach((name, method) -> {
-            String dirtyLambdaName = getLambdaMethodName(this.dirtyNode, method);
-            if (dirtyLambdaName != null) {
-                this.cleanMethods.forEach((cleanName, cleanMethod) -> {
-                    String cleanLambdaName = getLambdaMethodName(this.cleanNode, cleanMethod);
-                    if (dirtyLambdaName.equals(cleanLambdaName) && !method.name.equals(cleanMethod.name)) {
-                        Type[] dirtyParams = Type.getArgumentTypes(method.desc);
-                        Type[] cleanParams = Type.getArgumentTypes(cleanMethod.desc);
-                        if (dirtyParams.length == cleanParams.length && checkParameters(cleanParams, dirtyParams, true)) {
-                            replacements.put(method, cleanMethod);
+            String dirtyMappedName = remapMethodName(this.dirtyNode, method.name, method.desc);
+            Matcher dirtyMatcher = LAMBDA_PATTERN.matcher(dirtyMappedName);
+            if (dirtyMatcher.matches()) {
+                // Check that no lambda with the same name and desc exists
+                if (!this.cleanToDirty.inverse().containsKey(method)) {
+                    // Find lambda in the same outer method, with the same descriptor but different number suffix
+                    String dirtyLambdaName = dirtyMatcher.group(1);
+                    this.cleanMethods.forEach((cleanName, cleanMethod) -> {
+                        String cleanLambdaName = getLambdaMethodName(this.cleanNode, cleanMethod);
+                        if (dirtyLambdaName.equals(cleanLambdaName)) {
+                            Type dirtyReturn = Type.getReturnType(method.desc);
+                            Type cleanReturn = Type.getReturnType(cleanMethod.desc);
+                            if (dirtyReturn.equals(cleanReturn)) {
+                                Type[] dirtyParams = Type.getArgumentTypes(method.desc);
+                                Type[] cleanParams = Type.getArgumentTypes(cleanMethod.desc);
+                                if (dirtyParams.length == cleanParams.length && checkParameters(cleanParams, dirtyParams, true)) {
+                                    replacements.put(cleanMethod, method);
+                                }
+                            }
                         }
-                    }
-                });
+                    });
+                }
             }
         });
-        replacements.asMap().forEach((replacement, originals) -> {
-            if (originals.size() == 1) {
-                MethodNode original = originals.iterator().next();
+        replacements.asMap().forEach((original, replacementsMethods) -> {
+            if (replacementsMethods.size() == 1) {
+                MethodNode replacement = replacementsMethods.iterator().next();
                 logHeader();
                 LOGGER.info("LAMBDA UPDATE");
                 LOGGER.info(" << {} {}", remapMethodName(this.cleanNode, original.name, original.desc), original.desc);
-                LOGGER.info(" >> {} {}", replacement.name, replacement.desc);
+                LOGGER.info(" >> {} {}", remapMethodName(this.dirtyNode, replacement.name, replacement.desc), replacement.desc);
 
                 PatchImpl patch = (PatchImpl) Patch.builder()
                     .targetClass(this.dirtyNode.name)
