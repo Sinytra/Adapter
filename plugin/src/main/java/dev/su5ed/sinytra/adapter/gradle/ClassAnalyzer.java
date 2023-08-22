@@ -220,6 +220,14 @@ public class ClassAnalyzer {
                                 LOGGER.info(" << {}", oldQualifier);
                                 LOGGER.info(" >> {}", callQualifier);
 
+                                PatchImpl paramFixPatch = (PatchImpl) Patch.builder()
+                                    .targetClass(this.dirtyNode.name)
+                                    .targetMethod(method.name + method.desc)
+                                    .targetInjectionPoint(oldQualifier)
+                                    .setTargetParams(List.of(Type.getArgumentTypes(minsn.desc)))
+                                    .build();
+                                patches.add(paramFixPatch);
+
                                 PatchImpl patch = (PatchImpl) Patch.builder()
                                     .targetClass(this.dirtyNode.name)
                                     .targetMethod(method.name + method.desc)

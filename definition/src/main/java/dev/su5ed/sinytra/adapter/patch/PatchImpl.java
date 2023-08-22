@@ -329,6 +329,11 @@ public class PatchImpl implements Patch {
         }
 
         @Override
+        public Builder setTargetParams(List<Type> parameters) {
+            return transform(new SetTargetParams(parameters));
+        }
+
+        @Override
         public Builder modifyTarget(String... methods) {
             return transform(new ModifyInjectionTarget(List.of(methods)));
         }

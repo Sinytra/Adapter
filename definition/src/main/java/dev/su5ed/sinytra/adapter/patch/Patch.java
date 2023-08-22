@@ -53,6 +53,10 @@ public interface Patch {
 
         Builder setParams(List<Type> parameters);
 
+        // Modify the parameters in accordance with the injection point's signature.
+        // Useful for redirects
+        Builder setTargetParams(List<Type> parameters);
+
         Builder modifyTarget(String... methods);
 
         Builder modifyVariableIndex(int start, int offset);

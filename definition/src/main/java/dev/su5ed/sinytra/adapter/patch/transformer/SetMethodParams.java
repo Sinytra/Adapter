@@ -19,7 +19,7 @@ public class SetMethodParams extends ModifyMethodParamsBase {
     private static final Type CI_PARAM = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfo");
     private static final Type CIR_PARAM = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable");
 
-    private final List<Type> replacementTypes;
+    protected final List<Type> replacementTypes;
 
     public SetMethodParams(List<Type> replacementTypes) {
         super(null);

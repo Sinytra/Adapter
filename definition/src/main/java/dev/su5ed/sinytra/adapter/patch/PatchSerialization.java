@@ -17,6 +17,7 @@ public class PatchSerialization {
         .put("modify_injection_point", ModifyInjectionPoint.CODEC)
         .put("modify_injection_target", ModifyInjectionTarget.CODEC)
         .put("set_method_params", SetMethodParams.CODEC)
+        .put("set_target_params", SetTargetParams.CODEC)
         .put("modfiy_access", ModifyMethodAccess.CODEC)
         .build();
 
