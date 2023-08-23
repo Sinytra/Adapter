@@ -150,7 +150,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
             int index = pair.getFirst();
             Type type = pair.getSecond();
             newParameterTypes.set(index, type);
-            LocalVariableNode localVar = methodNode.localVariables.get(index);
+            LocalVariableNode localVar = methodNode.localVariables.get(offset + index);
             localVar.desc = type.getDescriptor();
             localVar.signature = null;
         });
@@ -158,7 +158,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
             //noinspection ForLoopReplaceableByForEach
             for (ListIterator<AbstractInsnNode> iterator = methodNode.instructions.iterator(); iterator.hasNext(); ) {
                 AbstractInsnNode insn = iterator.next();
-                if (insn instanceof VarInsnNode varInsn && this.replacements.stream().anyMatch(pair -> pair.getFirst() == varInsn.var)) {
+                if (insn instanceof VarInsnNode varInsn && this.replacements.stream().anyMatch(pair -> offset + pair.getFirst() == varInsn.var)) {
                     this.lvtFixer.accept(varInsn.var, varInsn, methodNode.instructions);
                 }
             }

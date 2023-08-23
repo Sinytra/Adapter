@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "dev.su5ed.sinytra.adapter"
-version = "1.1.0"
+version = "1.1.1"
 
 java {
     toolchain {
@@ -39,8 +39,16 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
 }
 
-tasks.test {
-    useJUnitPlatform()
+tasks {
+    jar {
+        manifest.attributes(
+            "Implementation-Version" to project.version
+        )
+    }
+
+    test {
+        useJUnitPlatform()
+    }
 }
 
 publishing {

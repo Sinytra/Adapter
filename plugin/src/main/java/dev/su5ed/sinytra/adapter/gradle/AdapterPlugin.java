@@ -1,5 +1,6 @@
 package dev.su5ed.sinytra.adapter.gradle;
 
+import dev.su5ed.sinytra.adapter.patch.Patch;
 import net.minecraftforge.gradle.common.util.Artifact;
 import net.minecraftforge.gradle.common.util.MavenArtifactDownloader;
 import net.minecraftforge.gradle.common.util.Utils;
@@ -14,6 +15,10 @@ import java.io.File;
 public class AdapterPlugin implements Plugin<Project> {
     private static final String NEOGRADLE_ID = "net.neoforged.gradle";
     private static final String CLEAN_ARTIFACT = "net.minecraft:joined:%s:srg";
+
+    public static String getDefinitionVersion() {
+        return Patch.class.getPackage().getImplementationVersion();
+    }
 
     @Override
     public void apply(Project project) {

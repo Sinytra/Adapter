@@ -1,3 +1,4 @@
+import dev.su5ed.sinytra.adapter.gradle.AdapterPlugin
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -12,7 +13,7 @@ val versionForge: String by project
 val timestamp: String = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd.HHmmss"))
 
 group = "dev.su5ed.sinytra.adapter"
-version = "$versionMc-$timestamp"
+version = "${AdapterPlugin.getDefinitionVersion()?.let { "$it-" } ?: ""}$versionMc-$timestamp"
 
 println("Project version: $version")
 
