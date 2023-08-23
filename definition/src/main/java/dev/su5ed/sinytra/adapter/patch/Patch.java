@@ -19,6 +19,10 @@ public sealed interface Patch permits PatchInstance {
     // Mixinextras annotations
     String MODIFY_EXPR_VAL = "Lcom/llamalad7/mixinextras/injector/ModifyExpressionValue;";
     String WRAP_OPERATION = "Lcom/llamalad7/mixinextras/injector/wrapoperation/WrapOperation;";
+    // Unused
+    String SHADOW = "Lorg/spongepowered/asm/mixin/Shadow;";
+    String ACCESSOR = "Lorg/spongepowered/asm/mixin/gen/Accessor;";
+    String INVOKER = "Lorg/spongepowered/asm/mixin/gen/Invoker;";
 
     Pattern METHOD_REF_PATTERN = Pattern.compile("^(?<owner>L[a-zA-Z0-9/_$]+;)?(?<name>[a-zA-Z0-9_]+|<[a-z0-9_]+>)(?<desc>\\((?:\\[?[VZCBSIFJD]|\\[?L[a-zA-Z0-9/_$]+;)*\\)(?:[VZCBSIFJD]|\\[?L[a-zA-Z0-9/_;$]+))$");
 
