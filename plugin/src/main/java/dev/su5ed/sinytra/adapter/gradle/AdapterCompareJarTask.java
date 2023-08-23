@@ -6,7 +6,9 @@ import com.google.common.collect.Multimap;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.mojang.serialization.JsonOps;
-import dev.su5ed.sinytra.adapter.patch.PatchImpl;
+import dev.su5ed.sinytra.adapter.gradle.provider.ClassProvider;
+import dev.su5ed.sinytra.adapter.gradle.provider.ZipClassProvider;
+import dev.su5ed.sinytra.adapter.patch.PatchInstance;
 import dev.su5ed.sinytra.adapter.patch.PatchSerialization;
 import net.minecraftforge.srgutils.IMappingFile;
 import org.gradle.api.DefaultTask;
@@ -53,7 +55,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
         logger.info("Dirty jar: " + getDirtyJar().get().getAsFile().getAbsolutePath());
         logger.info("Mappings : " + getSrgToMcpMappings().get().getAsFile().getAbsolutePath());
 
-        List<PatchImpl> patches = new ArrayList<>();
+        List<PatchInstance> patches = new ArrayList<>();
         Multimap<ChangeCategory, String> info = HashMultimap.create();
         Map<String, String> replacementCalls = new HashMap<>();
 
@@ -62,6 +64,8 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
         try (final ZipFile cleanJar = new ZipFile(getCleanJar().get().getAsFile());
              final ZipFile dirtyJar = new ZipFile(getDirtyJar().get().getAsFile())
         ) {
+            ClassProvider cleanClassProvider = new ZipClassProvider(cleanJar);
+            ClassProvider dirtyClassProvider = new ZipClassProvider(dirtyJar);
             AtomicInteger counter = new AtomicInteger();
             Stopwatch stopwatch = Stopwatch.createStarted();
 
@@ -79,7 +83,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
                     byte[] cleanData = cleanJar.getInputStream(cleanEntry).readAllBytes();
                     byte[] dirtyData = dirtyJar.getInputStream(entry).readAllBytes();
 
-                    ClassAnalyzer analyzer = ClassAnalyzer.create(cleanData, dirtyData, mappings);
+                    ClassAnalyzer analyzer = ClassAnalyzer.create(cleanData, dirtyData, mappings, cleanClassProvider, dirtyClassProvider);
                     analyzers.add(analyzer);
                     analyzer.analyze(patches, info, replacementCalls);
 
@@ -89,7 +93,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
                 }
             });
 
-            List<PatchImpl> postPatches = new ArrayList<>();
+            List<PatchInstance> postPatches = new ArrayList<>();
             logger.info("");
             logger.info("===== Running post-analysis =====");
             for (ClassAnalyzer analyzer : analyzers) {

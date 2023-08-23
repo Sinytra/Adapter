@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static dev.su5ed.sinytra.adapter.patch.PatchImpl.MIXINPATCH;
+import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
 public record ModifyInjectionPoint(@Nullable String value, String target) implements MethodTransform {
     private static final Logger LOGGER = LogUtils.getLogger();

@@ -21,21 +21,21 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 
-public class PatchImpl implements Patch {
+public final class PatchInstance implements Patch {
     private static final String MIXIN_ANN = "Lorg/spongepowered/asm/mixin/Mixin;";
     private static final String OWNER_PREFIX = "^(?<owner>L(?:.*?)+;)";
     private static final Collection<String> KNOWN_MIXIN_TYPES = Set.of(Patch.INJECT, Patch.REDIRECT, Patch.MODIFY_ARG, Patch.MODIFY_VAR, Patch.MODIFY_CONST, Patch.MODIFY_EXPR_VAL, Patch.WRAP_OPERATION);
 
     private static final Logger LOGGER = LogUtils.getLogger();
     public static final Marker MIXINPATCH = MarkerFactory.getMarker("MIXINPATCH");
-    public static final Codec<PatchImpl> CODEC = RecordCodecBuilder
-        .<PatchImpl>create(instance -> instance.group(
+    public static final Codec<PatchInstance> CODEC = RecordCodecBuilder
+        .<PatchInstance>create(instance -> instance.group(
             Codec.STRING.listOf().optionalFieldOf("targetClasses", List.of()).forGetter(p -> p.targetClasses),
             MethodMatcher.CODEC.listOf().optionalFieldOf("targetMethods", List.of()).forGetter(p -> p.targetMethods),
             InjectionPointMatcher.CODEC.listOf().optionalFieldOf("targetInjectionPoints", List.of()).forGetter(p -> p.targetInjectionPoints),
             Codec.STRING.listOf().optionalFieldOf("targetAnnotations", List.of()).forGetter(p -> p.targetAnnotations),
             PatchSerialization.METHOD_TRANSFORM_CODEC.listOf().fieldOf("transforms").forGetter(p -> p.transforms)
-        ).apply(instance, PatchImpl::new))
+        ).apply(instance, PatchInstance::new))
         .flatComapMap(Function.identity(), obj -> obj.targetAnnotationValues != null ? DataResult.error(() -> "Cannot serialize targetAnnotationValues") : DataResult.success(obj));
 
     private final List<String> targetClasses;
@@ -46,11 +46,11 @@ public class PatchImpl implements Patch {
     private final Predicate<Map<String, AnnotationValueHandle<?>>> targetAnnotationValues;
     private final List<MethodTransform> transforms;
 
-    private PatchImpl(List<String> targetClasses, List<MethodMatcher> targetMethods, List<InjectionPointMatcher> targetInjectionPoints, List<String> targetAnnotations, List<MethodTransform> transforms) {
+    private PatchInstance(List<String> targetClasses, List<MethodMatcher> targetMethods, List<InjectionPointMatcher> targetInjectionPoints, List<String> targetAnnotations, List<MethodTransform> transforms) {
         this(targetClasses, targetMethods, targetInjectionPoints, targetAnnotations, map -> true, transforms);
     }
 
-    private PatchImpl(List<String> targetClasses, List<MethodMatcher> targetMethods, List<InjectionPointMatcher> targetInjectionPoints, List<String> targetAnnotations, Predicate<Map<String, AnnotationValueHandle<?>>> targetAnnotationValues, List<MethodTransform> transforms) {
+    private PatchInstance(List<String> targetClasses, List<MethodMatcher> targetMethods, List<InjectionPointMatcher> targetInjectionPoints, List<String> targetAnnotations, Predicate<Map<String, AnnotationValueHandle<?>>> targetAnnotationValues, List<MethodTransform> transforms) {
         this.targetClasses = targetClasses;
         this.targetMethods = targetMethods;
         this.targetInjectionPoints = targetInjectionPoints;
@@ -92,7 +92,7 @@ public class PatchImpl implements Patch {
             Codec.STRING.optionalFieldOf("value").forGetter(i -> Optional.ofNullable(i.value())),
             Codec.STRING.fieldOf("target").forGetter(InjectionPointMatcher::target)
         ).apply(instance, InjectionPointMatcher::new));
-        
+
         public InjectionPointMatcher(Optional<String> value, String target) {
             this(value.orElse(null), target);
         }
@@ -124,7 +124,7 @@ public class PatchImpl implements Patch {
         } else if (classNode.invisibleAnnotations != null) {
             for (AnnotationNode annotation : classNode.invisibleAnnotations) {
                 if (annotation.desc.equals(MIXIN_ANN)) {
-                    return PatchImpl.<List<Type>>findAnnotationValue(annotation.values, "value")
+                    return PatchInstance.<List<Type>>findAnnotationValue(annotation.values, "value")
                         .<Pair<Boolean, AnnotationValueHandle<?>>>map(types -> {
                             for (Type targetType : types.get()) {
                                 if (targets.contains(targetType.getInternalName())) {
@@ -133,7 +133,7 @@ public class PatchImpl implements Patch {
                             }
                             return null;
                         })
-                        .or(() -> PatchImpl.<List<String>>findAnnotationValue(annotation.values, "targets")
+                        .or(() -> PatchInstance.<List<String>>findAnnotationValue(annotation.values, "targets")
                             .map(types -> {
                                 for (String targetType : types.get()) {
                                     if (targets.contains(targetType)) {
@@ -169,7 +169,7 @@ public class PatchImpl implements Patch {
                 return Optional.of(Map.of());
             }
         } else if (KNOWN_MIXIN_TYPES.contains(annotation.desc)) {
-            return PatchImpl.<List<String>>findAnnotationValue(annotation.values, "method")
+            return PatchInstance.<List<String>>findAnnotationValue(annotation.values, "method")
                 .flatMap(value -> {
                     for (String target : value.get()) {
                         String remappedTarget = remaper.remap(owner, target);
@@ -182,7 +182,7 @@ public class PatchImpl implements Patch {
                             Map<String, AnnotationValueHandle<?>> map = new HashMap<>();
                             map.put("method", value);
                             if (annotation.desc.equals(Patch.MODIFY_ARG) || annotation.desc.equals(Patch.MODIFY_VAR)) {
-                                map.put("index", PatchImpl.<Integer>findAnnotationValue(annotation.values, "index").orElse(null));
+                                map.put("index", PatchInstance.<Integer>findAnnotationValue(annotation.values, "index").orElse(null));
                             }
                             if (!this.targetInjectionPoints.isEmpty()) {
                                 Map<String, AnnotationValueHandle<?>> injectCheck = checkInjectionPoint(owner, annotation, remaper).orElse(null);
@@ -204,15 +204,15 @@ public class PatchImpl implements Patch {
     }
 
     private Optional<Map<String, AnnotationValueHandle<?>>> checkInjectionPoint(String owner, AnnotationNode annotation, MixinRemaper remaper) {
-        return PatchImpl.findAnnotationValue(annotation.values, "at")
+        return PatchInstance.findAnnotationValue(annotation.values, "at")
             .map(handle -> {
                 Object value = handle.get();
                 return value instanceof List<?> list ? (AnnotationNode) list.get(0) : (AnnotationNode) value;
             })
             .flatMap(node -> {
-                AnnotationValueHandle<String> value = PatchImpl.<String>findAnnotationValue(node.values, "value").orElse(null);
+                AnnotationValueHandle<String> value = PatchInstance.<String>findAnnotationValue(node.values, "value").orElse(null);
                 String valueStr = value != null ? value.get() : null;
-                AnnotationValueHandle<String> target = PatchImpl.<String>findAnnotationValue(node.values, "target").orElse(null);
+                AnnotationValueHandle<String> target = PatchInstance.<String>findAnnotationValue(node.values, "target").orElse(null);
                 if (target != null) {
                     String targetStr = remaper.remap(owner, target.get());
                     if (this.targetInjectionPoints.stream().anyMatch(pred -> pred.test(valueStr, targetStr))) {
@@ -293,19 +293,9 @@ public class PatchImpl implements Patch {
         }
 
         @Override
-        public Builder targetInjectionPoint(String target) {
-            return targetInjectionPoint(null, target);
-        }
-
-        @Override
         public Builder targetInjectionPoint(String value, String target) {
             this.targetInjectionPoints.add(new InjectionPointMatcher(value, target));
             return this;
-        }
-
-        @Override
-        public Builder modifyInjectionPoint(String target) {
-            return modifyInjectionPoint(null, target);
         }
 
         @Override
@@ -314,23 +304,10 @@ public class PatchImpl implements Patch {
         }
 
         @Override
-        public Builder modifyParams(Consumer<List<Type>> operator) {
-            return modifyParams(operator, null);
-        }
-
-        @Override
-        public Builder modifyParams(Consumer<List<Type>> operator, @Nullable LVTFixer lvtFixer) {
-            return transform(new ModifyMethodParams(operator, lvtFixer));
-        }
-
-        @Override
-        public Builder setParams(List<Type> parameters) {
-            return transform(new SetMethodParams(parameters));
-        }
-
-        @Override
-        public Builder setTargetParams(List<Type> parameters) {
-            return transform(new SetTargetParams(parameters));
+        public Builder modifyParams(Consumer<ModifyMethodParams.Builder> consumer) {
+            ModifyMethodParams.Builder builder = ModifyMethodParams.builder();
+            consumer.accept(builder);
+            return transform(builder.build());
         }
 
         @Override
@@ -360,8 +337,8 @@ public class PatchImpl implements Patch {
         }
 
         @Override
-        public Patch build() {
-            return new PatchImpl(
+        public PatchInstance build() {
+            return new PatchInstance(
                 List.copyOf(this.targetClasses),
                 List.copyOf(this.targetMethods),
                 List.copyOf(this.targetInjectionPoints),

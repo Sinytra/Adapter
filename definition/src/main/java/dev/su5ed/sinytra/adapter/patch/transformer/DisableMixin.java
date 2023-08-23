@@ -12,7 +12,7 @@ import org.slf4j.Logger;
 
 import java.util.Map;
 
-import static dev.su5ed.sinytra.adapter.patch.PatchImpl.MIXINPATCH;
+import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
 public class DisableMixin implements MethodTransform {
     private static final Logger LOGGER = LogUtils.getLogger();

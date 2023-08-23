@@ -1,12 +1,13 @@
 package dev.su5ed.sinytra.adapter.gradle;
 
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import dev.su5ed.sinytra.adapter.gradle.provider.ClassProvider;
+import dev.su5ed.sinytra.adapter.patch.ParametersDiff;
 import dev.su5ed.sinytra.adapter.patch.Patch;
-import dev.su5ed.sinytra.adapter.patch.PatchImpl;
+import dev.su5ed.sinytra.adapter.patch.PatchInstance;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
+import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import net.minecraftforge.srgutils.IMappingFile;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.ClassReader;
@@ -30,21 +31,27 @@ public class ClassAnalyzer {
     private final ClassNode cleanNode;
     private final ClassNode dirtyNode;
     private final IMappingFile mappings;
+    private final ClassProvider cleanClassProvider;
+    private final ClassProvider dirtyClassProvider;
 
+    // All method of each respective class node
     private final Multimap<String, MethodNode> cleanMethods;
     private final Multimap<String, MethodNode> dirtyMethods;
     // Methods that exist exclusively in one class and not the other
     private final Multimap<String, MethodNode> cleanOnlyMethods = HashMultimap.create();
     private final Multimap<String, MethodNode> dirtyOnlyMethods = HashMultimap.create();
-    // Methods that exist in both, uses patched MethodNodes from the dirty class
+    // Methods that exist in both classes, uses patched MethodNodes from the dirty class
     private final Multimap<String, MethodNode> dirtyCommonMethods = HashMultimap.create();
-    private final BiMap<MethodNode, MethodNode> cleanToDirty = HashBiMap.create();
+    // Clean class method to their dirty equivalents
+    private final Map<MethodNode, MethodNode> cleanToDirty = new HashMap<>();
 
     private final Map<String, FieldNode> cleanFields;
     private final Map<String, FieldNode> dirtyFields;
 
-    public static ClassAnalyzer create(byte[] cleanData, byte[] dirtyData, IMappingFile mappings) {
-        return new ClassAnalyzer(readClassNode(cleanData), readClassNode(dirtyData), mappings);
+    private boolean loggedHeader = false;
+
+    public static ClassAnalyzer create(byte[] cleanData, byte[] dirtyData, IMappingFile mappings, ClassProvider cleanClassProvider, ClassProvider dirtyClassProvider) {
+        return new ClassAnalyzer(readClassNode(cleanData), readClassNode(dirtyData), mappings, cleanClassProvider, dirtyClassProvider);
     }
 
     private static ClassNode readClassNode(byte[] data) {
@@ -54,10 +61,12 @@ public class ClassAnalyzer {
         return classNode;
     }
 
-    public ClassAnalyzer(ClassNode cleanNode, ClassNode dirtyNode, IMappingFile mappings) {
+    public ClassAnalyzer(ClassNode cleanNode, ClassNode dirtyNode, IMappingFile mappings, ClassProvider cleanClassProvider, ClassProvider dirtyClassProvider) {
         this.cleanNode = cleanNode;
         this.dirtyNode = dirtyNode;
         this.mappings = mappings;
+        this.cleanClassProvider = cleanClassProvider;
+        this.dirtyClassProvider = dirtyClassProvider;
 
         this.cleanMethods = indexClassMethods(cleanNode);
         this.dirtyMethods = indexClassMethods(dirtyNode);
@@ -102,8 +111,6 @@ public class ClassAnalyzer {
         }
     }
 
-    private boolean loggedHeader = false;
-
     private void logHeader() {
         if (!this.loggedHeader) {
             LOGGER.info("Class {}", this.cleanNode.name);
@@ -111,13 +118,12 @@ public class ClassAnalyzer {
         }
     }
 
-    public void analyze(List<? super PatchImpl> patches, Multimap<ChangeCategory, String> info, Map<? super String, String> replacementCalls) {
+    public void analyze(List<? super PatchInstance> patches, Multimap<ChangeCategory, String> info, Map<? super String, String> replacementCalls) {
         // Try to find added dirtyMethod patches
         findOverloadedMethods(patches, replacementCalls);
-        if (!isAnonymousInnerClass(this.cleanNode.name)) {
-            Set<String> replacedMethods = new HashSet<>();
-            findExpandedMethods(patches, replacedMethods);
-            findExpandedLambdas(patches, replacedMethods);
+        if (!isAnonymousClass(this.cleanNode.name)) {
+            findExpandedMethods(patches, replacementCalls);
+            findExpandedLambdas(patches, replacementCalls);
         }
         findUpdatedLambdaNames(patches);
         checkAccess(patches);
@@ -128,14 +134,14 @@ public class ClassAnalyzer {
         Collection<String> removedFields = new HashSet<>();
         this.cleanFields.forEach((name, field) -> {
             FieldNode dirtyField = this.dirtyFields.get(name);
-            if (dirtyField == null && !isAnonymousClass()) {
+            if (dirtyField == null && !isAnonymousClass(this.dirtyNode.name)) {
                 info.put(ChangeCategory.REMOVE_FIELD, "Removed field %s.%s %s".formatted(this.dirtyNode.name, name, field.desc));
                 removedFields.add(name);
             }
         });
         this.dirtyFields.forEach((name, field) -> {
             FieldNode cleanField = this.cleanFields.get(name);
-            if (cleanField == null && !isAnonymousClass() && !removedFields.isEmpty()) {
+            if (cleanField == null && !isAnonymousClass(this.dirtyNode.name) && !removedFields.isEmpty()) {
                 info.put(ChangeCategory.ADD_FIELD, "Added field %s.%s %s".formatted(this.dirtyNode.name, name, field.desc));
             } else if (cleanField != null && !field.desc.equals(cleanField.desc)) {
                 info.put(ChangeCategory.MODIFY_FIELD, "Field %s.%s changed its type from %s to %s".formatted(this.dirtyNode.name, name, cleanField.desc, field.desc));
@@ -143,7 +149,7 @@ public class ClassAnalyzer {
         });
     }
 
-    public void postAnalyze(List<? super PatchImpl> patches, Map<? extends String, String> replacementCalls) {
+    public void postAnalyze(List<? super PatchInstance> patches, Map<? extends String, String> replacementCalls) {
         loggedHeader = false;
         updateReplacedInjectionPoints(patches, replacementCalls);
         if (this.loggedHeader) {
@@ -151,31 +157,28 @@ public class ClassAnalyzer {
         }
     }
 
-    private void findUpdatedLambdaNames(List<? super PatchImpl> patches) {
+    private void findUpdatedLambdaNames(List<? super PatchInstance> patches) {
         Multimap<MethodNode, MethodNode> replacements = HashMultimap.create();
-        this.dirtyMethods.forEach((name, method) -> {
+        this.dirtyOnlyMethods.forEach((name, method) -> {
             String dirtyMappedName = remapMethodName(this.dirtyNode, method.name, method.desc);
             Matcher dirtyMatcher = LAMBDA_PATTERN.matcher(dirtyMappedName);
             if (dirtyMatcher.matches()) {
-                // Check that no lambda with the same name and desc exists
-                if (!this.cleanToDirty.inverse().containsKey(method)) {
-                    // Find lambda in the same outer method, with the same descriptor but different number suffix
-                    String dirtyLambdaName = dirtyMatcher.group(1);
-                    this.cleanMethods.forEach((cleanName, cleanMethod) -> {
-                        String cleanLambdaName = getLambdaMethodName(this.cleanNode, cleanMethod);
-                        if (dirtyLambdaName.equals(cleanLambdaName)) {
-                            Type dirtyReturn = Type.getReturnType(method.desc);
-                            Type cleanReturn = Type.getReturnType(cleanMethod.desc);
-                            if (dirtyReturn.equals(cleanReturn)) {
-                                Type[] dirtyParams = Type.getArgumentTypes(method.desc);
-                                Type[] cleanParams = Type.getArgumentTypes(cleanMethod.desc);
-                                if (dirtyParams.length == cleanParams.length && checkParameters(cleanParams, dirtyParams, true)) {
-                                    replacements.put(cleanMethod, method);
-                                }
+                // Find lambda in the same outer method, with the same descriptor but different number suffix
+                String dirtyLambdaName = dirtyMatcher.group(1);
+                this.cleanMethods.forEach((cleanName, cleanMethod) -> {
+                    String cleanLambdaName = getLambdaMethodName(this.cleanNode, cleanMethod);
+                    if (dirtyLambdaName.equals(cleanLambdaName)) {
+                        Type dirtyReturn = Type.getReturnType(method.desc);
+                        Type cleanReturn = Type.getReturnType(cleanMethod.desc);
+                        if (dirtyReturn.equals(cleanReturn)) {
+                            Type[] dirtyParams = Type.getArgumentTypes(method.desc);
+                            Type[] cleanParams = Type.getArgumentTypes(cleanMethod.desc);
+                            if (dirtyParams.length == cleanParams.length && checkParameters(cleanParams, dirtyParams, true)) {
+                                replacements.put(cleanMethod, method);
                             }
                         }
-                    });
-                }
+                    }
+                });
             }
         });
         replacements.asMap().forEach((original, replacementsMethods) -> {
@@ -186,7 +189,7 @@ public class ClassAnalyzer {
                 LOGGER.info(" << {} {}", remapMethodName(this.cleanNode, original.name, original.desc), original.desc);
                 LOGGER.info(" >> {} {}", remapMethodName(this.dirtyNode, replacement.name, replacement.desc), replacement.desc);
 
-                PatchImpl patch = (PatchImpl) Patch.builder()
+                PatchInstance patch = Patch.builder()
                     .targetClass(this.dirtyNode.name)
                     .targetMethod(original.name + original.desc)
                     .modifyTarget(replacement.name + replacement.desc)
@@ -203,36 +206,32 @@ public class ClassAnalyzer {
         return matcher.matches() ? matcher.group(1) : null;
     }
 
-    private void updateReplacedInjectionPoints(List<? super PatchImpl> patches, Map<? extends String, String> replacementCalls) {
+    private void updateReplacedInjectionPoints(List<? super PatchInstance> patches, Map<? extends String, String> replacementCalls) {
         Collection<String> seen = new HashSet<>();
-        this.dirtyCommonMethods.forEach((name, method) -> {
-            MethodNode clean = Objects.requireNonNull(this.cleanToDirty.inverse().get(method), "How did a nonexistent clean method get here ??");
-            for (AbstractInsnNode insn : method.instructions) {
+        this.cleanToDirty.forEach((cleanMethod, dirtyMethod) -> {
+            for (AbstractInsnNode insn : dirtyMethod.instructions) {
                 if (insn instanceof MethodInsnNode minsn) {
                     String callQualifier = getCallQualifier(minsn);
                     String oldQualifier = replacementCalls.get(callQualifier);
                     if (oldQualifier != null && !seen.contains(oldQualifier)) {
                         // Check if it was called in the original method insns
-                        for (AbstractInsnNode cInsn : clean.instructions) {
+                        for (AbstractInsnNode cInsn : cleanMethod.instructions) {
                             if (cInsn instanceof MethodInsnNode cminsn && oldQualifier.equals(getCallQualifier(cminsn))) {
                                 logHeader();
-                                LOGGER.info("Replacing call in method {}", method.name + method.desc);
+                                LOGGER.info("Replacing call in method {}", dirtyMethod.name + dirtyMethod.desc);
                                 LOGGER.info(" << {}", oldQualifier);
                                 LOGGER.info(" >> {}", callQualifier);
 
-                                PatchImpl paramFixPatch = (PatchImpl) Patch.builder()
-                                    .targetClass(this.dirtyNode.name)
-                                    .targetMethod(method.name + method.desc)
-                                    .targetInjectionPoint(oldQualifier)
-                                    .setTargetParams(List.of(Type.getArgumentTypes(minsn.desc)))
-                                    .build();
-                                patches.add(paramFixPatch);
+                                MethodNode cleanTargetMethod = this.cleanClassProvider.findMethod(cminsn.owner, cminsn.name, cminsn.desc).orElseThrow();
+                                MethodNode dirtyTargetMethod = this.dirtyClassProvider.findMethod(minsn.owner, minsn.name, minsn.desc).orElseThrow();
+                                ParametersDiff diff = ParametersDiff.compareMethodParameters(cleanTargetMethod, dirtyTargetMethod);
 
-                                PatchImpl patch = (PatchImpl) Patch.builder()
+                                PatchInstance patch = Patch.builder()
                                     .targetClass(this.dirtyNode.name)
-                                    .targetMethod(method.name + method.desc)
+                                    .targetMethod(dirtyMethod.name + dirtyMethod.desc)
                                     .targetInjectionPoint(oldQualifier)
                                     .modifyInjectionPoint(callQualifier)
+                                    .transform(ModifyMethodParams.create(diff, true))
                                     .build();
                                 patches.add(patch);
                                 seen.add(oldQualifier);
@@ -249,69 +248,55 @@ public class ClassAnalyzer {
         return Type.getObjectType(insn.owner).getDescriptor() + insn.name + insn.desc;
     }
 
-    private void findOverloadedMethods(List<? super PatchImpl> patches, Map<? super String, String> replacementCalls) {
-        this.dirtyMethods.asMap().forEach((name, methods) -> {
-            for (MethodNode method : methods) {
-                final String dirtyQualifier = method.name + method.desc;
-                final Collection<MethodNode> cleanMethods = this.cleanMethods.get(name);
+    private void findOverloadedMethods(List<? super PatchInstance> patches, Map<? super String, String> replacementCalls) {
+        this.dirtyOnlyMethods.values().forEach(method -> {
+            MethodNode overloader = findOverloadMethod(this.dirtyNode.name, method, this.dirtyCommonMethods.values());
+            if (overloader != null) {
+                ParametersDiff diff = ParametersDiff.compareMethodParameters(overloader, method);
+                if (!diff.insertions().isEmpty() || !diff.replacements().isEmpty()) {
+                    String overloaderQualifier = overloader.name + overloader.desc;
+                    String dirtyQualifier = method.name + method.desc;
+                    logHeader();
+                    LOGGER.info("OVERLOAD");
+                    LOGGER.info("   " + overloaderQualifier);
+                    LOGGER.info("=> " + dirtyQualifier);
+                    LOGGER.info("===");
 
-                if (cleanMethods.stream().noneMatch(cleanMethod -> {
-                    final String cleanQualifier = cleanMethod.name + cleanMethod.desc;
-                    return dirtyQualifier.equals(cleanQualifier);
-                })) {
-                    MethodNode overloader = findOverloadMethod(this.dirtyNode.name, method, this.dirtyCommonMethods.values());
-                    if (overloader != null) {
-                        String overloaderQualifier = overloader.name + overloader.desc;
-                        logHeader();
-                        LOGGER.info("OVERLOAD");
-                        LOGGER.info("   " + overloaderQualifier);
-                        LOGGER.info("=> " + dirtyQualifier);
-                        LOGGER.info("===");
-
-                        // TODO Unify interface and impl?
-                        Type[] dirtyParameterTypes = Type.getArgumentTypes(method.desc);
-                        PatchImpl patch = (PatchImpl) Patch.builder()
-                            .targetClass(this.dirtyNode.name)
-                            .targetMethod(overloaderQualifier)
-                            .modifyTarget(method.name + method.desc)
-                            .setParams(Arrays.asList(dirtyParameterTypes))
-                            .build();
-                        patches.add(patch);
-                        replacementCalls.put(Type.getObjectType(this.dirtyNode.name).getDescriptor() + dirtyQualifier, Type.getObjectType(this.cleanNode.name).getDescriptor() + overloaderQualifier);
-                    }
+                    PatchInstance patch = Patch.builder()
+                        .targetClass(this.dirtyNode.name)
+                        .targetMethod(overloaderQualifier)
+                        .modifyTarget(method.name + method.desc)
+                        .transform(ModifyMethodParams.create(diff, false))
+                        .build();
+                    patches.add(patch);
+                    replacementCalls.put(Type.getObjectType(this.dirtyNode.name).getDescriptor() + dirtyQualifier, Type.getObjectType(this.cleanNode.name).getDescriptor() + overloaderQualifier);
                 }
             }
         });
     }
 
-    private void checkAccess(List<? super PatchImpl> patches) {
-        this.dirtyCommonMethods.forEach((dirtyName, dirtyMethod) -> {
-            String qualifier = dirtyMethod.name + dirtyMethod.desc;
+    private void checkAccess(List<? super PatchInstance> patches) {
+        this.cleanToDirty.forEach((cleanMethod, dirtyMethod) -> {
+            String dirtyQualifier = dirtyMethod.name + dirtyMethod.desc;
 
-            this.cleanMethods.forEach((cleanName, cleanMethod) -> {
-                String cleanQualifier = cleanMethod.name + cleanMethod.desc;
+            if ((cleanMethod.access & Opcodes.ACC_STATIC) != 0 && (dirtyMethod.access & Opcodes.ACC_STATIC) == 0) {
+                logHeader();
+                LOGGER.info("UNSTATIC method {}", dirtyQualifier);
 
-                if (qualifier.equals(cleanQualifier)) {
-                    if ((cleanMethod.access & Opcodes.ACC_STATIC) != 0 && (dirtyMethod.access & Opcodes.ACC_STATIC) == 0) {
-                        logHeader();
-                        LOGGER.info("UNSTATIC method {}", qualifier);
-
-                        PatchImpl patch = (PatchImpl) Patch.builder()
-                            .targetClass(this.dirtyNode.name)
-                            .targetMethod(qualifier)
-                            .modifyMethodAccess(new ModifyMethodAccess.AccessChange(false, Opcodes.ACC_STATIC))
-                            .build();
-                        patches.add(patch);
-                    } else if ((cleanMethod.access & Opcodes.ACC_STATIC) == 0 && (dirtyMethod.access & Opcodes.ACC_STATIC) != 0) {
-                        logHeader();
-                        LOGGER.info("STATIC'd method {}", qualifier);
-                    }
-                }
-            });
+                PatchInstance patch = Patch.builder()
+                    .targetClass(this.dirtyNode.name)
+                    .targetMethod(dirtyQualifier)
+                    .modifyMethodAccess(new ModifyMethodAccess.AccessChange(false, Opcodes.ACC_STATIC))
+                    .build();
+                patches.add(patch);
+            } else if ((cleanMethod.access & Opcodes.ACC_STATIC) == 0 && (dirtyMethod.access & Opcodes.ACC_STATIC) != 0) {
+                logHeader();
+                LOGGER.info("STATIC'd method {}", dirtyQualifier);
+            }
         });
     }
 
-    private void findExpandedMethods(List<? super PatchImpl> patches, Set<String> replacedMethods) {
+    private void findExpandedMethods(List<? super PatchInstance> patches, Map<? super String, String> replacementCalls) {
         // Find "expanded" methods where forge replaces a dirtyMethod with one that takes in additional parameters
         this.cleanOnlyMethods.forEach((name, method) -> {
             // Skip lambdas for now
@@ -323,57 +308,49 @@ public class ClassAnalyzer {
             this.dirtyOnlyMethods.forEach((dirtyName, dirtyMethod) -> {
                 // Skip lambdas for now
                 if (!dirtyMethod.name.startsWith(LAMBDA_PREFIX)) {
-                    tryFindExpandedMethod(patches, replacedMethods, method, dirtyMethod, true);
+                    tryFindExpandedMethod(patches, replacementCalls, method, dirtyMethod);
                 }
             });
         });
     }
 
-    private void findExpandedLambdas(List<? super PatchImpl> patches, Set<String> replacedMethods) {
-        this.dirtyCommonMethods.forEach((dirtyName, dirtyMethod) -> {
-            String qualifier = dirtyMethod.name + dirtyMethod.desc;
+    private void findExpandedLambdas(List<? super PatchInstance> patches, Map<? super String, String> replacementCalls) {
+        this.cleanToDirty.forEach((cleanMethod, dirtyMethod) -> {
+            // Find lambdas sorted by their call order. This increases our precision when looking for replaced lambdas that had their suffix number changed.
+            List<String> cleanLambdas = findLambdasInMethod(this.cleanNode, cleanMethod);
+            List<String> dirtyLambdas = findLambdasInMethod(this.dirtyNode, dirtyMethod);
+            for (int cleanIdx = 0, dirtyIdx = 0; cleanIdx < cleanLambdas.size() && dirtyIdx < dirtyLambdas.size(); ) {
+                String cleanLambda = cleanLambdas.get(cleanIdx);
+                String dirtyLambda = dirtyLambdas.get(cleanIdx);
+                if (cleanLambda.equals(dirtyLambda)) {
+                    cleanIdx++;
+                    dirtyIdx++;
+                } else {
+                    boolean noDirty;
+                    // Lambda removed in Forge, ignore
+                    if (noDirty = !dirtyLambdas.contains(cleanLambda)) {
+                        cleanIdx++;
+                    }
+                    // Lambda added by Forge, ignore
+                    if (!cleanLambdas.contains(dirtyLambda)) {
+                        dirtyIdx++;
 
-            this.cleanMethods.forEach((cleanName, cleanMethod) -> {
-                String cleanQualifier = cleanMethod.name + cleanMethod.desc;
-
-                if (qualifier.equals(cleanQualifier)) {
-                    // Find lambdas sorted by their call order. This increases our precision when looking for replaced lambdas that had their suffix number changed.
-                    List<String> cleanLambdas = findLambdasInMethod(this.cleanNode, cleanMethod);
-                    List<String> dirtyLambdas = findLambdasInMethod(this.dirtyNode, dirtyMethod);
-                    for (int cleanIdx = 0, dirtyIdx = 0; cleanIdx < cleanLambdas.size() && dirtyIdx < dirtyLambdas.size(); ) {
-                        String cleanLambda = cleanLambdas.get(cleanIdx);
-                        String dirtyLambda = dirtyLambdas.get(cleanIdx);
-                        if (cleanLambda.equals(dirtyLambda)) {
-                            cleanIdx++;
-                            dirtyIdx++;
-                        } else {
-                            boolean noDirty;
-                            // Lambda removed in Forge, ignore
-                            if (noDirty = !dirtyLambdas.contains(cleanLambda)) {
-                                cleanIdx++;
-                            }
-                            // Lambda added by Forge, ignore
-                            if (!cleanLambdas.contains(dirtyLambda)) {
-                                dirtyIdx++;
-
-                                // Lambda (likely) modified by Forge, proceed
-                                if (noDirty) {
-                                    MethodNode cleanLambdaMethod = findUniqueMethod(this.cleanMethods, cleanLambda);
-                                    MethodNode dirtyLambdaMethod = findUniqueMethod(this.dirtyMethods, dirtyLambda);
-                                    tryFindExpandedMethod(patches, replacedMethods, cleanLambdaMethod, dirtyLambdaMethod, false);
-                                }
-                            } else {
-                                cleanIdx++;
-                                dirtyIdx++;
-                            }
+                        // Lambda (likely) modified by Forge, proceed
+                        if (noDirty) {
+                            MethodNode cleanLambdaMethod = findUniqueMethod(this.cleanMethods, cleanLambda);
+                            MethodNode dirtyLambdaMethod = findUniqueMethod(this.dirtyMethods, dirtyLambda);
+                            tryFindExpandedMethod(patches, replacementCalls, cleanLambdaMethod, dirtyLambdaMethod);
                         }
+                    } else {
+                        cleanIdx++;
+                        dirtyIdx++;
                     }
                 }
-            });
+            }
         });
     }
 
-    private void tryFindExpandedMethod(List<? super PatchImpl> patches, Set<String> replacedMethods, MethodNode clean, MethodNode dirty, boolean strictParams) {
+    private void tryFindExpandedMethod(List<? super PatchInstance> patches, Map<? super String, String> replacementCalls, MethodNode clean, MethodNode dirty) {
         // Skip methods with different return types
         if (!Type.getReturnType(clean.desc).equals(Type.getReturnType(dirty.desc))
             // Make an educated guess and assume all dirtyMethod replacements keep the same name.
@@ -384,25 +361,29 @@ public class ClassAnalyzer {
 
         Type[] parameterTypes = Type.getArgumentTypes(clean.desc);
         Type[] dirtyParameterTypes = Type.getArgumentTypes(dirty.desc);
-        if (parameterTypes.length > 0 && parameterTypes.length < dirtyParameterTypes.length && checkParameters(parameterTypes, dirtyParameterTypes, strictParams)) {
-            String methodQualifier = clean.name + clean.desc;
-            logHeader();
-            LOGGER.info("REPLACE");
-            LOGGER.info("   " + methodQualifier);
-            LOGGER.info("\\> " + dirty.name + dirty.desc);
-            LOGGER.info("===");
+        if (parameterTypes.length > 0 && parameterTypes.length < dirtyParameterTypes.length) {
+            ParametersDiff diff = ParametersDiff.compareMethodParameters(clean, dirty);
+            if (!diff.isEmpty()) {
+                String cleanQualifier = clean.name + clean.desc;
+                String dirtyQualifier = dirty.name + dirty.desc;
+                logHeader();
+                LOGGER.info("REPLACE");
+                LOGGER.info("   {}", cleanQualifier);
+                LOGGER.info("\\> {}",dirtyQualifier);
+                LOGGER.info("===");
 
-            if (!replacedMethods.add(methodQualifier)) {
-                throw new IllegalStateException("Duplicate replacement for %s.%s".formatted(this.cleanNode.name, methodQualifier));
+                if (replacementCalls.put(Type.getObjectType(this.dirtyNode.name).getDescriptor() + dirtyQualifier, Type.getObjectType(this.cleanNode.name).getDescriptor() + cleanQualifier) != null) {
+                    throw new IllegalStateException("Duplicate replacement for %s.%s".formatted(this.cleanNode.name, cleanQualifier));
+                }
+
+                PatchInstance patch = Patch.builder()
+                    .targetClass(this.dirtyNode.name)
+                    .targetMethod(cleanQualifier)
+                    .modifyTarget(dirtyQualifier)
+                    .transform(ModifyMethodParams.create(diff, false))
+                    .build();
+                patches.add(patch);
             }
-
-            PatchImpl patch = (PatchImpl) Patch.builder()
-                .targetClass(this.dirtyNode.name)
-                .targetMethod(methodQualifier)
-                .modifyTarget(dirty.name + dirty.desc)
-                .setParams(Arrays.asList(dirtyParameterTypes))
-                .build();
-            patches.add(patch);
         }
     }
 
@@ -424,48 +405,15 @@ public class ClassAnalyzer {
         return list;
     }
 
-    private MethodNode findUniqueMethod(Multimap<String, MethodNode> methods, String name) {
-        Collection<MethodNode> values = methods.get(name);
-        if (values != null) {
-            if (values.size() > 1) {
-                throw new IllegalStateException("Found multiple candidates for method " + name);
-            }
-            return values.iterator().next();
-        }
-        throw new NullPointerException("Method " + name + " not found");
-    }
-
-    private boolean checkParameters(MethodNode clean, MethodNode dirty, boolean strict) {
-        return checkParameters(Type.getArgumentTypes(clean.desc), Type.getArgumentTypes(dirty.desc), strict);
-    }
-
-    // Check if dirtyMethod begins with cleanMethod's params
-    private boolean checkParameters(Type[] parameterTypes, Type[] dirtyParameterTypes, boolean strict) {
-        if (parameterTypes.length > dirtyParameterTypes.length) {
-            return false;
-        }
-        int i = 0;
-        for (int j = 0; i < parameterTypes.length && j < dirtyParameterTypes.length; j++) {
-            Type type = dirtyParameterTypes[j];
-            if (!parameterTypes[i].equals(type)) {
-                if (strict) {
-                    return false;
-                } else {
-                    continue;
-                }
-            }
-            i++;
-        }
-        return true;
-    }
-
-    private boolean isAnonymousClass() {
-        // Regex: second to last char in class name must be '$', and the class name must end with a number
-        return this.dirtyNode.name.matches("^.+\\$\\d+$");
+    private String remapMethodName(ClassNode cls, String name, String desc) {
+        return Optional.ofNullable(this.mappings.getClass(cls.name))
+            .map(c -> c.getMethod(name, desc))
+            .map(IMappingFile.INode::getMapped)
+            .orElse(name);
     }
 
     @Nullable
-    private MethodNode findOverloadMethod(final String owner, final MethodNode method, final Collection<MethodNode> others) {
+    private static MethodNode findOverloadMethod(final String owner, final MethodNode method, final Collection<MethodNode> others) {
         List<MethodNode> found = new ArrayList<>();
         for (final MethodNode other : others) {
             if (!checkParameters(other, method, true)) {
@@ -507,7 +455,42 @@ public class ClassAnalyzer {
         return found.size() == 1 ? found.get(0) : null;
     }
 
-    private Multimap<String, MethodNode> indexClassMethods(ClassNode classNode) {
+    private static MethodNode findUniqueMethod(Multimap<String, MethodNode> methods, String name) {
+        Collection<MethodNode> values = methods.get(name);
+        if (values != null) {
+            if (values.size() > 1) {
+                throw new IllegalStateException("Found multiple candidates for method " + name);
+            }
+            return values.iterator().next();
+        }
+        throw new NullPointerException("Method " + name + " not found");
+    }
+
+    private static boolean checkParameters(MethodNode clean, MethodNode dirty, boolean strict) {
+        return checkParameters(Type.getArgumentTypes(clean.desc), Type.getArgumentTypes(dirty.desc), strict);
+    }
+
+    // Check if dirtyMethod begins with cleanMethod's params
+    private static boolean checkParameters(Type[] parameterTypes, Type[] dirtyParameterTypes, boolean strict) {
+        if (parameterTypes.length > dirtyParameterTypes.length) {
+            return false;
+        }
+        int i = 0;
+        for (int j = 0; i < parameterTypes.length && j < dirtyParameterTypes.length; j++) {
+            Type type = dirtyParameterTypes[j];
+            if (!parameterTypes[i].equals(type)) {
+                if (strict) {
+                    return false;
+                } else {
+                    continue;
+                }
+            }
+            i++;
+        }
+        return true;
+    }
+
+    private static Multimap<String, MethodNode> indexClassMethods(ClassNode classNode) {
         final Multimap<String, MethodNode> methods = HashMultimap.create();
         for (MethodNode method : classNode.methods) {
             methods.put(method.name, method);
@@ -515,15 +498,8 @@ public class ClassAnalyzer {
         return methods;
     }
 
-    private String remapMethodName(ClassNode cls, String name, String desc) {
-        return Optional.ofNullable(this.mappings.getClass(cls.name))
-            .map(c -> c.getMethod(name, desc))
-            .map(IMappingFile.INode::getMapped)
-            .orElse(name);
-    }
-
-    private static boolean isAnonymousInnerClass(String name) {
-        String[] array = name.split("\\$");
-        return array.length > 1 && array[array.length - 1].matches("[0-9]+");
+    private static boolean isAnonymousClass(String name) {
+        // Regex: second to last char in class name must be '$', and the class name must end with a number
+        return name.matches("^.+\\$\\d+$");
     }
 }

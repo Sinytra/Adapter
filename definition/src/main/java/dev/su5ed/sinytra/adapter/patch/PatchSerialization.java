@@ -16,9 +16,8 @@ public class PatchSerialization {
         .put("change_modified_variable", ChangeModifiedVariableIndex.CODEC)
         .put("modify_injection_point", ModifyInjectionPoint.CODEC)
         .put("modify_injection_target", ModifyInjectionTarget.CODEC)
-        .put("set_method_params", SetMethodParams.CODEC)
-        .put("set_target_params", SetTargetParams.CODEC)
         .put("modfiy_access", ModifyMethodAccess.CODEC)
+        .put("modify_method", ModifyMethodParams.CODEC)
         .build();
 
     public static final Codec<MethodTransform> METHOD_TRANSFORM_CODEC =
@@ -34,15 +33,15 @@ public class PatchSerialization {
         return Objects.requireNonNull(TRANSFORMER_CODECS.inverse().get(transform.codec()), "Missing name for transformer " + transform);
     }
 
-    public static <T> T serialize(List<PatchImpl> patches, DynamicOps<T> dynamicOps) {
-        DataResult<T> result = PatchImpl.CODEC.listOf().encodeStart(dynamicOps, patches);
+    public static <T> T serialize(List<PatchInstance> patches, DynamicOps<T> dynamicOps) {
+        DataResult<T> result = PatchInstance.CODEC.listOf().encodeStart(dynamicOps, patches);
         return result.getOrThrow(false, s -> {
             throw new RuntimeException("Error serializing patches: " + s);
         });
     }
 
-    public static <T> List<PatchImpl> deserialize(T patches, DynamicOps<T> dynamicOps) {
-        return PatchImpl.CODEC.listOf().decode(dynamicOps, patches).getOrThrow(false, s -> {
+    public static <T> List<PatchInstance> deserialize(T patches, DynamicOps<T> dynamicOps) {
+        return PatchInstance.CODEC.listOf().decode(dynamicOps, patches).getOrThrow(false, s -> {
             throw new RuntimeException("Error deserializing patches: " + s);
         }).getFirst();
     }

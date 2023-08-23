@@ -6,13 +6,15 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.su5ed.sinytra.adapter.patch.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.MethodTransform;
 import dev.su5ed.sinytra.adapter.patch.PatchContext;
-import dev.su5ed.sinytra.adapter.patch.PatchImpl;
+import dev.su5ed.sinytra.adapter.patch.PatchInstance;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.slf4j.Logger;
 
 import java.util.Map;
+
+import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
 public record ChangeModifiedVariableIndex(int start, int offset) implements MethodTransform {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -28,12 +30,12 @@ public record ChangeModifiedVariableIndex(int start, int offset) implements Meth
     
     @Override
     public boolean apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
-        return PatchImpl.<Integer>findAnnotationValue(annotation.values, "index")
+        return PatchInstance.<Integer>findAnnotationValue(annotation.values, "index")
             .filter(index -> index.get() > -1)
             .map(handle -> {
                 int index = handle.get();
                 int newIndex = index >= this.start ? index + this.offset : index;
-                LOGGER.info("Updating variable index of variable modifier method {}.{} to {}", classNode.name, methodNode.name, newIndex);
+                LOGGER.info(MIXINPATCH, "Updating variable index of variable modifier method {}.{} to {}", classNode.name, methodNode.name, newIndex);
                 handle.set(newIndex);
                 return true;
             })

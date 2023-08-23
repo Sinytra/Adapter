@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "dev.su5ed.sinytra.adapter"
-version = "1.0.5"
+version = "1.1.0"
 
 java {
     toolchain {
@@ -34,6 +34,13 @@ dependencies {
     api(group = "org.ow2.asm", name = "asm-tree")
     api(group = "org.ow2.asm", name = "asm-analysis")
     api(group = "org.ow2.asm", name = "asm-util")
+
+    testImplementation(platform("org.junit:junit-bom:5.9.1"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 publishing {
@@ -42,11 +49,11 @@ publishing {
             from(components["java"])
         }
     }
-    repositories { 
-        maven { 
+    repositories {
+        maven {
             name = "Su5eD"
             url = uri("https://maven.su5ed.dev/releases")
-            credentials { 
+            credentials {
                 username = System.getenv("MAVEN_USERNAME") ?: "not"
                 password = System.getenv("MAVEN_PASSWORD") ?: "set"
             }

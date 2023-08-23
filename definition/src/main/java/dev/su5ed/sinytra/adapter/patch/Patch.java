@@ -1,17 +1,15 @@
 package dev.su5ed.sinytra.adapter.patch;
 
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
-import org.jetbrains.annotations.Nullable;
-import org.objectweb.asm.Type;
+import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import org.objectweb.asm.tree.ClassNode;
 
-import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
-public interface Patch {
+public sealed interface Patch permits PatchInstance {
     String INJECT = "Lorg/spongepowered/asm/mixin/injection/Inject;";
     String REDIRECT = "Lorg/spongepowered/asm/mixin/injection/Redirect;";
     String MODIFY_ARG = "Lorg/spongepowered/asm/mixin/injection/ModifyArg;";
@@ -25,7 +23,7 @@ public interface Patch {
     Pattern METHOD_REF_PATTERN = Pattern.compile("^(?<owner>L[a-zA-Z0-9/_$]+;)?(?<name>[a-zA-Z0-9_]+|<[a-z0-9_]+>)(?<desc>\\((?:\\[?[VZCBSIFJD]|\\[?L[a-zA-Z0-9/_$]+;)*\\)(?:[VZCBSIFJD]|\\[?L[a-zA-Z0-9/_;$]+))$");
 
     static Builder builder() {
-        return new PatchImpl.BuilderImpl();
+        return new PatchInstance.BuilderImpl();
     }
 
     boolean apply(ClassNode classNode, MixinRemaper remaper);
@@ -39,34 +37,30 @@ public interface Patch {
 
         Builder targetAnnotationValues(Predicate<Map<String, AnnotationValueHandle<?>>> values);
 
-        Builder targetInjectionPoint(String target);
+        default Builder targetInjectionPoint(String target) {
+            return targetInjectionPoint(null, target);
+        }
 
         Builder targetInjectionPoint(String value, String target);
 
-        Builder modifyInjectionPoint(String target);
+        default Builder modifyInjectionPoint(String target) {
+            return modifyInjectionPoint(null, target);
+        }
 
         Builder modifyInjectionPoint(String value, String target);
 
-        Builder modifyParams(Consumer<List<Type>> operator);
-
-        Builder modifyParams(Consumer<List<Type>> operator, @Nullable LVTFixer lvtFixer);
-
-        Builder setParams(List<Type> parameters);
-
-        // Modify the parameters in accordance with the injection point's signature.
-        // Useful for redirects
-        Builder setTargetParams(List<Type> parameters);
+        Builder modifyParams(Consumer<ModifyMethodParams.Builder> consumer);
 
         Builder modifyTarget(String... methods);
 
         Builder modifyVariableIndex(int start, int offset);
-        
+
         Builder modifyMethodAccess(ModifyMethodAccess.AccessChange... changes);
 
         Builder disable();
 
         Builder transform(MethodTransform transformer);
 
-        Patch build();
+        PatchInstance build();
     }
 }
