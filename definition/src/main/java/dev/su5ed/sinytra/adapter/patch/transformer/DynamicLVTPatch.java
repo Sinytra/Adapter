@@ -91,6 +91,10 @@ public class DynamicLVTPatch implements MethodTransform {
         // Find target instructions
         List<AbstractInsnNode> insns = new ArrayList<>();
         injectionPoint.find(targetMethod.desc, targetMethod.instructions, insns);
+        if (insns.isEmpty()) {
+            LOGGER.debug("Skipping LVT patch, no target instructions found");
+            return false;
+        }
         if (insns.size() > 1) {
             LOGGER.debug("Skipping LVT patch due to multiple target instructions: {}", insns.size());
             return false;

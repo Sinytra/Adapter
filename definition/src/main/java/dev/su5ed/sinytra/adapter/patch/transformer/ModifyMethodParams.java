@@ -29,8 +29,8 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
     ).apply(instance, (insertions, replacements, targetInjectionPoint) -> new ModifyMethodParams(insertions, replacements, targetInjectionPoint, null)));
 
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final Set<String> METHOD_TARGETS = Set.of(Patch.INJECT, Patch.MODIFY_ARG, Patch.OVERWRITE, Patch.MODIFY_VAR);
-    private static final Set<String> INJECTION_TARGETS = Set.of(Patch.REDIRECT);
+    private static final Set<String> METHOD_TARGETS = Set.of(Patch.INJECT, Patch.OVERWRITE, Patch.MODIFY_VAR);
+    private static final Set<String> INJECTION_TARGETS = Set.of(Patch.REDIRECT, Patch.MODIFY_ARG);
 
     public static ModifyMethodParams create(String cleanMethodDesc, String dirtyMethodDesc, boolean targetInjectionPoint) {
         ParametersDiff diff = ParametersDiff.compareTypeParameters(Type.getArgumentTypes(cleanMethodDesc), Type.getArgumentTypes(dirtyMethodDesc));
