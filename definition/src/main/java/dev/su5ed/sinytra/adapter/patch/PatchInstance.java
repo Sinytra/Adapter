@@ -61,14 +61,14 @@ public final class PatchInstance implements Patch {
     }
 
     @Override
-    public boolean apply(ClassNode classNode, MixinRemaper remaper) {
+    public boolean apply(ClassNode classNode, PatchEnvironment environment) {
         boolean applied = false;
-        PatchContext context = new PatchContext();
+        PatchContext context = new PatchContext(classNode, environment);
         Pair<Boolean, @Nullable AnnotationValueHandle<?>> classTarget = checkClassTarget(classNode, this.targetClasses);
         if (classTarget.getFirst()) {
             AnnotationValueHandle<?> classAnnotation = classTarget.getSecond();
             for (MethodNode method : classNode.methods) {
-                Pair<AnnotationNode, Map<String, AnnotationValueHandle<?>>> annotationValues = checkMethodTarget(classNode.name, method, remaper).orElse(null);
+                Pair<AnnotationNode, Map<String, AnnotationValueHandle<?>>> annotationValues = checkMethodTarget(classNode.name, method, environment).orElse(null);
                 if (annotationValues != null) {
                     Map<String, AnnotationValueHandle<?>> map = new HashMap<>(annotationValues.getSecond());
                     if (classAnnotation != null) {
@@ -107,7 +107,7 @@ public final class PatchInstance implements Patch {
                 String name = matcher.group("name");
                 String desc = matcher.group("desc");
 
-                String mappedName = MixinRemaper.remapMethodName(name);
+                String mappedName = PatchEnvironment.remapMethodName(name);
                 this.target = Objects.requireNonNullElse(owner, "") + mappedName + Objects.requireNonNullElse(desc, "");
             } else {
                 this.target = target;
@@ -150,7 +150,7 @@ public final class PatchInstance implements Patch {
         return Pair.of(false, null);
     }
 
-    private Optional<Pair<AnnotationNode, Map<String, AnnotationValueHandle<?>>>> checkMethodTarget(String owner, MethodNode method, MixinRemaper remaper) {
+    private Optional<Pair<AnnotationNode, Map<String, AnnotationValueHandle<?>>>> checkMethodTarget(String owner, MethodNode method, PatchEnvironment remaper) {
         if (method.visibleAnnotations != null) {
             for (AnnotationNode annotation : method.visibleAnnotations) {
                 if (this.targetAnnotations.isEmpty() || this.targetAnnotations.contains(annotation.desc)) {
@@ -164,7 +164,7 @@ public final class PatchInstance implements Patch {
         return Optional.empty();
     }
 
-    private Optional<Map<String, AnnotationValueHandle<?>>> checkAnnotation(String owner, MethodNode method, AnnotationNode annotation, MixinRemaper remaper) {
+    private Optional<Map<String, AnnotationValueHandle<?>>> checkAnnotation(String owner, MethodNode method, AnnotationNode annotation, PatchEnvironment remaper) {
         if (annotation.desc.equals(Patch.OVERWRITE)) {
             if (this.targetMethods.isEmpty() || this.targetMethods.stream().anyMatch(matcher -> matcher.matches(method.name, method.desc))) {
                 return Optional.of(Map.of());
@@ -204,7 +204,7 @@ public final class PatchInstance implements Patch {
         return Optional.empty();
     }
 
-    private Optional<Map<String, AnnotationValueHandle<?>>> checkInjectionPoint(String owner, AnnotationNode annotation, MixinRemaper remaper) {
+    private Optional<Map<String, AnnotationValueHandle<?>>> checkInjectionPoint(String owner, AnnotationNode annotation, PatchEnvironment remaper) {
         return PatchInstance.findAnnotationValue(annotation.values, "at")
             .map(handle -> {
                 Object value = handle.get();
@@ -250,7 +250,7 @@ public final class PatchInstance implements Patch {
         public MethodMatcher(String method) {
             int descIndex = method.indexOf('(');
             String name = descIndex == -1 ? method : method.substring(0, descIndex);
-            this.name = MixinRemaper.remapMethodName(name);
+            this.name = PatchEnvironment.remapMethodName(name);
             this.desc = descIndex == -1 ? null : method.substring(descIndex);
         }
 

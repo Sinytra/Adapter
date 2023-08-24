@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "dev.su5ed.sinytra.adapter"
-version = "1.1.2"
+version = "1.2.0"
 
 java {
     toolchain {
@@ -19,6 +19,10 @@ repositories {
         name = "Minecraft"
         url = uri("https://libraries.minecraft.net")
     }
+    maven {
+        name = "Sponge"
+        url = uri("https://repo.spongepowered.org/repository/maven-public")
+    }
 }
 
 dependencies {
@@ -26,6 +30,7 @@ dependencies {
     implementation(group = "com.mojang", name = "logging", version = "1.1.1")
     implementation(group = "com.google.guava", "guava", version = "32.1.2-jre")
     implementation(group = "org.slf4j", "slf4j-api", "2.0.0")
+    implementation(group = "org.spongepowered", name = "mixin", version = "0.8.5")
     compileOnly(group = "org.jetbrains", name = "annotations", version = "24.0.1")
 
     api(platform("org.ow2.asm:asm-bom:9.5"))

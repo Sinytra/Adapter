@@ -4,7 +4,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-public class MixinRemaper {
+public class PatchEnvironment {
     private static Function<String, String> matcherRemapper;
 
     // Ugly stateful codec hack to allow us to remap srg -> moj when deserializing values
@@ -13,12 +13,12 @@ public class MixinRemaper {
     }
 
     public static void setMatcherRemapper(Function<String, String> matcherRemapper) {
-        MixinRemaper.matcherRemapper = matcherRemapper;
+        PatchEnvironment.matcherRemapper = matcherRemapper;
     }
 
     private final Map<String, Map<String, String>> refmap;
 
-    public MixinRemaper(Map<String, Map<String, String>> refmap) {
+    public PatchEnvironment(Map<String, Map<String, String>> refmap) {
         this.refmap = refmap;
     }
 

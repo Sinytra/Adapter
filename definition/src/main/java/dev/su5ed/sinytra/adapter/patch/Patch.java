@@ -30,7 +30,7 @@ public sealed interface Patch permits PatchInstance {
         return new PatchInstance.BuilderImpl();
     }
 
-    boolean apply(ClassNode classNode, MixinRemaper remaper);
+    boolean apply(ClassNode classNode, PatchEnvironment remaper);
 
     interface Builder {
         Builder targetClass(String... targets);
