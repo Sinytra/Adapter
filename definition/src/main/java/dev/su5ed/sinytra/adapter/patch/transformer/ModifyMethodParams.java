@@ -5,6 +5,7 @@ import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.su5ed.sinytra.adapter.patch.*;
+import dev.su5ed.sinytra.adapter.patch.util.ExtraCodecs;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -20,7 +21,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
                                  @Nullable LVTFixer lvtFixer) implements MethodTransform {
     public static final Codec<Pair<Integer, Type>> MODIFICATION_CODEC = Codec.pair(
         Codec.INT.fieldOf("index").codec(),
-        CodecUtil.TYPE_CODEC.fieldOf("type").codec()
+        ExtraCodecs.TYPE_CODEC.fieldOf("type").codec()
     );
     public static final Codec<ModifyMethodParams> CODEC = RecordCodecBuilder.create(instance -> instance.group(
         MODIFICATION_CODEC.listOf().optionalFieldOf("insertions", List.of()).forGetter(ModifyMethodParams::insertions),

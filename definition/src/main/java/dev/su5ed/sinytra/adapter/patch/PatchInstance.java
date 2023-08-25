@@ -1,7 +1,6 @@
 package dev.su5ed.sinytra.adapter.patch;
 
 import com.mojang.datafixers.util.Pair;
-import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -11,7 +10,6 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.slf4j.Logger;
 import org.slf4j.Marker;
 import org.slf4j.MarkerFactory;
 
@@ -25,9 +23,7 @@ public final class PatchInstance implements Patch {
     private static final String MIXIN_ANN = "Lorg/spongepowered/asm/mixin/Mixin;";
     private static final String OWNER_PREFIX = "^(?<owner>L(?:.*?)+;)";
     private static final Collection<String> KNOWN_MIXIN_TYPES = Set.of(Patch.INJECT, Patch.REDIRECT, Patch.MODIFY_ARG, Patch.MODIFY_VAR, Patch.MODIFY_CONST, Patch.MODIFY_EXPR_VAL, Patch.WRAP_OPERATION);
-    private static final Collection<String> IGNORED_MIXIN_TYPES = Set.of(Patch.SHADOW, Patch.ACCESSOR, Patch.INVOKER);
 
-    private static final Logger LOGGER = LogUtils.getLogger();
     public static final Marker MIXINPATCH = MarkerFactory.getMarker("MIXINPATCH");
     public static final Codec<PatchInstance> CODEC = RecordCodecBuilder
         .<PatchInstance>create(instance -> instance.group(
@@ -198,8 +194,6 @@ public final class PatchInstance implements Patch {
                     }
                     return Optional.empty();
                 });
-        } else if (!IGNORED_MIXIN_TYPES.contains(annotation.desc)) {
-            LOGGER.debug("Unhandled mixin annotation {} found", annotation.desc);
         }
         return Optional.empty();
     }

@@ -7,6 +7,7 @@ import dev.su5ed.sinytra.adapter.patch.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.MethodTransform;
 import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.PatchContext;
+import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -35,7 +36,10 @@ public record ModifyInjectionTarget(List<String> replacementMethods) implements 
             if (this.replacementMethods.size() > 1) {
                 throw new IllegalStateException("Cannot determine replacement @Overwrite method name, multiple specified: " + this.replacementMethods);
             }
-            methodNode.name = this.replacementMethods.get(0);
+            String replacement = this.replacementMethods.get(0);
+            MethodQualifier.create(replacement)
+                .map(MethodQualifier::name)
+                .ifPresent(str -> methodNode.name = str);
         } else {
             AnnotationValueHandle<List<String>> targetMethods = (AnnotationValueHandle<List<String>>) annotationValues.get("method");
             targetMethods.set(this.replacementMethods);
