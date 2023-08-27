@@ -144,7 +144,7 @@ public class DynamicLVTPatch implements MethodTransform {
             return false;
         }
         // Apply parameter patch
-        ModifyMethodParams paramTransform = ModifyMethodParams.create(offsetDiff, false);
+        ModifyMethodParams paramTransform = ModifyMethodParams.create(offsetDiff, ModifyMethodParams.TargetType.METHOD);
         return paramTransform.apply(classNode, methodNode, annotation, annotationValues, context);
     }
 

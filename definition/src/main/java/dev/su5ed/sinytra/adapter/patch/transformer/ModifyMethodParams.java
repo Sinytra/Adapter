@@ -17,7 +17,7 @@ import java.util.*;
 
 import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
-public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements, boolean targetInjectionPoint,
+public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements, TargetType targetType,
                                  @Nullable LVTFixer lvtFixer) implements MethodTransform {
     public static final Codec<Pair<Integer, Type>> MODIFICATION_CODEC = Codec.pair(
         Codec.INT.fieldOf("index").codec(),
@@ -26,20 +26,18 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
     public static final Codec<ModifyMethodParams> CODEC = RecordCodecBuilder.create(instance -> instance.group(
         MODIFICATION_CODEC.listOf().optionalFieldOf("insertions", List.of()).forGetter(ModifyMethodParams::insertions),
         MODIFICATION_CODEC.listOf().optionalFieldOf("replacements", List.of()).forGetter(ModifyMethodParams::replacements),
-        Codec.BOOL.optionalFieldOf("targetInjectionPoint", false).forGetter(ModifyMethodParams::targetInjectionPoint)
+        TargetType.CODEC.optionalFieldOf("targetInjectionPoint", TargetType.ALL).forGetter(ModifyMethodParams::targetType)
     ).apply(instance, (insertions, replacements, targetInjectionPoint) -> new ModifyMethodParams(insertions, replacements, targetInjectionPoint, null)));
 
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final Set<String> METHOD_TARGETS = Set.of(Patch.INJECT, Patch.OVERWRITE, Patch.MODIFY_VAR);
-    private static final Set<String> INJECTION_TARGETS = Set.of(Patch.REDIRECT, Patch.MODIFY_ARG);
 
-    public static ModifyMethodParams create(String cleanMethodDesc, String dirtyMethodDesc, boolean targetInjectionPoint) {
+    public static ModifyMethodParams create(String cleanMethodDesc, String dirtyMethodDesc, TargetType targetType) {
         ParametersDiff diff = ParametersDiff.compareTypeParameters(Type.getArgumentTypes(cleanMethodDesc), Type.getArgumentTypes(dirtyMethodDesc));
-        return new ModifyMethodParams(diff.insertions(), diff.replacements(), targetInjectionPoint, null);
+        return new ModifyMethodParams(diff.insertions(), diff.replacements(), targetType, null);
     }
 
-    public static ModifyMethodParams create(ParametersDiff diff, boolean targetInjectionPoint) {
-        return new ModifyMethodParams(diff.insertions(), diff.replacements(), targetInjectionPoint, null);
+    public static ModifyMethodParams create(ParametersDiff diff, TargetType targetType) {
+        return new ModifyMethodParams(diff.insertions(), diff.replacements(), targetType, null);
     }
 
     public static Builder builder() {
@@ -59,7 +57,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
 
     @Override
     public Collection<String> getAcceptedAnnotations() {
-        return this.targetInjectionPoint ? INJECTION_TARGETS : METHOD_TARGETS;
+        return this.targetType.getTargetMixinTypes();
     }
 
     @Override
@@ -173,10 +171,32 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
         return true;
     }
 
+    public enum TargetType {
+        ALL(Patch.INJECT, Patch.OVERWRITE, Patch.MODIFY_VAR, Patch.REDIRECT, Patch.MODIFY_ARG),
+        METHOD(Patch.INJECT, Patch.OVERWRITE, Patch.MODIFY_VAR),
+        INJECTION_POINT(Patch.REDIRECT, Patch.MODIFY_ARG);
+
+        public static final Codec<TargetType> CODEC = Codec.STRING.xmap(TargetType::from, TargetType::name);
+
+        private final Set<String> targetMixinTypes;
+
+        TargetType(String... targetMixinTypes) {
+            this.targetMixinTypes = new HashSet<>(Arrays.asList(targetMixinTypes));
+        }
+
+        public static TargetType from(String name) {
+            return valueOf(name.toUpperCase(Locale.ROOT));
+        }
+
+        public Set<String> getTargetMixinTypes() {
+            return this.targetMixinTypes;
+        }
+    } 
+
     public static class Builder {
         private final List<Pair<Integer, Type>> insertions = new ArrayList<>();
         private final List<Pair<Integer, Type>> replacements = new ArrayList<>();
-        private boolean targetInjectionPoint;
+        private TargetType targetType = TargetType.ALL;
         @Nullable
         private LVTFixer lvtFixer;
 
@@ -190,8 +210,8 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
             return this;
         }
 
-        public Builder targetInjectionPoint() {
-            this.targetInjectionPoint = true;
+        public Builder targetType(TargetType targetType) {
+            this.targetType = targetType;
             return this;
         }
 
@@ -201,7 +221,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
         }
 
         public ModifyMethodParams build() {
-            return new ModifyMethodParams(this.insertions, this.replacements, this.targetInjectionPoint, this.lvtFixer);
+            return new ModifyMethodParams(this.insertions, this.replacements, this.targetType, this.lvtFixer);
         }
     }
 }
