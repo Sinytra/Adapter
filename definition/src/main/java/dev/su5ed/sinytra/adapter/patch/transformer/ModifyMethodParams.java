@@ -88,6 +88,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
             Pair<Integer, Type> pair = insertionQueue.pop();
             int index = pair.getFirst();
             Type type = pair.getSecond();
+
             int lvtOrdinal = offset + index;
             int lvtIndex;
             if (index > offset) {
@@ -97,53 +98,13 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
                 lvtIndex = lvtOrdinal;
             }
             ParameterNode newParameter = new ParameterNode(null, Opcodes.ACC_SYNTHETIC);
-
             newParameterTypes.add(index, type);
-            if (index < methodNode.parameters.size()) methodNode.parameters.add(index, newParameter);
-            else methodNode.parameters.add(newParameter);
-            for (LocalVariableNode localVariable : methodNode.localVariables) {
-                if (localVariable.index >= lvtIndex) {
-                    localVariable.index++;
-                }
-            }
-            methodNode.localVariables.add(new LocalVariableNode("adapter_injected_" + index, type.getDescriptor(), null, self.start, self.end, lvtIndex));
+            methodNode.parameters.add(index, newParameter);
 
-            // TODO All visible/invisible annotations
-            if (methodNode.invisibleParameterAnnotations != null) {
-                List<List<AnnotationNode>> annotations = new ArrayList<>(Arrays.asList(methodNode.invisibleParameterAnnotations));
-                if (index < annotations.size()) {
-                    annotations.add(index, null);
-                    methodNode.invisibleParameterAnnotations = (List<AnnotationNode>[]) annotations.toArray(List[]::new);
-                    methodNode.invisibleAnnotableParameterCount = annotations.size();
-                }
-            }
-            if (methodNode.invisibleTypeAnnotations != null) {
-                List<TypeAnnotationNode> invisibleTypeAnnotations = methodNode.invisibleTypeAnnotations;
-                for (int j = 0; j < invisibleTypeAnnotations.size(); j++) {
-                    TypeAnnotationNode typeAnnotation = invisibleTypeAnnotations.get(j);
-                    TypeReference ref = new TypeReference(typeAnnotation.typeRef);
-                    int typeIndex = ref.getFormalParameterIndex();
-                    if (ref.getSort() == TypeReference.METHOD_FORMAL_PARAMETER && typeIndex >= index) {
-                        invisibleTypeAnnotations.set(j, new TypeAnnotationNode(TypeReference.newFormalParameterReference(typeIndex + 1).getValue(), typeAnnotation.typePath, typeAnnotation.desc));
-                    }
-                }
-            }
-            if (methodNode.visibleLocalVariableAnnotations != null) {
-                for (LocalVariableAnnotationNode localVariableAnnotation : methodNode.visibleLocalVariableAnnotations) {
-                    List<Integer> annotationIndices = localVariableAnnotation.index;
-                    for (int j = 0; j < annotationIndices.size(); j++) {
-                        Integer annoIndex = annotationIndices.get(j);
-                        if (annoIndex >= lvtIndex) {
-                            annotationIndices.set(j, annoIndex + 1);
-                        }
-                    }
-                }
-            }
-            for (AbstractInsnNode insn : methodNode.instructions) {
-                if (insn instanceof VarInsnNode varInsnNode && varInsnNode.var >= lvtIndex) {
-                    varInsnNode.var++;
-                }
-            }
+            int varOffset = type.equals(Type.DOUBLE_TYPE) || type.equals(Type.LONG_TYPE) ? 2 : 1;
+            offsetLVT(methodNode, index, lvtIndex, varOffset);
+
+            methodNode.localVariables.add(new LocalVariableNode("adapter_injected_" + index, type.getDescriptor(), null, self.start, self.end, lvtIndex));
         }
         this.replacements.forEach(pair -> {
             int index = pair.getFirst();
@@ -171,6 +132,52 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
         return true;
     }
 
+    private static void offsetLVT(MethodNode methodNode, int paramIndex, int lvtIndex, int offset) {
+        for (LocalVariableNode localVariable : methodNode.localVariables) {
+            if (localVariable.index >= lvtIndex) {
+                localVariable.index += offset;
+            }
+        }
+
+        for (AbstractInsnNode insn : methodNode.instructions) {
+            if (insn instanceof VarInsnNode varInsnNode && varInsnNode.var >= lvtIndex) {
+                varInsnNode.var += offset;
+            }
+        }
+
+        // TODO All visible/invisible annotations
+        if (methodNode.invisibleParameterAnnotations != null) {
+            List<List<AnnotationNode>> annotations = new ArrayList<>(Arrays.asList(methodNode.invisibleParameterAnnotations));
+            if (paramIndex < annotations.size()) {
+                annotations.add(paramIndex, null);
+                methodNode.invisibleParameterAnnotations = (List<AnnotationNode>[]) annotations.toArray(List[]::new);
+                methodNode.invisibleAnnotableParameterCount = annotations.size();
+            }
+        }
+        if (methodNode.invisibleTypeAnnotations != null) {
+            List<TypeAnnotationNode> invisibleTypeAnnotations = methodNode.invisibleTypeAnnotations;
+            for (int j = 0; j < invisibleTypeAnnotations.size(); j++) {
+                TypeAnnotationNode typeAnnotation = invisibleTypeAnnotations.get(j);
+                TypeReference ref = new TypeReference(typeAnnotation.typeRef);
+                int typeIndex = ref.getFormalParameterIndex();
+                if (ref.getSort() == TypeReference.METHOD_FORMAL_PARAMETER && typeIndex >= paramIndex) {
+                    invisibleTypeAnnotations.set(j, new TypeAnnotationNode(TypeReference.newFormalParameterReference(typeIndex + 1).getValue(), typeAnnotation.typePath, typeAnnotation.desc));
+                }
+            }
+        }
+        if (methodNode.visibleLocalVariableAnnotations != null) {
+            for (LocalVariableAnnotationNode localVariableAnnotation : methodNode.visibleLocalVariableAnnotations) {
+                List<Integer> annotationIndices = localVariableAnnotation.index;
+                for (int j = 0; j < annotationIndices.size(); j++) {
+                    Integer annoIndex = annotationIndices.get(j);
+                    if (annoIndex >= lvtIndex) {
+                        annotationIndices.set(j, annoIndex + 1);
+                    }
+                }
+            }
+        }
+    }
+
     public enum TargetType {
         ALL(Patch.INJECT, Patch.OVERWRITE, Patch.MODIFY_VAR, Patch.REDIRECT, Patch.MODIFY_ARG),
         METHOD(Patch.INJECT, Patch.OVERWRITE, Patch.MODIFY_VAR),
@@ -191,7 +198,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
         public Set<String> getTargetMixinTypes() {
             return this.targetMixinTypes;
         }
-    } 
+    }
 
     public static class Builder {
         private final List<Pair<Integer, Type>> insertions = new ArrayList<>();

@@ -85,7 +85,7 @@ public class DynamicLVTPatch implements MethodTransform {
             return false;
         }
         // Provide a minimum implementation of IMixinContext
-        IMixinContext mixinContext = new ClassMixinContext(classNode.name, context.getClassNode().name);
+        IMixinContext mixinContext = new ClassMixinContext(classNode.name, context.getClassNode().name, context.getEnvironment());
         // Parse injection point
         InjectionPoint injectionPoint = InjectionPoint.parse(mixinContext, methodNode, annotation, atNode);
         // Find target instructions
@@ -135,9 +135,18 @@ public class DynamicLVTPatch implements MethodTransform {
         if (!diff.replacements().isEmpty()) {
             LOGGER.debug("Tried to replace local variables in mixin method {}.{} using {}", classNode.name, methodNode.name + methodNode.desc, diff.replacements());
         }
+        // Find max local index
+        int maxLocal = 0;
+        for (int i = 0; i < expected.size() && maxLocal < available.size(); maxLocal++) {
+            if (!expected.get(i).equals(available.get(maxLocal))) {
+                continue;
+            }
+            i++;
+        }
+        final int finalMaxLocal = maxLocal;
         // Offset the insertion to the correct parameter indices
         // Also remove any appended variables
-        List<Pair<Integer, Type>> offsetInsertions = diff.insertions().stream().filter(pair -> pair.getFirst() < expected.size()).map(pair -> pair.mapFirst(i -> i + paramLocalPos)).toList();
+        List<Pair<Integer, Type>> offsetInsertions = diff.insertions().stream().filter(pair -> pair.getFirst() < finalMaxLocal).map(pair -> pair.mapFirst(i -> i + paramLocalPos)).toList();
         ParametersDiff offsetDiff = new ParametersDiff(diff.originalCount(), offsetInsertions, List.of());
         if (offsetDiff.isEmpty()) {
             // No changes required
@@ -161,7 +170,33 @@ public class DynamicLVTPatch implements MethodTransform {
         return list;
     }
 
-    public record ClassMixinContext(String className, String targetClass) implements IMixinContext {
+    private record ReferenceRemapper(PatchEnvironment env) implements IReferenceMapper {
+        @Override
+        public String remapWithContext(String context, String className, String reference) {
+            return this.env.remap(className, reference);
+        }
+
+        //@formatter:off
+        @Override public boolean isDefault() {return false;}
+        @Override public String getResourceName() {return null;}
+        @Override public String getStatus() {return null;}
+        @Override public String getContext() {return null;}
+        @Override public void setContext(String context) {}
+        @Override public String remap(String className, String reference) {return remapWithContext(null, className, reference);}
+        //@formatter:on
+    }
+
+    public static final class ClassMixinContext implements IMixinContext {
+        private final String className;
+        private final String targetClass;
+        private final ReferenceRemapper referenceRemapper;
+
+        public ClassMixinContext(String className, String targetClass, PatchEnvironment env) {
+            this.className = className;
+            this.targetClass = targetClass;
+            this.referenceRemapper = new ReferenceRemapper(env);
+        }
+
         @Override
         public IMixinInfo getMixin() {
             throw new UnsupportedOperationException();
@@ -189,7 +224,7 @@ public class DynamicLVTPatch implements MethodTransform {
 
         @Override
         public IReferenceMapper getReferenceMapper() {
-            return null;
+            return this.referenceRemapper;
         }
 
         @Override
