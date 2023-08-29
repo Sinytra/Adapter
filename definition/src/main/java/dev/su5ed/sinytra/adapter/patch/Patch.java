@@ -2,8 +2,10 @@ package dev.su5ed.sinytra.adapter.patch;
 
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -62,6 +64,8 @@ public sealed interface Patch permits PatchInstance {
         default Builder modifyInjectionPoint(String target) {
             return modifyInjectionPoint(null, target);
         }
+
+        Builder modifyTargetClasses(Consumer<List<Type>> consumer);
 
         Builder modifyInjectionPoint(String value, String target);
 

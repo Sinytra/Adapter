@@ -227,7 +227,7 @@ public final class PatchInstance implements Patch {
                 String atKey = (String) values.get(i);
                 if (atKey.equals(key)) {
                     int index = i + 1;
-                    return Optional.of(new AnnotationValueHandle<>(values, index));
+                    return Optional.of(new AnnotationValueHandle<>(values, index, key));
                 }
             }
         }
@@ -291,6 +291,11 @@ public final class PatchInstance implements Patch {
         public Builder targetInjectionPoint(String value, String target) {
             this.targetInjectionPoints.add(new InjectionPointMatcher(value, target));
             return this;
+        }
+
+        @Override
+        public Builder modifyTargetClasses(Consumer<List<Type>> consumer) {
+            return transform(new ModifyTargetClasses(consumer));
         }
 
         @Override
