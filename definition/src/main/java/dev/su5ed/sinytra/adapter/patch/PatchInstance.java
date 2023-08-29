@@ -57,8 +57,8 @@ public final class PatchInstance implements Patch {
     }
 
     @Override
-    public boolean apply(ClassNode classNode, PatchEnvironment environment) {
-        boolean applied = false;
+    public Result apply(ClassNode classNode, PatchEnvironment environment) {
+        Result result = Result.PASS;
         PatchContext context = new PatchContext(classNode, environment);
         Pair<Boolean, @Nullable AnnotationValueHandle<?>> classTarget = checkClassTarget(classNode, this.targetClasses);
         if (classTarget.getFirst()) {
@@ -74,14 +74,14 @@ public final class PatchInstance implements Patch {
                         AnnotationNode annotation = annotationValues.getFirst();
                         Collection<String> accepted = transform.getAcceptedAnnotations();
                         if (accepted.isEmpty() || accepted.contains(annotation.desc)) {
-                            applied |= transform.apply(classNode, method, annotationValues.getFirst(), map, context);
+                            result = result.or(transform.apply(classNode, method, annotationValues.getFirst(), map, context));
                         }
                     }
                 }
             }
             context.run();
         }
-        return applied;
+        return result;
     }
 
     private record InjectionPointMatcher(@Nullable String value, String target) {

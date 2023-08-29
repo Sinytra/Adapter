@@ -5,6 +5,7 @@ import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.su5ed.sinytra.adapter.patch.*;
+import dev.su5ed.sinytra.adapter.patch.Patch.Result;
 import dev.su5ed.sinytra.adapter.patch.util.ExtraCodecs;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
@@ -17,8 +18,8 @@ import java.util.*;
 
 import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
-public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements, TargetType targetType,
-                                 @Nullable LVTFixer lvtFixer) implements MethodTransform {
+public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements, List<Pair<Integer, Integer>> swap,
+                                 TargetType targetType, @Nullable LVTFixer lvtFixer) implements MethodTransform {
     public static final Codec<Pair<Integer, Type>> MODIFICATION_CODEC = Codec.pair(
         Codec.INT.fieldOf("index").codec(),
         ExtraCodecs.TYPE_CODEC.fieldOf("type").codec()
@@ -27,17 +28,17 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
         MODIFICATION_CODEC.listOf().optionalFieldOf("insertions", List.of()).forGetter(ModifyMethodParams::insertions),
         MODIFICATION_CODEC.listOf().optionalFieldOf("replacements", List.of()).forGetter(ModifyMethodParams::replacements),
         TargetType.CODEC.optionalFieldOf("targetInjectionPoint", TargetType.ALL).forGetter(ModifyMethodParams::targetType)
-    ).apply(instance, (insertions, replacements, targetInjectionPoint) -> new ModifyMethodParams(insertions, replacements, targetInjectionPoint, null)));
+    ).apply(instance, (insertions, replacements, targetInjectionPoint) -> new ModifyMethodParams(insertions, replacements, List.of(), targetInjectionPoint, null)));
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
     public static ModifyMethodParams create(String cleanMethodDesc, String dirtyMethodDesc, TargetType targetType) {
         ParametersDiff diff = ParametersDiff.compareTypeParameters(Type.getArgumentTypes(cleanMethodDesc), Type.getArgumentTypes(dirtyMethodDesc));
-        return new ModifyMethodParams(diff.insertions(), diff.replacements(), targetType, null);
+        return new ModifyMethodParams(diff.insertions(), diff.replacements(), List.of(), targetType, null);
     }
 
     public static ModifyMethodParams create(ParametersDiff diff, TargetType targetType) {
-        return new ModifyMethodParams(diff.insertions(), diff.replacements(), targetType, null);
+        return new ModifyMethodParams(diff.insertions(), diff.replacements(), List.of(), targetType, null);
     }
 
     public static Builder builder() {
@@ -45,7 +46,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
     }
 
     public ModifyMethodParams {
-        if (insertions.isEmpty() && replacements.isEmpty()) {
+        if (insertions.isEmpty() && replacements.isEmpty() && swap.isEmpty()) {
             throw new IllegalArgumentException("Method parameter transformation contains no changes");
         }
     }
@@ -61,8 +62,9 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
     }
 
     @Override
-    public boolean apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
-        List<Type> newParameterTypes = new ArrayList<>(Arrays.asList(Type.getArgumentTypes(methodNode.desc)));
+    public Result apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
+        Type[] params = Type.getArgumentTypes(methodNode.desc);
+        List<Type> newParameterTypes = new ArrayList<>(Arrays.asList(params));
         int offset = (methodNode.access & Opcodes.ACC_STATIC) == 0
             // If it's a redirect, the first param (index 1) is the object instance
             ? annotation.desc.equals(Patch.REDIRECT) ? 2 : 1
@@ -79,7 +81,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
                     }
                 });
             }
-            return true;
+            return Result.APPLY;
         }
 
         LocalVariableNode self = methodNode.localVariables.stream().filter(lvn -> lvn.index == 0).findFirst().orElseThrow();
@@ -88,6 +90,9 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
             Pair<Integer, Type> pair = insertionQueue.pop();
             int index = pair.getFirst();
             Type type = pair.getSecond();
+            if (index > params.length + 1) {
+                continue;
+            }
 
             int lvtOrdinal = offset + index;
             int lvtIndex;
@@ -123,13 +128,43 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
                 }
             }
         }
+        for (Pair<Integer, Integer> swapPair : this.swap) {
+            int from = swapPair.getFirst();
+            int to = swapPair.getSecond();
+            ParameterNode fromNode = methodNode.parameters.get(from);
+            ParameterNode toNode = methodNode.parameters.get(to);
+            methodNode.parameters.set(from, toNode);
+            methodNode.parameters.set(to, fromNode);
+            Type fromType = newParameterTypes.get(from);
+            Type toType = newParameterTypes.get(to);
+            newParameterTypes.set(from, toType);
+            newParameterTypes.set(to, fromType);
+            for (LocalVariableNode lvn : methodNode.localVariables) {
+                if (lvn.index == offset + from) {
+                    lvn.index = offset + to;
+                }
+                else if (lvn.index == offset + to) {
+                    lvn.index = offset + from;
+                }
+            }
+            for (AbstractInsnNode insn : methodNode.instructions) {
+                if (insn instanceof VarInsnNode varInsn) {
+                    if (varInsn.var == offset + from) {
+                        varInsn.var = offset + to;
+                    } else if (varInsn.var == offset + to) {
+                        varInsn.var = offset + from;
+                    }
+                }
+            }
+            LOGGER.info(MIXINPATCH, "Swapped parameters at positions {} and {}", from, to);
+        }
 
         Type returnType = Type.getReturnType(methodNode.desc);
         String newDesc = Type.getMethodDescriptor(returnType, newParameterTypes.toArray(Type[]::new));
         LOGGER.info(MIXINPATCH, "Changing descriptor of method {}.{}{} to {}", classNode.name, methodNode.name, methodNode.desc, newDesc);
         methodNode.desc = newDesc;
 
-        return true;
+        return !this.swap.isEmpty() ? Result.COMPUTE_FRAMES : Result.APPLY;
     }
 
     private static void offsetLVT(MethodNode methodNode, int paramIndex, int lvtIndex, int offset) {
@@ -203,6 +238,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
     public static class Builder {
         private final List<Pair<Integer, Type>> insertions = new ArrayList<>();
         private final List<Pair<Integer, Type>> replacements = new ArrayList<>();
+        private final List<Pair<Integer, Integer>> swap = new ArrayList<>();
         private TargetType targetType = TargetType.ALL;
         @Nullable
         private LVTFixer lvtFixer;
@@ -217,6 +253,11 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
             return this;
         }
 
+        public Builder swap(int original, int replacement) {
+            this.swap.add(Pair.of(original, replacement));
+            return this;
+        }
+
         public Builder targetType(TargetType targetType) {
             this.targetType = targetType;
             return this;
@@ -228,7 +269,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
         }
 
         public ModifyMethodParams build() {
-            return new ModifyMethodParams(this.insertions, this.replacements, this.targetType, this.lvtFixer);
+            return new ModifyMethodParams(this.insertions, this.replacements, this.swap, this.targetType, this.lvtFixer);
         }
     }
 }

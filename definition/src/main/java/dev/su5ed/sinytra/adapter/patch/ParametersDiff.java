@@ -85,7 +85,9 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
                         }
                     }
                     // If the param is not found, then it was likely replaced
-                    replacements.add(Pair.of(j, dirtyParam.type));
+                    if (dirtyParameters.size() != cleanParameters.size() || !cleanParam.type.equals(dirtyParam.type)) {
+                        replacements.add(Pair.of(j, dirtyParam.type));
+                    }
                 }
                 i++;
             }

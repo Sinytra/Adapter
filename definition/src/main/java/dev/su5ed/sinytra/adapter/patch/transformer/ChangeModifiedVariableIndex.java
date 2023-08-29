@@ -5,6 +5,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.su5ed.sinytra.adapter.patch.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.MethodTransform;
+import dev.su5ed.sinytra.adapter.patch.Patch.Result;
 import dev.su5ed.sinytra.adapter.patch.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.PatchInstance;
 import org.objectweb.asm.tree.AnnotationNode;
@@ -29,7 +30,7 @@ public record ChangeModifiedVariableIndex(int start, int offset) implements Meth
     }
     
     @Override
-    public boolean apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
+    public Result apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
         return PatchInstance.<Integer>findAnnotationValue(annotation.values, "index")
             .filter(index -> index.get() > -1)
             .map(handle -> {
@@ -37,8 +38,8 @@ public record ChangeModifiedVariableIndex(int start, int offset) implements Meth
                 int newIndex = index >= this.start ? index + this.offset : index;
                 LOGGER.info(MIXINPATCH, "Updating variable index of variable modifier method {}.{} to {}", classNode.name, methodNode.name, newIndex);
                 handle.set(newIndex);
-                return true;
+                return Result.APPLY;
             })
-            .orElse(false);
+            .orElse(Result.PASS);
     }
 }

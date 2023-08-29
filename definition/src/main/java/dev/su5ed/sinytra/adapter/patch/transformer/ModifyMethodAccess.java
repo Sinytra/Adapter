@@ -5,10 +5,11 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.su5ed.sinytra.adapter.patch.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.MethodTransform;
+import dev.su5ed.sinytra.adapter.patch.Patch.Result;
 import dev.su5ed.sinytra.adapter.patch.PatchContext;
-import org.objectweb.asm.tree.AnnotationNode;
-import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 
 import java.util.List;
@@ -35,23 +36,39 @@ public record ModifyMethodAccess(List<AccessChange> changes) implements MethodTr
     }
 
     @Override
-    public boolean apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
-        boolean modified = false;
+    public Result apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
+        Result result = Result.PASS;
         for (AccessChange change : this.changes) {
             if (change.add) {
                 if ((methodNode.access & change.modifier) == 0) {
                     LOGGER.info(MIXINPATCH, "Adding access modifier {} to method {}.{}{}", change.modifier, classNode.name, methodNode.name, methodNode.desc);
                     methodNode.access |= change.modifier;
-                    modified = true;
+                    result = Result.APPLY;
                 }
             } else {
                 if ((methodNode.access & change.modifier) != 0) {
                     LOGGER.info(MIXINPATCH, "Removing access modifier {} from method {}.{}{}", change.modifier, classNode.name, methodNode.name, methodNode.desc);
                     methodNode.access &= ~change.modifier;
-                    modified = true;
+                    if (change.modifier == Opcodes.ACC_STATIC) {
+                        LocalVariableNode firstParam = methodNode.localVariables.stream().filter(lvn -> lvn.index == 0).findFirst().orElseThrow();
+                        // Offset everything by 1
+                        for (LocalVariableNode lvn : methodNode.localVariables) {
+                            lvn.index++;
+                        }
+                        for (AbstractInsnNode insn : methodNode.instructions) {
+                            if (insn instanceof VarInsnNode varInsn) {
+                                varInsn.var++;
+                            }
+                        }
+                        // Insert instance local variable
+                        methodNode.localVariables.add(new LocalVariableNode("this", Type.getObjectType(classNode.name).getDescriptor(), null, firstParam.start, firstParam.end, 0));
+                        result = Result.COMPUTE_FRAMES;
+                    } else {
+                        result = Result.APPLY;
+                    }
                 }
             }
         }
-        return modified;
+        return result;
     }
 }

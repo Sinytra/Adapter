@@ -3,6 +3,7 @@ package dev.su5ed.sinytra.adapter.patch.transformer;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
 import dev.su5ed.sinytra.adapter.patch.*;
+import dev.su5ed.sinytra.adapter.patch.Patch.Result;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -35,16 +36,16 @@ public class DynamicLVTPatch implements MethodTransform {
     }
 
     @Override
-    public boolean apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
+    public Result apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
         // Check if the mixin captures LVT
         if (PatchInstance.findAnnotationValue(annotation.values, "locals").isEmpty()) {
-            return false;
+            return Result.PASS;
         }
         // Get method targets
         List<String> methodRefs = ((AnnotationValueHandle<List<String>>) annotationValues.get("method")).get();
         if (methodRefs.size() > 1) {
             // We only support single method targets for now
-            return false;
+            return Result.PASS;
         }
         // Resolve method reference
         String reference = context.getEnvironment().remap(classNode.name, methodRefs.get(0));
@@ -52,7 +53,7 @@ public class DynamicLVTPatch implements MethodTransform {
         Matcher matcher = METHOD_REF_PATTERN.matcher(reference);
         if (!matcher.matches()) {
             LOGGER.debug("Not a valid method reference: {}", reference);
-            return false;
+            return Result.PASS;
         }
         String owner = matcher.group("owner");
         String name = matcher.group("name");
@@ -65,13 +66,13 @@ public class DynamicLVTPatch implements MethodTransform {
             targetClass = MixinService.getService().getBytecodeProvider().getClassNode(Type.getType(owner).getInternalName());
         } catch (Throwable t) {
             LOGGER.debug("Target class not found", t);
-            return false;
+            return Result.PASS;
         }
         // Find target method in class
         MethodNode targetMethod = targetClass.methods.stream().filter(mtd -> mtd.name.equals(name) && mtd.desc.equals(desc)).findFirst().orElse(null);
         if (targetMethod == null) {
             LOGGER.debug("Target method not found: {}.{}{}", owner, name, desc);
-            return false;
+            return Result.PASS;
         }
         // TODO Provide via method context parameter
         AnnotationNode atNode = PatchInstance.findAnnotationValue(annotation.values, "at")
@@ -82,7 +83,7 @@ public class DynamicLVTPatch implements MethodTransform {
             .orElse(null);
         if (atNode == null) {
             LOGGER.debug("Target @At annotation not found in method {}.{}{}", classNode.name, methodNode.name, methodNode.desc);
-            return false;
+            return Result.PASS;
         }
         // Provide a minimum implementation of IMixinContext
         IMixinContext mixinContext = new ClassMixinContext(classNode.name, context.getClassNode().name, context.getEnvironment());
@@ -93,18 +94,18 @@ public class DynamicLVTPatch implements MethodTransform {
         injectionPoint.find(targetMethod.desc, targetMethod.instructions, insns);
         if (insns.isEmpty()) {
             LOGGER.debug("Skipping LVT patch, no target instructions found");
-            return false;
+            return Result.PASS;
         }
         if (insns.size() > 1) {
             LOGGER.debug("Skipping LVT patch due to multiple target instructions: {}", insns.size());
-            return false;
+            return Result.PASS;
         }
 
         Type[] params = Type.getArgumentTypes(methodNode.desc);
         // Sanity check to make sure the injector method takes in a CI or CIR argument
         if (Stream.of(params).noneMatch(p -> p.equals(CI_TYPE) || p.equals(CIR_TYPE))) {
             LOGGER.debug("Missing CI or CIR argument in injector of type {}", annotation.desc);
-            return false;
+            return Result.PASS;
         }
         Type[] targetParams = Type.getArgumentTypes(targetMethod.desc);
         boolean isStatic = (methodNode.access & Opcodes.ACC_STATIC) != 0;
@@ -129,7 +130,7 @@ public class DynamicLVTPatch implements MethodTransform {
         ParametersDiff diff = ParametersDiff.compareTypeParameters(expected.toArray(Type[]::new), available.toArray(Type[]::new));
         if (diff.isEmpty()) {
             // No changes required
-            return false;
+            return Result.PASS;
         }
         // Replacements are not supported, as they would require LVT fixups and converters
         if (!diff.replacements().isEmpty()) {
@@ -150,7 +151,7 @@ public class DynamicLVTPatch implements MethodTransform {
         ParametersDiff offsetDiff = new ParametersDiff(diff.originalCount(), offsetInsertions, List.of());
         if (offsetDiff.isEmpty()) {
             // No changes required
-            return false;
+            return Result.PASS;
         }
         // Apply parameter patch
         ModifyMethodParams paramTransform = ModifyMethodParams.create(offsetDiff, ModifyMethodParams.TargetType.METHOD);

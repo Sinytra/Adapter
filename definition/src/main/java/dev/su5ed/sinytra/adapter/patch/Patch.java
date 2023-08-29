@@ -26,7 +26,23 @@ public sealed interface Patch permits PatchInstance {
         return new PatchInstance.BuilderImpl();
     }
 
-    boolean apply(ClassNode classNode, PatchEnvironment remaper);
+    Result apply(ClassNode classNode, PatchEnvironment remaper);
+
+    enum Result {
+        PASS,
+        APPLY,
+        COMPUTE_FRAMES;
+
+        public Result or(Result other) {
+            if (this == PASS && other != PASS) {
+                return other;
+            }
+            if (this == APPLY && other == COMPUTE_FRAMES) {
+                return COMPUTE_FRAMES;
+            }
+            return this;
+        }
+    }
 
     interface Builder {
         Builder targetClass(String... targets);
