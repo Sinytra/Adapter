@@ -148,7 +148,7 @@ public class DynamicLVTPatch implements MethodTransform {
         // Offset the insertion to the correct parameter indices
         // Also remove any appended variables
         List<Pair<Integer, Type>> offsetInsertions = diff.insertions().stream().filter(pair -> pair.getFirst() < finalMaxLocal).map(pair -> pair.mapFirst(i -> i + paramLocalPos)).toList();
-        ParametersDiff offsetDiff = new ParametersDiff(diff.originalCount(), offsetInsertions, List.of());
+        ParametersDiff offsetDiff = new ParametersDiff(diff.originalCount(), offsetInsertions, List.of(), List.of());
         if (offsetDiff.isEmpty()) {
             // No changes required
             return Result.PASS;

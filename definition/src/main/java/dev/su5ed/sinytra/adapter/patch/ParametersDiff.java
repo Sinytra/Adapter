@@ -13,7 +13,8 @@ import java.util.List;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
-public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements) {
+public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements,
+                             List<Pair<Integer, Integer>> swaps) {
     private static final String PARAM_NAME_PREFIX = "p_";
 
     record MethodParameter(@Nullable String name, Type type) {
@@ -24,9 +25,9 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
 
     public static ParametersDiff compareMethodParameters(MethodNode clean, MethodNode dirty) {
         if (clean.localVariables == null || dirty.localVariables == null) {
-            return new ParametersDiff(-1, List.of(), List.of());
+            return new ParametersDiff(-1, List.of(), List.of(), List.of());
         }
-        
+
         int cleanParamCount = Type.getArgumentTypes(clean.desc).length;
         int dirtyParamCount = Type.getArgumentTypes(dirty.desc).length;
         boolean isStatic = (clean.access & Opcodes.ACC_STATIC) != 0;
@@ -100,9 +101,9 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
         if (j - i != insertions.size()) {
             throw new IllegalStateException("Unexpected difference in params size");
         }
-        return new ParametersDiff(i, insertions, replacements);
+        return new ParametersDiff(i, insertions, replacements, List.of());
     }
-    
+
     public boolean isEmpty() {
         return this.insertions.isEmpty() && this.replacements.isEmpty();
     }

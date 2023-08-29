@@ -369,20 +369,37 @@ public class ClassAnalyzer {
         if (!diff.isEmpty()) {
             if (!diff.replacements().isEmpty()) {
                 List<Pair<Integer, Type>> newReplacements = new ArrayList<>(diff.replacements());
+                List<Pair<Integer, Integer>> swaps = new ArrayList<>();
                 boolean valid = false;
-                for (Pair<Integer, Type> replacement : diff.replacements()) {
-                    Type original = parameterTypes[replacement.getFirst()];
-                    Type substitute = replacement.getSecond();
-                    if (original.getSort() == Type.OBJECT && substitute.getSort() == Type.OBJECT && this.inheritanceHandler.isClassInherited(substitute.getInternalName(), original.getInternalName())) {
-                        LOGGER.info("Found valid replacement {} -> {} in method {}", original.getInternalName(), substitute.getInternalName(), clean.name);
+                // Detect swapped parameters
+                if (newReplacements.size() == 2) {
+                    Pair<Integer, Type> first = newReplacements.get(0);
+                    Pair<Integer, Type> second = newReplacements.get(1);
+                    int distance = Math.abs(second.getFirst() - first.getFirst());
+                    if (distance == 1 && parameterTypes[first.getFirst()].equals(second.getSecond()) && parameterTypes[second.getFirst()].equals(first.getSecond())) {
+                        logHeader();
+                        LOGGER.info("Found swapped parameter types {} <-> {} in method {}", first.getSecond(), second.getSecond(), dirty.name);
+                        newReplacements.clear();
+                        swaps.add(Pair.of(first.getFirst(), second.getFirst()));
                         valid = true;
-                        continue;
                     }
-                    newReplacements.remove(replacement);
-                    LOGGER.debug("Ignoring replacement {} -> {} in method {}", replacement.getFirst(), replacement.getSecond(), dirty.name);
+                }
+                if (!valid) {
+                    for (Pair<Integer, Type> replacement : diff.replacements()) {
+                        Type original = parameterTypes[replacement.getFirst()];
+                        Type substitute = replacement.getSecond();
+                        if (original.getSort() == Type.OBJECT && substitute.getSort() == Type.OBJECT && this.inheritanceHandler.isClassInherited(substitute.getInternalName(), original.getInternalName())) {
+                            logHeader();
+                            LOGGER.info("Found valid replacement {} -> {} in method {}", original.getInternalName(), substitute.getInternalName(), clean.name);
+                            valid = true;
+                            continue;
+                        }
+                        newReplacements.remove(replacement);
+                        LOGGER.debug("Ignoring replacement {} -> {} in method {}", replacement.getFirst(), replacement.getSecond(), dirty.name);
+                    }
                 }
                 if (valid) {
-                    diff = new ParametersDiff(diff.originalCount(), diff.insertions(), newReplacements);
+                    diff = new ParametersDiff(diff.originalCount(), diff.insertions(), newReplacements, swaps);
                 } else {
                     return;
                 }
