@@ -2,6 +2,7 @@ package dev.su5ed.sinytra.adapter.gradle;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import com.mojang.datafixers.util.Pair;
 import dev.su5ed.sinytra.adapter.gradle.provider.ClassProvider;
 import dev.su5ed.sinytra.adapter.patch.ParametersDiff;
 import dev.su5ed.sinytra.adapter.patch.Patch;
@@ -33,6 +34,8 @@ public class ClassAnalyzer {
     private final IMappingFile mappings;
     private final ClassProvider cleanClassProvider;
     private final ClassProvider dirtyClassProvider;
+    private final ClassProvider joinedClassProvider;
+    private final InheritanceHandler inheritanceHandler;
 
     // All method of each respective class node
     private final Multimap<String, MethodNode> cleanMethods;
@@ -67,6 +70,8 @@ public class ClassAnalyzer {
         this.mappings = mappings;
         this.cleanClassProvider = cleanClassProvider;
         this.dirtyClassProvider = dirtyClassProvider;
+        this.joinedClassProvider = name -> dirtyClassProvider.getClass(name).or(() -> cleanClassProvider.getClass(name));
+        this.inheritanceHandler = new InheritanceHandler(this.joinedClassProvider);
 
         this.cleanMethods = indexClassMethods(cleanNode);
         this.dirtyMethods = indexClassMethods(dirtyNode);
@@ -360,30 +365,47 @@ public class ClassAnalyzer {
         }
 
         Type[] parameterTypes = Type.getArgumentTypes(clean.desc);
-        Type[] dirtyParameterTypes = Type.getArgumentTypes(dirty.desc);
-        if (parameterTypes.length > 0 && parameterTypes.length < dirtyParameterTypes.length) {
-            ParametersDiff diff = ParametersDiff.compareMethodParameters(clean, dirty);
-            if (!diff.isEmpty()) {
-                String cleanQualifier = clean.name + clean.desc;
-                String dirtyQualifier = dirty.name + dirty.desc;
-                logHeader();
-                LOGGER.info("REPLACE");
-                LOGGER.info("   {}", cleanQualifier);
-                LOGGER.info("\\> {}",dirtyQualifier);
-                LOGGER.info("===");
-
-                if (replacementCalls.put(Type.getObjectType(this.dirtyNode.name).getDescriptor() + dirtyQualifier, Type.getObjectType(this.cleanNode.name).getDescriptor() + cleanQualifier) != null) {
-                    throw new IllegalStateException("Duplicate replacement for %s.%s".formatted(this.cleanNode.name, cleanQualifier));
+        ParametersDiff diff = ParametersDiff.compareMethodParameters(clean, dirty);
+        if (!diff.isEmpty()) {
+            if (!diff.replacements().isEmpty()) {
+                List<Pair<Integer, Type>> newReplacements = new ArrayList<>(diff.replacements());
+                boolean valid = false;
+                for (Pair<Integer, Type> replacement : diff.replacements()) {
+                    Type original = parameterTypes[replacement.getFirst()];
+                    Type substitute = replacement.getSecond();
+                    if (original.getSort() == Type.OBJECT && substitute.getSort() == Type.OBJECT && this.inheritanceHandler.isClassInherited(substitute.getInternalName(), original.getInternalName())) {
+                        LOGGER.info("Found valid replacement {} -> {} in method {}", original.getInternalName(), substitute.getInternalName(), clean.name);
+                        valid = true;
+                        continue;
+                    }
+                    newReplacements.remove(replacement);
+                    LOGGER.debug("Ignoring replacement {} -> {} in method {}", replacement.getFirst(), replacement.getSecond(), dirty.name);
                 }
-
-                PatchInstance patch = Patch.builder()
-                    .targetClass(this.dirtyNode.name)
-                    .targetMethod(cleanQualifier)
-                    .modifyTarget(dirtyQualifier)
-                    .transform(ModifyMethodParams.create(diff, ModifyMethodParams.TargetType.METHOD))
-                    .build();
-                patches.add(patch);
+                if (valid) {
+                    diff = new ParametersDiff(diff.originalCount(), diff.insertions(), newReplacements);
+                } else {
+                    return;
+                }
             }
+            String cleanQualifier = clean.name + clean.desc;
+            String dirtyQualifier = dirty.name + dirty.desc;
+            logHeader();
+            LOGGER.info("REPLACE");
+            LOGGER.info("   {}", cleanQualifier);
+            LOGGER.info("\\> {}", dirtyQualifier);
+            LOGGER.info("===");
+
+            if (replacementCalls.put(Type.getObjectType(this.dirtyNode.name).getDescriptor() + dirtyQualifier, Type.getObjectType(this.cleanNode.name).getDescriptor() + cleanQualifier) != null) {
+                throw new IllegalStateException("Duplicate replacement for %s.%s".formatted(this.cleanNode.name, cleanQualifier));
+            }
+
+            PatchInstance patch = Patch.builder()
+                .targetClass(this.dirtyNode.name)
+                .targetMethod(cleanQualifier)
+                .modifyTarget(dirtyQualifier)
+                .transform(ModifyMethodParams.create(diff, ModifyMethodParams.TargetType.METHOD))
+                .build();
+            patches.add(patch);
         }
     }
 

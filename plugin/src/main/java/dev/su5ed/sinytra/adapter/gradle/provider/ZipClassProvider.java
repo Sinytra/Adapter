@@ -44,12 +44,4 @@ public class ZipClassProvider implements ClassProvider {
         });
         return Optional.ofNullable(classNode);
     }
-
-    @Override
-    public Optional<MethodNode> findMethod(String owner, String name, String desc) {
-        return getClass(owner).stream()
-            .flatMap(cls -> cls.methods.stream())
-            .filter(mtd -> mtd.name.equals(name) && mtd.desc.equals(desc))
-            .findFirst();
-    }
 }

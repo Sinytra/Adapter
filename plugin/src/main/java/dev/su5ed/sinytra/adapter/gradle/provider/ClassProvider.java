@@ -8,5 +8,10 @@ import java.util.Optional;
 public interface ClassProvider {
     Optional<ClassNode> getClass(String name);
 
-    Optional<MethodNode> findMethod(String owner, String name, String desc);
+    default Optional<MethodNode> findMethod(String owner, String name, String desc) {
+        return getClass(owner).stream()
+            .flatMap(cls -> cls.methods.stream())
+            .filter(mtd -> mtd.name.equals(name) && mtd.desc.equals(desc))
+            .findFirst();
+    }
 }
