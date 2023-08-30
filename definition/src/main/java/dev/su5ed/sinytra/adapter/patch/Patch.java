@@ -4,9 +4,12 @@ import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.InsnList;
+import org.objectweb.asm.tree.MethodInsnNode;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -77,7 +80,11 @@ public sealed interface Patch permits PatchInstance {
 
         Builder modifyMethodAccess(ModifyMethodAccess.AccessChange... changes);
 
+        Builder redirectShadowMethod(String original, String target, BiConsumer<MethodInsnNode, InsnList> callFixer);
+
         Builder disable();
+
+        Builder transform(ClassTransform transformer);
 
         Builder transform(MethodTransform transformer);
 

@@ -7,13 +7,12 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.su5ed.sinytra.adapter.patch.transformer.*;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.AnnotationNode;
-import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.*;
 import org.slf4j.Marker;
 import org.slf4j.MarkerFactory;
 
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -41,18 +40,20 @@ public final class PatchInstance implements Patch {
     private final List<String> targetAnnotations;
     @Nullable
     private final Predicate<Map<String, AnnotationValueHandle<?>>> targetAnnotationValues;
+    private final List<ClassTransform> classTransforms;
     private final List<MethodTransform> transforms;
 
     private PatchInstance(List<String> targetClasses, List<MethodMatcher> targetMethods, List<InjectionPointMatcher> targetInjectionPoints, List<String> targetAnnotations, List<MethodTransform> transforms) {
-        this(targetClasses, targetMethods, targetInjectionPoints, targetAnnotations, map -> true, transforms);
+        this(targetClasses, targetMethods, targetInjectionPoints, targetAnnotations, map -> true, List.of(), transforms);
     }
 
-    private PatchInstance(List<String> targetClasses, List<MethodMatcher> targetMethods, List<InjectionPointMatcher> targetInjectionPoints, List<String> targetAnnotations, Predicate<Map<String, AnnotationValueHandle<?>>> targetAnnotationValues, List<MethodTransform> transforms) {
+    private PatchInstance(List<String> targetClasses, List<MethodMatcher> targetMethods, List<InjectionPointMatcher> targetInjectionPoints, List<String> targetAnnotations, Predicate<Map<String, AnnotationValueHandle<?>>> targetAnnotationValues, List<ClassTransform> classTransforms, List<MethodTransform> transforms) {
         this.targetClasses = targetClasses;
         this.targetMethods = targetMethods;
         this.targetInjectionPoints = targetInjectionPoints;
         this.targetAnnotations = targetAnnotations;
         this.targetAnnotationValues = targetAnnotationValues;
+        this.classTransforms = classTransforms;
         this.transforms = transforms;
     }
 
@@ -63,6 +64,9 @@ public final class PatchInstance implements Patch {
         Pair<Boolean, @Nullable AnnotationValueHandle<?>> classTarget = checkClassTarget(classNode, this.targetClasses);
         if (classTarget.getFirst()) {
             AnnotationValueHandle<?> classAnnotation = classTarget.getSecond();
+            for (ClassTransform classTransform : this.classTransforms) {
+                result = result.or(classTransform.apply(classNode));
+            }
             for (MethodNode method : classNode.methods) {
                 Pair<AnnotationNode, Map<String, AnnotationValueHandle<?>>> annotationValues = checkMethodTarget(classNode.name, method, environment).orElse(null);
                 if (annotationValues != null) {
@@ -259,6 +263,7 @@ public final class PatchInstance implements Patch {
         private final Set<String> targetAnnotations = new HashSet<>();
         private Predicate<Map<String, AnnotationValueHandle<?>>> targetAnnotationValues;
         private final Set<InjectionPointMatcher> targetInjectionPoints = new HashSet<>();
+        private final List<ClassTransform> classTransforms = new ArrayList<>();
         private final List<MethodTransform> transforms = new ArrayList<>();
 
         @Override
@@ -326,8 +331,19 @@ public final class PatchInstance implements Patch {
         }
 
         @Override
+        public Builder redirectShadowMethod(String original, String target, BiConsumer<MethodInsnNode, InsnList> callFixer) {
+            return transform(new RedirectShadowMethod(original, target, callFixer));
+        }
+
+        @Override
         public Builder disable() {
             return transform(DisableMixin.INSTANCE);
+        }
+
+        @Override
+        public Builder transform(ClassTransform transformer) {
+            this.classTransforms.add(transformer);
+            return this;
         }
 
         @Override
@@ -344,6 +360,7 @@ public final class PatchInstance implements Patch {
                 List.copyOf(this.targetInjectionPoints),
                 List.copyOf(this.targetAnnotations),
                 this.targetAnnotationValues,
+                List.copyOf(this.classTransforms),
                 List.copyOf(this.transforms)
             );
         }
