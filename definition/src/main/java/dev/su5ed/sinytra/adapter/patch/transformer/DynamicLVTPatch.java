@@ -26,26 +26,88 @@ public class DynamicLVTPatch implements MethodTransform {
     private static final Pattern METHOD_REF_PATTERN = Pattern.compile("^(?<owner>L.+;)(?<name>.+)(?<desc>\\(.*\\).+)$");
     private static final Type CI_TYPE = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfo");
     private static final Type CIR_TYPE = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable");
+    private static final String LOCAL_ANN = "Lcom/llamalad7/mixinextras/sugar/Local;";
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
     @Override
     public Collection<String> getAcceptedAnnotations() {
-        // We only support INJECT mixins for now. Other injectors will be supported later
-        return Set.of(Patch.INJECT);
+        // We only support INJECT and MODIFY_EXPR_VAL mixins for now. Other injectors will be supported later
+        return Set.of(Patch.INJECT, Patch.MODIFY_EXPR_VAL);
     }
 
     @Override
     public Result apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
-        // Check if the mixin captures LVT
-        if (PatchInstance.findAnnotationValue(annotation.values, "locals").isEmpty()) {
-            return Result.PASS;
+        if (methodNode.invisibleParameterAnnotations != null) {
+            // Find @Local annotations on method parameters
+            Type[] paramTypes = Type.getArgumentTypes(methodNode.desc);
+            Map<AnnotationNode, Type> localAnnotations = new HashMap<>();
+            for (int i = 0; i < methodNode.invisibleParameterAnnotations.length; i++) {
+                List<AnnotationNode> parameterAnnotations = methodNode.invisibleParameterAnnotations[i];
+                if (parameterAnnotations != null) {
+                    for (AnnotationNode paramAnn : parameterAnnotations) {
+                        if (LOCAL_ANN.equals(paramAnn.desc)) {
+                            Type type = paramTypes[i];
+                            localAnnotations.put(paramAnn, type);
+                        }
+                    }
+                }
+            }
+            if (localAnnotations.isEmpty()) {
+                return Result.PASS;
+            }
+            Pair<ClassNode, MethodNode> target = findTargetMethod(classNode, annotationValues, context);
+            if (target == null) {
+                return Result.PASS;
+            }
+            ClassNode targetClass = target.getFirst();
+            MethodNode targetMethod = target.getSecond();
+            List<Type> locals = getMethodLocals(classNode, methodNode, targetClass, targetMethod, annotation, annotationValues, context, 0);
+            if (locals == null) {
+                return Result.PASS;
+            }
+            boolean applied = false;
+            for (Map.Entry<AnnotationNode, Type> entry : localAnnotations.entrySet()) {
+                AnnotationNode localAnn = entry.getKey();
+                Type expectedType = entry.getValue();
+                AnnotationValueHandle<Integer> handle = PatchInstance.<Integer>findAnnotationValue(localAnn.values, "index").orElse(null);
+                if (handle != null) {
+                    int index = handle.get();
+                    // Check if local var matches expected value
+                    if (index != -1 && index < locals.size() && !locals.get(index).equals(expectedType)) {
+                        // Assume the lvt has new entries added before our variable. Find the nearest variable of the expected type
+                        for (int i = index; i < locals.size(); i++) {
+                            Type type = locals.get(i);
+                            if (type.equals(expectedType)) {
+                                LOGGER.info("Updating @Local annotation value in {}.{}{} from index {} to {}", classNode.name, methodNode.name, methodNode.desc, index, i);
+                                handle.set(i);
+                                applied = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            return applied ? Result.APPLY : Result.PASS;
         }
+        // Check if the mixin captures LVT
+        if (Patch.INJECT.equals(annotation.desc) && PatchInstance.findAnnotationValue(annotation.values, "locals").isEmpty()) {
+            ParametersDiff diff = compareParameters(classNode, methodNode, annotation, annotationValues, context);
+            if (diff != null) {
+                // Apply parameter patch
+                ModifyMethodParams paramTransform = ModifyMethodParams.create(diff, ModifyMethodParams.TargetType.METHOD);
+                return paramTransform.apply(classNode, methodNode, annotation, annotationValues, context);
+            }
+        }
+        return Result.PASS;
+    }
+
+    private Pair<ClassNode, MethodNode> findTargetMethod(ClassNode classNode, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
         // Get method targets
         List<String> methodRefs = ((AnnotationValueHandle<List<String>>) annotationValues.get("method")).get();
         if (methodRefs.size() > 1) {
             // We only support single method targets for now
-            return Result.PASS;
+            return null;
         }
         // Resolve method reference
         String reference = context.getEnvironment().remap(classNode.name, methodRefs.get(0));
@@ -53,7 +115,7 @@ public class DynamicLVTPatch implements MethodTransform {
         Matcher matcher = METHOD_REF_PATTERN.matcher(reference);
         if (!matcher.matches()) {
             LOGGER.debug("Not a valid method reference: {}", reference);
-            return Result.PASS;
+            return null;
         }
         String owner = matcher.group("owner");
         String name = matcher.group("name");
@@ -66,14 +128,18 @@ public class DynamicLVTPatch implements MethodTransform {
             targetClass = MixinService.getService().getBytecodeProvider().getClassNode(Type.getType(owner).getInternalName());
         } catch (Throwable t) {
             LOGGER.debug("Target class not found", t);
-            return Result.PASS;
+            return null;
         }
         // Find target method in class
         MethodNode targetMethod = targetClass.methods.stream().filter(mtd -> mtd.name.equals(name) && mtd.desc.equals(desc)).findFirst().orElse(null);
         if (targetMethod == null) {
             LOGGER.debug("Target method not found: {}.{}{}", owner, name, desc);
-            return Result.PASS;
+            return null;
         }
+        return Pair.of(targetClass, targetMethod);
+    }
+
+    private synchronized List<Type> getMethodLocals(ClassNode classNode, MethodNode methodNode, ClassNode targetClass, MethodNode targetMethod, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context, int startPos) {
         // TODO Provide via method context parameter
         AnnotationNode atNode = PatchInstance.findAnnotationValue(annotation.values, "at")
             .map(handle -> {
@@ -83,7 +149,7 @@ public class DynamicLVTPatch implements MethodTransform {
             .orElse(null);
         if (atNode == null) {
             LOGGER.debug("Target @At annotation not found in method {}.{}{}", classNode.name, methodNode.name, methodNode.desc);
-            return Result.PASS;
+            return null;
         }
         // Provide a minimum implementation of IMixinContext
         IMixinContext mixinContext = new ClassMixinContext(classNode.name, context.getClassNode().name, context.getEnvironment());
@@ -94,27 +160,12 @@ public class DynamicLVTPatch implements MethodTransform {
         injectionPoint.find(targetMethod.desc, targetMethod.instructions, insns);
         if (insns.isEmpty()) {
             LOGGER.debug("Skipping LVT patch, no target instructions found");
-            return Result.PASS;
+            return null;
         }
         if (insns.size() > 1) {
             LOGGER.debug("Skipping LVT patch due to multiple target instructions: {}", insns.size());
-            return Result.PASS;
+            return null;
         }
-
-        Type[] params = Type.getArgumentTypes(methodNode.desc);
-        // Sanity check to make sure the injector method takes in a CI or CIR argument
-        if (Stream.of(params).noneMatch(p -> p.equals(CI_TYPE) || p.equals(CIR_TYPE))) {
-            LOGGER.debug("Missing CI or CIR argument in injector of type {}", annotation.desc);
-            return Result.PASS;
-        }
-        Type[] targetParams = Type.getArgumentTypes(targetMethod.desc);
-        boolean isStatic = (methodNode.access & Opcodes.ACC_STATIC) != 0;
-        // The starting LVT index is of the first var after all method parameters. Offset by 1 for instance methods to skip 'this'
-        int targetLocalPos = targetParams.length + (isStatic ? 0 : 1);
-        // The first local var in the method's params comes after the target's params plus the CI/CIR parameter
-        int paramLocalPos = targetParams.length + 1;
-        // Get expected local variables from method parameters
-        List<Type> expected = summariseLocals(params, paramLocalPos);
         // Get available local variables at the injection point in the target method
         LocalVariableNode[] localVariables;
         // Synchronize to avoid issues in mixin. This is necessary.
@@ -125,12 +176,40 @@ public class DynamicLVTPatch implements MethodTransform {
             .filter(Objects::nonNull)
             .map(lv -> Type.getType(lv.desc))
             .toArray(Type[]::new);
-        List<Type> available = summariseLocals(locals, targetLocalPos);
+        return summariseLocals(locals, startPos);
+    }
+
+    private ParametersDiff compareParameters(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
+        Type[] params = Type.getArgumentTypes(methodNode.desc);
+        // Sanity check to make sure the injector method takes in a CI or CIR argument
+        if (Stream.of(params).noneMatch(p -> p.equals(CI_TYPE) || p.equals(CIR_TYPE))) {
+            LOGGER.debug("Missing CI or CIR argument in injector of type {}", annotation.desc);
+            return null;
+        }
+        Pair<ClassNode, MethodNode> target = findTargetMethod(classNode, annotationValues, context);
+        if (target == null) {
+            return null;
+        }
+        ClassNode targetClass = target.getFirst();
+        MethodNode targetMethod = target.getSecond();
+        Type[] targetParams = Type.getArgumentTypes(targetMethod.desc);
+        boolean isStatic = (methodNode.access & Opcodes.ACC_STATIC) != 0;
+        // The starting LVT index is of the first var after all method parameters. Offset by 1 for instance methods to skip 'this'
+        int targetLocalPos = targetParams.length + (isStatic ? 0 : 1);
+        // The first local var in the method's params comes after the target's params plus the CI/CIR parameter
+        int paramLocalPos = targetParams.length + 1;
+        // Get expected local variables from method parameters
+        List<Type> expected = summariseLocals(params, paramLocalPos);
+        // Get available local variables at the injection point in the target method
+        List<Type> available = getMethodLocals(classNode, methodNode, targetClass, targetMethod, annotation, annotationValues, context, targetLocalPos);
+        if (available == null) {
+            return null;
+        }
         // Compare expected and available params
         ParametersDiff diff = ParametersDiff.compareTypeParameters(expected.toArray(Type[]::new), available.toArray(Type[]::new));
         if (diff.isEmpty()) {
             // No changes required
-            return Result.PASS;
+            return null;
         }
         // Replacements are not supported, as they would require LVT fixups and converters
         if (!diff.replacements().isEmpty()) {
@@ -151,11 +230,9 @@ public class DynamicLVTPatch implements MethodTransform {
         ParametersDiff offsetDiff = new ParametersDiff(diff.originalCount(), offsetInsertions, List.of(), List.of());
         if (offsetDiff.isEmpty()) {
             // No changes required
-            return Result.PASS;
+            return null;
         }
-        // Apply parameter patch
-        ModifyMethodParams paramTransform = ModifyMethodParams.create(offsetDiff, ModifyMethodParams.TargetType.METHOD);
-        return paramTransform.apply(classNode, methodNode, annotation, annotationValues, context);
+        return offsetDiff;
     }
 
     // Adapted from org.spongepowered.asm.mixin.injection.callback.CallbackInjector summariseLocals
