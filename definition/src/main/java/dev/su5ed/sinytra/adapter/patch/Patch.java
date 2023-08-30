@@ -3,6 +3,7 @@ package dev.su5ed.sinytra.adapter.patch;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.MethodInsnNode;
@@ -79,6 +80,8 @@ public sealed interface Patch permits PatchInstance {
         Builder modifyVariableIndex(int start, int offset);
 
         Builder modifyMethodAccess(ModifyMethodAccess.AccessChange... changes);
+
+        Builder modifyAnnotationValues(Predicate<AnnotationNode> annotation);
 
         Builder redirectShadowMethod(String original, String target, BiConsumer<MethodInsnNode, InsnList> callFixer);
 

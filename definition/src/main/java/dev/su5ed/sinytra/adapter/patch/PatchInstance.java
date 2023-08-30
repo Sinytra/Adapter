@@ -208,21 +208,27 @@ public final class PatchInstance implements Patch {
                 Object value = handle.get();
                 return value instanceof List<?> list ? (AnnotationNode) list.get(0) : (AnnotationNode) value;
             })
-            .flatMap(node -> {
-                AnnotationValueHandle<String> value = PatchInstance.<String>findAnnotationValue(node.values, "value").orElse(null);
-                String valueStr = value != null ? value.get() : null;
-                AnnotationValueHandle<String> target = PatchInstance.<String>findAnnotationValue(node.values, "target").orElse(null);
-                if (target != null) {
-                    String targetStr = remaper.remap(owner, target.get());
-                    if (this.targetInjectionPoints.stream().anyMatch(pred -> pred.test(valueStr, targetStr))) {
-                        return Optional.of(Map.of(
-                            "value", value,
-                            "target", target
-                        ));
-                    }
-                }
-                return Optional.empty();
-            });
+            .flatMap(node -> checkAtAnnotation(owner, node, remaper))
+            // Check slice.from target
+            .or(() -> PatchInstance.<AnnotationNode>findAnnotationValue(annotation.values, "slice")
+                .flatMap(slice -> slice.findNested("from")
+                    .flatMap(from -> checkAtAnnotation(owner, from.get(), remaper))));
+    }
+
+    private Optional<Map<String, AnnotationValueHandle<?>>> checkAtAnnotation(String owner, AnnotationNode annotation, PatchEnvironment remaper) {
+        AnnotationValueHandle<String> value = PatchInstance.<String>findAnnotationValue(annotation.values, "value").orElse(null);
+        String valueStr = value != null ? value.get() : null;
+        AnnotationValueHandle<String> target = PatchInstance.<String>findAnnotationValue(annotation.values, "target").orElse(null);
+        if (target != null) {
+            String targetStr = remaper.remap(owner, target.get());
+            if (this.targetInjectionPoints.stream().anyMatch(pred -> pred.test(valueStr, targetStr))) {
+                return Optional.of(Map.of(
+                    "value", value,
+                    "target", target
+                ));
+            }
+        }
+        return Optional.empty();
     }
 
     public static <T> Optional<AnnotationValueHandle<T>> findAnnotationValue(@Nullable List<Object> values, String key) {
@@ -328,6 +334,11 @@ public final class PatchInstance implements Patch {
         @Override
         public Builder modifyMethodAccess(ModifyMethodAccess.AccessChange... changes) {
             return transform(new ModifyMethodAccess(List.of(changes)));
+        }
+
+        @Override
+        public Builder modifyAnnotationValues(Predicate<AnnotationNode> annotation) {
+            return transform(new ModifyAnnotationValues(annotation));
         }
 
         @Override

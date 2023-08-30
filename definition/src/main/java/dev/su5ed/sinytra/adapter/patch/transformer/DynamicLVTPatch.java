@@ -126,8 +126,11 @@ public class DynamicLVTPatch implements MethodTransform {
         ClassNode targetClass;
         try {
             targetClass = MixinService.getService().getBytecodeProvider().getClassNode(Type.getType(owner).getInternalName());
+        } catch (ClassNotFoundException e) {
+            LOGGER.debug("Target class not found: {}", owner);
+            return null;
         } catch (Throwable t) {
-            LOGGER.debug("Target class not found", t);
+            LOGGER.debug("Error getting class", t);
             return null;
         }
         // Find target method in class

@@ -1,6 +1,9 @@
 package dev.su5ed.sinytra.adapter.patch;
 
+import org.objectweb.asm.tree.AnnotationNode;
+
 import java.util.List;
+import java.util.Optional;
 
 public class AnnotationValueHandle<T> {
     private final List<Object> origin;
@@ -24,5 +27,16 @@ public class AnnotationValueHandle<T> {
 
     public void set(T value) {
         this.origin.set(index, value);
+    }
+
+    public Optional<AnnotationValueHandle<AnnotationNode>> findNested(String name) {
+        Object value = get();
+        if (value instanceof List<?> list && list.size() == 1) {
+            value = list.get(0);
+        }
+        if (value instanceof AnnotationNode annotationNode) {
+            return PatchInstance.findAnnotationValue(annotationNode.values, name);
+        }
+        throw new IllegalArgumentException("Expected value to be an AnnotationNode, was " + value.getClass());
     }
 }
