@@ -9,6 +9,7 @@ import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.PatchInstance;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
+import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import net.minecraftforge.srgutils.IMappingFile;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.ClassReader;
@@ -34,7 +35,6 @@ public class ClassAnalyzer {
     private final IMappingFile mappings;
     private final ClassProvider cleanClassProvider;
     private final ClassProvider dirtyClassProvider;
-    private final ClassProvider joinedClassProvider;
     private final InheritanceHandler inheritanceHandler;
 
     // All method of each respective class node
@@ -70,8 +70,8 @@ public class ClassAnalyzer {
         this.mappings = mappings;
         this.cleanClassProvider = cleanClassProvider;
         this.dirtyClassProvider = dirtyClassProvider;
-        this.joinedClassProvider = name -> dirtyClassProvider.getClass(name).or(() -> cleanClassProvider.getClass(name));
-        this.inheritanceHandler = new InheritanceHandler(this.joinedClassProvider);
+        ClassProvider joinedClassProvider = name -> dirtyClassProvider.getClass(name).or(() -> cleanClassProvider.getClass(name));
+        this.inheritanceHandler = new InheritanceHandler(joinedClassProvider);
 
         this.cleanMethods = indexClassMethods(cleanNode);
         this.dirtyMethods = indexClassMethods(dirtyNode);
@@ -123,7 +123,7 @@ public class ClassAnalyzer {
         }
     }
 
-    public void analyze(List<? super PatchInstance> patches, Multimap<ChangeCategory, String> info, Map<? super String, String> replacementCalls) {
+    public void analyze(List<? super PatchInstance> patches, Multimap<ChangeCategory, String> info, Map<? super String, String> replacementCalls, Map<String, Map<MethodQualifier, List<Integer>>> offsets) {
         // Try to find added dirtyMethod patches
         findOverloadedMethods(patches, replacementCalls);
         if (!isAnonymousClass(this.cleanNode.name)) {
@@ -132,6 +132,7 @@ public class ClassAnalyzer {
         }
         findUpdatedLambdaNames(patches);
         checkAccess(patches);
+        calculateLVTOffsets(offsets);
         if (this.loggedHeader) {
             LOGGER.info("");
         }
@@ -160,6 +161,30 @@ public class ClassAnalyzer {
         if (this.loggedHeader) {
             LOGGER.info("");
         }
+    }
+
+    private void calculateLVTOffsets(Map<String, Map<MethodQualifier, List<Integer>>> offsets) {
+        this.cleanToDirty.forEach((cleanMethod, dirtyMethod) -> {
+            if (cleanMethod.localVariables != null && dirtyMethod.localVariables != null) {
+                Type[] cleanTypes = getUniqueLocals(cleanMethod.localVariables);
+                Type[] dirtyTypes = getUniqueLocals(dirtyMethod.localVariables);
+                ParametersDiff diff = ParametersDiff.compareTypeParameters(cleanTypes, dirtyTypes);
+                if (!diff.insertions().isEmpty()) {
+                    List<Integer> insertionIndexes = diff.insertions().stream().map(Pair::getFirst).toList();
+                    Map<MethodQualifier, List<Integer>> classOffsets = offsets.computeIfAbsent(this.dirtyNode.name, s -> new HashMap<>());
+                    MethodQualifier qualifier = new MethodQualifier(dirtyMethod.name, dirtyMethod.desc);
+                    classOffsets.put(qualifier, insertionIndexes);
+                }
+            }
+        });
+    }
+
+    private Type[] getUniqueLocals(List<LocalVariableNode> locals) {
+        Map<Integer, Type> map = new HashMap<>();
+        for (LocalVariableNode local : locals) {
+            map.put(local.index, Type.getType(local.desc));
+        }
+        return map.values().toArray(Type[]::new);
     }
 
     private void findUpdatedLambdaNames(List<? super PatchInstance> patches) {

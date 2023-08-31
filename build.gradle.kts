@@ -41,7 +41,7 @@ dependencies {
 
 tasks {
     jar {
-        from(generateAdapterData.flatMap { it.output })
+        from(generateAdapterData)
     }
 }
 

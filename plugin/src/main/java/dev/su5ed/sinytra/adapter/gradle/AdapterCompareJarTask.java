@@ -3,16 +3,21 @@ package dev.su5ed.sinytra.adapter.gradle;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.mojang.serialization.JsonOps;
 import dev.su5ed.sinytra.adapter.gradle.provider.ClassProvider;
 import dev.su5ed.sinytra.adapter.gradle.provider.ZipClassProvider;
+import dev.su5ed.sinytra.adapter.patch.LVTOffsets;
 import dev.su5ed.sinytra.adapter.patch.PatchInstance;
 import dev.su5ed.sinytra.adapter.patch.PatchSerialization;
+import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import net.minecraftforge.srgutils.IMappingFile;
 import org.gradle.api.DefaultTask;
+import org.gradle.api.file.Directory;
 import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.*;
 import org.slf4j.Logger;
 
@@ -40,10 +45,15 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
     public abstract RegularFileProperty getSrgToMcpMappings();
 
     @OutputFile
-    public abstract RegularFileProperty getOutput();
+    public abstract RegularFileProperty getPatchDataOutput();
+
+    @OutputFile
+    public abstract RegularFileProperty getLVTOffsetDataOutput();
 
     public AdapterCompareJarTask() {
-        getOutput().convention(getProject().getLayout().getBuildDirectory().dir(getName()).map(dir -> dir.file("output.json")));
+        Provider<Directory> outputDir = getProject().getLayout().getBuildDirectory().dir(getName());
+        getPatchDataOutput().convention(outputDir.map(dir -> dir.file("patch_data.json")));
+        getLVTOffsetDataOutput().convention(outputDir.map(dir -> dir.file("lvt_offsets.json")));
     }
 
     @TaskAction
@@ -58,6 +68,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
         List<PatchInstance> patches = new ArrayList<>();
         Multimap<ChangeCategory, String> info = HashMultimap.create();
         Map<String, String> replacementCalls = new HashMap<>();
+        Map<String, Map<MethodQualifier, List<Integer>>> offsets = new HashMap<>();
 
         IMappingFile mappings = IMappingFile.load(getSrgToMcpMappings().get().getAsFile());
 
@@ -85,7 +96,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
 
                     ClassAnalyzer analyzer = ClassAnalyzer.create(cleanData, dirtyData, mappings, cleanClassProvider, dirtyClassProvider);
                     analyzers.add(analyzer);
-                    analyzer.analyze(patches, info, replacementCalls);
+                    analyzer.analyze(patches, info, replacementCalls, offsets);
 
                     counter.getAndIncrement();
                 } catch (IOException e) {
@@ -115,8 +126,14 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
             info.get(ChangeCategory.REMOVE_FIELD).forEach(logger::info);
         }
 
-        JsonElement object = PatchSerialization.serialize(patches, JsonOps.INSTANCE);
-        String jsonStr = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create().toJson(object);
-        Files.writeString(getOutput().get().getAsFile().toPath(), jsonStr, StandardCharsets.UTF_8);
+        Gson gson = new GsonBuilder().disableHtmlEscaping().create();
+        JsonElement patchDataJson = PatchSerialization.serialize(patches, JsonOps.INSTANCE);
+        String patchDataJsonStr = gson.toJson(patchDataJson);
+        Files.writeString(getPatchDataOutput().get().getAsFile().toPath(), patchDataJsonStr, StandardCharsets.UTF_8);
+
+        LVTOffsets lvtOffsets = new LVTOffsets(offsets);
+        JsonElement offsetJson = lvtOffsets.toJson();
+        String offsetJsonStr = gson.toJson(offsetJson);
+        Files.writeString(getLVTOffsetDataOutput().get().getAsFile().toPath(), offsetJsonStr, StandardCharsets.UTF_8);
     }
 }

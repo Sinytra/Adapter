@@ -23,7 +23,7 @@ public record RedirectShadowMethod(MethodQualifier original, MethodQualifier rep
     @Override
     public Patch.Result apply(ClassNode classNode) {
         for (MethodNode method : classNode.methods) {
-            MethodQualifier qualifier = new MethodQualifier(this.original.owner(), method.name, method.desc);
+            MethodQualifier qualifier = new MethodQualifier(method.name, method.desc);
             if (this.original.equals(qualifier) && method.visibleAnnotations != null) {
                 for (AnnotationNode methodAnn : method.visibleAnnotations) {
                     if (SHADOW_ANN.equals(methodAnn.desc)) {
