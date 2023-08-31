@@ -120,9 +120,32 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
             int index = pair.getFirst();
             Type type = pair.getSecond();
             newParameterTypes.set(index, type);
-            LocalVariableNode localVar = methodNode.localVariables.get(offset + index);
+            int localIndex = offset + index;
+            LocalVariableNode localVar = methodNode.localVariables.stream().filter(lvn -> lvn.index == localIndex).findFirst().orElseThrow();
+            Type originalType = Type.getType(localVar.desc);
             localVar.desc = type.getDescriptor();
             localVar.signature = null;
+            if (type.getSort() == Type.OBJECT && originalType.getSort() == Type.OBJECT) {
+                // Replace variable usages with the new type
+                for (AbstractInsnNode insn : methodNode.instructions) {
+                    if (insn instanceof MethodInsnNode minsn && minsn.owner.equals(originalType.getInternalName())) {
+                        // Find var load instruction
+                        AbstractInsnNode previous = minsn.getPrevious();
+                        if (previous != null) {
+                            do {
+                                // Limit scope to the current label / line only
+                                if (previous instanceof LabelNode || previous instanceof LineNumberNode) {
+                                    break;
+                                }
+                                if (previous instanceof VarInsnNode varinsn && varinsn.var == localIndex) {
+                                    minsn.owner = type.getInternalName();
+                                    break;
+                                }
+                            } while ((previous = previous.getPrevious()) != null);
+                        }
+                    }
+                }
+            }
         });
         if (!this.replacements.isEmpty() && this.lvtFixer != null) {
             //noinspection ForLoopReplaceableByForEach
@@ -168,7 +191,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
         LOGGER.info(MIXINPATCH, "Changing descriptor of method {}.{}{} to {}", classNode.name, methodNode.name, methodNode.desc, newDesc);
         methodNode.desc = newDesc;
 
-        return !this.swaps.isEmpty() ? Result.COMPUTE_FRAMES : Result.APPLY;
+        return !this.swaps.isEmpty() || !this.replacements.isEmpty() ? Result.COMPUTE_FRAMES : Result.APPLY;
     }
 
     private static void offsetLVT(MethodNode methodNode, int paramIndex, int lvtIndex, int offset) {
