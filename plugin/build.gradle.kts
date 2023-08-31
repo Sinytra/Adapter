@@ -30,6 +30,10 @@ repositories {
         name = "Minecraft"
         url = uri("https://libraries.minecraft.net")
     }
+    maven {
+        name = "FabricMC"
+        url = uri("https://maven.fabricmc.net")
+    }
 }
 
 dependencies {

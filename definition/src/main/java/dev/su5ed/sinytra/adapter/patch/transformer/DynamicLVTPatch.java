@@ -10,14 +10,19 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
+import org.spongepowered.asm.mixin.FabricUtil;
 import org.spongepowered.asm.mixin.MixinEnvironment;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 import org.spongepowered.asm.mixin.injection.InjectionPoint;
+import org.spongepowered.asm.mixin.injection.code.ISliceContext;
+import org.spongepowered.asm.mixin.injection.code.MethodSlice;
+import org.spongepowered.asm.mixin.injection.selectors.ISelectorContext;
 import org.spongepowered.asm.mixin.refmap.IMixinContext;
 import org.spongepowered.asm.mixin.refmap.IReferenceMapper;
 import org.spongepowered.asm.mixin.transformer.ext.Extensions;
 import org.spongepowered.asm.service.MixinService;
 import org.spongepowered.asm.util.Locals;
+import org.spongepowered.asm.util.asm.IAnnotationHandle;
 
 import java.util.*;
 import java.util.function.Supplier;
@@ -69,7 +74,32 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             return result;
         }
         if (Patch.MODIFY_VAR.equals(annotation.desc)) {
-            return offsetVariableIndex(classNode, methodNode, annotation, annotationValues, context);
+            Result result = offsetVariableIndex(classNode, methodNode, annotation, annotationValues, context);
+            if (result == Result.PASS) {
+                AnnotationValueHandle<Integer> ordinal = PatchInstance.<Integer>findAnnotationValue(annotation.values, "ordinal").orElse(null);
+                if (ordinal == null && PatchInstance.findAnnotationValue(annotation.values, "name").isEmpty()) {
+                    Type[] args = Type.getArgumentTypes(methodNode.desc);
+                    if (args.length < 1) {
+                        return Result.PASS;
+                    }
+                    Pair<ClassNode, MethodNode> targetPair = findTargetMethod(classNode, annotationValues, context);
+                    if (targetPair == null) {
+                        return Result.PASS;
+                    }
+                    List<LocalVariable> available = getTargetMethodLocals(classNode, methodNode, targetPair.getFirst(), targetPair.getSecond(), annotation, context, 0, FabricUtil.COMPATIBILITY_0_9_2);
+                    if (available == null) {
+                        return Result.PASS;
+                    }
+                    Type expected = args[0];
+                    int count = (int) available.stream().filter(lv -> lv.type.equals(expected)).count();
+                    if (count == 1) {
+                        annotation.values.add("ordinal");
+                        annotation.values.add(0);
+                        return Result.APPLY;
+                    }
+                }
+            }
+            return result;
         }
         // Check if the mixin captures LVT
         if (Patch.INJECT.equals(annotation.desc) && PatchInstance.findAnnotationValue(annotation.values, "locals").isPresent()) {
@@ -84,7 +114,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
     }
 
     private Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
-        return offsetVariableIndex(classNode, methodNode, annotation, () -> findTargetMethod(classNode, annotationValues, context)); 
+        return offsetVariableIndex(classNode, methodNode, annotation, () -> findTargetMethod(classNode, annotationValues, context));
     }
 
     private Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Supplier<Pair<ClassNode, MethodNode>> targetPairSupplier) {
@@ -155,7 +185,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
     }
 
     @Nullable
-    private List<LocalVariable> getTargetMethodLocals(ClassNode classNode, MethodNode methodNode, ClassNode targetClass, MethodNode targetMethod, AnnotationNode annotation, PatchContext context, int startPos) {
+    private List<LocalVariable> getTargetMethodLocals(ClassNode classNode, MethodNode methodNode, ClassNode targetClass, MethodNode targetMethod, AnnotationNode annotation, PatchContext context, int startPos, int fabricCompatibility) {
         // TODO Provide via method context parameter
         AnnotationNode atNode = PatchInstance.findAnnotationValue(annotation.values, "at")
             .map(handle -> {
@@ -172,9 +202,10 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         // Parse injection point
         InjectionPoint injectionPoint = InjectionPoint.parse(mixinContext, methodNode, annotation, atNode);
         // Find target instructions
-        List<AbstractInsnNode> insns = new ArrayList<>();
-        injectionPoint.find(targetMethod.desc, targetMethod.instructions, insns);
-        if (insns.isEmpty()) {
+        InsnList instructions = getSlicedInsns(annotation, classNode, methodNode, targetClass, targetMethod, context);
+        List<AbstractInsnNode> targetInsns = new ArrayList<>();
+        injectionPoint.find(targetMethod.desc, instructions, targetInsns);
+        if (targetInsns.isEmpty()) {
             LOGGER.debug("Skipping LVT patch, no target instructions found");
             return null;
         }
@@ -182,7 +213,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         LocalVariableNode[] localVariables;
         // Synchronize to avoid issues in mixin. This is necessary.
         synchronized (this) {
-            localVariables = Locals.getLocalsAt(targetClass, targetMethod, insns.get(0), Locals.Settings.DEFAULT);
+            localVariables = Locals.getLocalsAt(targetClass, targetMethod, targetInsns.get(0), fabricCompatibility);
         }
         LocalVariable[] locals = Stream.of(localVariables)
             .filter(Objects::nonNull)
@@ -213,7 +244,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         // Get expected local variables from method parameters
         List<Type> expected = summariseLocals(params, paramLocalPos);
         // Get available local variables at the injection point in the target method
-        List<LocalVariable> available = getTargetMethodLocals(classNode, methodNode, targetClass, targetMethod, annotation, context, targetLocalPos);
+        List<LocalVariable> available = getTargetMethodLocals(classNode, methodNode, targetClass, targetMethod, annotation, context, targetLocalPos, FabricUtil.COMPATIBILITY_LATEST);
         if (available == null) {
             return null;
         }
@@ -249,6 +280,21 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         return offsetDiff;
     }
 
+    private InsnList getSlicedInsns(AnnotationNode parentAnnotation, ClassNode classNode, MethodNode injectorMethod, ClassNode targetClass, MethodNode targetMethod, PatchContext context) {
+        return PatchInstance.<AnnotationNode>findAnnotationValue(parentAnnotation.values, "slice")
+            .map(handle -> {
+                IMixinContext mixinContext = new ClassMixinContext(classNode.name, targetClass.name, context.getEnvironment());
+                ISliceContext sliceContext = new MethodSliceContext(mixinContext, injectorMethod);
+                return computeSlicedInsns(sliceContext, handle.get(), targetMethod);
+            })
+            .orElse(targetMethod.instructions);
+    }
+
+    private InsnList computeSlicedInsns(ISliceContext context, AnnotationNode annotation, MethodNode method) {
+        MethodSlice slice = MethodSlice.parse(context, annotation);
+        return slice.getSlice(method);
+    }
+
     private record LocalVariable(int index, Type type) {}
 
     // Adapted from org.spongepowered.asm.mixin.injection.callback.CallbackInjector summariseLocals
@@ -262,6 +308,29 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             }
         }
         return list;
+    }
+
+    public record MethodSliceContext(IMixinContext context, MethodNode methodNode) implements ISliceContext {
+        @Override
+        public IMixinContext getMixin() {
+            return this.context;
+        }
+
+        @Override
+        public String remap(String reference) {
+            return this.context.getReferenceMapper().remap(this.context.getClassName(), reference);
+        }
+
+        //@formatter:off
+        @Override public MethodSlice getSlice(String id) {throw new UnsupportedOperationException();}
+        @Override public MethodNode getMethod() {return this.methodNode;}
+        @Override public AnnotationNode getAnnotationNode() {throw new UnsupportedOperationException();}
+        @Override public ISelectorContext getParent() {throw new UnsupportedOperationException();}
+        @Override public IAnnotationHandle getAnnotation() {throw new UnsupportedOperationException();}
+        @Override public IAnnotationHandle getSelectorAnnotation() {throw new UnsupportedOperationException();}
+        @Override public String getSelectorCoordinate(boolean leaf) {throw new UnsupportedOperationException();}
+        @Override public void addMessage(String format, Object... args) {}
+        //@formatter:on
     }
 
     public record ReferenceRemapper(PatchEnvironment env) implements IReferenceMapper {
