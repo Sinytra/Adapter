@@ -72,7 +72,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             return offsetVariableIndex(classNode, methodNode, annotation, annotationValues, context);
         }
         // Check if the mixin captures LVT
-        if (Patch.INJECT.equals(annotation.desc) && PatchInstance.findAnnotationValue(annotation.values, "locals").isEmpty()) {
+        if (Patch.INJECT.equals(annotation.desc) && PatchInstance.findAnnotationValue(annotation.values, "locals").isPresent()) {
             ParametersDiff diff = compareParameters(classNode, methodNode, annotation, annotationValues, context);
             if (diff != null) {
                 // Apply parameter patch
@@ -178,10 +178,6 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             LOGGER.debug("Skipping LVT patch, no target instructions found");
             return null;
         }
-        if (insns.size() > 1) {
-            LOGGER.debug("Skipping LVT patch due to multiple target instructions: {}", insns.size());
-            return null;
-        }
         // Get available local variables at the injection point in the target method
         LocalVariableNode[] localVariables;
         // Synchronize to avoid issues in mixin. This is necessary.
@@ -231,6 +227,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         // Replacements are not supported, as they would require LVT fixups and converters
         if (!diff.replacements().isEmpty()) {
             LOGGER.debug("Tried to replace local variables in mixin method {}.{} using {}", classNode.name, methodNode.name + methodNode.desc, diff.replacements());
+            return null;
         }
         // Find max local index
         int maxLocal = 0;
