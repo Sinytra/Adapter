@@ -1,5 +1,6 @@
 package dev.su5ed.sinytra.adapter.patch.transformer;
 
+import com.google.common.base.Suppliers;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
 import dev.su5ed.sinytra.adapter.patch.*;
@@ -19,13 +20,14 @@ import org.spongepowered.asm.service.MixinService;
 import org.spongepowered.asm.util.Locals;
 
 import java.util.*;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
-public record DynamicLVTPatch(LVTOffsets lvtOffsets) implements MethodTransform {
+public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements MethodTransform {
     private static final Pattern METHOD_REF_PATTERN = Pattern.compile("^(?<owner>L.+;)(?<name>.+)(?<desc>\\(.*\\).+)$");
     private static final Type CI_TYPE = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfo");
     private static final Type CIR_TYPE = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable");
@@ -58,33 +60,13 @@ public record DynamicLVTPatch(LVTOffsets lvtOffsets) implements MethodTransform 
             if (localAnnotations.isEmpty()) {
                 return Result.PASS;
             }
-            List<Type> locals = getMethodLocals(classNode, methodNode, annotation, annotationValues, context);
-            if (locals == null) {
-                return Result.PASS;
-            }
-            boolean applied = false;
+            Result result = Result.PASS;
+            Supplier<Pair<ClassNode, MethodNode>> targetPairSupplier = Suppliers.memoize(() -> findTargetMethod(classNode, annotationValues, context));
             for (Map.Entry<AnnotationNode, Type> entry : localAnnotations.entrySet()) {
                 AnnotationNode localAnn = entry.getKey();
-                Type expectedType = entry.getValue();
-                AnnotationValueHandle<Integer> handle = PatchInstance.<Integer>findAnnotationValue(localAnn.values, "index").orElse(null);
-                if (handle != null) {
-                    int index = handle.get();
-                    // Check if local var matches expected value
-                    if (index != -1 && index < locals.size() && !locals.get(index).equals(expectedType)) {
-                        // Assume the lvt has new entries added before our variable. Find the nearest variable of the expected type
-                        for (int i = index; i < locals.size(); i++) {
-                            Type type = locals.get(i);
-                            if (type.equals(expectedType)) {
-                                LOGGER.info("Updating @Local annotation value in {}.{}{} from index {} to {}", classNode.name, methodNode.name, methodNode.desc, index, i);
-                                handle.set(i);
-                                applied = true;
-                                break;
-                            }
-                        }
-                    }
-                }
+                result = result.or(offsetVariableIndex(classNode, methodNode, localAnn, targetPairSupplier));
             }
-            return applied ? Result.APPLY : Result.PASS;
+            return result;
         }
         if (Patch.MODIFY_VAR.equals(annotation.desc)) {
             return offsetVariableIndex(classNode, methodNode, annotation, annotationValues, context);
@@ -102,6 +84,10 @@ public record DynamicLVTPatch(LVTOffsets lvtOffsets) implements MethodTransform 
     }
 
     private Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
+        return offsetVariableIndex(classNode, methodNode, annotation, () -> findTargetMethod(classNode, annotationValues, context)); 
+    }
+
+    private Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Supplier<Pair<ClassNode, MethodNode>> targetPairSupplier) {
         AnnotationValueHandle<Integer> handle = PatchInstance.<Integer>findAnnotationValue(annotation.values, "index").orElse(null);
         if (handle != null) {
             // Find variable index
@@ -110,14 +96,14 @@ public record DynamicLVTPatch(LVTOffsets lvtOffsets) implements MethodTransform 
                 return Result.PASS;
             }
             // Get target class and method
-            Pair<ClassNode, MethodNode> targetPair = findTargetMethod(classNode, annotationValues, context);
+            Pair<ClassNode, MethodNode> targetPair = targetPairSupplier.get();
             if (targetPair == null) {
                 return Result.PASS;
             }
             ClassNode targetClass = targetPair.getFirst();
             MethodNode targetMethod = targetPair.getSecond();
             // Find inserted indexes
-            OptionalInt offset = this.lvtOffsets.findOffset(targetClass.name, targetMethod.name, targetMethod.desc, index);
+            OptionalInt offset = this.lvtOffsets.get().findOffset(targetClass.name, targetMethod.name, targetMethod.desc, index);
             if (offset.isPresent()) {
                 int newIndex = index + offset.getAsInt();
                 LOGGER.info(MIXINPATCH, "Updating {} index in {}.{} from {} to {}", annotation.desc, classNode.name, methodNode.name, index, newIndex);
@@ -166,21 +152,6 @@ public record DynamicLVTPatch(LVTOffsets lvtOffsets) implements MethodTransform 
             return null;
         }
         return Pair.of(targetClass, targetMethod);
-    }
-
-    @Nullable
-    private List<Type> getMethodLocals(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
-        Pair<ClassNode, MethodNode> target = findTargetMethod(classNode, annotationValues, context);
-        if (target == null) {
-            return null;
-        }
-        ClassNode targetClass = target.getFirst();
-        MethodNode targetMethod = target.getSecond();
-        List<LocalVariable> locals = getTargetMethodLocals(classNode, methodNode, targetClass, targetMethod, annotation, context, 0);
-        if (locals == null) {
-            return null;
-        }
-        return locals.stream().map(LocalVariable::type).toList();
     }
 
     @Nullable
