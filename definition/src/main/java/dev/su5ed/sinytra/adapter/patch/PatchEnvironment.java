@@ -17,9 +17,15 @@ public class PatchEnvironment {
     }
 
     private final Map<String, Map<String, String>> refmap;
+    private final MixinClassGenerator classGenerator;
 
     public PatchEnvironment(Map<String, Map<String, String>> refmap) {
         this.refmap = refmap;
+        this.classGenerator = new MixinClassGenerator();
+    }
+
+    public MixinClassGenerator getClassGenerator() {
+        return this.classGenerator;
     }
 
     public String remap(String cls, String reference) {

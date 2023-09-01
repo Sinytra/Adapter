@@ -85,6 +85,8 @@ public sealed interface Patch permits PatchInstance {
 
         Builder redirectShadowMethod(String original, String target, BiConsumer<MethodInsnNode, InsnList> callFixer);
 
+        Builder extractMixin(String targetClass);
+
         Builder disable();
 
         Builder transform(ClassTransform transformer);
