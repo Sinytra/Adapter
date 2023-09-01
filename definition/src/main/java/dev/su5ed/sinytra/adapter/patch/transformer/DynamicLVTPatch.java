@@ -17,6 +17,7 @@ import org.spongepowered.asm.mixin.injection.InjectionPoint;
 import org.spongepowered.asm.mixin.injection.code.ISliceContext;
 import org.spongepowered.asm.mixin.injection.code.MethodSlice;
 import org.spongepowered.asm.mixin.injection.selectors.ISelectorContext;
+import org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionException;
 import org.spongepowered.asm.mixin.refmap.IMixinContext;
 import org.spongepowered.asm.mixin.refmap.IReferenceMapper;
 import org.spongepowered.asm.mixin.transformer.ext.Extensions;
@@ -204,7 +205,12 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         // Find target instructions
         InsnList instructions = getSlicedInsns(annotation, classNode, methodNode, targetClass, targetMethod, context);
         List<AbstractInsnNode> targetInsns = new ArrayList<>();
-        injectionPoint.find(targetMethod.desc, instructions, targetInsns);
+        try {
+            injectionPoint.find(targetMethod.desc, instructions, targetInsns);
+        } catch (InvalidInjectionException | UnsupportedOperationException e) {
+            LOGGER.error("Error finding injection insns: {}", e.getMessage());
+            return null;
+        }
         if (targetInsns.isEmpty()) {
             LOGGER.debug("Skipping LVT patch, no target instructions found");
             return null;
