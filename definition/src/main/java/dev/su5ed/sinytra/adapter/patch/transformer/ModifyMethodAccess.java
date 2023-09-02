@@ -5,6 +5,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.su5ed.sinytra.adapter.patch.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.MethodTransform;
+import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.Patch.Result;
 import dev.su5ed.sinytra.adapter.patch.PatchContext;
 import org.objectweb.asm.Opcodes;
@@ -12,6 +13,8 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -44,6 +47,25 @@ public record ModifyMethodAccess(List<AccessChange> changes) implements MethodTr
                     LOGGER.info(MIXINPATCH, "Adding access modifier {} to method {}.{}{}", change.modifier, classNode.name, methodNode.name, methodNode.desc);
                     methodNode.access |= change.modifier;
                     result = Result.APPLY;
+                    if (change.modifier == Opcodes.ACC_STATIC && Patch.INJECT.equals(annotation.desc)) {
+                        AnnotationValueHandle<?> handle = annotationValues.get("class_target");
+                        if (handle != null && handle.getKey().equals("value")) {
+                            List<Type> types = (List<Type>) handle.get();
+                            if (types.size() == 1) {
+                                Type[] params = Type.getArgumentTypes(methodNode.desc);
+                                List<Type> newParams = new ArrayList<>(Arrays.asList(params));
+                                newParams.add(0, types.get(0));
+
+                                Type returnType = Type.getReturnType(methodNode.desc);
+                                String newDesc = Type.getMethodDescriptor(returnType, newParams.toArray(Type[]::new));
+                                LOGGER.info(MIXINPATCH, "Changing descriptor of method {}.{}{} to {}", classNode.name, methodNode.name, methodNode.desc, newDesc);
+                                methodNode.desc = newDesc;
+                                methodNode.signature = null;
+                            } else {
+                                throw new IllegalStateException("Cannot automatically determine target instance type for mixin " + classNode.name);
+                            }
+                        }
+                    }
                 }
             } else {
                 if ((methodNode.access & change.modifier) != 0) {
