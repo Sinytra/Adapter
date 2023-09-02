@@ -21,7 +21,7 @@ import java.util.regex.Matcher;
 public final class PatchInstance implements Patch {
     public static final String MIXIN_ANN = "Lorg/spongepowered/asm/mixin/Mixin;";
     private static final String OWNER_PREFIX = "^(?<owner>L(?:.*?)+;)";
-    private static final Collection<String> KNOWN_MIXIN_TYPES = Set.of(Patch.INJECT, Patch.REDIRECT, Patch.MODIFY_ARG, Patch.MODIFY_VAR, Patch.MODIFY_CONST, Patch.MODIFY_EXPR_VAL, Patch.WRAP_OPERATION);
+    public static final Collection<String> KNOWN_MIXIN_TYPES = Set.of(Patch.INJECT, Patch.REDIRECT, Patch.MODIFY_ARG, Patch.MODIFY_VAR, Patch.MODIFY_CONST, Patch.MODIFY_EXPR_VAL, Patch.WRAP_OPERATION);
 
     public static final Marker MIXINPATCH = MarkerFactory.getMarker("MIXINPATCH");
     public static final Codec<PatchInstance> CODEC = RecordCodecBuilder
@@ -349,6 +349,11 @@ public final class PatchInstance implements Patch {
         @Override
         public Builder extractMixin(String targetClass) {
             return transform(new ExtractMixin(targetClass));
+        }
+
+        @Override
+        public Builder modifyMixinType(String newType, Consumer<ModifyMixinType.Builder> consumer) {
+            return transform(new ModifyMixinType(newType, consumer));
         }
 
         @Override

@@ -2,6 +2,7 @@ package dev.su5ed.sinytra.adapter.patch;
 
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
+import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMixinType;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
@@ -86,6 +87,8 @@ public sealed interface Patch permits PatchInstance {
         Builder redirectShadowMethod(String original, String target, BiConsumer<MethodInsnNode, InsnList> callFixer);
 
         Builder extractMixin(String targetClass);
+
+        Builder modifyMixinType(String newType, Consumer<ModifyMixinType.Builder> consumer);
 
         Builder disable();
 

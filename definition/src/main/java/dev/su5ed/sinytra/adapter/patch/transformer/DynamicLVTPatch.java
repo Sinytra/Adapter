@@ -289,9 +289,13 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
     private InsnList getSlicedInsns(AnnotationNode parentAnnotation, ClassNode classNode, MethodNode injectorMethod, ClassNode targetClass, MethodNode targetMethod, PatchContext context) {
         return PatchInstance.<AnnotationNode>findAnnotationValue(parentAnnotation.values, "slice")
             .map(handle -> {
+                Object value = handle.get();
+                return value instanceof List<?> list ? (AnnotationNode) list.get(0) : (AnnotationNode) value;
+            })
+            .map(sliceAnn -> {
                 IMixinContext mixinContext = new ClassMixinContext(classNode.name, targetClass.name, context.getEnvironment());
                 ISliceContext sliceContext = new MethodSliceContext(mixinContext, injectorMethod);
-                return computeSlicedInsns(sliceContext, handle.get(), targetMethod);
+                return computeSlicedInsns(sliceContext, sliceAnn, targetMethod);
             })
             .orElse(targetMethod.instructions);
     }

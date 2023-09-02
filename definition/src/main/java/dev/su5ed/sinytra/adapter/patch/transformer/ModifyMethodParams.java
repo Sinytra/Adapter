@@ -63,7 +63,8 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
 
     @Override
     public Collection<String> getAcceptedAnnotations() {
-        return this.targetType.getTargetMixinTypes();
+        Collection<String> targets = this.targetType.getTargetMixinTypes();
+        return targets.isEmpty() ? PatchInstance.KNOWN_MIXIN_TYPES : targets;
     }
 
     @Override
@@ -259,7 +260,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
     }
 
     public enum TargetType {
-        ALL(Patch.INJECT, Patch.OVERWRITE, Patch.MODIFY_VAR, Patch.REDIRECT, Patch.MODIFY_ARG),
+        ALL,
         METHOD(Patch.INJECT, Patch.OVERWRITE, Patch.MODIFY_VAR),
         INJECTION_POINT(Patch.REDIRECT, Patch.MODIFY_ARG);
 
