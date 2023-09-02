@@ -95,7 +95,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
             Pair<Integer, Type> pair = insertionQueue.pop();
             int index = pair.getFirst();
             Type type = pair.getSecond();
-            if (index > params.length + 1) {
+            if (index > newParameterTypes.size() + 1) {
                 continue;
             }
 

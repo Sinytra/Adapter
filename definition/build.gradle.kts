@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "dev.su5ed.sinytra.adapter"
-version = "1.4.5"
+version = "1.4.6"
 
 java {
     toolchain {
