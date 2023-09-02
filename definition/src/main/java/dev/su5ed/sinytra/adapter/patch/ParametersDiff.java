@@ -10,7 +10,6 @@ import org.objectweb.asm.tree.MethodNode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements,
@@ -20,6 +19,10 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
     record MethodParameter(@Nullable String name, Type type) {
         public MethodParameter(LocalVariableNode lv) {
             this(lv.name, Type.getType(lv.desc));
+        }
+
+        public boolean sameName(MethodParameter other) {
+            return this.name == null || other.name == null || this.name.startsWith(PARAM_NAME_PREFIX) && other.name.startsWith(PARAM_NAME_PREFIX);
         }
     }
 
@@ -44,7 +47,7 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
             .limit(dirtyParamCount)
             .map(MethodParameter::new)
             .toList();
-        return compareParameters(cleanParams, dirtyParams, (c, d) -> c.name.startsWith(PARAM_NAME_PREFIX) && !d.name.startsWith(PARAM_NAME_PREFIX));
+        return compareParameters(cleanParams, dirtyParams);
     }
 
     public static ParametersDiff compareTypeParameters(Type[] parameterTypes, Type[] newParameterTypes) {
@@ -54,10 +57,10 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
         List<MethodParameter> dirtyParameters = Stream.of(newParameterTypes)
             .map(type -> new MethodParameter(null, type))
             .toList();
-        return compareParameters(cleanParameters, dirtyParameters, (c, d) -> !c.type.equals(d.type));
+        return compareParameters(cleanParameters, dirtyParameters);
     }
 
-    private static ParametersDiff compareParameters(List<MethodParameter> cleanParameters, List<MethodParameter> dirtyParameters, BiPredicate<MethodParameter, MethodParameter> predicate) {
+    private static ParametersDiff compareParameters(List<MethodParameter> cleanParameters, List<MethodParameter> dirtyParameters) {
         // Indexes we insert new params at
         List<Pair<Integer, Type>> insertions = new ArrayList<>();
         // Indexes we replace params at
@@ -72,11 +75,13 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
                 MethodParameter cleanParam = cleanParameters.get(i);
                 MethodParameter dirtyParam = dirtyParameters.get(j);
                 // Check if old and new params at this index are the same
-                if (predicate.test(cleanParam, dirtyParam)) {
+                boolean sameType = cleanParam.type.equals(dirtyParam.type);
+                if (!sameType || !cleanParam.sameName(dirtyParam)) {
                     // If not, it is possible a new param was injected onto this index.
                     // In that case, the original param was moved further down the array, and we must find it.
                     for (int k = j + 1; k < dirtyParameters.size(); k++) {
-                        if (cleanParam.equals(dirtyParameters.get(k))) {
+                        MethodParameter dirtyParamAhead = dirtyParameters.get(k);
+                        if (cleanParam.type.equals(dirtyParamAhead.type) && (sameType || cleanParam.sameName(dirtyParamAhead))) {
                             // If the param is found, add all parameters between the original and new pos to the insertion list
                             for (; j < k; j++) {
                                 insertions.add(Pair.of(j, dirtyParameters.get(j).type));
@@ -86,7 +91,7 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
                         }
                     }
                     // If the param is not found, then it was likely replaced
-                    if (dirtyParameters.size() != cleanParameters.size() || !cleanParam.type.equals(dirtyParam.type)) {
+                    if (!cleanParam.type.equals(dirtyParam.type)) {
                         replacements.add(Pair.of(j, dirtyParam.type));
                     }
                 }
