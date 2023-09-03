@@ -29,8 +29,9 @@ public class PatchEnvironment {
     }
 
     public String remap(String cls, String reference) {
+        String cleanReference = reference.replaceAll(" ", "");
         return Optional.ofNullable(this.refmap.get(cls))
-            .map(map -> map.get(reference))
+            .map(map -> map.get(cleanReference))
             .orElse(reference);
     }
 }
