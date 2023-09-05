@@ -168,9 +168,9 @@ public class ClassAnalyzer {
     private void calculateLVTOffsets(Map<String, Map<MethodQualifier, List<LVTOffsets.Offset>>> offsets) {
         this.cleanToDirty.forEach((cleanMethod, dirtyMethod) -> {
             if (cleanMethod.localVariables != null && dirtyMethod.localVariables != null) {
-                Type[] cleanTypes = getUniqueLocals(cleanMethod.localVariables);
-                Type[] dirtyTypes = getUniqueLocals(dirtyMethod.localVariables);
-                ParametersDiff diff = ParametersDiff.compareTypeParameters(cleanTypes, dirtyTypes);
+                List<ParametersDiff.MethodParameter> cleanTypes = getUniqueLocals(cleanMethod.localVariables);
+                List<ParametersDiff.MethodParameter> dirtyTypes = getUniqueLocals(dirtyMethod.localVariables);
+                ParametersDiff diff = ParametersDiff.compareParameters(cleanTypes, dirtyTypes, true);
                 if (!diff.insertions().isEmpty()) {
                     List<LVTOffsets.Offset> insertionIndexes = diff.insertions().stream().map(pair -> {
                         int index = pair.getFirst();
@@ -185,12 +185,12 @@ public class ClassAnalyzer {
         });
     }
 
-    private Type[] getUniqueLocals(List<LocalVariableNode> locals) {
-        Map<Integer, Type> map = new HashMap<>();
+    private List<ParametersDiff.MethodParameter> getUniqueLocals(List<LocalVariableNode> locals) {
+        Map<Integer, ParametersDiff.MethodParameter> map = new HashMap<>();
         for (LocalVariableNode local : locals) {
-            map.put(local.index, Type.getType(local.desc));
+            map.put(local.index, new ParametersDiff.MethodParameter(local));
         }
-        return map.values().toArray(Type[]::new);
+        return List.copyOf(map.values());
     }
 
     private void findUpdatedLambdaNames(List<? super PatchInstance> patches) {

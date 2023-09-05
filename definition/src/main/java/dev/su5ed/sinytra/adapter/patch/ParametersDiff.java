@@ -1,6 +1,7 @@
 package dev.su5ed.sinytra.adapter.patch;
 
 import com.mojang.datafixers.util.Pair;
+import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -12,17 +13,22 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
-public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements,
-                             List<Pair<Integer, Integer>> swaps) {
-    private static final String PARAM_NAME_PREFIX = "p_";
+public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements, List<Pair<Integer, Integer>> swaps) {
+    public static final class MethodParameter {
+        private final Type type;
+        private final boolean isGeneratedType;
 
-    record MethodParameter(@Nullable String name, Type type) {
+        public MethodParameter(@Nullable String name, Type type) {
+            this.type = type;
+            this.isGeneratedType = name != null && AdapterUtil.isGeneratedVariableName(name, type);
+        }
+
         public MethodParameter(LocalVariableNode lv) {
             this(lv.name, Type.getType(lv.desc));
         }
 
-        public boolean sameName(MethodParameter other) {
-            return this.name == null || other.name == null || this.name.startsWith(PARAM_NAME_PREFIX) && other.name.startsWith(PARAM_NAME_PREFIX);
+        public boolean matchName(MethodParameter other) {
+            return this.isGeneratedType == other.isGeneratedType;
         }
     }
 
@@ -47,26 +53,31 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
             .limit(dirtyParamCount)
             .map(MethodParameter::new)
             .toList();
-        return compareParameters(cleanParams, dirtyParams);
+        return compareParameters(cleanParams, dirtyParams, false);
     }
 
     public static ParametersDiff compareTypeParameters(Type[] parameterTypes, Type[] newParameterTypes) {
+        return compareTypeParameters(parameterTypes, newParameterTypes, false);
+    }
+
+    public static ParametersDiff compareTypeParameters(Type[] parameterTypes, Type[] newParameterTypes, boolean lvtIndexes) {
         List<MethodParameter> cleanParameters = Stream.of(parameterTypes)
             .map(type -> new MethodParameter(null, type))
             .toList();
         List<MethodParameter> dirtyParameters = Stream.of(newParameterTypes)
             .map(type -> new MethodParameter(null, type))
             .toList();
-        return compareParameters(cleanParameters, dirtyParameters);
+        return compareParameters(cleanParameters, dirtyParameters, lvtIndexes);
     }
 
-    private static ParametersDiff compareParameters(List<MethodParameter> cleanParameters, List<MethodParameter> dirtyParameters) {
+    public static ParametersDiff compareParameters(List<MethodParameter> cleanParameters, List<MethodParameter> dirtyParameters, boolean lvtIndexes) {
         // Indexes we insert new params at
         List<Pair<Integer, Type>> insertions = new ArrayList<>();
         // Indexes we replace params at
         List<Pair<Integer, Type>> replacements = new ArrayList<>();
         int i = 0;
         int j = 0;
+        int lvtIndex = 0;
         // New params are expected to be at least the same size as the old ones, so we use them for the outer loop
         outer:
         while (j < dirtyParameters.size()) {
@@ -76,15 +87,15 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
                 MethodParameter dirtyParam = dirtyParameters.get(j);
                 // Check if old and new params at this index are the same
                 boolean sameType = cleanParam.type.equals(dirtyParam.type);
-                if (!sameType || !cleanParam.sameName(dirtyParam)) {
+                if (!sameType || !cleanParam.matchName(dirtyParam)) {
                     // If not, it is possible a new param was injected onto this index.
                     // In that case, the original param was moved further down the array, and we must find it.
                     for (int k = j + 1; k < dirtyParameters.size(); k++) {
                         MethodParameter dirtyParamAhead = dirtyParameters.get(k);
-                        if (cleanParam.type.equals(dirtyParamAhead.type) && (sameType || cleanParam.sameName(dirtyParamAhead))) {
+                        if (cleanParam.type.equals(dirtyParamAhead.type) && (sameType || cleanParam.matchName(dirtyParamAhead))) {
                             // If the param is found, add all parameters between the original and new pos to the insertion list
-                            for (; j < k; j++) {
-                                insertions.add(Pair.of(j, dirtyParameters.get(j).type));
+                            for (; j < k; j++, lvtIndex++) {
+                                insertions.add(Pair.of(lvtIndex, dirtyParameters.get(j).type));
                             }
                             // Continue onto the next params
                             continue outer;
@@ -92,14 +103,17 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
                     }
                     // If the param is not found, then it was likely replaced
                     if (!cleanParam.type.equals(dirtyParam.type)) {
-                        replacements.add(Pair.of(j, dirtyParam.type));
+                        replacements.add(Pair.of(lvtIndex, dirtyParam.type));
                     }
                 }
                 i++;
+                lvtIndex += lvtIndexes ? AdapterUtil.getLVTOffsetForType(dirtyParam.type) : 1;
             }
             // For appending parameters at the end of the list
             else {
-                insertions.add(Pair.of(j, dirtyParameters.get(j).type));
+                Type type = dirtyParameters.get(j).type;
+                insertions.add(Pair.of(lvtIndex, type));
+                lvtIndex += lvtIndexes ? AdapterUtil.getLVTOffsetForType(type) : 1;
             }
             j++;
         }
