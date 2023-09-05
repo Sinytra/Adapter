@@ -15,7 +15,7 @@ import java.util.Set;
 public record ExtractMixin(String targetClass) implements MethodTransform {
     @Override
     public Collection<String> getAcceptedAnnotations() {
-        return Set.of(Patch.WRAP_OPERATION);
+        return Set.of(Patch.WRAP_OPERATION, Patch.MODIFY_CONST);
     }
 
     @Override
@@ -23,10 +23,7 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
         // Sanity check
         boolean isStatic = (methodNode.access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC;
         for (AbstractInsnNode insn : methodNode.instructions) {
-            if (!isStatic && insn instanceof VarInsnNode varInsn && varInsn.var == 0
-                || insn instanceof FieldInsnNode finsn && finsn.owner.equals(classNode.name)
-                || insn instanceof MethodInsnNode minsn && minsn.owner.equals(classNode.name)
-            ) {
+            if (insn instanceof FieldInsnNode finsn && finsn.owner.equals(classNode.name) || insn instanceof MethodInsnNode minsn && minsn.owner.equals(classNode.name)) {
                 // We can't move methods that access their class instance
                 return Patch.Result.PASS;
             }

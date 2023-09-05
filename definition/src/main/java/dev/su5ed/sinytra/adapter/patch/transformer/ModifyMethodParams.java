@@ -6,6 +6,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.su5ed.sinytra.adapter.patch.*;
 import dev.su5ed.sinytra.adapter.patch.Patch.Result;
+import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.ExtraCodecs;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
@@ -112,7 +113,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
             newParameterTypes.add(index, type);
             methodNode.parameters.add(index, newParameter);
 
-            int varOffset = type.equals(Type.DOUBLE_TYPE) || type.equals(Type.LONG_TYPE) ? 2 : 1;
+            int varOffset = AdapterUtil.getLVTOffsetForType(type);
             offsetLVT(methodNode, index, lvtIndex, varOffset);
 
             methodNode.localVariables.add(new LocalVariableNode("adapter_injected_" + index, type.getDescriptor(), null, self.start, self.end, lvtIndex));

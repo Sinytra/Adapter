@@ -4,11 +4,13 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.mojang.datafixers.util.Pair;
 import dev.su5ed.sinytra.adapter.gradle.provider.ClassProvider;
+import dev.su5ed.sinytra.adapter.patch.LVTOffsets;
 import dev.su5ed.sinytra.adapter.patch.ParametersDiff;
 import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.PatchInstance;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
+import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import net.minecraftforge.srgutils.IMappingFile;
 import org.jetbrains.annotations.Nullable;
@@ -123,7 +125,7 @@ public class ClassAnalyzer {
         }
     }
 
-    public void analyze(List<? super PatchInstance> patches, Multimap<ChangeCategory, String> info, Map<? super String, String> replacementCalls, Map<String, Map<MethodQualifier, List<Integer>>> offsets) {
+    public void analyze(List<? super PatchInstance> patches, Multimap<ChangeCategory, String> info, Map<? super String, String> replacementCalls, Map<String, Map<MethodQualifier, List<LVTOffsets.Offset>>> offsets) {
         // Try to find added dirtyMethod patches
         findOverloadedMethods(patches, replacementCalls);
         if (!isAnonymousClass(this.cleanNode.name)) {
@@ -163,15 +165,19 @@ public class ClassAnalyzer {
         }
     }
 
-    private void calculateLVTOffsets(Map<String, Map<MethodQualifier, List<Integer>>> offsets) {
+    private void calculateLVTOffsets(Map<String, Map<MethodQualifier, List<LVTOffsets.Offset>>> offsets) {
         this.cleanToDirty.forEach((cleanMethod, dirtyMethod) -> {
             if (cleanMethod.localVariables != null && dirtyMethod.localVariables != null) {
                 Type[] cleanTypes = getUniqueLocals(cleanMethod.localVariables);
                 Type[] dirtyTypes = getUniqueLocals(dirtyMethod.localVariables);
                 ParametersDiff diff = ParametersDiff.compareTypeParameters(cleanTypes, dirtyTypes);
                 if (!diff.insertions().isEmpty()) {
-                    List<Integer> insertionIndexes = diff.insertions().stream().map(Pair::getFirst).toList();
-                    Map<MethodQualifier, List<Integer>> classOffsets = offsets.computeIfAbsent(this.dirtyNode.name, s -> new HashMap<>());
+                    List<LVTOffsets.Offset> insertionIndexes = diff.insertions().stream().map(pair -> {
+                        int index = pair.getFirst();
+                        int amount = AdapterUtil.getLVTOffsetForType(pair.getSecond());
+                        return new LVTOffsets.Offset(index, amount);
+                    }).toList();
+                    Map<MethodQualifier, List<LVTOffsets.Offset>> classOffsets = offsets.computeIfAbsent(this.dirtyNode.name, s -> new HashMap<>());
                     MethodQualifier qualifier = new MethodQualifier(dirtyMethod.name, dirtyMethod.desc);
                     classOffsets.put(qualifier, insertionIndexes);
                 }

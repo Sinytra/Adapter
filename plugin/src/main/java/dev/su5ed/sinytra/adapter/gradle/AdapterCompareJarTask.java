@@ -68,7 +68,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
         List<PatchInstance> patches = new ArrayList<>();
         Multimap<ChangeCategory, String> info = HashMultimap.create();
         Map<String, String> replacementCalls = new HashMap<>();
-        Map<String, Map<MethodQualifier, List<Integer>>> offsets = new HashMap<>();
+        Map<String, Map<MethodQualifier, List<LVTOffsets.Offset>>> offsets = new HashMap<>();
 
         IMappingFile mappings = IMappingFile.load(getSrgToMcpMappings().get().getAsFile());
 
