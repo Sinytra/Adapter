@@ -4,6 +4,7 @@ import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -55,7 +56,7 @@ public final class AdapterUtil {
         public GeneratedVarName(Set<Type> types, Set<String> prefixes) {
             this.types = types;
             String matchingPrefixes = String.join("|", prefixes);
-            String patternString = "^(%s)\\d+$".formatted(matchingPrefixes);
+            String patternString = "^(%s)\\d*$".formatted(matchingPrefixes);
             this.pattern = Pattern.compile(patternString);
         }
 
@@ -73,7 +74,15 @@ public final class AdapterUtil {
             return true;
         }
         GeneratedVarName generator = GENERATED_VAR_NAMES.get(type);
-        return generator != null && generator.test(name);
+        boolean knownGenerated = generator != null && generator.test(name);
+        if (!knownGenerated && type.getSort() == Type.OBJECT && !name.equals("this")) {
+            String internalName = type.getInternalName();
+            int index = internalName.lastIndexOf('/');
+            String shortName = internalName.substring(index + 1).toLowerCase(Locale.ROOT);
+            String pattern = "^(\\Q%s\\E)\\d*$".formatted(shortName);
+            return name.matches(pattern);
+        }
+        return knownGenerated;
     }
 
     public static int getLVTOffsetForType(Type type) {

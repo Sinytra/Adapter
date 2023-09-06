@@ -39,17 +39,18 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
 
         int cleanParamCount = Type.getArgumentTypes(clean.desc).length;
         int dirtyParamCount = Type.getArgumentTypes(dirty.desc).length;
-        boolean isStatic = (clean.access & Opcodes.ACC_STATIC) != 0;
+        boolean isCleanStatic = (clean.access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC;
+        boolean isDirtyStatic = (dirty.access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC;
         // Get params as local variables, which include their names as well
         List<MethodParameter> cleanParams = clean.localVariables.stream()
             .sorted(Comparator.comparingInt(lv -> lv.index))
-            .filter(lv -> isStatic || lv.index != 0)
+            .filter(lv -> isCleanStatic || lv.index != 0)
             .limit(cleanParamCount)
             .map(MethodParameter::new)
             .toList();
         List<MethodParameter> dirtyParams = dirty.localVariables.stream()
             .sorted(Comparator.comparingInt(lv -> lv.index))
-            .filter(lv -> isStatic || lv.index != 0)
+            .filter(lv -> isDirtyStatic || lv.index != 0)
             .limit(dirtyParamCount)
             .map(MethodParameter::new)
             .toList();
