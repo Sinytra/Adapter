@@ -12,6 +12,8 @@ import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.FabricUtil;
 import org.spongepowered.asm.mixin.MixinEnvironment;
+import org.spongepowered.asm.mixin.extensibility.IMixinConfig;
+import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 import org.spongepowered.asm.mixin.injection.InjectionPoint;
 import org.spongepowered.asm.mixin.injection.code.ISliceContext;
@@ -305,7 +307,8 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         return slice.getSlice(method);
     }
 
-    private record LocalVariable(int index, Type type) {}
+    private record LocalVariable(int index, Type type) {
+    }
 
     // Adapted from org.spongepowered.asm.mixin.injection.callback.CallbackInjector summariseLocals
     private static <T> List<T> summariseLocals(T[] locals, int pos) {
@@ -359,20 +362,60 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         //@formatter:on
     }
 
+    public static class DummyMixinConfig implements IMixinConfig {
+        @Override
+        public MixinEnvironment getEnvironment() {
+            return MixinEnvironment.getCurrentEnvironment();
+        }
+
+        //@formatter:off
+        @Override public String getName() {throw new UnsupportedOperationException();}
+        @Override public String getMixinPackage() {throw new UnsupportedOperationException();}
+        @Override public int getPriority() {return 0;}
+        @Override public IMixinConfigPlugin getPlugin() {return null;}
+        @Override public boolean isRequired() {throw new UnsupportedOperationException();}
+        @Override public Set<String> getTargets() {throw new UnsupportedOperationException();}
+        @Override public <V> void decorate(String key, V value) {}
+        @Override public boolean hasDecoration(String key) {return false;}
+        @Override public <V> V getDecoration(String key) {return null;}
+        //@formatter:on
+    }
+
+    public record DummyMixinInfo(IMixinConfig config) implements IMixinInfo {
+        @Override
+        public IMixinConfig getConfig() {
+            return config;
+        }
+
+        //@formatter:off
+        @Override public String getName() {throw new UnsupportedOperationException();}
+        @Override public String getClassName() {throw new UnsupportedOperationException();}
+        @Override public String getClassRef() {throw new UnsupportedOperationException();}
+        @Override public byte[] getClassBytes() {throw new UnsupportedOperationException();}
+        @Override public boolean isDetachedSuper() {throw new UnsupportedOperationException();}
+        @Override public ClassNode getClassNode(int flags) {throw new UnsupportedOperationException();}
+        @Override public List<String> getTargetClasses() {throw new UnsupportedOperationException();}
+        @Override public int getPriority() {throw new UnsupportedOperationException();}
+        @Override public MixinEnvironment.Phase getPhase() {throw new UnsupportedOperationException();}
+        //@formatter:on
+    }
+
     public static final class ClassMixinContext implements IMixinContext {
         private final String className;
         private final String targetClass;
         private final ReferenceRemapper referenceRemapper;
+        private final IMixinInfo mixinInfo;
 
         public ClassMixinContext(String className, String targetClass, PatchEnvironment env) {
             this.className = className;
             this.targetClass = targetClass;
             this.referenceRemapper = new ReferenceRemapper(env);
+            this.mixinInfo = new DummyMixinInfo(new DummyMixinConfig());
         }
 
         @Override
         public IMixinInfo getMixin() {
-            throw new UnsupportedOperationException();
+            return this.mixinInfo;
         }
 
         @Override
