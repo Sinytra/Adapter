@@ -14,13 +14,9 @@ import java.util.List;
 import java.util.stream.Stream;
 
 public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements, List<Pair<Integer, Integer>> swaps) {
-    public static final class MethodParameter {
-        private final Type type;
-        private final boolean isGeneratedType;
-
+    public record MethodParameter(Type type, boolean isGeneratedType) {
         public MethodParameter(@Nullable String name, Type type) {
-            this.type = type;
-            this.isGeneratedType = name != null && AdapterUtil.isGeneratedVariableName(name, type);
+            this(type, name != null && AdapterUtil.isGeneratedVariableName(name, type));
         }
 
         public MethodParameter(LocalVariableNode lv) {
@@ -76,6 +72,8 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
         List<Pair<Integer, Type>> insertions = new ArrayList<>();
         // Indexes we replace params at
         List<Pair<Integer, Type>> replacements = new ArrayList<>();
+        // Indexes to swap one for another
+        List<Pair<Integer, Integer>> swaps = new ArrayList<>();
         int i = 0;
         int j = 0;
         int lvtIndex = 0;
@@ -89,22 +87,38 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
                 // Check if old and new params at this index are the same
                 boolean sameType = cleanParam.type.equals(dirtyParam.type);
                 if (!sameType || !cleanParam.matchName(dirtyParam)) {
-                    // If not, it is possible a new param was injected onto this index.
-                    // In that case, the original param was moved further down the array, and we must find it.
-                    for (int k = j + 1; k < dirtyParameters.size(); k++) {
-                        MethodParameter dirtyParamAhead = dirtyParameters.get(k);
-                        if (cleanParam.type.equals(dirtyParamAhead.type) && (sameType || cleanParam.matchName(dirtyParamAhead))) {
-                            // If the param is found, add all parameters between the original and new pos to the insertion list
-                            for (; j < k; j++, lvtIndex++) {
-                                insertions.add(Pair.of(lvtIndex, dirtyParameters.get(j).type));
-                            }
-                            // Continue onto the next params
-                            continue outer;
+                    boolean handled = false;
+                    // Check if the params have been swapped
+                    if (i + 1 < cleanParameters.size() && j + 1 < dirtyParameters.size()) {
+                        MethodParameter nextCleanParam = cleanParameters.get(i + 1);
+                        MethodParameter nextDirtyParam = dirtyParameters.get(j + 1);
+                        // Swap detected
+                        if (nextCleanParam.equals(dirtyParam) && nextDirtyParam.equals(cleanParam)) {
+                            swaps.add(Pair.of(j, j + 1));
+                            i++;
+                            lvtIndex++;
+                            j++;
+                            handled = true;
                         }
                     }
-                    // If the param is not found, then it was likely replaced
-                    if (!cleanParam.type.equals(dirtyParam.type)) {
-                        replacements.add(Pair.of(lvtIndex, dirtyParam.type));
+                    if (!handled) {
+                        // If not, it is possible a new param was injected onto this index.
+                        // In that case, the original param was moved further down the array, and we must find it.
+                        for (int k = j + 1; k < dirtyParameters.size(); k++) {
+                            MethodParameter dirtyParamAhead = dirtyParameters.get(k);
+                            if (cleanParam.type.equals(dirtyParamAhead.type) && (sameType || cleanParam.matchName(dirtyParamAhead))) {
+                                // If the param is found, add all parameters between the original and new pos to the insertion list
+                                for (; j < k; j++, lvtIndex++) {
+                                    insertions.add(Pair.of(lvtIndex, dirtyParameters.get(j).type));
+                                }
+                                // Continue onto the next params
+                                continue outer;
+                            }
+                        }
+                        // If the param is not found, then it was likely replaced
+                        if (!cleanParam.type.equals(dirtyParam.type)) {
+                            replacements.add(Pair.of(lvtIndex, dirtyParam.type));
+                        }
                     }
                 }
                 i++;
@@ -121,10 +135,10 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
         if (j - i != insertions.size()) {
             throw new IllegalStateException("Unexpected difference in params size");
         }
-        return new ParametersDiff(i, insertions, replacements, List.of());
+        return new ParametersDiff(i, insertions, replacements, swaps);
     }
 
     public boolean isEmpty() {
-        return this.insertions.isEmpty() && this.replacements.isEmpty();
+        return this.insertions.isEmpty() && this.replacements.isEmpty() && this.swaps.isEmpty();
     }
 }

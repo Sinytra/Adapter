@@ -268,19 +268,11 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             LOGGER.debug("Tried to replace local variables in mixin method {}.{} using {}", classNode.name, methodNode.name + methodNode.desc, diff.replacements());
             return null;
         }
-        // Find max local index
-        int maxLocal = 0;
-        for (int i = 0; i < expected.size() && maxLocal < availableTypes.size(); maxLocal++) {
-            if (!expected.get(i).equals(availableTypes.get(maxLocal))) {
-                continue;
-            }
-            i++;
-        }
-        final int finalMaxLocal = maxLocal;
         // Offset the insertion to the correct parameter indices
         // Also remove any appended variables
-        List<Pair<Integer, Type>> offsetInsertions = diff.insertions().stream().filter(pair -> pair.getFirst() < finalMaxLocal).map(pair -> pair.mapFirst(i -> i + paramLocalPos)).toList();
-        ParametersDiff offsetDiff = new ParametersDiff(diff.originalCount(), offsetInsertions, List.of(), List.of());
+        List<Pair<Integer, Type>> offsetInsertions = diff.insertions().stream().filter(pair -> pair.getFirst() < expected.size()).map(pair -> pair.mapFirst(i -> i + paramLocalPos)).toList();
+        List<Pair<Integer, Integer>> offsetSwaps = diff.swaps().stream().filter(pair -> pair.getFirst() < expected.size()).map(pair -> pair.mapFirst(i -> i + paramLocalPos).mapSecond(i -> i + paramLocalPos)).toList();
+        ParametersDiff offsetDiff = new ParametersDiff(diff.originalCount(), offsetInsertions, List.of(), offsetSwaps);
         if (offsetDiff.isEmpty()) {
             // No changes required
             return null;
@@ -307,8 +299,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         return slice.getSlice(method);
     }
 
-    private record LocalVariable(int index, Type type) {
-    }
+    private record LocalVariable(int index, Type type) {}
 
     // Adapted from org.spongepowered.asm.mixin.injection.callback.CallbackInjector summariseLocals
     private static <T> List<T> summariseLocals(T[] locals, int pos) {
