@@ -219,14 +219,12 @@ public final class PatchInstance implements Patch {
         AnnotationValueHandle<String> value = PatchInstance.<String>findAnnotationValue(annotation.values, "value").orElse(null);
         String valueStr = value != null ? value.get() : null;
         AnnotationValueHandle<String> target = PatchInstance.<String>findAnnotationValue(annotation.values, "target").orElse(null);
-        if (target != null) {
-            String targetStr = remaper.remap(owner, target.get());
-            if (this.targetInjectionPoints.stream().anyMatch(pred -> pred.test(valueStr, targetStr))) {
-                return Optional.of(Map.of(
-                    "value", value,
-                    "target", target
-                ));
-            }
+        String targetStr = target != null ? remaper.remap(owner, target.get()) : "";
+        if (this.targetInjectionPoints.stream().anyMatch(pred -> pred.test(valueStr, targetStr))) {
+            Map<String, AnnotationValueHandle<?>> map = new HashMap<>();
+            map.put("value", value);
+            map.put("target", target);
+            return Optional.of(map);
         }
         return Optional.empty();
     }
