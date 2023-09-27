@@ -20,7 +20,7 @@ public record MethodQualifier(@Nullable String name, @Nullable String desc) {
     public static Optional<MethodQualifier> create(String qualifier) {
         Matcher matcher = METHOD_QUALIFIER_PATTERN.matcher(qualifier);
         if (matcher.matches()) {
-            String name = PatchEnvironment.remapMethodName(matcher.group("name"));
+            String name = PatchEnvironment.remapReference(matcher.group("name"));
             String desc = matcher.group("desc");
             if (name != null || desc != null) {
                 return Optional.of(new MethodQualifier(name, desc));

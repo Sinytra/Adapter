@@ -16,7 +16,7 @@ public class MethodMatcher {
     public MethodMatcher(String method) {
         int descIndex = method.indexOf('(');
         String name = descIndex == -1 ? method : method.substring(0, descIndex);
-        this.name = PatchEnvironment.remapMethodName(name);
+        this.name = PatchEnvironment.remapReference(name);
         this.desc = descIndex == -1 ? null : method.substring(descIndex);
     }
 

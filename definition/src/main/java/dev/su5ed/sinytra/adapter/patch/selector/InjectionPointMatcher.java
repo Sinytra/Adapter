@@ -29,7 +29,7 @@ public record InjectionPointMatcher(@Nullable String value, String target) {
             String name = matcher.group("name");
             String desc = matcher.group("desc");
 
-            String mappedName = PatchEnvironment.remapMethodName(name);
+            String mappedName = PatchEnvironment.remapReference(name);
             this.target = Objects.requireNonNullElse(owner, "") + mappedName + Objects.requireNonNullElse(desc, "");
         } else {
             this.target = target;
