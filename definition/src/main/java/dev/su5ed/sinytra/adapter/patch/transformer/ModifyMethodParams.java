@@ -6,6 +6,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.su5ed.sinytra.adapter.patch.*;
 import dev.su5ed.sinytra.adapter.patch.Patch.Result;
+import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.ExtraCodecs;
 import org.jetbrains.annotations.Nullable;
@@ -280,6 +281,10 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
         public Set<String> getTargetMixinTypes() {
             return this.targetMixinTypes;
         }
+    }
+
+    public interface LVTFixer {
+        void accept(int index, AbstractInsnNode insn, InsnList list);
     }
 
     public static class Builder {

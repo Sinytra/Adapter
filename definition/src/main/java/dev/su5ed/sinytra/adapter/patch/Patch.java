@@ -23,14 +23,20 @@ public sealed interface Patch permits PatchInstance {
     String MODIFY_VAR = "Lorg/spongepowered/asm/mixin/injection/ModifyVariable;";
     String MODIFY_CONST = "Lorg/spongepowered/asm/mixin/injection/ModifyConstant;";
     String OVERWRITE = "Lorg/spongepowered/asm/mixin/Overwrite;";
+    // Interface mixins
+    String ACCESSOR = "Lorg/spongepowered/asm/mixin/gen/Accessor;";
     // Mixinextras annotations
     String MODIFY_EXPR_VAL = "Lcom/llamalad7/mixinextras/injector/ModifyExpressionValue;";
     String WRAP_OPERATION = "Lcom/llamalad7/mixinextras/injector/wrapoperation/WrapOperation;";
 
     Pattern METHOD_REF_PATTERN = Pattern.compile("^(?<owner>L[a-zA-Z0-9/_$]+;)?(?<name>[a-zA-Z0-9_]+|<[a-z0-9_]+>)(?<desc>\\((?:\\[?[VZCBSIFJD]|\\[?L[a-zA-Z0-9/_$]+;)*\\)(?:[VZCBSIFJD]|\\[?L[a-zA-Z0-9/_;$]+))$");
 
-    static Builder builder() {
-        return new PatchInstance.BuilderImpl();
+    static ClassPatchBuilder builder() {
+        return new ClassPatchInstance.ClassPatchBuilderImpl();
+    }
+
+    static InterfacePatchBuilder interfaceBuilder() {
+        return new InterfacePatchInstance.InterfaceClassPatchBuilderImpl();
     }
 
     Result apply(ClassNode classNode, PatchEnvironment remaper);
@@ -51,51 +57,59 @@ public sealed interface Patch permits PatchInstance {
         }
     }
 
-    interface Builder {
-        Builder targetClass(String... targets);
+    interface Builder<T extends Builder<T>> {
+        T targetClass(String... targets);
 
-        Builder targetMethod(String... targets);
+        T targetMixinType(String annotationDesc);
 
-        Builder targetMixinType(String annotationDesc);
+        T targetAnnotationValues(Predicate<Map<String, AnnotationValueHandle<?>>> values);
 
-        Builder targetAnnotationValues(Predicate<Map<String, AnnotationValueHandle<?>>> values);
+        T modifyTargetClasses(Consumer<List<Type>> consumer);
 
-        default Builder targetInjectionPoint(String target) {
+        T modifyParams(Consumer<ModifyMethodParams.Builder> consumer);
+
+        T modifyTarget(String... methods);
+
+        T modifyVariableIndex(int start, int offset);
+
+        T modifyMethodAccess(ModifyMethodAccess.AccessChange... changes);
+
+        T modifyAnnotationValues(Predicate<AnnotationNode> annotation);
+
+        T extractMixin(String targetClass);
+
+        T modifyMixinType(String newType, Consumer<ModifyMixinType.Builder> consumer);
+
+        T transform(ClassTransform transformer);
+
+        T transform(MethodTransform transformer);
+
+        PatchInstance build();
+    }
+
+    interface ClassPatchBuilder extends Builder<ClassPatchBuilder> {
+        ClassPatchBuilder targetMethod(String... targets);
+
+        default ClassPatchBuilder targetInjectionPoint(String target) {
             return targetInjectionPoint(null, target);
         }
 
-        Builder targetInjectionPoint(String value, String target);
+        ClassPatchBuilder targetInjectionPoint(String value, String target);
 
-        default Builder modifyInjectionPoint(String target) {
+        ClassPatchBuilder modifyInjectionPoint(String value, String target);
+
+        default ClassPatchBuilder modifyInjectionPoint(String target) {
             return modifyInjectionPoint(null, target);
         }
+        
+        ClassPatchBuilder redirectShadowMethod(String original, String target, BiConsumer<MethodInsnNode, InsnList> callFixer);
 
-        Builder modifyTargetClasses(Consumer<List<Type>> consumer);
+        ClassPatchBuilder disable();
+    }
 
-        Builder modifyInjectionPoint(String value, String target);
+    interface InterfacePatchBuilder extends Builder<InterfacePatchBuilder> {
+        InterfacePatchBuilder targetField(String... targets);
 
-        Builder modifyParams(Consumer<ModifyMethodParams.Builder> consumer);
-
-        Builder modifyTarget(String... methods);
-
-        Builder modifyVariableIndex(int start, int offset);
-
-        Builder modifyMethodAccess(ModifyMethodAccess.AccessChange... changes);
-
-        Builder modifyAnnotationValues(Predicate<AnnotationNode> annotation);
-
-        Builder redirectShadowMethod(String original, String target, BiConsumer<MethodInsnNode, InsnList> callFixer);
-
-        Builder extractMixin(String targetClass);
-
-        Builder modifyMixinType(String newType, Consumer<ModifyMixinType.Builder> consumer);
-
-        Builder disable();
-
-        Builder transform(ClassTransform transformer);
-
-        Builder transform(MethodTransform transformer);
-
-        PatchInstance build();
+        InterfacePatchBuilder modifyValue(String value);
     }
 }

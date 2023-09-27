@@ -11,7 +11,7 @@ import dev.su5ed.sinytra.adapter.gradle.provider.ClassProvider;
 import dev.su5ed.sinytra.adapter.gradle.provider.ZipClassProvider;
 import dev.su5ed.sinytra.adapter.patch.LVTOffsets;
 import dev.su5ed.sinytra.adapter.patch.PatchInstance;
-import dev.su5ed.sinytra.adapter.patch.PatchSerialization;
+import dev.su5ed.sinytra.adapter.patch.serialization.PatchSerialization;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import net.minecraftforge.srgutils.IMappingFile;
 import org.gradle.api.DefaultTask;

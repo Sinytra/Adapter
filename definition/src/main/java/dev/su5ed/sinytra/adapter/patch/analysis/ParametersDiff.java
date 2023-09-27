@@ -1,4 +1,4 @@
-package dev.su5ed.sinytra.adapter.patch;
+package dev.su5ed.sinytra.adapter.patch.analysis;
 
 import com.mojang.datafixers.util.Pair;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;

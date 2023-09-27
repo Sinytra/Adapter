@@ -1,6 +1,6 @@
 package dev.su5ed.sinytra.adapter.patch.test;
 
-import dev.su5ed.sinytra.adapter.patch.ParametersDiff;
+import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Type;

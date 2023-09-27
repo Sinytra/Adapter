@@ -1,16 +1,15 @@
-package dev.su5ed.sinytra.adapter.patch;
+package dev.su5ed.sinytra.adapter.patch.serialization;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
-import com.mojang.serialization.DynamicOps;
+import dev.su5ed.sinytra.adapter.patch.MethodTransform;
 import dev.su5ed.sinytra.adapter.patch.transformer.*;
 
-import java.util.List;
 import java.util.Objects;
 
-public class PatchSerialization {
+public class MethodTransformSerialization {
     private static final BiMap<String, Codec<? extends MethodTransform>> TRANSFORMER_CODECS = ImmutableBiMap.<String, Codec<? extends MethodTransform>>builder()
         .put("disable_mixin", DisableMixin.CODEC)
         .put("change_modified_variable", ChangeModifiedVariableIndex.CODEC)
@@ -31,18 +30,5 @@ public class PatchSerialization {
 
     private static String getTransformName(MethodTransform transform) {
         return Objects.requireNonNull(TRANSFORMER_CODECS.inverse().get(transform.codec()), "Missing name for transformer " + transform);
-    }
-
-    public static <T> T serialize(List<PatchInstance> patches, DynamicOps<T> dynamicOps) {
-        DataResult<T> result = PatchInstance.CODEC.listOf().encodeStart(dynamicOps, patches);
-        return result.getOrThrow(false, s -> {
-            throw new RuntimeException("Error serializing patches: " + s);
-        });
-    }
-
-    public static <T> List<PatchInstance> deserialize(T patches, DynamicOps<T> dynamicOps) {
-        return PatchInstance.CODEC.listOf().decode(dynamicOps, patches).getOrThrow(false, s -> {
-            throw new RuntimeException("Error deserializing patches: " + s);
-        }).getFirst();
     }
 }

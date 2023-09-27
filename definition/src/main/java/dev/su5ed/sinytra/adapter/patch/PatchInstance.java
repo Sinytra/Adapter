@@ -2,60 +2,46 @@ package dev.su5ed.sinytra.adapter.patch;
 
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
-import com.mojang.serialization.DataResult;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.su5ed.sinytra.adapter.patch.transformer.*;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.*;
+import org.objectweb.asm.tree.AnnotationNode;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodNode;
 import org.slf4j.Marker;
 import org.slf4j.MarkerFactory;
 
 import java.util.*;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.regex.Matcher;
 
-public final class PatchInstance implements Patch {
+public abstract sealed class PatchInstance implements Patch permits ClassPatchInstance, InterfacePatchInstance {
     public static final String MIXIN_ANN = "Lorg/spongepowered/asm/mixin/Mixin;";
-    private static final String OWNER_PREFIX = "^(?<owner>L(?:.*?)+;)";
     public static final Collection<String> KNOWN_MIXIN_TYPES = Set.of(Patch.INJECT, Patch.REDIRECT, Patch.MODIFY_ARG, Patch.MODIFY_VAR, Patch.MODIFY_CONST, Patch.MODIFY_EXPR_VAL, Patch.WRAP_OPERATION);
 
     public static final Marker MIXINPATCH = MarkerFactory.getMarker("MIXINPATCH");
-    public static final Codec<PatchInstance> CODEC = RecordCodecBuilder
-        .<PatchInstance>create(instance -> instance.group(
-            Codec.STRING.listOf().optionalFieldOf("targetClasses", List.of()).forGetter(p -> p.targetClasses),
-            MethodMatcher.CODEC.listOf().optionalFieldOf("targetMethods", List.of()).forGetter(p -> p.targetMethods),
-            InjectionPointMatcher.CODEC.listOf().optionalFieldOf("targetInjectionPoints", List.of()).forGetter(p -> p.targetInjectionPoints),
-            Codec.STRING.listOf().optionalFieldOf("targetAnnotations", List.of()).forGetter(p -> p.targetAnnotations),
-            PatchSerialization.METHOD_TRANSFORM_CODEC.listOf().fieldOf("transforms").forGetter(p -> p.transforms)
-        ).apply(instance, PatchInstance::new))
-        .flatComapMap(Function.identity(), obj -> obj.targetAnnotationValues != null ? DataResult.error(() -> "Cannot serialize targetAnnotationValues") : DataResult.success(obj));
 
-    private final List<String> targetClasses;
-    private final List<MethodMatcher> targetMethods;
-    private final List<InjectionPointMatcher> targetInjectionPoints;
-    private final List<String> targetAnnotations;
+    protected final List<String> targetClasses;
+
+    protected final List<String> targetAnnotations;
     @Nullable
-    private final Predicate<Map<String, AnnotationValueHandle<?>>> targetAnnotationValues;
-    private final List<ClassTransform> classTransforms;
-    private final List<MethodTransform> transforms;
+    protected final Predicate<Map<String, AnnotationValueHandle<?>>> targetAnnotationValues;
+    protected final List<ClassTransform> classTransforms;
+    protected final List<MethodTransform> transforms;
 
-    private PatchInstance(List<String> targetClasses, List<MethodMatcher> targetMethods, List<InjectionPointMatcher> targetInjectionPoints, List<String> targetAnnotations, List<MethodTransform> transforms) {
-        this(targetClasses, targetMethods, targetInjectionPoints, targetAnnotations, map -> true, List.of(), transforms);
+    protected PatchInstance(List<String> targetClasses, List<String> targetAnnotations, List<MethodTransform> transforms) {
+        this(targetClasses, targetAnnotations, map -> true, List.of(), transforms);
     }
 
-    private PatchInstance(List<String> targetClasses, List<MethodMatcher> targetMethods, List<InjectionPointMatcher> targetInjectionPoints, List<String> targetAnnotations, Predicate<Map<String, AnnotationValueHandle<?>>> targetAnnotationValues, List<ClassTransform> classTransforms, List<MethodTransform> transforms) {
+    protected PatchInstance(List<String> targetClasses, List<String> targetAnnotations, Predicate<Map<String, AnnotationValueHandle<?>>> targetAnnotationValues, List<ClassTransform> classTransforms, List<MethodTransform> transforms) {
         this.targetClasses = targetClasses;
-        this.targetMethods = targetMethods;
-        this.targetInjectionPoints = targetInjectionPoints;
         this.targetAnnotations = targetAnnotations;
         this.targetAnnotationValues = targetAnnotationValues;
         this.classTransforms = classTransforms;
         this.transforms = transforms;
     }
+
+    public abstract Codec<? extends PatchInstance> codec();
 
     @Override
     public Result apply(ClassNode classNode, PatchEnvironment environment) {
@@ -86,37 +72,6 @@ public final class PatchInstance implements Patch {
             context.run();
         }
         return result;
-    }
-
-    private record InjectionPointMatcher(@Nullable String value, String target) {
-        public static final Codec<InjectionPointMatcher> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Codec.STRING.optionalFieldOf("value").forGetter(i -> Optional.ofNullable(i.value())),
-            Codec.STRING.fieldOf("target").forGetter(InjectionPointMatcher::target)
-        ).apply(instance, InjectionPointMatcher::new));
-
-        public InjectionPointMatcher(Optional<String> value, String target) {
-            this(value.orElse(null), target);
-        }
-
-        private InjectionPointMatcher(@Nullable String value, String target) {
-            this.value = value;
-
-            Matcher matcher = METHOD_REF_PATTERN.matcher(target);
-            if (matcher.matches()) {
-                String owner = matcher.group("owner");
-                String name = matcher.group("name");
-                String desc = matcher.group("desc");
-
-                String mappedName = PatchEnvironment.remapMethodName(name);
-                this.target = Objects.requireNonNullElse(owner, "") + mappedName + Objects.requireNonNullElse(desc, "");
-            } else {
-                this.target = target;
-            }
-        }
-
-        public boolean test(String value, String target) {
-            return this.target.equals(target) && (this.value == null || this.value.equals(value));
-        }
     }
 
     private static Pair<Boolean, @Nullable AnnotationValueHandle<?>> checkClassTarget(ClassNode classNode, Collection<String> targets) {
@@ -164,70 +119,7 @@ public final class PatchInstance implements Patch {
         return Optional.empty();
     }
 
-    private Optional<Map<String, AnnotationValueHandle<?>>> checkAnnotation(String owner, MethodNode method, AnnotationNode annotation, PatchEnvironment remaper) {
-        if (annotation.desc.equals(Patch.OVERWRITE)) {
-            if (this.targetMethods.isEmpty() || this.targetMethods.stream().anyMatch(matcher -> matcher.matches(method.name, method.desc))) {
-                return Optional.of(Map.of());
-            }
-        } else if (KNOWN_MIXIN_TYPES.contains(annotation.desc)) {
-            return PatchInstance.<List<String>>findAnnotationValue(annotation.values, "method")
-                .flatMap(value -> {
-                    for (String target : value.get()) {
-                        String remappedTarget = remaper.remap(owner, target);
-                        // Remove owner class; it is always the same as the mixin target
-                        remappedTarget = remappedTarget.replaceAll(OWNER_PREFIX, "");
-                        int targetDescIndex = remappedTarget.indexOf('(');
-                        String targetName = targetDescIndex == -1 ? remappedTarget : remappedTarget.substring(0, targetDescIndex);
-                        String targetDesc = targetDescIndex == -1 ? null : remappedTarget.substring(targetDescIndex);
-                        if (this.targetMethods.isEmpty() || this.targetMethods.stream().anyMatch(matcher -> matcher.matches(targetName, targetDesc))) {
-                            Map<String, AnnotationValueHandle<?>> map = new HashMap<>();
-                            map.put("method", value);
-                            if (annotation.desc.equals(Patch.MODIFY_ARG) || annotation.desc.equals(Patch.MODIFY_VAR)) {
-                                map.put("index", PatchInstance.<Integer>findAnnotationValue(annotation.values, "index").orElse(null));
-                            }
-                            if (!this.targetInjectionPoints.isEmpty()) {
-                                Map<String, AnnotationValueHandle<?>> injectCheck = checkInjectionPoint(owner, annotation, remaper).orElse(null);
-                                if (injectCheck != null) {
-                                    map.putAll(injectCheck);
-                                    return Optional.of(map);
-                                }
-                            } else {
-                                return Optional.of(map);
-                            }
-                        }
-                    }
-                    return Optional.empty();
-                });
-        }
-        return Optional.empty();
-    }
-
-    private Optional<Map<String, AnnotationValueHandle<?>>> checkInjectionPoint(String owner, AnnotationNode annotation, PatchEnvironment remaper) {
-        return PatchInstance.findAnnotationValue(annotation.values, "at")
-            .map(handle -> {
-                Object value = handle.get();
-                return value instanceof List<?> list ? (AnnotationNode) list.get(0) : (AnnotationNode) value;
-            })
-            .flatMap(node -> checkAtAnnotation(owner, node, remaper))
-            // Check slice.from target
-            .or(() -> PatchInstance.<AnnotationNode>findAnnotationValue(annotation.values, "slice")
-                .flatMap(slice -> slice.findNested("from")
-                    .flatMap(from -> checkAtAnnotation(owner, from.get(), remaper))));
-    }
-
-    private Optional<Map<String, AnnotationValueHandle<?>>> checkAtAnnotation(String owner, AnnotationNode annotation, PatchEnvironment remaper) {
-        AnnotationValueHandle<String> value = PatchInstance.<String>findAnnotationValue(annotation.values, "value").orElse(null);
-        String valueStr = value != null ? value.get() : null;
-        AnnotationValueHandle<String> target = PatchInstance.<String>findAnnotationValue(annotation.values, "target").orElse(null);
-        String targetStr = target != null ? remaper.remap(owner, target.get()) : "";
-        if (this.targetInjectionPoints.stream().anyMatch(pred -> pred.test(valueStr, targetStr))) {
-            Map<String, AnnotationValueHandle<?>> map = new HashMap<>();
-            map.put("value", value);
-            map.put("target", target);
-            return Optional.of(map);
-        }
-        return Optional.empty();
-    }
+    protected abstract Optional<Map<String, AnnotationValueHandle<?>>> checkAnnotation(String owner, MethodNode method, AnnotationNode annotation, PatchEnvironment remaper);
 
     public static <T> Optional<AnnotationValueHandle<T>> findAnnotationValue(@Nullable List<Object> values, String key) {
         if (values != null) {
@@ -242,146 +134,88 @@ public final class PatchInstance implements Patch {
         return Optional.empty();
     }
 
-    static class MethodMatcher {
-        public static final Codec<MethodMatcher> CODEC = Codec.STRING.xmap(MethodMatcher::new, matcher -> matcher.name + Objects.requireNonNullElse(matcher.desc, ""));
-
-        private final String name;
-        @Nullable
-        private final String desc;
-
-        public MethodMatcher(String method) {
-            int descIndex = method.indexOf('(');
-            String name = descIndex == -1 ? method : method.substring(0, descIndex);
-            this.name = PatchEnvironment.remapMethodName(name);
-            this.desc = descIndex == -1 ? null : method.substring(descIndex);
-        }
-
-        public boolean matches(String name, String desc) {
-            return this.name.equals(name) && (this.desc == null || desc == null || this.desc.equals(desc));
-        }
-    }
-
-    static class BuilderImpl implements Builder {
-        private final Set<String> targetClasses = new HashSet<>();
-        private final Set<MethodMatcher> targetMethods = new HashSet<>();
-        private final Set<String> targetAnnotations = new HashSet<>();
-        private Predicate<Map<String, AnnotationValueHandle<?>>> targetAnnotationValues;
-        private final Set<InjectionPointMatcher> targetInjectionPoints = new HashSet<>();
-        private final List<ClassTransform> classTransforms = new ArrayList<>();
-        private final List<MethodTransform> transforms = new ArrayList<>();
+    protected abstract static class BaseBuilder<T extends Builder<T>> implements Builder<T> {
+        protected final Set<String> targetClasses = new HashSet<>();
+        protected final Set<String> targetAnnotations = new HashSet<>();
+        protected Predicate<Map<String, AnnotationValueHandle<?>>> targetAnnotationValues;
+        protected final List<ClassTransform> classTransforms = new ArrayList<>();
+        protected final List<MethodTransform> transforms = new ArrayList<>();
 
         @Override
-        public Builder targetClass(String... targets) {
+        public T targetClass(String... targets) {
             this.targetClasses.addAll(List.of(targets));
-            return this;
+            return coerce();
         }
 
         @Override
-        public Builder targetMethod(String... targets) {
-            for (String target : targets) {
-                this.targetMethods.add(new MethodMatcher(target));
-            }
-            return this;
-        }
-
-        @Override
-        public Builder targetMixinType(String annotationDesc) {
+        public T targetMixinType(String annotationDesc) {
             this.targetAnnotations.add(annotationDesc);
-            return this;
+            return coerce();
         }
 
         @Override
-        public Builder targetAnnotationValues(Predicate<Map<String, AnnotationValueHandle<?>>> values) {
+        public T targetAnnotationValues(Predicate<Map<String, AnnotationValueHandle<?>>> values) {
             this.targetAnnotationValues = this.targetAnnotationValues == null ? values : this.targetAnnotationValues.or(values);
-            return this;
+            return coerce();
         }
 
         @Override
-        public Builder targetInjectionPoint(String value, String target) {
-            this.targetInjectionPoints.add(new InjectionPointMatcher(value, target));
-            return this;
-        }
-
-        @Override
-        public Builder modifyTargetClasses(Consumer<List<Type>> consumer) {
+        public T modifyTargetClasses(Consumer<List<Type>> consumer) {
             return transform(new ModifyTargetClasses(consumer));
         }
 
         @Override
-        public Builder modifyInjectionPoint(String value, String target) {
-            return transform(new ModifyInjectionPoint(value, target));
-        }
-
-        @Override
-        public Builder modifyParams(Consumer<ModifyMethodParams.Builder> consumer) {
+        public T modifyParams(Consumer<ModifyMethodParams.Builder> consumer) {
             ModifyMethodParams.Builder builder = ModifyMethodParams.builder();
             consumer.accept(builder);
             return transform(builder.build());
         }
 
         @Override
-        public Builder modifyTarget(String... methods) {
+        public T modifyTarget(String... methods) {
             return transform(new ModifyInjectionTarget(List.of(methods)));
         }
 
         @Override
-        public Builder modifyVariableIndex(int start, int offset) {
+        public T modifyVariableIndex(int start, int offset) {
             return transform(new ChangeModifiedVariableIndex(start, offset));
         }
 
         @Override
-        public Builder modifyMethodAccess(ModifyMethodAccess.AccessChange... changes) {
+        public T modifyMethodAccess(ModifyMethodAccess.AccessChange... changes) {
             return transform(new ModifyMethodAccess(List.of(changes)));
         }
 
         @Override
-        public Builder modifyAnnotationValues(Predicate<AnnotationNode> annotation) {
+        public T modifyAnnotationValues(Predicate<AnnotationNode> annotation) {
             return transform(new ModifyAnnotationValues(annotation));
         }
 
         @Override
-        public Builder redirectShadowMethod(String original, String target, BiConsumer<MethodInsnNode, InsnList> callFixer) {
-            return transform(new RedirectShadowMethod(original, target, callFixer));
-        }
-
-        @Override
-        public Builder extractMixin(String targetClass) {
+        public T extractMixin(String targetClass) {
             return transform(new ExtractMixin(targetClass));
         }
 
         @Override
-        public Builder modifyMixinType(String newType, Consumer<ModifyMixinType.Builder> consumer) {
+        public T modifyMixinType(String newType, Consumer<ModifyMixinType.Builder> consumer) {
             return transform(new ModifyMixinType(newType, consumer));
         }
 
         @Override
-        public Builder disable() {
-            return transform(DisableMixin.INSTANCE);
-        }
-
-        @Override
-        public Builder transform(ClassTransform transformer) {
+        public T transform(ClassTransform transformer) {
             this.classTransforms.add(transformer);
-            return this;
+            return coerce();
         }
 
         @Override
-        public Builder transform(MethodTransform transformer) {
+        public T transform(MethodTransform transformer) {
             this.transforms.add(transformer);
-            return this;
+            return coerce();
         }
 
-        @Override
-        public PatchInstance build() {
-            return new PatchInstance(
-                List.copyOf(this.targetClasses),
-                List.copyOf(this.targetMethods),
-                List.copyOf(this.targetInjectionPoints),
-                List.copyOf(this.targetAnnotations),
-                this.targetAnnotationValues,
-                List.copyOf(this.classTransforms),
-                List.copyOf(this.transforms)
-            );
+        @SuppressWarnings("unchecked")
+        private T coerce() {
+            return (T) this;
         }
     }
 }
