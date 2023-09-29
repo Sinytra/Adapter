@@ -95,19 +95,17 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
                     if (i + 1 < cleanParameters.size() && j + 1 < dirtyParameters.size()) {
                         MethodParameter nextCleanParam = cleanParameters.get(i + 1);
                         MethodParameter nextDirtyParam = dirtyParameters.get(j + 1);
-                        if (nextCleanParam.equals(dirtyParam)) {
-                            // Swap detected
-                            if (nextDirtyParam.equals(cleanParam)) {
-                                swaps.add(Pair.of(j, j + 1));
-                                i++;
-                                lvtIndex++;
-                                j++;
-                                handled = true;
-                            }
-                            // Detect removed parameters, check the next 2 params for matching types (if possible)
-                            else if (i + 2 >= cleanParameters.size() || cleanParameters.get(j + 2).equals(nextDirtyParam)) {
-                                removing = true;
-                            }
+                        // Detect swapped params
+                        if (nextCleanParam.type.equals(dirtyParam.type) && nextDirtyParam.equals(cleanParam)) {
+                            swaps.add(Pair.of(j, j + 1));
+                            i++;
+                            lvtIndex++;
+                            j++;
+                            handled = true;
+                        }
+                        // Detect removed parameters, check the next 2 params for matching types (if possible)
+                        if (nextCleanParam.equals(dirtyParam) && (j + 2 >= cleanParameters.size() || cleanParameters.get(j + 2).equals(nextDirtyParam))) {
+                            removing = true;
                         }
                     }
                     if (!handled) {
