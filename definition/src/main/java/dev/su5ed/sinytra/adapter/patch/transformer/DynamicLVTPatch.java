@@ -246,8 +246,9 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         MethodNode targetMethod = target.getSecond();
         Type[] targetParams = Type.getArgumentTypes(targetMethod.desc);
         boolean isStatic = (methodNode.access & Opcodes.ACC_STATIC) != 0;
+        int lvtOffset = isStatic ? 0 : 1;
         // The starting LVT index is of the first var after all method parameters. Offset by 1 for instance methods to skip 'this'
-        int targetLocalPos = targetParams.length + (isStatic ? 0 : 1);
+        int targetLocalPos = targetParams.length + lvtOffset;
         // The first local var in the method's params comes after the target's params plus the CI/CIR parameter
         int paramLocalPos = targetParams.length + 1;
         // Get expected local variables from method parameters
@@ -269,11 +270,28 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             LOGGER.debug("Tried to replace local variables in mixin method {}.{} using {}", classNode.name, methodNode.name + methodNode.desc, diff.replacements());
             return null;
         }
+        if (!diff.removals().isEmpty()) {
+            List<LocalVariableNode> lvt = methodNode.localVariables.stream().sorted(Comparator.comparingInt(lvn -> lvn.index)).toList();
+            for (int removal : diff.removals()) {
+                int removalLocal = removal + lvtOffset + paramLocalPos;
+                if (removalLocal >= lvt.size()) {
+                    continue;
+                }
+                int removalIndex = lvt.get(removalLocal).index;
+                for (AbstractInsnNode insn : methodNode.instructions) {
+                    if (insn instanceof VarInsnNode varInsn && varInsn.var == removalIndex) {
+                        LOGGER.debug("Cannot remove parameter {} in mixin method {}.{}", removal, classNode.name, methodNode.name + methodNode.desc);
+                        return null;
+                    }
+                }
+            }
+        }
         // Offset the insertion to the correct parameter indices
         // Also remove any appended variables
         List<Pair<Integer, Type>> offsetInsertions = diff.insertions().stream().filter(pair -> pair.getFirst() < expected.size()).map(pair -> pair.mapFirst(i -> i + paramLocalPos)).toList();
         List<Pair<Integer, Integer>> offsetSwaps = diff.swaps().stream().filter(pair -> pair.getFirst() < expected.size()).map(pair -> pair.mapFirst(i -> i + paramLocalPos).mapSecond(i -> i + paramLocalPos)).toList();
-        ParametersDiff offsetDiff = new ParametersDiff(diff.originalCount(), offsetInsertions, List.of(), offsetSwaps);
+        List<Integer> offsetRemovals = diff.removals().stream().filter(i -> i < expected.size()).map(i -> i + paramLocalPos).toList();
+        ParametersDiff offsetDiff = new ParametersDiff(diff.originalCount(), offsetInsertions, List.of(), offsetSwaps, offsetRemovals);
         if (offsetDiff.isEmpty()) {
             // No changes required
             return null;

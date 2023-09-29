@@ -13,7 +13,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
-public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements, List<Pair<Integer, Integer>> swaps) {
+public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements, List<Pair<Integer, Integer>> swaps, List<Integer> removals) {
     public record MethodParameter(Type type, boolean isGeneratedType) {
         public MethodParameter(@Nullable String name, Type type) {
             this(type, name != null && AdapterUtil.isGeneratedVariableName(name, type));
@@ -30,7 +30,7 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
 
     public static ParametersDiff compareMethodParameters(MethodNode clean, MethodNode dirty) {
         if (clean.localVariables == null || dirty.localVariables == null) {
-            return new ParametersDiff(-1, List.of(), List.of(), List.of());
+            return new ParametersDiff(-1, List.of(), List.of(), List.of(), List.of());
         }
 
         int cleanParamCount = Type.getArgumentTypes(clean.desc).length;
@@ -74,12 +74,14 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
         List<Pair<Integer, Type>> replacements = new ArrayList<>();
         // Indexes to swap one for another
         List<Pair<Integer, Integer>> swaps = new ArrayList<>();
+        List<Integer> removals = new ArrayList<>();
         int i = 0;
         int j = 0;
         int lvtIndex = 0;
         // New params are expected to be at least the same size as the old ones, so we use them for the outer loop
         outer:
         while (j < dirtyParameters.size()) {
+            boolean skipJIncr = false;
             // Start iterating over the original params
             if (i < cleanParameters.size()) {
                 MethodParameter cleanParam = cleanParameters.get(i);
@@ -88,17 +90,24 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
                 boolean sameType = cleanParam.type.equals(dirtyParam.type);
                 if (!sameType || !cleanParam.matchName(dirtyParam)) {
                     boolean handled = false;
+                    boolean removing = false;
                     // Check if the params have been swapped
                     if (i + 1 < cleanParameters.size() && j + 1 < dirtyParameters.size()) {
                         MethodParameter nextCleanParam = cleanParameters.get(i + 1);
                         MethodParameter nextDirtyParam = dirtyParameters.get(j + 1);
-                        // Swap detected
-                        if (nextCleanParam.equals(dirtyParam) && nextDirtyParam.equals(cleanParam)) {
-                            swaps.add(Pair.of(j, j + 1));
-                            i++;
-                            lvtIndex++;
-                            j++;
-                            handled = true;
+                        if (nextCleanParam.equals(dirtyParam)) {
+                            // Swap detected
+                            if (nextDirtyParam.equals(cleanParam)) {
+                                swaps.add(Pair.of(j, j + 1));
+                                i++;
+                                lvtIndex++;
+                                j++;
+                                handled = true;
+                            }
+                            // Detect removed parameters, check the next 2 params for matching types (if possible)
+                            else if (i + 2 >= cleanParameters.size() || cleanParameters.get(j + 2).equals(nextDirtyParam)) {
+                                removing = true;
+                            }
                         }
                     }
                     if (!handled) {
@@ -115,8 +124,12 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
                                 continue outer;
                             }
                         }
+                        if (removing) {
+                            removals.add(j);
+                            skipJIncr = true;
+                        }
                         // If the param is not found, then it was likely replaced
-                        if (!cleanParam.type.equals(dirtyParam.type)) {
+                        else if (!cleanParam.type.equals(dirtyParam.type)) {
                             replacements.add(Pair.of(lvtIndex, dirtyParam.type));
                         }
                     }
@@ -130,15 +143,17 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
                 insertions.add(Pair.of(lvtIndex, type));
                 lvtIndex += lvtIndexes ? AdapterUtil.getLVTOffsetForType(type) : 1;
             }
-            j++;
+            if (!skipJIncr) {
+                j++;
+            }
         }
-        if (j - i != insertions.size()) {
+        if (j - i + removals.size() != insertions.size()) {
             throw new IllegalStateException("Unexpected difference in params size");
         }
-        return new ParametersDiff(i, insertions, replacements, swaps);
+        return new ParametersDiff(i, insertions, replacements, swaps, removals);
     }
 
     public boolean isEmpty() {
-        return this.insertions.isEmpty() && this.replacements.isEmpty() && this.swaps.isEmpty();
+        return this.insertions.isEmpty() && this.replacements.isEmpty() && this.swaps.isEmpty() && this.removals.isEmpty();
     }
 }

@@ -120,6 +120,33 @@ public class ParameterComparisonTest {
         assertTrue(diff.replacements().isEmpty());
     }
 
+    @Test
+    public void testCompareRemovedParameters() {
+        Type[] original = new Type[]{Type.getType(String.class), Type.INT_TYPE, Type.getType(Object.class), Type.FLOAT_TYPE};
+        Type[] modified = new Type[]{Type.getType(String.class), Type.getType(Object.class), Type.FLOAT_TYPE, Type.DOUBLE_TYPE};
+
+        ParametersDiff diff = ParametersDiff.compareTypeParameters(original, modified);
+        System.out.println("Original originalCount: " + original.length);
+        System.out.println("Actual originalCount: " + diff.originalCount());
+        assertEquals(original.length, diff.originalCount());
+
+        System.out.println("Insertions:");
+        diff.insertions().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
+        assertEquals(1, diff.insertions().size());
+
+        System.out.println("Replacements:");
+        diff.replacements().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
+        assertTrue(diff.replacements().isEmpty());
+        
+        System.out.println("Swaps:");
+        diff.swaps().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
+        assertTrue(diff.swaps().isEmpty());
+        
+        System.out.println("Removals:");
+        diff.removals().forEach(param -> System.out.println("AT " + param));
+        assertEquals(1, diff.removals().size());
+    }
+
     // TODO Handle this case
 //    @Test
 //    public void testCompareComplexParameters() {

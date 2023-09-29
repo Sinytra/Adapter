@@ -430,7 +430,7 @@ public class ClassAnalyzer {
                     }
                 }
                 if (valid) {
-                    diff = new ParametersDiff(diff.originalCount(), diff.insertions(), newReplacements, swaps);
+                    diff = new ParametersDiff(diff.originalCount(), diff.insertions(), newReplacements, swaps, List.of());
                 } else {
                     return;
                 }
