@@ -1,9 +1,13 @@
 package dev.su5ed.sinytra.adapter.patch.transformer;
 
 import com.mojang.logging.LogUtils;
+import dev.su5ed.sinytra.adapter.patch.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.ClassTransform;
 import dev.su5ed.sinytra.adapter.patch.Patch;
+import dev.su5ed.sinytra.adapter.patch.PatchEnvironment;
+import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 
@@ -13,7 +17,6 @@ import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
 public record RedirectShadowMethod(MethodQualifier original, MethodQualifier replacement,
                                    BiConsumer<MethodInsnNode, InsnList> callFixer) implements ClassTransform {
-    private static final String SHADOW_ANN = "Lorg/spongepowered/reloc/asm/mixin/Shadow;";
     private static final Logger LOGGER = LogUtils.getLogger();
 
     public RedirectShadowMethod(String original, String replacement, BiConsumer<MethodInsnNode, InsnList> callFixer) {
@@ -21,12 +24,12 @@ public record RedirectShadowMethod(MethodQualifier original, MethodQualifier rep
     }
 
     @Override
-    public Patch.Result apply(ClassNode classNode) {
+    public Patch.Result apply(ClassNode classNode, @Nullable AnnotationValueHandle<?> annotation, PatchEnvironment environment) {
         for (MethodNode method : classNode.methods) {
             MethodQualifier qualifier = new MethodQualifier(method.name, method.desc);
             if (this.original.equals(qualifier) && method.visibleAnnotations != null) {
                 for (AnnotationNode methodAnn : method.visibleAnnotations) {
-                    if (SHADOW_ANN.equals(methodAnn.desc)) {
+                    if (AdapterUtil.SHADOW_ANN.equals(methodAnn.desc)) {
                         LOGGER.info(MIXINPATCH, "Redirecting shadow method {}.{} to {}{}", classNode.name, method.name, this.replacement.name(), this.replacement.desc());
                         method.name = this.replacement.name();
                         method.desc = this.replacement.desc();

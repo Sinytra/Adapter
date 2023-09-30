@@ -47,11 +47,11 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
     public Result apply(ClassNode classNode, PatchEnvironment environment) {
         Result result = Result.PASS;
         PatchContext context = new PatchContext(classNode, environment);
-        Pair<Boolean, @Nullable AnnotationValueHandle<?>> classTarget = checkClassTarget(classNode, this.targetClasses);
+        Pair<Boolean, @Nullable AnnotationValueHandle<?>> classTarget = checkClassTarget(classNode);
         if (classTarget.getFirst()) {
             AnnotationValueHandle<?> classAnnotation = classTarget.getSecond();
             for (ClassTransform classTransform : this.classTransforms) {
-                result = result.or(classTransform.apply(classNode));
+                result = result.or(classTransform.apply(classNode, classTarget.getSecond(), environment));
             }
             for (MethodNode method : classNode.methods) {
                 Pair<AnnotationNode, Map<String, AnnotationValueHandle<?>>> annotationValues = checkMethodTarget(classNode.name, method, environment).orElse(null);
@@ -74,16 +74,14 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         return result;
     }
 
-    private static Pair<Boolean, @Nullable AnnotationValueHandle<?>> checkClassTarget(ClassNode classNode, Collection<String> targets) {
-        if (targets.isEmpty()) {
-            return Pair.of(true, null);
-        } else if (classNode.invisibleAnnotations != null) {
+    private Pair<Boolean, @Nullable AnnotationValueHandle<?>> checkClassTarget(ClassNode classNode) {
+        if (classNode.invisibleAnnotations != null) {
             for (AnnotationNode annotation : classNode.invisibleAnnotations) {
                 if (annotation.desc.equals(MIXIN_ANN)) {
                     return PatchInstance.<List<Type>>findAnnotationValue(annotation.values, "value")
                         .<Pair<Boolean, AnnotationValueHandle<?>>>map(types -> {
                             for (Type targetType : types.get()) {
-                                if (targets.contains(targetType.getInternalName())) {
+                                if (this.targetClasses.isEmpty() || this.targetClasses.contains(targetType.getInternalName())) {
                                     return Pair.of(true, types);
                                 }
                             }
@@ -92,7 +90,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
                         .or(() -> PatchInstance.<List<String>>findAnnotationValue(annotation.values, "targets")
                             .map(types -> {
                                 for (String targetType : types.get()) {
-                                    if (targets.contains(targetType)) {
+                                    if (this.targetClasses.isEmpty() || this.targetClasses.contains(targetType)) {
                                         return Pair.of(true, types);
                                     }
                                 }
@@ -102,7 +100,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
                 }
             }
         }
-        return Pair.of(false, null);
+        return Pair.of(this.targetClasses.isEmpty(), null);
     }
 
     private Optional<Pair<AnnotationNode, Map<String, AnnotationValueHandle<?>>>> checkMethodTarget(String owner, MethodNode method, PatchEnvironment remaper) {

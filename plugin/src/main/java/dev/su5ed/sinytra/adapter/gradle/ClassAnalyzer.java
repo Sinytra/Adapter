@@ -5,9 +5,9 @@ import com.google.common.collect.Multimap;
 import com.mojang.datafixers.util.Pair;
 import dev.su5ed.sinytra.adapter.gradle.provider.ClassProvider;
 import dev.su5ed.sinytra.adapter.patch.LVTOffsets;
-import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
 import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.PatchInstance;
+import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
@@ -25,6 +25,8 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static dev.su5ed.sinytra.adapter.patch.util.AdapterUtil.isAnonymousClass;
 
 public class ClassAnalyzer {
     private static final Logger LOGGER = LoggerFactory.getLogger("ClassAnalyzer");
@@ -566,10 +568,5 @@ public class ClassAnalyzer {
             methods.put(method.name, method);
         }
         return methods;
-    }
-
-    private static boolean isAnonymousClass(String name) {
-        // Regex: second to last char in class name must be '$', and the class name must end with a number
-        return name.matches("^.+\\$\\d+$");
     }
 }

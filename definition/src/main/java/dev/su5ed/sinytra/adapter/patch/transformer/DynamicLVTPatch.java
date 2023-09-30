@@ -6,6 +6,7 @@ import com.mojang.logging.LogUtils;
 import dev.su5ed.sinytra.adapter.patch.*;
 import dev.su5ed.sinytra.adapter.patch.Patch.Result;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
+import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -169,14 +170,8 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         // Find target class
         // We use mixin's bytecode provider rather than our own interface because it's used by InjectionPoint#find, which is called below,
         // and we'd have to provide it regardless of having our own.
-        ClassNode targetClass;
-        try {
-            targetClass = MixinService.getService().getBytecodeProvider().getClassNode(Type.getType(owner).getInternalName());
-        } catch (ClassNotFoundException e) {
-            LOGGER.debug("Target class not found: {}", owner);
-            return null;
-        } catch (Throwable t) {
-            LOGGER.debug("Error getting class", t);
+        ClassNode targetClass = AdapterUtil.getClassNode(Type.getType(owner).getInternalName());
+        if (targetClass == null) {
             return null;
         }
         // Find target method in class

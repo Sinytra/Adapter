@@ -1,7 +1,11 @@
 package dev.su5ed.sinytra.adapter.patch.util;
 
 import com.mojang.datafixers.util.Pair;
+import com.mojang.logging.LogUtils;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.ClassNode;
+import org.slf4j.Logger;
+import org.spongepowered.asm.service.MixinService;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -12,9 +16,11 @@ import java.util.stream.Stream;
 
 public final class AdapterUtil {
     private static final String MOJMAP_PARAM_NAME_PREFIX = "p_";
+    public static final String SHADOW_ANN = "Lorg/spongepowered/asm/mixin/Shadow;";
     // Obfuscated variable names consist of '$$' followed by a number
     private static final String OBF_VAR_PATTERN = "^\\$\\$\\d+$";
     private static final Map<Type, GeneratedVarName> GENERATED_VAR_NAMES = new HashMap<>();
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     static {
         // Source: https://github.com/MinecraftForge/ForgeFlower/blob/7534b3cac6bb8b93a03e3b39533e0bab38de9a61/FernFlower-Patches/0011-JAD-Style-variable-naming.patch#L574-L589
@@ -87,6 +93,23 @@ public final class AdapterUtil {
 
     public static int getLVTOffsetForType(Type type) {
         return type.equals(Type.DOUBLE_TYPE) || type.equals(Type.LONG_TYPE) ? 2 : 1;
+    }
+
+    public static ClassNode getClassNode(String internalName) {
+        try {
+            return MixinService.getService().getBytecodeProvider().getClassNode(internalName);
+        } catch (ClassNotFoundException e) {
+            LOGGER.debug("Target class not found: {}", internalName);
+            return null;
+        } catch (Throwable t) {
+            LOGGER.debug("Error getting class", t);
+            return null;
+        }
+    }
+
+    public static boolean isAnonymousClass(String name) {
+        // Regex: second to last char in class name must be '$', and the class name must end with a number
+        return name.matches("^.+\\$\\d+$");
     }
 
     private AdapterUtil() {}
