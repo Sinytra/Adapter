@@ -8,7 +8,7 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -137,14 +137,41 @@ public class ParameterComparisonTest {
         System.out.println("Replacements:");
         diff.replacements().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
         assertTrue(diff.replacements().isEmpty());
-        
+
         System.out.println("Swaps:");
         diff.swaps().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
         assertTrue(diff.swaps().isEmpty());
-        
+
         System.out.println("Removals:");
         diff.removals().forEach(param -> System.out.println("AT " + param));
         assertEquals(1, diff.removals().size());
+    }
+
+    @Test
+    public void testCompareReorderedParameters() {
+        Type[] original = new Type[]{Type.getType(String.class), Type.getType(List.class), Type.BOOLEAN_TYPE, Type.BOOLEAN_TYPE, Type.getType(Set.class), Type.getType(Map.class)};
+        Type[] modified = new Type[]{Type.getType(String.class), Type.getType(List.class), Type.getType(Deque.class), Type.getType(Map.class), Type.BOOLEAN_TYPE, Type.BOOLEAN_TYPE, Type.getType(Set.class)};
+
+        ParametersDiff diff = ParametersDiff.rearrangeParameters(List.of(original), List.of(modified));
+        System.out.println("Original originalCount: " + original.length);
+        System.out.println("Actual originalCount: " + diff.originalCount());
+        assertEquals(original.length, diff.originalCount());
+
+        System.out.println("Insertions:");
+        diff.insertions().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
+        assertEquals(1, diff.insertions().size());
+
+        System.out.println("Replacements:");
+        diff.replacements().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
+        assertTrue(diff.replacements().isEmpty());
+
+        System.out.println("Swaps:");
+        diff.swaps().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
+        assertEquals(3, diff.swaps().size());
+
+        System.out.println("Removals:");
+        diff.removals().forEach(param -> System.out.println("AT " + param));
+        assertTrue(diff.removals().isEmpty());
     }
 
     // TODO Handle this case

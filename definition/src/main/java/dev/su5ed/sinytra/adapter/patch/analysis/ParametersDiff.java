@@ -1,7 +1,13 @@
 package dev.su5ed.sinytra.adapter.patch.analysis;
 
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ListMultimap;
 import com.mojang.datafixers.util.Pair;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
+import it.unimi.dsi.fastutil.ints.Int2IntLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -13,7 +19,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
-public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements, List<Pair<Integer, Integer>> swaps, List<Integer> removals) {
+public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements, List<Pair<Integer, Integer>> swaps,
+                             List<Integer> removals) {
     public record MethodParameter(Type type, boolean isGeneratedType) {
         public MethodParameter(@Nullable String name, Type type) {
             this(type, name != null && AdapterUtil.isGeneratedVariableName(name, type));
@@ -149,6 +156,57 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
             throw new IllegalStateException("Unexpected difference in params size");
         }
         return new ParametersDiff(i, insertions, replacements, swaps, removals);
+    }
+
+    public static ParametersDiff rearrangeParameters(List<Type> parameterTypes, List<Type> newParameterTypes) {
+        Object2IntMap<Type> typeCount = new Object2IntOpenHashMap<>();
+        ListMultimap<Type, Integer> typeIndices = ArrayListMultimap.create();
+        for (int i = 0; i < parameterTypes.size(); i++) {
+            Type type = parameterTypes.get(i);
+            typeCount.put(type, typeCount.getInt(type) + 1);
+            typeIndices.put(type, i);
+        }
+        Object2IntMap<Type> newTypeCount = new Object2IntOpenHashMap<>();
+        for (Type type : newParameterTypes) {
+            newTypeCount.put(type, newTypeCount.getInt(type) + 1);
+        }
+
+        for (Object2IntMap.Entry<Type> entry : typeCount.object2IntEntrySet()) {
+            if (newTypeCount.getInt(entry.getKey()) != entry.getIntValue()) {
+                return null;
+            }
+        }
+
+        List<Pair<Integer, Type>> insertions = new ArrayList<>();
+        for (int i = 0; i < newParameterTypes.size(); i++) {
+            Type type = newParameterTypes.get(i);
+            if (!typeCount.containsKey(type)) {
+                insertions.add(Pair.of(i, type));
+            }
+        }
+
+        Object2IntMap<Type> seenTypes = new Object2IntOpenHashMap<>();
+        Int2IntMap swaps = new Int2IntLinkedOpenHashMap();
+        for (int i = 0; i < newParameterTypes.size(); i++) {
+            Type type = newParameterTypes.get(i);
+            if (typeIndices.containsKey(type)) {
+                List<Integer> indices = typeIndices.get(type);
+                int seen = seenTypes.getInt(type);
+                int oldIndex = indices.get(seen);
+                seenTypes.put(type, seen + 1);
+                if (oldIndex != i && !swaps.containsKey(i)) {
+                    swaps.put(oldIndex, i);
+                }
+            }
+        }
+
+        if (swaps.isEmpty()) {
+            return null;
+        }
+
+        List<Pair<Integer, Integer>> swapsList = new ArrayList<>();
+        swaps.forEach((from, to) -> swapsList.add(Pair.of(from, to)));
+        return new ParametersDiff(parameterTypes.size(), insertions, List.of(), swapsList, List.of());
     }
 
     public boolean isEmpty() {

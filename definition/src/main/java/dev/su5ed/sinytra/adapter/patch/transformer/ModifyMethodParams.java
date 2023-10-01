@@ -9,6 +9,7 @@ import dev.su5ed.sinytra.adapter.patch.Patch.Result;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.ExtraCodecs;
+import it.unimi.dsi.fastutil.ints.*;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -92,6 +93,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
             return Result.APPLY;
         }
 
+        List<Pair<Integer, Integer>> offsetSwaps = new ArrayList<>(this.swaps);
         LocalVariableNode self = methodNode.localVariables.stream().filter(lvn -> lvn.index == 0).findFirst().orElseThrow();
         Deque<Pair<Integer, Type>> insertionQueue = new ArrayDeque<>(this.insertions);
         while (!insertionQueue.isEmpty()) {
@@ -116,6 +118,8 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
 
             int varOffset = AdapterUtil.getLVTOffsetForType(type);
             offsetLVT(methodNode, index, lvtIndex, varOffset);
+
+            offsetSwaps.replaceAll(integerIntegerPair -> integerIntegerPair.mapFirst(j -> j >= index ? j + 1 : j));            
 
             methodNode.localVariables.add(new LocalVariableNode("adapter_injected_" + index, type.getDescriptor(), null, self.start, self.end, lvtIndex));
         }
@@ -176,8 +180,12 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
                 }
             }
         });
-        for (Pair<Integer, Integer> swapPair : this.swaps) {
+        IntSet seenSwaps = new IntOpenHashSet();
+        for (Pair<Integer, Integer> swapPair : offsetSwaps) {
             int from = swapPair.getFirst();
+            if (seenSwaps.contains(from)) {
+                continue;
+            }
             int to = swapPair.getSecond();
             ParameterNode fromNode = methodNode.parameters.get(from);
             ParameterNode toNode = methodNode.parameters.get(to);
@@ -187,23 +195,34 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
             Type toType = newParameterTypes.get(to);
             newParameterTypes.set(from, toType);
             newParameterTypes.set(to, fromType);
+            seenSwaps.add(to);
+            LOGGER.info(MIXINPATCH, "Swapped parameters at positions {} and {}", from, to);
+        }
+        if (!offsetSwaps.isEmpty()) {
             for (LocalVariableNode lvn : methodNode.localVariables) {
-                if (lvn.index == offset + from) {
-                    lvn.index = offset + to;
-                } else if (lvn.index == offset + to) {
-                    lvn.index = offset + from;
+                for (Pair<Integer, Integer> pair : offsetSwaps) {
+                    if (lvn.index == offset + pair.getFirst()) {
+                        lvn.index = offset + pair.getSecond();
+                        break;
+                    } else if (lvn.index == offset + pair.getSecond()) {
+                        lvn.index = offset + pair.getFirst();
+                        break;
+                    }
                 }
             }
             for (AbstractInsnNode insn : methodNode.instructions) {
                 if (insn instanceof VarInsnNode varInsn) {
-                    if (varInsn.var == offset + from) {
-                        varInsn.var = offset + to;
-                    } else if (varInsn.var == offset + to) {
-                        varInsn.var = offset + from;
+                    for (Pair<Integer, Integer> pair : offsetSwaps) {
+                        if (varInsn.var == offset + pair.getFirst()) {
+                            varInsn.var = offset + pair.getSecond();
+                            break;
+                        } else if (varInsn.var == offset + pair.getSecond()) {
+                            varInsn.var = offset + pair.getFirst();
+                            break;
+                        }
                     }
                 }
             }
-            LOGGER.info(MIXINPATCH, "Swapped parameters at positions {} and {}", from, to);
         }
         this.removals.stream()
             .sorted(Comparator.<Integer>comparingInt(i -> i).reversed())

@@ -25,7 +25,6 @@ import org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionExceptio
 import org.spongepowered.asm.mixin.refmap.IMixinContext;
 import org.spongepowered.asm.mixin.refmap.IReferenceMapper;
 import org.spongepowered.asm.mixin.transformer.ext.Extensions;
-import org.spongepowered.asm.service.MixinService;
 import org.spongepowered.asm.util.Locals;
 import org.spongepowered.asm.util.asm.IAnnotationHandle;
 
@@ -262,8 +261,12 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         }
         // Replacements are not supported, as they would require LVT fixups and converters
         if (!diff.replacements().isEmpty()) {
-            LOGGER.debug("Tried to replace local variables in mixin method {}.{} using {}", classNode.name, methodNode.name + methodNode.desc, diff.replacements());
-            return null;
+            // Check if we can rearrange parameters
+            diff = ParametersDiff.rearrangeParameters(expected, availableTypes);
+            if (diff == null) {
+                LOGGER.debug("Tried to replace local variables in mixin method {}.{} using {}", classNode.name, methodNode.name + methodNode.desc, diff.replacements());
+                return null;   
+            }
         }
         if (!diff.removals().isEmpty()) {
             List<LocalVariableNode> lvt = methodNode.localVariables.stream().sorted(Comparator.comparingInt(lvn -> lvn.index)).toList();
