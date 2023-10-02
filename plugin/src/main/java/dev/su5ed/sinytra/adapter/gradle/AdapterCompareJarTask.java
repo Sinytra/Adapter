@@ -69,6 +69,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
         Multimap<ChangeCategory, String> info = HashMultimap.create();
         Map<String, String> replacementCalls = new HashMap<>();
         Map<String, Map<MethodQualifier, List<LVTOffsets.Offset>>> offsets = new HashMap<>();
+        Map<String, Map<MethodQualifier, List<LVTOffsets.Swap>>> reorders = new HashMap<>();
 
         IMappingFile mappings = IMappingFile.load(getSrgToMcpMappings().get().getAsFile());
 
@@ -96,7 +97,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
 
                     ClassAnalyzer analyzer = ClassAnalyzer.create(cleanData, dirtyData, mappings, cleanClassProvider, dirtyClassProvider);
                     analyzers.add(analyzer);
-                    analyzer.analyze(patches, info, replacementCalls, offsets);
+                    analyzer.analyze(patches, info, replacementCalls, offsets, reorders);
 
                     counter.getAndIncrement();
                 } catch (IOException e) {
@@ -131,7 +132,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
         String patchDataJsonStr = gson.toJson(patchDataJson);
         Files.writeString(getPatchDataOutput().get().getAsFile().toPath(), patchDataJsonStr, StandardCharsets.UTF_8);
 
-        LVTOffsets lvtOffsets = new LVTOffsets(offsets);
+        LVTOffsets lvtOffsets = new LVTOffsets(offsets, reorders);
         JsonElement offsetJson = lvtOffsets.toJson();
         String offsetJsonStr = gson.toJson(offsetJson);
         Files.writeString(getLVTOffsetDataOutput().get().getAsFile().toPath(), offsetJsonStr, StandardCharsets.UTF_8);

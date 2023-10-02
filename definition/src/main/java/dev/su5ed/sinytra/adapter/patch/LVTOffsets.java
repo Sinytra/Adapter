@@ -10,9 +10,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 
-public record LVTOffsets(Map<String, Map<MethodQualifier, List<Offset>>> offsets) {
+public record LVTOffsets(Map<String, Map<MethodQualifier, List<Offset>>> offsets, Map<String, Map<MethodQualifier, List<Swap>>> reorders) {
     public static final Codec<LVTOffsets> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        Codec.unboundedMap(Codec.STRING, Codec.unboundedMap(MethodQualifier.CODEC, Offset.CODEC.listOf())).fieldOf("offsets").forGetter(LVTOffsets::offsets)
+        Codec.unboundedMap(Codec.STRING, Codec.unboundedMap(MethodQualifier.CODEC, Offset.CODEC.listOf())).fieldOf("offsets").forGetter(LVTOffsets::offsets),
+        Codec.unboundedMap(Codec.STRING, Codec.unboundedMap(MethodQualifier.CODEC, Swap.CODEC.listOf())).fieldOf("reorders").forGetter(LVTOffsets::reorders)
     ).apply(instance, LVTOffsets::new));
 
     public record Offset(int index, int amount) {
@@ -20,6 +21,29 @@ public record LVTOffsets(Map<String, Map<MethodQualifier, List<Offset>>> offsets
             Codec.INT.fieldOf("index").forGetter(Offset::index),
             Codec.INT.fieldOf("amount").forGetter(Offset::amount)
         ).apply(instance, Offset::new));
+    }
+
+    public record Swap(int original, int modified) {
+        public static final Codec<Swap> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            Codec.INT.fieldOf("original").forGetter(Swap::original),
+            Codec.INT.fieldOf("modified").forGetter(Swap::modified)
+        ).apply(instance, Swap::new));
+    }
+
+    public OptionalInt findReorder(String cls, String methodName, String methodDesc, int index) {
+        Map<MethodQualifier, List<Swap>> map = this.reorders.get(cls);
+        if (map != null) {
+            MethodQualifier qualifier = new MethodQualifier(methodName, methodDesc);
+            List<Swap> methodReorders = map.get(qualifier);
+            if (methodReorders != null) {
+                for (Swap swap : methodReorders) {
+                    if (swap.original() == index) {
+                        return OptionalInt.of(swap.modified());
+                    }
+                }
+            }
+        }
+        return OptionalInt.empty();
     }
 
     public OptionalInt findOffset(String cls, String methodName, String methodDesc, int index) {

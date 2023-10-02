@@ -7,11 +7,13 @@ import dev.su5ed.sinytra.adapter.gradle.provider.ClassProvider;
 import dev.su5ed.sinytra.adapter.patch.LVTOffsets;
 import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.PatchInstance;
+import dev.su5ed.sinytra.adapter.patch.analysis.LocalVarRearrangement;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import net.minecraftforge.srgutils.IMappingFile;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.ClassReader;
@@ -127,7 +129,9 @@ public class ClassAnalyzer {
         }
     }
 
-    public void analyze(List<? super PatchInstance> patches, Multimap<ChangeCategory, String> info, Map<? super String, String> replacementCalls, Map<String, Map<MethodQualifier, List<LVTOffsets.Offset>>> offsets) {
+    public void analyze(List<? super PatchInstance> patches, Multimap<ChangeCategory, String> info, Map<? super String, String> replacementCalls,
+                        Map<String, Map<MethodQualifier, List<LVTOffsets.Offset>>> offsets, Map<String, Map<MethodQualifier, List<LVTOffsets.Swap>>> reorders
+    ) {
         // Try to find added dirtyMethod patches
         findOverloadedMethods(patches, replacementCalls);
         if (!isAnonymousClass(this.cleanNode.name)) {
@@ -136,7 +140,7 @@ public class ClassAnalyzer {
         }
         findUpdatedLambdaNames(patches);
         checkAccess(patches);
-        calculateLVTOffsets(offsets);
+        calculateLVTOffsets(offsets, reorders);
         if (this.loggedHeader) {
             LOGGER.info("");
         }
@@ -167,21 +171,33 @@ public class ClassAnalyzer {
         }
     }
 
-    private void calculateLVTOffsets(Map<String, Map<MethodQualifier, List<LVTOffsets.Offset>>> offsets) {
+    private void calculateLVTOffsets(Map<String, Map<MethodQualifier, List<LVTOffsets.Offset>>> offsets, Map<String, Map<MethodQualifier, List<LVTOffsets.Swap>>> reorders) {
         this.cleanToDirty.forEach((cleanMethod, dirtyMethod) -> {
             if (cleanMethod.localVariables != null && dirtyMethod.localVariables != null) {
-                List<ParametersDiff.MethodParameter> cleanTypes = getUniqueLocals(cleanMethod.localVariables);
-                List<ParametersDiff.MethodParameter> dirtyTypes = getUniqueLocals(dirtyMethod.localVariables);
-                ParametersDiff diff = ParametersDiff.compareParameters(cleanTypes, dirtyTypes, true);
-                if (!diff.insertions().isEmpty()) {
-                    List<LVTOffsets.Offset> insertionIndexes = diff.insertions().stream().map(pair -> {
-                        int index = pair.getFirst();
-                        int amount = AdapterUtil.getLVTOffsetForType(pair.getSecond());
-                        return new LVTOffsets.Offset(index, amount);
-                    }).toList();
-                    Map<MethodQualifier, List<LVTOffsets.Offset>> classOffsets = offsets.computeIfAbsent(this.dirtyNode.name, s -> new HashMap<>());
-                    MethodQualifier qualifier = new MethodQualifier(dirtyMethod.name, dirtyMethod.desc);
-                    classOffsets.put(qualifier, insertionIndexes);
+                if (cleanMethod.localVariables.size() == dirtyMethod.localVariables.size()) {
+                    Int2IntMap swaps = LocalVarRearrangement.getRearrangedParametersFromLocals(cleanMethod.localVariables, dirtyMethod.localVariables);
+                    if (swaps != null) {
+                        List<LVTOffsets.Swap> methodReorders = swaps.int2IntEntrySet().stream()
+                            .map(entry -> new LVTOffsets.Swap(entry.getIntKey(), entry.getIntValue()))
+                            .toList();
+                        Map<MethodQualifier, List<LVTOffsets.Swap>> classReorders = reorders.computeIfAbsent(this.dirtyNode.name, s -> new HashMap<>());
+                        MethodQualifier qualifier = new MethodQualifier(dirtyMethod.name, dirtyMethod.desc);
+                        classReorders.put(qualifier, methodReorders);
+                    }
+                } else {
+                    List<ParametersDiff.MethodParameter> cleanTypes = getUniqueLocals(cleanMethod.localVariables);
+                    List<ParametersDiff.MethodParameter> dirtyTypes = getUniqueLocals(dirtyMethod.localVariables);
+                    ParametersDiff diff = ParametersDiff.compareParameters(cleanTypes, dirtyTypes, true);
+                    if (!diff.insertions().isEmpty()) {
+                        List<LVTOffsets.Offset> insertionIndexes = diff.insertions().stream().map(pair -> {
+                            int index = pair.getFirst();
+                            int amount = AdapterUtil.getLVTOffsetForType(pair.getSecond());
+                            return new LVTOffsets.Offset(index, amount);
+                        }).toList();
+                        Map<MethodQualifier, List<LVTOffsets.Offset>> classOffsets = offsets.computeIfAbsent(this.dirtyNode.name, s -> new HashMap<>());
+                        MethodQualifier qualifier = new MethodQualifier(dirtyMethod.name, dirtyMethod.desc);
+                        classOffsets.put(qualifier, insertionIndexes);
+                    }
                 }
             }
         });

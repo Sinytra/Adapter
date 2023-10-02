@@ -136,11 +136,19 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             }
             ClassNode targetClass = targetPair.getFirst();
             MethodNode targetMethod = targetPair.getSecond();
+            // Find reordered indices
+            OptionalInt reorder = this.lvtOffsets.get().findReorder(targetClass.name, targetMethod.name, targetMethod.desc, index);
+            if (reorder.isPresent()) {
+                int newIndex = reorder.getAsInt();
+                LOGGER.info(MIXINPATCH, "Swapping {} index in {}.{} from {} for {}", annotation.desc, classNode.name, methodNode.name, index, newIndex);
+                handle.set(newIndex);
+                return Result.APPLY;
+            }
             // Find inserted indexes
             OptionalInt offset = this.lvtOffsets.get().findOffset(targetClass.name, targetMethod.name, targetMethod.desc, index);
             if (offset.isPresent()) {
                 int newIndex = index + offset.getAsInt();
-                LOGGER.info(MIXINPATCH, "Updating {} index in {}.{} from {} to {}", annotation.desc, classNode.name, methodNode.name, index, newIndex);
+                LOGGER.info(MIXINPATCH, "Offsetting {} index in {}.{} from {} to {}", annotation.desc, classNode.name, methodNode.name, index, newIndex);
                 handle.set(newIndex);
                 return Result.APPLY;
             }
@@ -265,7 +273,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             diff = ParametersDiff.rearrangeParameters(expected, availableTypes);
             if (diff == null) {
                 LOGGER.debug("Tried to replace local variables in mixin method {}.{} using {}", classNode.name, methodNode.name + methodNode.desc, diff.replacements());
-                return null;   
+                return null;
             }
         }
         if (!diff.removals().isEmpty()) {
@@ -316,7 +324,8 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         return slice.getSlice(method);
     }
 
-    private record LocalVariable(int index, Type type) {}
+    private record LocalVariable(int index, Type type) {
+    }
 
     // Adapted from org.spongepowered.asm.mixin.injection.callback.CallbackInjector summariseLocals
     private static <T> List<T> summariseLocals(T[] locals, int pos) {
