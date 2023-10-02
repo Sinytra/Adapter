@@ -6,7 +6,9 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.su5ed.sinytra.adapter.patch.selector.FieldMatcher;
 import dev.su5ed.sinytra.adapter.patch.serialization.MethodTransformSerialization;
 import dev.su5ed.sinytra.adapter.patch.transformer.RedirectAccessor;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AnnotationNode;
+import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.spongepowered.asm.mixin.gen.AccessorInfo;
 
@@ -41,6 +43,14 @@ public final class InterfacePatchInstance extends PatchInstance {
     @Override
     public Codec<? extends PatchInstance> codec() {
         return CODEC;
+    }
+
+    @Override
+    public Result apply(ClassNode classNode, PatchEnvironment environment) {
+        if ((classNode.access & Opcodes.ACC_INTERFACE) == 0) {
+            return Result.PASS;
+        }
+        return super.apply(classNode, environment);
     }
 
     @Override

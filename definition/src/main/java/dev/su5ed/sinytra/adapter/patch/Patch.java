@@ -25,6 +25,7 @@ public sealed interface Patch permits PatchInstance {
     String OVERWRITE = "Lorg/spongepowered/asm/mixin/Overwrite;";
     // Interface mixins
     String ACCESSOR = "Lorg/spongepowered/asm/mixin/gen/Accessor;";
+    String INVOKER = "Lorg/spongepowered/asm/mixin/gen/Invoker;";
     // Mixinextras annotations
     String MODIFY_EXPR_VAL = "Lcom/llamalad7/mixinextras/injector/ModifyExpressionValue;";
     String WRAP_OPERATION = "Lcom/llamalad7/mixinextras/injector/wrapoperation/WrapOperation;";
