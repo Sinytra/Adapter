@@ -15,7 +15,7 @@ import java.util.Set;
 public record ExtractMixin(String targetClass) implements MethodTransform {
     @Override
     public Collection<String> getAcceptedAnnotations() {
-        return Set.of(Patch.WRAP_OPERATION, Patch.MODIFY_CONST);
+        return Set.of(Patch.WRAP_OPERATION, Patch.MODIFY_CONST, Patch.MODIFY_ARG);
     }
 
     @Override

@@ -9,7 +9,7 @@ import org.spongepowered.asm.service.MixinService;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
- 
+
 public class MixinClassGenerator {
     private final Map<String, GeneratedClass> generatedMixinClasses = new HashMap<>();
 
@@ -25,10 +25,13 @@ public class MixinClassGenerator {
         String pkg = original.name.substring(0, lastSeparator + 1);
         String[] parts = targetClass.split("/");
         String className = pkg + "adapter_generated_" + parts[parts.length - 1];
-        GeneratedClass generatedClass = this.generatedMixinClasses.computeIfAbsent(className, s -> {
-            ClassNode node = generateMixinClass(s, targetClass);
-            return new GeneratedClass(original.name, node.name, node);
-        });
+        GeneratedClass generatedClass;
+        synchronized (this.generatedMixinClasses) {
+            generatedClass = this.generatedMixinClasses.computeIfAbsent(className, s -> {
+                ClassNode node = generateMixinClass(s, targetClass);
+                return new GeneratedClass(original.name, node.name, node);
+            });
+        }
         return generatedClass.node();
     }
 

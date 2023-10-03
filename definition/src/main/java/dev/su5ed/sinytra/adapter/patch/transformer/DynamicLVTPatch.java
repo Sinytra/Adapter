@@ -270,11 +270,12 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         // Replacements are not supported, as they would require LVT fixups and converters
         if (!diff.replacements().isEmpty()) {
             // Check if we can rearrange parameters
-            diff = ParametersDiff.rearrangeParameters(expected, availableTypes);
-            if (diff == null) {
+            ParametersDiff rearrange = ParametersDiff.rearrangeParameters(expected, availableTypes);
+            if (rearrange == null) {
                 LOGGER.debug("Tried to replace local variables in mixin method {}.{} using {}", classNode.name, methodNode.name + methodNode.desc, diff.replacements());
                 return null;
             }
+            diff = rearrange;
         }
         if (!diff.removals().isEmpty()) {
             List<LocalVariableNode> lvt = methodNode.localVariables.stream().sorted(Comparator.comparingInt(lvn -> lvn.index)).toList();
