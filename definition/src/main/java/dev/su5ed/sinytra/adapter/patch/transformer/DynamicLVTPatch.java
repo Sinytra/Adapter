@@ -295,15 +295,27 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         }
         // Offset the insertion to the correct parameter indices
         // Also remove any appended variables
-        List<Pair<Integer, Type>> offsetInsertions = diff.insertions().stream().filter(pair -> pair.getFirst() < expected.size()).map(pair -> pair.mapFirst(i -> i + paramLocalPos)).toList();
-        List<Pair<Integer, Integer>> offsetSwaps = diff.swaps().stream().filter(pair -> pair.getFirst() < expected.size()).map(pair -> pair.mapFirst(i -> i + paramLocalPos).mapSecond(i -> i + paramLocalPos)).toList();
-        List<Integer> offsetRemovals = diff.removals().stream().filter(i -> i < expected.size()).map(i -> i + paramLocalPos).toList();
+        int maxInsert = getMaxLocalIndex(expected, diff.insertions());
+        List<Pair<Integer, Type>> offsetInsertions = diff.insertions().stream().filter(pair -> pair.getFirst() < maxInsert).map(pair -> pair.mapFirst(i -> i + paramLocalPos)).toList();
+        List<Pair<Integer, Integer>> offsetSwaps = diff.swaps().stream().filter(pair -> pair.getFirst() < maxInsert).map(pair -> pair.mapFirst(i -> i + paramLocalPos).mapSecond(i -> i + paramLocalPos)).toList();
+        List<Integer> offsetRemovals = diff.removals().stream().filter(i -> i < maxInsert).map(i -> i + paramLocalPos).toList();
         ParametersDiff offsetDiff = new ParametersDiff(diff.originalCount(), offsetInsertions, List.of(), offsetSwaps, offsetRemovals);
         if (offsetDiff.isEmpty()) {
             // No changes required
             return null;
         }
         return offsetDiff;
+    }
+
+    private static int getMaxLocalIndex(List<Type> expected, List<Pair<Integer, Type>> insertions) {
+        int maxIndex = expected.size();
+        for (Pair<Integer, Type> pair : insertions) {
+            int at = pair.getFirst();
+            if (at < maxIndex) {
+                maxIndex++;
+            }
+        }
+        return maxIndex;
     }
 
     private InsnList getSlicedInsns(AnnotationNode parentAnnotation, ClassNode classNode, MethodNode injectorMethod, ClassNode targetClass, MethodNode targetMethod, PatchContext context) {
