@@ -126,8 +126,8 @@ public final class ClassPatchInstance extends PatchInstance {
         }
 
         @Override
-        public ClassPatchBuilder modifyInjectionPoint(String value, String target) {
-            return transform(new ModifyInjectionPoint(value, target));
+        public ClassPatchBuilder modifyInjectionPoint(String value, String target, boolean resetValues) {
+            return transform(new ModifyInjectionPoint(value, target, resetValues));
         }
 
         @Override

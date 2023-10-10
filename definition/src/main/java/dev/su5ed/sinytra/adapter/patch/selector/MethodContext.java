@@ -12,8 +12,7 @@ public record MethodContext(AnnotationValueHandle<?> classAnnotation, Annotation
         this.injectionPointAnnotation = injectionPointAnnotation;
     }
 
-    @Override
-    public AnnotationHandle injectionPointAnnotation() {
+    public AnnotationHandle injectionPointAnnotationOrThrow() {
         return Objects.requireNonNull(injectionPointAnnotation, "Missing injection point annotation");
     }
 
