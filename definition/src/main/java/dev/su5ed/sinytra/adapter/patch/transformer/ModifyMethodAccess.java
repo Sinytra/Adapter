@@ -3,11 +3,12 @@ package dev.su5ed.sinytra.adapter.patch.transformer;
 import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import dev.su5ed.sinytra.adapter.patch.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.MethodTransform;
 import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.Patch.Result;
 import dev.su5ed.sinytra.adapter.patch.PatchContext;
+import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
+import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -16,7 +17,6 @@ import org.slf4j.Logger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
@@ -39,7 +39,7 @@ public record ModifyMethodAccess(List<AccessChange> changes) implements MethodTr
     }
 
     @Override
-    public Result apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
+    public Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
         Result result = Result.PASS;
         for (AccessChange change : this.changes) {
             if (change.add) {
@@ -47,8 +47,8 @@ public record ModifyMethodAccess(List<AccessChange> changes) implements MethodTr
                     LOGGER.info(MIXINPATCH, "Adding access modifier {} to method {}.{}{}", change.modifier, classNode.name, methodNode.name, methodNode.desc);
                     methodNode.access |= change.modifier;
                     result = Result.APPLY;
-                    if (change.modifier == Opcodes.ACC_STATIC && Patch.INJECT.equals(annotation.desc)) {
-                        AnnotationValueHandle<?> handle = annotationValues.get("class_target");
+                    if (change.modifier == Opcodes.ACC_STATIC && methodContext.methodAnnotation().matchesDesc(Patch.INJECT)) {
+                        AnnotationValueHandle<?> handle = methodContext.classAnnotation();
                         if (handle != null && handle.getKey().equals("value")) {
                             List<Type> types = (List<Type>) handle.get();
                             if (types.size() == 1) {

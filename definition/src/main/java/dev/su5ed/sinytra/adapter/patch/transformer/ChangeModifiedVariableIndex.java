@@ -3,17 +3,13 @@ package dev.su5ed.sinytra.adapter.patch.transformer;
 import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import dev.su5ed.sinytra.adapter.patch.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.MethodTransform;
 import dev.su5ed.sinytra.adapter.patch.Patch.Result;
 import dev.su5ed.sinytra.adapter.patch.PatchContext;
-import dev.su5ed.sinytra.adapter.patch.PatchInstance;
-import org.objectweb.asm.tree.AnnotationNode;
+import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.slf4j.Logger;
-
-import java.util.Map;
 
 import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
@@ -30,8 +26,8 @@ public record ChangeModifiedVariableIndex(int start, int offset) implements Meth
     }
     
     @Override
-    public Result apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
-        return PatchInstance.<Integer>findAnnotationValue(annotation.values, "index")
+    public Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
+        return methodContext.methodAnnotation().<Integer>getValue("index")
             .filter(index -> index.get() > -1)
             .map(handle -> {
                 int index = handle.get();

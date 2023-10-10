@@ -3,11 +3,13 @@ package dev.su5ed.sinytra.adapter.patch;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
+import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.FieldMatcher;
+import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import dev.su5ed.sinytra.adapter.patch.serialization.MethodTransformSerialization;
 import dev.su5ed.sinytra.adapter.patch.transformer.RedirectAccessor;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.spongepowered.asm.mixin.gen.AccessorInfo;
@@ -54,22 +56,18 @@ public final class InterfacePatchInstance extends PatchInstance {
     }
 
     @Override
-    protected Optional<Map<String, AnnotationValueHandle<?>>> checkAnnotation(String owner, MethodNode method, AnnotationNode annotation, PatchEnvironment environment) {
-        if (KNOWN_INTERFACE_MIXIN_TYPES.contains(annotation.desc)) {
+    protected boolean checkAnnotation(String owner, MethodNode method, AnnotationHandle methodAnnotation, PatchEnvironment environment, MethodContext.Builder builder) {
+        if (KNOWN_INTERFACE_MIXIN_TYPES.contains(methodAnnotation.getDesc())) {
             // Find accessor target
-            if (annotation.desc.equals(Patch.ACCESSOR)) {
+            if (methodAnnotation.matchesDesc(Patch.ACCESSOR)) {
                 FieldMatcher matcher = Optional.ofNullable(AccessorInfo.AccessorName.of(method.name))
                     .map(name -> environment.remap(owner, name.name))
                     .map(FieldMatcher::new)
                     .orElse(null);
-                if (matcher != null && this.targetFields.stream().anyMatch(m -> m.matches(matcher))) {
-                    return PatchInstance.<String>findAnnotationValue(annotation.values, "value")
-                        .<Map<String, AnnotationValueHandle<?>>>map(value -> Map.of("value", value))
-                        .or(() -> Optional.of(Map.of()));
-                }
+                return matcher != null && this.targetFields.stream().anyMatch(m -> m.matches(matcher));
             }
         }
-        return Optional.empty();
+        return false;
     }
 
     public static class InterfaceClassPatchBuilderImpl extends BaseBuilder<InterfacePatchBuilder> implements InterfacePatchBuilder {

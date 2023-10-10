@@ -3,25 +3,26 @@ package dev.su5ed.sinytra.adapter.patch;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import dev.su5ed.sinytra.adapter.patch.selector.InjectionPointMatcher;
-import dev.su5ed.sinytra.adapter.patch.selector.MethodMatcher;
+import dev.su5ed.sinytra.adapter.patch.selector.*;
 import dev.su5ed.sinytra.adapter.patch.serialization.MethodTransformSerialization;
 import dev.su5ed.sinytra.adapter.patch.transformer.DisableMixin;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyInjectionPoint;
 import dev.su5ed.sinytra.adapter.patch.transformer.RedirectShadowMethod;
+import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
-import java.util.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
 public final class ClassPatchInstance extends PatchInstance {
-    public static final String OWNER_PREFIX = "^(?<owner>L(?:.*?)+;)";
-
     public static final Codec<ClassPatchInstance> CODEC = RecordCodecBuilder
         .<ClassPatchInstance>create(instance -> instance.group(
             Codec.STRING.listOf().optionalFieldOf("targetClasses", List.of()).forGetter(p -> p.targetClasses),
@@ -51,69 +52,59 @@ public final class ClassPatchInstance extends PatchInstance {
         return CODEC;
     }
 
-    protected Optional<Map<String, AnnotationValueHandle<?>>> checkAnnotation(String owner, MethodNode method, AnnotationNode annotation, PatchEnvironment remaper) {
-        if (annotation.desc.equals(Patch.OVERWRITE)) {
-            if (this.targetMethods.isEmpty() || this.targetMethods.stream().anyMatch(matcher -> matcher.matches(method.name, method.desc))) {
-                return Optional.of(Map.of());
-            }
-        } else if (KNOWN_MIXIN_TYPES.contains(annotation.desc)) {
-            return PatchInstance.<List<String>>findAnnotationValue(annotation.values, "method")
-                .flatMap(value -> {
+    protected boolean checkAnnotation(String owner, MethodNode method, AnnotationHandle methodAnnotation, PatchEnvironment remaper, MethodContext.Builder builder) {
+        builder.methodAnnotation(methodAnnotation);
+        if (methodAnnotation.matchesDesc(Patch.OVERWRITE)) {
+            return this.targetMethods.isEmpty() || this.targetMethods.stream().anyMatch(matcher -> matcher.matches(method.name, method.desc));
+        } else if (KNOWN_MIXIN_TYPES.contains(methodAnnotation.getDesc())) {
+            return methodAnnotation.<List<String>>getValue("method")
+                .map(value -> {
                     for (String target : value.get()) {
                         String remappedTarget = remaper.remap(owner, target);
-                        // Remove owner class; it is always the same as the mixin target
-                        remappedTarget = remappedTarget.replaceAll(OWNER_PREFIX, "");
-                        int targetDescIndex = remappedTarget.indexOf('(');
-                        String targetName = targetDescIndex == -1 ? remappedTarget : remappedTarget.substring(0, targetDescIndex);
-                        String targetDesc = targetDescIndex == -1 ? null : remappedTarget.substring(targetDescIndex);
+                        MethodQualifier qualifier = MethodQualifier.create(remappedTarget).filter(q -> q.name() != null).orElse(null);
+                        if (qualifier == null) {
+                            continue;
+                        }
+                        String targetName = qualifier.name();
+                        String targetDesc = qualifier.desc();
                         if (this.targetMethods.isEmpty() || this.targetMethods.stream().anyMatch(matcher -> matcher.matches(targetName, targetDesc))) {
-                            Map<String, AnnotationValueHandle<?>> map = new HashMap<>();
-                            map.put("method", value);
-                            if (annotation.desc.equals(Patch.MODIFY_ARG) || annotation.desc.equals(Patch.MODIFY_VAR)) {
-                                map.put("index", PatchInstance.<Integer>findAnnotationValue(annotation.values, "index").orElse(null));
-                            }
                             if (!this.targetInjectionPoints.isEmpty()) {
-                                Map<String, AnnotationValueHandle<?>> injectCheck = checkInjectionPoint(owner, annotation, remaper).orElse(null);
-                                if (injectCheck != null) {
-                                    map.putAll(injectCheck);
-                                    return Optional.of(map);
-                                }
+                                return checkInjectionPoint(owner, methodAnnotation, remaper, builder);
                             } else {
-                                return Optional.of(map);
+                                return true;
                             }
                         }
                     }
-                    return Optional.empty();
-                });
+                    return false;
+                })
+                .orElse(false);
         }
-        return Optional.empty();
+        return false;
     }
 
-    private Optional<Map<String, AnnotationValueHandle<?>>> checkInjectionPoint(String owner, AnnotationNode annotation, PatchEnvironment remaper) {
-        return PatchInstance.findAnnotationValue(annotation.values, "at")
-            .map(handle -> {
-                Object value = handle.get();
-                return value instanceof List<?> list ? (AnnotationNode) list.get(0) : (AnnotationNode) value;
-            })
-            .flatMap(node -> checkAtAnnotation(owner, node, remaper))
+    private boolean checkInjectionPoint(String owner, AnnotationHandle methodAnnotation, PatchEnvironment environment, MethodContext.Builder builder) {
+        return methodAnnotation.getNested("at")
+            .map(node -> checkInjectionPointAnnotation(owner, node, environment, builder))
             // Check slice.from target
-            .or(() -> PatchInstance.<AnnotationNode>findAnnotationValue(annotation.values, "slice")
+            .or(() -> methodAnnotation.<AnnotationNode>getValue("slice")
                 .flatMap(slice -> slice.findNested("from")
-                    .flatMap(from -> checkAtAnnotation(owner, from.get(), remaper))));
+                    .map(from -> checkInjectionPointAnnotation(owner, from, environment, builder))))
+            .orElse(false);
     }
 
-    private Optional<Map<String, AnnotationValueHandle<?>>> checkAtAnnotation(String owner, AnnotationNode annotation, PatchEnvironment remaper) {
-        AnnotationValueHandle<String> value = PatchInstance.<String>findAnnotationValue(annotation.values, "value").orElse(null);
-        String valueStr = value != null ? value.get() : null;
-        AnnotationValueHandle<String> target = PatchInstance.<String>findAnnotationValue(annotation.values, "target").orElse(null);
-        String targetStr = target != null ? remaper.remap(owner, target.get()) : "";
-        if (this.targetInjectionPoints.stream().anyMatch(pred -> pred.test(valueStr, targetStr))) {
-            Map<String, AnnotationValueHandle<?>> map = new HashMap<>();
-            map.put("value", value);
-            map.put("target", target);
-            return Optional.of(map);
-        }
-        return Optional.empty();
+    private boolean checkInjectionPointAnnotation(String owner, AnnotationHandle injectionPointAnnotation, PatchEnvironment environment, MethodContext.Builder builder) {
+        return injectionPointAnnotation.<String>getValue("target")
+            .map(target -> {
+                AnnotationValueHandle<String> value = injectionPointAnnotation.<String>getValue("value").orElse(null);
+                String valueStr = value != null ? value.get() : null;
+                String targetStr = environment.remap(owner, target.get());
+                if (this.targetInjectionPoints.stream().anyMatch(pred -> pred.test(valueStr, targetStr))) {
+                    builder.injectionPointAnnotation(injectionPointAnnotation);
+                    return true;
+                }
+                return false;
+            })
+            .orElse(false);
     }
 
     protected static class ClassPatchBuilderImpl extends BaseBuilder<ClassPatchBuilder> implements ClassPatchBuilder {

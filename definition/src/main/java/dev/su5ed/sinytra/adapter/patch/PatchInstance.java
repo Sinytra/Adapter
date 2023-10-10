@@ -2,6 +2,9 @@ package dev.su5ed.sinytra.adapter.patch;
 
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
+import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
+import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
+import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import dev.su5ed.sinytra.adapter.patch.transformer.*;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
@@ -54,17 +57,12 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
                 result = result.or(classTransform.apply(classNode, classTarget.getSecond(), environment));
             }
             for (MethodNode method : classNode.methods) {
-                Pair<AnnotationNode, Map<String, AnnotationValueHandle<?>>> annotationValues = checkMethodTarget(classNode.name, method, environment).orElse(null);
-                if (annotationValues != null) {
-                    Map<String, AnnotationValueHandle<?>> map = new HashMap<>(annotationValues.getSecond());
-                    if (classAnnotation != null) {
-                        map.put("class_target", classAnnotation);
-                    }
+                MethodContext methodContext = checkMethodTarget(classAnnotation, classNode.name, method, environment);
+                if (methodContext != null) {
                     for (MethodTransform transform : this.transforms) {
-                        AnnotationNode annotation = annotationValues.getFirst();
                         Collection<String> accepted = transform.getAcceptedAnnotations();
-                        if (accepted.isEmpty() || accepted.contains(annotation.desc)) {
-                            result = result.or(transform.apply(classNode, method, annotationValues.getFirst(), map, context));
+                        if (accepted.isEmpty() || accepted.contains(methodContext.methodAnnotation().getDesc())) {
+                            result = result.or(transform.apply(classNode, method, methodContext, context));
                         }
                     }
                 }
@@ -103,21 +101,26 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         return Pair.of(this.targetClasses.isEmpty(), null);
     }
 
-    private Optional<Pair<AnnotationNode, Map<String, AnnotationValueHandle<?>>>> checkMethodTarget(String owner, MethodNode method, PatchEnvironment remaper) {
+    @Nullable
+    private MethodContext checkMethodTarget(@Nullable AnnotationValueHandle<?> classAnnotation, String owner, MethodNode method, PatchEnvironment remaper) {
         if (method.visibleAnnotations != null) {
             for (AnnotationNode annotation : method.visibleAnnotations) {
                 if (this.targetAnnotations.isEmpty() || this.targetAnnotations.contains(annotation.desc)) {
-                    Map<String, AnnotationValueHandle<?>> values = checkAnnotation(owner, method, annotation, remaper).orElse(null);
-                    if (values != null && (this.targetAnnotationValues == null || this.targetAnnotationValues.test(values))) {
-                        return Optional.of(Pair.of(annotation, values));
+                    MethodContext.Builder builder = MethodContext.builder();
+                    if (classAnnotation != null) {
+                        builder.classAnnotation(classAnnotation);
+                    }
+                    AnnotationHandle annotationHandle = new AnnotationHandle(annotation);
+                    if (checkAnnotation(owner, method, annotationHandle, remaper, builder) && (this.targetAnnotationValues == null || this.targetAnnotationValues.test(annotationHandle.getAllValues()))) {
+                        return builder.build();
                     }
                 }
             }
         }
-        return Optional.empty();
+        return null;
     }
 
-    protected abstract Optional<Map<String, AnnotationValueHandle<?>>> checkAnnotation(String owner, MethodNode method, AnnotationNode annotation, PatchEnvironment remaper);
+    protected abstract boolean checkAnnotation(String owner, MethodNode method, AnnotationHandle annotation, PatchEnvironment remaper, MethodContext.Builder builder);
 
     public static <T> Optional<AnnotationValueHandle<T>> findAnnotationValue(@Nullable List<Object> values, String key) {
         if (values != null) {
@@ -185,7 +188,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         }
 
         @Override
-        public T modifyAnnotationValues(Predicate<AnnotationNode> annotation) {
+        public T modifyAnnotationValues(Predicate<AnnotationHandle> annotation) {
             return transform(new ModifyAnnotationValues(annotation));
         }
 

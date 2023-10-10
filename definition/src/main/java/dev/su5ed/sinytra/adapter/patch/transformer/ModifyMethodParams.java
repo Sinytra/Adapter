@@ -7,6 +7,9 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.su5ed.sinytra.adapter.patch.*;
 import dev.su5ed.sinytra.adapter.patch.Patch.Result;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
+import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
+import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
+import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.ExtraCodecs;
 import it.unimi.dsi.fastutil.ints.*;
@@ -71,16 +74,17 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
     }
 
     @Override
-    public Result apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
+    public Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
+        AnnotationHandle annotation = methodContext.methodAnnotation();
         Type[] params = Type.getArgumentTypes(methodNode.desc);
         List<Type> newParameterTypes = new ArrayList<>(Arrays.asList(params));
         int offset = (methodNode.access & Opcodes.ACC_STATIC) == 0
             // If it's a redirect, the first param (index 1) is the object instance
-            ? annotation.desc.equals(Patch.REDIRECT) ? 2 : 1
+            ? annotation.matchesDesc(Patch.REDIRECT) ? 2 : 1
             : 0;
 
-        if (annotation.desc.equals(Patch.MODIFY_VAR)) {
-            AnnotationValueHandle<Integer> indexHandle = (AnnotationValueHandle<Integer>) annotationValues.get("index");
+        if (annotation.matchesDesc(Patch.MODIFY_VAR)) {
+            AnnotationValueHandle<Integer> indexHandle = annotation.<Integer>getValue("index").orElse(null);
             if (indexHandle != null) {
                 this.insertions.forEach(pair -> {
                     int localIndex = offset + pair.getFirst();

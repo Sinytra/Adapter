@@ -3,30 +3,29 @@ package dev.su5ed.sinytra.adapter.patch.transformer;
 import com.google.common.base.Suppliers;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
-import dev.su5ed.sinytra.adapter.patch.*;
+import dev.su5ed.sinytra.adapter.patch.LVTOffsets;
+import dev.su5ed.sinytra.adapter.patch.MethodTransform;
+import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.Patch.Result;
+import dev.su5ed.sinytra.adapter.patch.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
+import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
+import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
+import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
+import dev.su5ed.sinytra.adapter.patch.util.MockMixinRuntime;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.FabricUtil;
-import org.spongepowered.asm.mixin.MixinEnvironment;
-import org.spongepowered.asm.mixin.extensibility.IMixinConfig;
-import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
-import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 import org.spongepowered.asm.mixin.injection.InjectionPoint;
 import org.spongepowered.asm.mixin.injection.code.ISliceContext;
 import org.spongepowered.asm.mixin.injection.code.MethodSlice;
-import org.spongepowered.asm.mixin.injection.selectors.ISelectorContext;
 import org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionException;
 import org.spongepowered.asm.mixin.refmap.IMixinContext;
-import org.spongepowered.asm.mixin.refmap.IReferenceMapper;
-import org.spongepowered.asm.mixin.transformer.ext.Extensions;
 import org.spongepowered.asm.util.Locals;
-import org.spongepowered.asm.util.asm.IAnnotationHandle;
 
 import java.util.*;
 import java.util.function.Supplier;
@@ -50,7 +49,8 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
     }
 
     @Override
-    public Result apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
+    public Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
+        AnnotationHandle annotation = methodContext.methodAnnotation();
         if (methodNode.invisibleParameterAnnotations != null) {
             // Find @Local annotations on method parameters
             Type[] paramTypes = Type.getArgumentTypes(methodNode.desc);
@@ -70,35 +70,34 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
                 return Result.PASS;
             }
             Result result = Result.PASS;
-            Supplier<Pair<ClassNode, MethodNode>> targetPairSupplier = Suppliers.memoize(() -> findTargetMethod(classNode, annotationValues, context));
+            Supplier<Pair<ClassNode, MethodNode>> targetPairSupplier = Suppliers.memoize(() -> findTargetMethod(classNode, annotation, context));
             for (Map.Entry<AnnotationNode, Type> entry : localAnnotations.entrySet()) {
                 AnnotationNode localAnn = entry.getKey();
-                result = result.or(offsetVariableIndex(classNode, methodNode, localAnn, targetPairSupplier));
+                result = result.or(offsetVariableIndex(classNode, methodNode, new AnnotationHandle(localAnn), targetPairSupplier));
             }
             return result;
         }
-        if (Patch.MODIFY_VAR.equals(annotation.desc)) {
-            Result result = offsetVariableIndex(classNode, methodNode, annotation, annotationValues, context);
+        if (annotation.matchesDesc(Patch.MODIFY_VAR)) {
+            Result result = offsetVariableIndex(classNode, methodNode, annotation, context);
             if (result == Result.PASS) {
-                AnnotationValueHandle<Integer> ordinal = PatchInstance.<Integer>findAnnotationValue(annotation.values, "ordinal").orElse(null);
-                if (ordinal == null && PatchInstance.findAnnotationValue(annotation.values, "name").isEmpty()) {
+                AnnotationValueHandle<Integer> ordinal = annotation.<Integer>getValue("ordinal").orElse(null);
+                if (ordinal == null && annotation.getValue("name").isEmpty()) {
                     Type[] args = Type.getArgumentTypes(methodNode.desc);
                     if (args.length < 1) {
                         return Result.PASS;
                     }
-                    Pair<ClassNode, MethodNode> targetPair = findTargetMethod(classNode, annotationValues, context);
+                    Pair<ClassNode, MethodNode> targetPair = findTargetMethod(classNode, annotation, context);
                     if (targetPair == null) {
                         return Result.PASS;
                     }
-                    List<LocalVariable> available = getTargetMethodLocals(classNode, methodNode, targetPair.getFirst(), targetPair.getSecond(), annotation, context, 0, FabricUtil.COMPATIBILITY_0_9_2);
+                    List<LocalVariable> available = getTargetMethodLocals(classNode, methodNode, targetPair.getFirst(), targetPair.getSecond(), methodContext, context, 0, FabricUtil.COMPATIBILITY_0_9_2);
                     if (available == null) {
                         return Result.PASS;
                     }
                     Type expected = args[0];
                     int count = (int) available.stream().filter(lv -> lv.type.equals(expected)).count();
                     if (count == 1) {
-                        annotation.values.add("ordinal");
-                        annotation.values.add(0);
+                        annotation.appendValue("ordinal", 0);
                         return Result.APPLY;
                     }
                 }
@@ -106,23 +105,23 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             return result;
         }
         // Check if the mixin captures LVT
-        if (Patch.INJECT.equals(annotation.desc) && PatchInstance.findAnnotationValue(annotation.values, "locals").isPresent()) {
-            ParametersDiff diff = compareParameters(classNode, methodNode, annotation, annotationValues, context);
+        if (annotation.matchesDesc(Patch.INJECT) && annotation.getValue("locals").isPresent()) {
+            ParametersDiff diff = compareParameters(classNode, methodNode, methodContext, context);
             if (diff != null) {
                 // Apply parameter patch
                 ModifyMethodParams paramTransform = ModifyMethodParams.create(diff, ModifyMethodParams.TargetType.METHOD);
-                return paramTransform.apply(classNode, methodNode, annotation, annotationValues, context);
+                return paramTransform.apply(classNode, methodNode, methodContext, context);
             }
         }
         return Result.PASS;
     }
 
-    private Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
-        return offsetVariableIndex(classNode, methodNode, annotation, () -> findTargetMethod(classNode, annotationValues, context));
+    private Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationHandle annotation, PatchContext context) {
+        return offsetVariableIndex(classNode, methodNode, annotation, () -> findTargetMethod(classNode, annotation, context));
     }
 
-    private Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Supplier<Pair<ClassNode, MethodNode>> targetPairSupplier) {
-        AnnotationValueHandle<Integer> handle = PatchInstance.<Integer>findAnnotationValue(annotation.values, "index").orElse(null);
+    private Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationHandle annotation, Supplier<Pair<ClassNode, MethodNode>> targetPairSupplier) {
+        AnnotationValueHandle<Integer> handle = annotation.<Integer>getValue("index").orElse(null);
         if (handle != null) {
             // Find variable index
             int index = handle.get();
@@ -140,7 +139,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             OptionalInt reorder = this.lvtOffsets.get().findReorder(targetClass.name, targetMethod.name, targetMethod.desc, index);
             if (reorder.isPresent()) {
                 int newIndex = reorder.getAsInt();
-                LOGGER.info(MIXINPATCH, "Swapping {} index in {}.{} from {} for {}", annotation.desc, classNode.name, methodNode.name, index, newIndex);
+                LOGGER.info(MIXINPATCH, "Swapping {} index in {}.{} from {} for {}", annotation.getDesc(), classNode.name, methodNode.name, index, newIndex);
                 handle.set(newIndex);
                 return Result.APPLY;
             }
@@ -148,7 +147,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             OptionalInt offset = this.lvtOffsets.get().findOffset(targetClass.name, targetMethod.name, targetMethod.desc, index);
             if (offset.isPresent()) {
                 int newIndex = index + offset.getAsInt();
-                LOGGER.info(MIXINPATCH, "Offsetting {} index in {}.{} from {} to {}", annotation.desc, classNode.name, methodNode.name, index, newIndex);
+                LOGGER.info(MIXINPATCH, "Offsetting {} index in {}.{} from {} to {}", annotation.getDesc(), classNode.name, methodNode.name, index, newIndex);
                 handle.set(newIndex);
                 return Result.APPLY;
             }
@@ -156,9 +155,9 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         return Result.PASS;
     }
 
-    private Pair<ClassNode, MethodNode> findTargetMethod(ClassNode classNode, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
+    private Pair<ClassNode, MethodNode> findTargetMethod(ClassNode classNode, AnnotationHandle annotation, PatchContext context) {
         // Get method targets
-        List<String> methodRefs = ((AnnotationValueHandle<List<String>>) annotationValues.get("method")).get();
+        List<String> methodRefs = annotation.<List<String>>getValue("method").orElseThrow().get();
         if (methodRefs.size() > 1) {
             // We only support single method targets for now
             return null;
@@ -191,22 +190,17 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
     }
 
     @Nullable
-    private List<LocalVariable> getTargetMethodLocals(ClassNode classNode, MethodNode methodNode, ClassNode targetClass, MethodNode targetMethod, AnnotationNode annotation, PatchContext context, int startPos, int fabricCompatibility) {
-        // TODO Provide via method context parameter
-        AnnotationNode atNode = PatchInstance.findAnnotationValue(annotation.values, "at")
-            .map(handle -> {
-                Object value = handle.get();
-                return value instanceof List<?> list ? (AnnotationNode) list.get(0) : (AnnotationNode) value;
-            })
-            .orElse(null);
+    private List<LocalVariable> getTargetMethodLocals(ClassNode classNode, MethodNode methodNode, ClassNode targetClass, MethodNode targetMethod, MethodContext methodContext, PatchContext context, int startPos, int fabricCompatibility) {
+        AnnotationHandle atNode = methodContext.injectionPointAnnotation();
         if (atNode == null) {
             LOGGER.debug("Target @At annotation not found in method {}.{}{}", classNode.name, methodNode.name, methodNode.desc);
             return null;
         }
+        AnnotationHandle annotation = methodContext.methodAnnotation();
         // Provide a minimum implementation of IMixinContext
-        IMixinContext mixinContext = new ClassMixinContext(classNode.name, context.getClassNode().name, context.getEnvironment());
+        IMixinContext mixinContext = MockMixinRuntime.forClass(classNode.name, context.getClassNode().name, context.getEnvironment());
         // Parse injection point
-        InjectionPoint injectionPoint = InjectionPoint.parse(mixinContext, methodNode, annotation, atNode);
+        InjectionPoint injectionPoint = InjectionPoint.parse(mixinContext, methodNode, annotation.unwrap(), atNode.unwrap());
         // Find target instructions
         InsnList instructions = getSlicedInsns(annotation, classNode, methodNode, targetClass, targetMethod, context);
         List<AbstractInsnNode> targetInsns = new ArrayList<>();
@@ -233,14 +227,15 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         return summariseLocals(locals, startPos);
     }
 
-    private ParametersDiff compareParameters(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
+    private ParametersDiff compareParameters(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
+        AnnotationHandle annotation = methodContext.methodAnnotation();
         Type[] params = Type.getArgumentTypes(methodNode.desc);
         // Sanity check to make sure the injector method takes in a CI or CIR argument
         if (Stream.of(params).noneMatch(p -> p.equals(CI_TYPE) || p.equals(CIR_TYPE))) {
-            LOGGER.debug("Missing CI or CIR argument in injector of type {}", annotation.desc);
+            LOGGER.debug("Missing CI or CIR argument in injector of type {}", annotation.getDesc());
             return null;
         }
-        Pair<ClassNode, MethodNode> target = findTargetMethod(classNode, annotationValues, context);
+        Pair<ClassNode, MethodNode> target = findTargetMethod(classNode, annotation, context);
         if (target == null) {
             return null;
         }
@@ -256,7 +251,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         // Get expected local variables from method parameters
         List<Type> expected = summariseLocals(params, paramLocalPos);
         // Get available local variables at the injection point in the target method
-        List<LocalVariable> available = getTargetMethodLocals(classNode, methodNode, targetClass, targetMethod, annotation, context, targetLocalPos, FabricUtil.COMPATIBILITY_LATEST);
+        List<LocalVariable> available = getTargetMethodLocals(classNode, methodNode, targetClass, targetMethod, methodContext, context, targetLocalPos, FabricUtil.COMPATIBILITY_LATEST);
         if (available == null) {
             return null;
         }
@@ -318,15 +313,15 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         return maxIndex;
     }
 
-    private InsnList getSlicedInsns(AnnotationNode parentAnnotation, ClassNode classNode, MethodNode injectorMethod, ClassNode targetClass, MethodNode targetMethod, PatchContext context) {
-        return PatchInstance.<AnnotationNode>findAnnotationValue(parentAnnotation.values, "slice")
+    private InsnList getSlicedInsns(AnnotationHandle parentAnnotation, ClassNode classNode, MethodNode injectorMethod, ClassNode targetClass, MethodNode targetMethod, PatchContext context) {
+        return parentAnnotation.<AnnotationNode>getValue("slice")
             .map(handle -> {
                 Object value = handle.get();
                 return value instanceof List<?> list ? (AnnotationNode) list.get(0) : (AnnotationNode) value;
             })
             .map(sliceAnn -> {
-                IMixinContext mixinContext = new ClassMixinContext(classNode.name, targetClass.name, context.getEnvironment());
-                ISliceContext sliceContext = new MethodSliceContext(mixinContext, injectorMethod);
+                IMixinContext mixinContext = MockMixinRuntime.forClass(classNode.name, targetClass.name, context.getEnvironment());
+                ISliceContext sliceContext = MockMixinRuntime.forSlice(mixinContext, injectorMethod);
                 return computeSlicedInsns(sliceContext, sliceAnn, targetMethod);
             })
             .orElse(targetMethod.instructions);
@@ -351,136 +346,5 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             }
         }
         return list;
-    }
-
-    public record MethodSliceContext(IMixinContext context, MethodNode methodNode) implements ISliceContext {
-        @Override
-        public IMixinContext getMixin() {
-            return this.context;
-        }
-
-        @Override
-        public String remap(String reference) {
-            return this.context.getReferenceMapper().remap(this.context.getClassName(), reference);
-        }
-
-        //@formatter:off
-        @Override public MethodSlice getSlice(String id) {throw new UnsupportedOperationException();}
-        @Override public MethodNode getMethod() {return this.methodNode;}
-        @Override public AnnotationNode getAnnotationNode() {throw new UnsupportedOperationException();}
-        @Override public ISelectorContext getParent() {throw new UnsupportedOperationException();}
-        @Override public IAnnotationHandle getAnnotation() {throw new UnsupportedOperationException();}
-        @Override public IAnnotationHandle getSelectorAnnotation() {throw new UnsupportedOperationException();}
-        @Override public String getSelectorCoordinate(boolean leaf) {throw new UnsupportedOperationException();}
-        @Override public void addMessage(String format, Object... args) {}
-        //@formatter:on
-    }
-
-    public record ReferenceRemapper(PatchEnvironment env) implements IReferenceMapper {
-        @Override
-        public String remapWithContext(String context, String className, String reference) {
-            return this.env.remap(className, reference);
-        }
-
-        //@formatter:off
-        @Override public boolean isDefault() {return false;}
-        @Override public String getResourceName() {return null;}
-        @Override public String getStatus() {return null;}
-        @Override public String getContext() {return null;}
-        @Override public void setContext(String context) {}
-        @Override public String remap(String className, String reference) {return remapWithContext(null, className, reference);}
-        //@formatter:on
-    }
-
-    public static class DummyMixinConfig implements IMixinConfig {
-        @Override
-        public MixinEnvironment getEnvironment() {
-            return MixinEnvironment.getCurrentEnvironment();
-        }
-
-        //@formatter:off
-        @Override public String getName() {throw new UnsupportedOperationException();}
-        @Override public String getMixinPackage() {throw new UnsupportedOperationException();}
-        @Override public int getPriority() {return 0;}
-        @Override public IMixinConfigPlugin getPlugin() {return null;}
-        @Override public boolean isRequired() {throw new UnsupportedOperationException();}
-        @Override public Set<String> getTargets() {throw new UnsupportedOperationException();}
-        @Override public <V> void decorate(String key, V value) {}
-        @Override public boolean hasDecoration(String key) {return false;}
-        @Override public <V> V getDecoration(String key) {return null;}
-        //@formatter:on
-    }
-
-    public record DummyMixinInfo(IMixinConfig config) implements IMixinInfo {
-        @Override
-        public IMixinConfig getConfig() {
-            return config;
-        }
-
-        //@formatter:off
-        @Override public String getName() {throw new UnsupportedOperationException();}
-        @Override public String getClassName() {throw new UnsupportedOperationException();}
-        @Override public String getClassRef() {throw new UnsupportedOperationException();}
-        @Override public byte[] getClassBytes() {throw new UnsupportedOperationException();}
-        @Override public boolean isDetachedSuper() {throw new UnsupportedOperationException();}
-        @Override public ClassNode getClassNode(int flags) {throw new UnsupportedOperationException();}
-        @Override public List<String> getTargetClasses() {throw new UnsupportedOperationException();}
-        @Override public int getPriority() {throw new UnsupportedOperationException();}
-        @Override public MixinEnvironment.Phase getPhase() {throw new UnsupportedOperationException();}
-        //@formatter:on
-    }
-
-    public static final class ClassMixinContext implements IMixinContext {
-        private final String className;
-        private final String targetClass;
-        private final ReferenceRemapper referenceRemapper;
-        private final IMixinInfo mixinInfo;
-
-        public ClassMixinContext(String className, String targetClass, PatchEnvironment env) {
-            this.className = className;
-            this.targetClass = targetClass;
-            this.referenceRemapper = new ReferenceRemapper(env);
-            this.mixinInfo = new DummyMixinInfo(new DummyMixinConfig());
-        }
-
-        @Override
-        public IMixinInfo getMixin() {
-            return this.mixinInfo;
-        }
-
-        @Override
-        public Extensions getExtensions() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public String getClassName() {
-            return this.className.replace('/', '.');
-        }
-
-        @Override
-        public String getClassRef() {
-            return this.className;
-        }
-
-        @Override
-        public String getTargetClassRef() {
-            return this.targetClass;
-        }
-
-        @Override
-        public IReferenceMapper getReferenceMapper() {
-            return this.referenceRemapper;
-        }
-
-        @Override
-        public boolean getOption(MixinEnvironment.Option option) {
-            return false;
-        }
-
-        @Override
-        public int getPriority() {
-            return 0;
-        }
     }
 }

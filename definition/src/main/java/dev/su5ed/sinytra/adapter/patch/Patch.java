@@ -1,10 +1,12 @@
 package dev.su5ed.sinytra.adapter.patch;
 
+import com.mojang.serialization.Codec;
+import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
+import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMixinType;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.MethodInsnNode;
@@ -42,6 +44,8 @@ public sealed interface Patch permits PatchInstance {
 
     Result apply(ClassNode classNode, PatchEnvironment remaper);
 
+    Codec<? extends Patch> codec();
+
     enum Result {
         PASS,
         APPLY,
@@ -75,7 +79,7 @@ public sealed interface Patch permits PatchInstance {
 
         T modifyMethodAccess(ModifyMethodAccess.AccessChange... changes);
 
-        T modifyAnnotationValues(Predicate<AnnotationNode> annotation);
+        T modifyAnnotationValues(Predicate<AnnotationHandle> annotation);
 
         T extractMixin(String targetClass);
 

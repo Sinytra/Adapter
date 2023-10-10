@@ -1,9 +1,11 @@
 package dev.su5ed.sinytra.adapter.patch.transformer;
 
-import dev.su5ed.sinytra.adapter.patch.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.MethodTransform;
 import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.PatchContext;
+import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
+import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
+import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import dev.su5ed.sinytra.adapter.patch.util.MixinConstants;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.tree.AnnotationNode;
@@ -17,13 +19,14 @@ import java.util.function.Consumer;
 public record ModifyMixinType(String replacementDesc, Consumer<Builder> consumer) implements MethodTransform {
 
     @Override
-    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
+    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
+        AnnotationHandle annotation = methodContext.methodAnnotation();
         AnnotationNode replacement = new AnnotationNode(this.replacementDesc);
-        Builder builder = new Builder(annotationValues, replacement);
+        Builder builder = new Builder(annotation.getAllValues(), replacement);
         this.consumer.accept(builder);
         for (int i = 0; i < methodNode.visibleAnnotations.size(); i++) {
             AnnotationNode methodAnn = methodNode.visibleAnnotations.get(i);
-            if (methodAnn == annotation) {
+            if (methodAnn == annotation.unwrap()) {
                 methodNode.visibleAnnotations.set(i, replacement);
                 break;
             }

@@ -10,6 +10,7 @@ import com.mojang.serialization.JsonOps;
 import dev.su5ed.sinytra.adapter.gradle.provider.ClassProvider;
 import dev.su5ed.sinytra.adapter.gradle.provider.ZipClassProvider;
 import dev.su5ed.sinytra.adapter.patch.LVTOffsets;
+import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.PatchInstance;
 import dev.su5ed.sinytra.adapter.patch.serialization.PatchSerialization;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
@@ -65,7 +66,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
         logger.info("Dirty jar: " + getDirtyJar().get().getAsFile().getAbsolutePath());
         logger.info("Mappings : " + getSrgToMcpMappings().get().getAsFile().getAbsolutePath());
 
-        List<PatchInstance> patches = new ArrayList<>();
+        List<Patch> patches = new ArrayList<>();
         Multimap<ChangeCategory, String> info = HashMultimap.create();
         Map<String, String> replacementCalls = new HashMap<>();
         Map<String, Map<MethodQualifier, List<LVTOffsets.Offset>>> offsets = new HashMap<>();

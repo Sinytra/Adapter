@@ -1,24 +1,23 @@
 package dev.su5ed.sinytra.adapter.patch.transformer;
 
-import dev.su5ed.sinytra.adapter.patch.AnnotationValueHandle;
+import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.MethodTransform;
 import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.PatchContext;
+import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
 
 public record ModifyTargetClasses(Consumer<List<Type>> consumer) implements MethodTransform {
 
     @Override
-    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, AnnotationNode annotation, Map<String, AnnotationValueHandle<?>> annotationValues, PatchContext context) {
-        AnnotationValueHandle<?> handle = annotationValues.get("class_target");
+    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
+        AnnotationValueHandle<?> handle = methodContext.classAnnotation();
         if (handle != null && handle.getKey().equals("value")) {
             AnnotationValueHandle<List<Type>> valueHandle = (AnnotationValueHandle<List<Type>>) handle;
 
