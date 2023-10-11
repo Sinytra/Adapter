@@ -3,6 +3,7 @@ package dev.su5ed.sinytra.adapter.gradle;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.mojang.datafixers.util.Pair;
+import dev.su5ed.sinytra.adapter.gradle.analysis.TraceCallback;
 import dev.su5ed.sinytra.adapter.gradle.provider.ClassProvider;
 import dev.su5ed.sinytra.adapter.patch.LVTOffsets;
 import dev.su5ed.sinytra.adapter.patch.Patch;
@@ -11,6 +12,7 @@ import dev.su5ed.sinytra.adapter.patch.analysis.LocalVarRearrangement;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
+import dev.su5ed.sinytra.adapter.gradle.analysis.MethodCallAnalyzer;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
@@ -42,6 +44,7 @@ public class ClassAnalyzer {
     private final ClassProvider cleanClassProvider;
     private final ClassProvider dirtyClassProvider;
     private final InheritanceHandler inheritanceHandler;
+    private final TraceCallback trace;
 
     // All method of each respective class node
     private final Multimap<String, MethodNode> cleanMethods;
@@ -56,8 +59,6 @@ public class ClassAnalyzer {
 
     private final Map<String, FieldNode> cleanFields;
     private final Map<String, FieldNode> dirtyFields;
-
-    private boolean loggedHeader = false;
 
     public static ClassAnalyzer create(byte[] cleanData, byte[] dirtyData, IMappingFile mappings, ClassProvider cleanClassProvider, ClassProvider dirtyClassProvider) {
         return new ClassAnalyzer(readClassNode(cleanData), readClassNode(dirtyData), mappings, cleanClassProvider, dirtyClassProvider);
@@ -78,6 +79,7 @@ public class ClassAnalyzer {
         this.dirtyClassProvider = dirtyClassProvider;
         ClassProvider joinedClassProvider = name -> dirtyClassProvider.getClass(name).or(() -> cleanClassProvider.getClass(name));
         this.inheritanceHandler = new InheritanceHandler(joinedClassProvider);
+        this.trace = new TraceCallback(LOGGER, this.cleanNode);
 
         this.cleanMethods = indexClassMethods(cleanNode);
         this.dirtyMethods = indexClassMethods(dirtyNode);
@@ -122,14 +124,7 @@ public class ClassAnalyzer {
         }
     }
 
-    private void logHeader() {
-        if (!this.loggedHeader) {
-            LOGGER.info("Class {}", this.cleanNode.name);
-            this.loggedHeader = true;
-        }
-    }
-
-    public void analyze(List<? super PatchInstance> patches, Multimap<ChangeCategory, String> info, Map<? super String, String> replacementCalls,
+    public void analyze(List<Patch> patches, Multimap<ChangeCategory, String> info, Map<? super String, String> replacementCalls,
                         Map<String, Map<MethodQualifier, List<LVTOffsets.Offset>>> offsets, Map<String, Map<MethodQualifier, List<LVTOffsets.Swap>>> reorders
     ) {
         // Try to find added dirtyMethod patches
@@ -138,12 +133,11 @@ public class ClassAnalyzer {
             findExpandedMethods(patches, replacementCalls);
             findExpandedLambdas(patches, replacementCalls);
         }
+        MethodCallAnalyzer.findReplacedMethodCalls(this.dirtyNode, this.cleanToDirty, patches, this.trace);
         findUpdatedLambdaNames(patches);
         checkAccess(patches);
         calculateLVTOffsets(offsets, reorders);
-        if (this.loggedHeader) {
-            LOGGER.info("");
-        }
+        this.trace.space();
 
         Collection<String> removedFields = new HashSet<>();
         this.cleanFields.forEach((name, field) -> {
@@ -164,11 +158,9 @@ public class ClassAnalyzer {
     }
 
     public void postAnalyze(List<? super PatchInstance> patches, Map<? extends String, String> replacementCalls) {
-        loggedHeader = false;
+        this.trace.reset();
         updateReplacedInjectionPoints(patches, replacementCalls);
-        if (this.loggedHeader) {
-            LOGGER.info("");
-        }
+        this.trace.space();
     }
 
     private void calculateLVTOffsets(Map<String, Map<MethodQualifier, List<LVTOffsets.Offset>>> offsets, Map<String, Map<MethodQualifier, List<LVTOffsets.Swap>>> reorders) {
@@ -238,7 +230,7 @@ public class ClassAnalyzer {
         replacements.asMap().forEach((original, replacementsMethods) -> {
             if (replacementsMethods.size() == 1) {
                 MethodNode replacement = replacementsMethods.iterator().next();
-                logHeader();
+                this.trace.logHeader();
                 LOGGER.info("LAMBDA UPDATE");
                 LOGGER.info(" << {} {}", remapMethodName(this.cleanNode, original.name, original.desc), original.desc);
                 LOGGER.info(" >> {} {}", remapMethodName(this.dirtyNode, replacement.name, replacement.desc), replacement.desc);
@@ -265,13 +257,13 @@ public class ClassAnalyzer {
         this.cleanToDirty.forEach((cleanMethod, dirtyMethod) -> {
             for (AbstractInsnNode insn : dirtyMethod.instructions) {
                 if (insn instanceof MethodInsnNode minsn) {
-                    String callQualifier = getCallQualifier(minsn);
+                    String callQualifier = MethodCallAnalyzer.getCallQualifier(minsn);
                     String oldQualifier = replacementCalls.get(callQualifier);
                     if (oldQualifier != null && !seen.contains(oldQualifier)) {
                         // Check if it was called in the original method insns
                         for (AbstractInsnNode cInsn : cleanMethod.instructions) {
-                            if (cInsn instanceof MethodInsnNode cminsn && oldQualifier.equals(getCallQualifier(cminsn))) {
-                                logHeader();
+                            if (cInsn instanceof MethodInsnNode cminsn && oldQualifier.equals(MethodCallAnalyzer.getCallQualifier(cminsn))) {
+                                this.trace.logHeader();
                                 LOGGER.info("Replacing call in method {}", dirtyMethod.name + dirtyMethod.desc);
                                 LOGGER.info(" << {}", oldQualifier);
                                 LOGGER.info(" >> {}", callQualifier);
@@ -298,10 +290,6 @@ public class ClassAnalyzer {
         });
     }
 
-    private String getCallQualifier(MethodInsnNode insn) {
-        return Type.getObjectType(insn.owner).getDescriptor() + insn.name + insn.desc;
-    }
-
     private void findOverloadedMethods(List<? super PatchInstance> patches, Map<? super String, String> replacementCalls) {
         this.dirtyOnlyMethods.values().forEach(method -> {
             MethodNode overloader = findOverloadMethod(this.dirtyNode.name, method, this.dirtyCommonMethods.values());
@@ -310,7 +298,7 @@ public class ClassAnalyzer {
                 if (!diff.insertions().isEmpty() || !diff.replacements().isEmpty()) {
                     String overloaderQualifier = overloader.name + overloader.desc;
                     String dirtyQualifier = method.name + method.desc;
-                    logHeader();
+                    this.trace.logHeader();
                     LOGGER.info("OVERLOAD");
                     LOGGER.info("   " + overloaderQualifier);
                     LOGGER.info("=> " + dirtyQualifier);
@@ -334,7 +322,7 @@ public class ClassAnalyzer {
             String dirtyQualifier = dirtyMethod.name + dirtyMethod.desc;
 
             if ((cleanMethod.access & Opcodes.ACC_STATIC) != 0 && (dirtyMethod.access & Opcodes.ACC_STATIC) == 0) {
-                logHeader();
+                this.trace.logHeader();
                 LOGGER.info("UNSTATIC method {}", dirtyQualifier);
 
                 PatchInstance patch = Patch.builder()
@@ -344,7 +332,7 @@ public class ClassAnalyzer {
                     .build();
                 patches.add(patch);
             } else if ((cleanMethod.access & Opcodes.ACC_STATIC) == 0 && (dirtyMethod.access & Opcodes.ACC_STATIC) != 0) {
-                logHeader();
+                this.trace.logHeader();
                 LOGGER.info("STATIC'd method {}", dirtyQualifier);
             }
         });
@@ -426,7 +414,7 @@ public class ClassAnalyzer {
                     Pair<Integer, Type> second = newReplacements.get(1);
                     int distance = Math.abs(second.getFirst() - first.getFirst());
                     if (distance == 1 && parameterTypes[first.getFirst()].equals(second.getSecond()) && parameterTypes[second.getFirst()].equals(first.getSecond())) {
-                        logHeader();
+                        this.trace.logHeader();
                         LOGGER.info("Found swapped parameter types {} <-> {} in method {}", first.getSecond(), second.getSecond(), dirty.name);
                         newReplacements.clear();
                         swaps.add(Pair.of(first.getFirst(), second.getFirst()));
@@ -438,7 +426,7 @@ public class ClassAnalyzer {
                         Type original = parameterTypes[replacement.getFirst()];
                         Type substitute = replacement.getSecond();
                         if (original.getSort() == Type.OBJECT && substitute.getSort() == Type.OBJECT && this.inheritanceHandler.isClassInherited(substitute.getInternalName(), original.getInternalName())) {
-                            logHeader();
+                            this.trace.logHeader();
                             LOGGER.info("Found valid replacement {} -> {} in method {}", original.getInternalName(), substitute.getInternalName(), clean.name);
                             valid = true;
                             continue;
@@ -455,7 +443,7 @@ public class ClassAnalyzer {
             }
             String cleanQualifier = clean.name + clean.desc;
             String dirtyQualifier = dirty.name + dirty.desc;
-            logHeader();
+            this.trace.logHeader();
             LOGGER.info("REPLACE");
             LOGGER.info("   {}", cleanQualifier);
             LOGGER.info("\\> {}", dirtyQualifier);
