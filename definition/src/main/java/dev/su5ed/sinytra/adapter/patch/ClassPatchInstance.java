@@ -67,13 +67,9 @@ public final class ClassPatchInstance extends PatchInstance {
                         }
                         String targetName = qualifier.name();
                         String targetDesc = qualifier.desc();
-                        if (this.targetMethods.isEmpty() || this.targetMethods.stream().anyMatch(matcher -> matcher.matches(targetName, targetDesc))) {
-                            if (!this.targetInjectionPoints.isEmpty()) {
-                                return checkInjectionPoint(owner, methodAnnotation, remaper, builder);
-                            } else {
-                                return true;
-                            }
-                        }
+                        return (this.targetMethods.isEmpty() || this.targetMethods.stream().anyMatch(matcher -> matcher.matches(targetName, targetDesc)))
+                            // Must call checkInjectionPoint first so that any present @At annotation is added to the method context builder
+                            && (checkInjectionPoint(owner, methodAnnotation, remaper, builder) || this.targetInjectionPoints.isEmpty());
                     }
                     return false;
                 })
@@ -98,7 +94,7 @@ public final class ClassPatchInstance extends PatchInstance {
                 AnnotationValueHandle<String> value = injectionPointAnnotation.<String>getValue("value").orElse(null);
                 String valueStr = value != null ? value.get() : null;
                 String targetStr = environment.remap(owner, target.get());
-                if (this.targetInjectionPoints.stream().anyMatch(pred -> pred.test(valueStr, targetStr))) {
+                if (this.targetInjectionPoints.isEmpty() || this.targetInjectionPoints.stream().anyMatch(pred -> pred.test(valueStr, targetStr))) {
                     builder.injectionPointAnnotation(injectionPointAnnotation);
                     return true;
                 }
