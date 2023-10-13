@@ -18,4 +18,8 @@ pluginManagement {
 
 rootProject.name = "adapter"
 
+if (rootProject.projectDir.name != "adapter") {
+    error("Please rename your cloned Adapter repository's folder to \"adapter\"")
+}
+
 includeBuild("plugin")
