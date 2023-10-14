@@ -38,15 +38,19 @@ public class AnnotationValueHandle<T> {
         return (T) this.origin.get(index);
     }
 
-    public <U> U unwrap() {
+    public <U> Optional<U> maybeUnwrap() {
         Object value = get();
         if (value instanceof List<?> list) {
             if (list.size() == 1) {
-                return (U) list.get(0);
+                return Optional.of((U) list.get(0));
             }
-            throw new IllegalArgumentException("List value of %s contained more than one element".formatted(this.key));
+            return Optional.empty();
         }
-        return (U) value;
+        return Optional.of((U) value);
+    }
+
+    public <U> U unwrap() {
+        return this.<U>maybeUnwrap().orElseThrow(() -> new IllegalArgumentException("List value of %s contained more than one element".formatted(this.key)));
     }
 
     public void set(T value) {
