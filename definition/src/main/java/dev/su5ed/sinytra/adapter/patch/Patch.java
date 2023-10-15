@@ -103,7 +103,7 @@ public sealed interface Patch permits PatchInstance {
         ClassPatchBuilder targetInjectionPoint(String value, String target);
 
         default ClassPatchBuilder modifyInjectionPoint(String value, String target) {
-            return modifyInjectionPoint(value, target, false);
+            return modifyInjectionPoint(value, target, true);
         }
 
         default ClassPatchBuilder modifyInjectionPoint(String value, String target, boolean resetValues) {
