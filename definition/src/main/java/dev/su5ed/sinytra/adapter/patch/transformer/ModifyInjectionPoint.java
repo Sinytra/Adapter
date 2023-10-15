@@ -57,7 +57,7 @@ public record ModifyInjectionPoint(@Nullable String value, String target, boolea
         }
         AnnotationValueHandle<String> handle = annotation.<String>getValue("target").orElseThrow(() -> new IllegalArgumentException("Missing target handle, did you specify the target descriptor?"));
         if (this.resetValues) {
-            annotation.<Integer>getValue("ordinal").ifPresent(ordinal -> ordinal.set(this.ordinal));
+            annotation.<Integer>getValue("ordinal").ifPresent(ordinal -> ordinal.set(this.ordinal != null ? this.ordinal : -1));
         }
         LOGGER.info(MIXINPATCH, "Changing mixin method target {}.{} to {}", classNode.name, methodNode.name, this.target);
         handle.set(this.target);
