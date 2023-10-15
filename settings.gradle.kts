@@ -16,10 +16,6 @@ pluginManagement {
     }
 }
 
-rootProject.name = "Adapter"
-
-if (rootProject.projectDir.name != "adapter") {
-    error("Please rename your cloned Adapter repository's folder to \"adapter\"")
-}
+rootProject.name = "adapter"
 
 includeBuild("plugin")
