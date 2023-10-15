@@ -29,7 +29,7 @@ public final class AnnotationHandle {
 
     public Optional<AnnotationHandle> getNested(String key) {
         return getValue(key)
-            .<AnnotationNode>map(AnnotationValueHandle::unwrap)
+            .<AnnotationNode>flatMap(AnnotationValueHandle::maybeUnwrap)
             .map(AnnotationHandle::new);
     }
 
