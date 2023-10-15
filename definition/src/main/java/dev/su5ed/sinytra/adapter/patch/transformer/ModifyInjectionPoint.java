@@ -18,16 +18,30 @@ import java.util.Optional;
 
 import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
-public record ModifyInjectionPoint(@Nullable String value, String target, boolean resetValues) implements MethodTransform {
+public record ModifyInjectionPoint(@Nullable String value, String target, boolean resetValues, @Nullable Integer ordinal) implements MethodTransform {
     private static final Logger LOGGER = LogUtils.getLogger();
     public static final Codec<ModifyInjectionPoint> CODEC = RecordCodecBuilder.create(instance -> instance.group(
         Codec.STRING.optionalFieldOf("value").forGetter(i -> Optional.ofNullable(i.value())),
-        Codec.STRING.fieldOf("target").forGetter(ModifyInjectionPoint::target)
+        Codec.STRING.fieldOf("target").forGetter(ModifyInjectionPoint::target),
+        Codec.INT.optionalFieldOf("ordinal").forGetter(o -> Optional.ofNullable(o.ordinal()))
     ).apply(instance, ModifyInjectionPoint::new));
 
-    public ModifyInjectionPoint(Optional<String> value, String target) {
-        this(value.orElse(null), target, true);
+    public ModifyInjectionPoint(String target, int ordinal) {
+        this(null, target, true, ordinal);
     }
+
+    public ModifyInjectionPoint(String value, String target, int ordinal) {
+        this(value, target, true, ordinal);
+    }
+
+    public ModifyInjectionPoint(Optional<String> value, String target, boolean resetValues, Optional<Integer> ordinal) {
+        this(value.orElse(null), target, resetValues, ordinal.orElse(null));
+    }
+
+    public ModifyInjectionPoint(Optional<String> value, String target, Optional<Integer> ordinal) {
+        this(value, target, true, ordinal);
+    }
+
 
     @Override
     public Codec<? extends MethodTransform> codec() {
@@ -43,7 +57,7 @@ public record ModifyInjectionPoint(@Nullable String value, String target, boolea
         }
         AnnotationValueHandle<String> handle = annotation.<String>getValue("target").orElseThrow(() -> new IllegalArgumentException("Missing target handle, did you specify the target descriptor?"));
         if (this.resetValues) {
-            annotation.<Integer>getValue("ordinal").ifPresent(ordinal -> ordinal.set(-1));
+            annotation.<Integer>getValue("ordinal").ifPresent(ordinal -> ordinal.set(this.ordinal));
         }
         LOGGER.info(MIXINPATCH, "Changing mixin method target {}.{} to {}", classNode.name, methodNode.name, this.target);
         handle.set(this.target);

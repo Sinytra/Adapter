@@ -9,6 +9,7 @@ import dev.su5ed.sinytra.adapter.patch.transformer.DisableMixin;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyInjectionPoint;
 import dev.su5ed.sinytra.adapter.patch.transformer.RedirectShadowMethod;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.MethodInsnNode;
@@ -122,8 +123,8 @@ public final class ClassPatchInstance extends PatchInstance {
         }
 
         @Override
-        public ClassPatchBuilder modifyInjectionPoint(String value, String target, boolean resetValues) {
-            return transform(new ModifyInjectionPoint(value, target, resetValues));
+        public ClassPatchBuilder modifyInjectionPoint(String value, String target, boolean resetValues, @Nullable Integer ordinal) {
+            return transform(new ModifyInjectionPoint(value, target, resetValues, ordinal));
         }
 
         @Override

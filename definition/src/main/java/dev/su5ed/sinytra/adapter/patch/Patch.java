@@ -6,6 +6,7 @@ import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMixinType;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.InsnList;
@@ -102,10 +103,18 @@ public sealed interface Patch permits PatchInstance {
         ClassPatchBuilder targetInjectionPoint(String value, String target);
 
         default ClassPatchBuilder modifyInjectionPoint(String value, String target) {
-            return modifyInjectionPoint(value, target, true);
+            return modifyInjectionPoint(value, target, false);
         }
 
-        ClassPatchBuilder modifyInjectionPoint(String value, String target, boolean resetValues);
+        default ClassPatchBuilder modifyInjectionPoint(String value, String target, boolean resetValues) {
+            return modifyInjectionPoint(value, target, resetValues, -1);
+        }
+
+        default ClassPatchBuilder modifyInjectionPoint(String value, String target, int ordinal) {
+            return modifyInjectionPoint(value, target, true, ordinal);
+        }
+
+        ClassPatchBuilder modifyInjectionPoint(String value, String target, boolean resetValues, @Nullable Integer ordinal);
 
         default ClassPatchBuilder modifyInjectionPoint(String target) {
             return modifyInjectionPoint(null, target);
