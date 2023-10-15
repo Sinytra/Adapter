@@ -23,6 +23,7 @@ public sealed interface Patch permits PatchInstance {
     String INJECT = "Lorg/spongepowered/asm/mixin/injection/Inject;";
     String REDIRECT = "Lorg/spongepowered/asm/mixin/injection/Redirect;";
     String MODIFY_ARG = "Lorg/spongepowered/asm/mixin/injection/ModifyArg;";
+    String MODIFY_ARGS = "Lorg/spongepowered/asm/mixin/injection/ModifyArgs;";
     String MODIFY_VAR = "Lorg/spongepowered/asm/mixin/injection/ModifyVariable;";
     String MODIFY_CONST = "Lorg/spongepowered/asm/mixin/injection/ModifyConstant;";
     String OVERWRITE = "Lorg/spongepowered/asm/mixin/Overwrite;";
