@@ -64,7 +64,10 @@ public final class InterfacePatchInstance extends PatchInstance {
                     .map(name -> environment.remap(owner, name.name))
                     .map(FieldMatcher::new)
                     .orElse(null);
-                return matcher != null && this.targetFields.stream().anyMatch(m -> m.matches(matcher));
+                if (matcher != null && this.targetFields.stream().anyMatch(m -> m.matches(matcher))) {
+                    builder.methodAnnotation(methodAnnotation);
+                    return true;
+                }
             }
         }
         return false;

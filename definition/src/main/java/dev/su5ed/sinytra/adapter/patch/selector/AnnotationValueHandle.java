@@ -41,7 +41,7 @@ public class AnnotationValueHandle<T> {
     public <U> Optional<U> maybeUnwrap() {
         Object value = get();
         if (value instanceof List<?> list) {
-            if (list.size() == 1) {
+            if (!list.isEmpty()) {
                 return Optional.of((U) list.get(0));
             }
             return Optional.empty();
@@ -50,7 +50,7 @@ public class AnnotationValueHandle<T> {
     }
 
     public <U> U unwrap() {
-        return this.<U>maybeUnwrap().orElseThrow(() -> new IllegalArgumentException("List value of %s contained more than one element".formatted(this.key)));
+        return this.<U>maybeUnwrap().orElseThrow(() -> new IllegalArgumentException("List '%s' contained no elements".formatted(this.key)));
     }
 
     public void set(T value) {
