@@ -16,6 +16,6 @@ pluginManagement {
     }
 }
 
-rootProject.name = "adapter"
+rootProject.name = "Adapter"
 
 includeBuild("plugin")
