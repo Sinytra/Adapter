@@ -102,6 +102,10 @@ public sealed interface Patch permits PatchInstance {
 
         ClassPatchBuilder targetInjectionPoint(String value, String target);
 
+        default ClassPatchBuilder modifyInjectionPoint(String target) {
+            return modifyInjectionPoint(null, target);
+        }
+
         default ClassPatchBuilder modifyInjectionPoint(String value, String target) {
             return modifyInjectionPoint(value, target, true);
         }
@@ -115,10 +119,6 @@ public sealed interface Patch permits PatchInstance {
         }
 
         ClassPatchBuilder modifyInjectionPoint(String value, String target, boolean resetValues, @Nullable Integer ordinal);
-
-        default ClassPatchBuilder modifyInjectionPoint(String target) {
-            return modifyInjectionPoint(null, target);
-        }
         
         ClassPatchBuilder redirectShadowMethod(String original, String target, BiConsumer<MethodInsnNode, InsnList> callFixer);
 
