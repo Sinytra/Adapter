@@ -14,10 +14,7 @@ import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -80,27 +77,26 @@ public final class ClassPatchInstance extends PatchInstance {
 
     private boolean checkInjectionPoint(String owner, AnnotationHandle methodAnnotation, PatchEnvironment environment, MethodContext.Builder builder) {
         return methodAnnotation.getNested("at")
-            .map(node -> checkInjectionPointAnnotation(owner, node, environment, builder))
+            .flatMap(node -> checkInjectionPointAnnotation(owner, node, environment, builder))
             // Check slice.from target
             .or(() -> methodAnnotation.<AnnotationNode>getValue("slice")
                 .flatMap(slice -> slice.findNested("from")
-                    .map(from -> checkInjectionPointAnnotation(owner, from, environment, builder))))
+                    .flatMap(from -> checkInjectionPointAnnotation(owner, from, environment, builder))))
             .orElse(false);
     }
 
-    private boolean checkInjectionPointAnnotation(String owner, AnnotationHandle injectionPointAnnotation, PatchEnvironment environment, MethodContext.Builder builder) {
+    private Optional<Boolean> checkInjectionPointAnnotation(String owner, AnnotationHandle injectionPointAnnotation, PatchEnvironment environment, MethodContext.Builder builder) {
         return injectionPointAnnotation.<String>getValue("target")
-            .map(target -> {
+            .flatMap(target -> {
                 AnnotationValueHandle<String> value = injectionPointAnnotation.<String>getValue("value").orElse(null);
                 String valueStr = value != null ? value.get() : null;
                 String targetStr = environment.remap(owner, target.get());
                 if (this.targetInjectionPoints.isEmpty() || this.targetInjectionPoints.stream().anyMatch(pred -> pred.test(valueStr, targetStr))) {
                     builder.injectionPointAnnotation(injectionPointAnnotation);
-                    return true;
+                    return Optional.of(true);
                 }
-                return false;
-            })
-            .orElse(false);
+                return Optional.empty();
+            });
     }
 
     protected static class ClassPatchBuilderImpl extends BaseBuilder<ClassPatchBuilder> implements ClassPatchBuilder {
