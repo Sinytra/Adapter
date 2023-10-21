@@ -1,13 +1,22 @@
 package dev.su5ed.sinytra.adapter.patch.selector;
 
+import com.mojang.datafixers.util.Pair;
+import com.mojang.logging.LogUtils;
+import dev.su5ed.sinytra.adapter.patch.PatchContext;
+import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodNode;
+import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 
 public record MethodContext(AnnotationValueHandle<?> classAnnotation, AnnotationHandle methodAnnotation, @Nullable AnnotationHandle injectionPointAnnotation, List<Type> targetTypes) {
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     public MethodContext(AnnotationValueHandle<?> classAnnotation, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation, List<Type> targetTypes) {
         this.classAnnotation = Objects.requireNonNull(classAnnotation, "Missing class annotation");
@@ -18,6 +27,35 @@ public record MethodContext(AnnotationValueHandle<?> classAnnotation, Annotation
 
     public AnnotationHandle injectionPointAnnotationOrThrow() {
         return Objects.requireNonNull(injectionPointAnnotation, "Missing injection point annotation");
+    }
+
+    @Nullable
+    public Pair<ClassNode, MethodNode> findInjectionTarget(ClassNode classNode, AnnotationHandle annotation, PatchContext context, Function<String, ClassNode> classLookup) {
+        // Get method targets
+        List<String> methodRefs = annotation.<List<String>>getValue("method").orElseThrow().get();
+        if (methodRefs.size() > 1) {
+            // We only support single method targets for now
+            return null;
+        }
+        // Resolve method reference
+        String reference = context.getEnvironment().remap(classNode.name, methodRefs.get(0));
+        // Extract owner, name and desc using regex
+        MethodQualifier qualifier = MethodQualifier.create(reference, false).filter(MethodQualifier::isFull).orElse(null);
+        if (qualifier == null) {
+            return null;
+        }
+        // Find target class
+        ClassNode targetClass = classLookup.apply(Type.getType(qualifier.owner()).getInternalName());
+        if (targetClass == null) {
+            return null;
+        }
+        // Find target method in class
+        MethodNode targetMethod = targetClass.methods.stream().filter(mtd -> mtd.name.equals(qualifier.name()) && mtd.desc.equals(qualifier.desc())).findFirst().orElse(null);
+        if (targetMethod == null) {
+            LOGGER.debug("Target method not found: {}{}{}", qualifier.owner(), qualifier.name(), qualifier.desc());
+            return null;
+        }
+        return Pair.of(targetClass, targetMethod);
     }
 
     public static Builder builder() {
@@ -44,7 +82,7 @@ public record MethodContext(AnnotationValueHandle<?> classAnnotation, Annotation
             this.injectionPointAnnotation = annotation;
             return this;
         }
-        
+
         public Builder targetTypes(List<Type> targetTypes) {
             this.targetTypes.addAll(targetTypes);
             return this;

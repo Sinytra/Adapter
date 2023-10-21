@@ -7,8 +7,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.mojang.serialization.JsonOps;
-import dev.su5ed.sinytra.adapter.gradle.provider.ClassProvider;
-import dev.su5ed.sinytra.adapter.gradle.provider.ZipClassProvider;
+import dev.su5ed.sinytra.adapter.patch.util.provider.ClassLookup;
+import dev.su5ed.sinytra.adapter.patch.util.provider.ZipClassLookup;
 import dev.su5ed.sinytra.adapter.patch.LVTOffsets;
 import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.PatchInstance;
@@ -77,8 +77,8 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
         try (final ZipFile cleanJar = new ZipFile(getCleanJar().get().getAsFile());
              final ZipFile dirtyJar = new ZipFile(getDirtyJar().get().getAsFile())
         ) {
-            ClassProvider cleanClassProvider = new ZipClassProvider(cleanJar);
-            ClassProvider dirtyClassProvider = new ZipClassProvider(dirtyJar);
+            ClassLookup cleanClassProvider = new ZipClassLookup(cleanJar);
+            ClassLookup dirtyClassProvider = new ZipClassLookup(dirtyJar);
             AtomicInteger counter = new AtomicInteger();
             Stopwatch stopwatch = Stopwatch.createStarted();
 

@@ -23,7 +23,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package dev.su5ed.sinytra.adapter.gradle.analysis;
+package dev.su5ed.sinytra.adapter.patch.util;
 
 import org.objectweb.asm.tree.*;
 

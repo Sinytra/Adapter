@@ -1,11 +1,11 @@
-package dev.su5ed.sinytra.adapter.gradle.provider;
+package dev.su5ed.sinytra.adapter.patch.util.provider;
 
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 
 import java.util.Optional;
 
-public interface ClassProvider {
+public interface ClassLookup {
     Optional<ClassNode> getClass(String name);
 
     default Optional<MethodNode> findMethod(String owner, String name, String desc) {

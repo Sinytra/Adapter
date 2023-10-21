@@ -29,14 +29,11 @@ import org.spongepowered.asm.util.Locals;
 
 import java.util.*;
 import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
 public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements MethodTransform {
-    private static final Pattern METHOD_REF_PATTERN = Pattern.compile("^(?<owner>L.+;)(?<name>.+)(?<desc>\\(.*\\).+)$");
     private static final Type CI_TYPE = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfo");
     private static final Type CIR_TYPE = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable");
     private static final String LOCAL_ANN = "Lcom/llamalad7/mixinextras/sugar/Local;";
@@ -70,7 +67,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
                 return Result.PASS;
             }
             Result result = Result.PASS;
-            Supplier<Pair<ClassNode, MethodNode>> targetPairSupplier = Suppliers.memoize(() -> findTargetMethod(classNode, annotation, context));
+            Supplier<Pair<ClassNode, MethodNode>> targetPairSupplier = Suppliers.memoize(() -> methodContext.findInjectionTarget(classNode, annotation, context, AdapterUtil::getClassNode));
             for (Map.Entry<AnnotationNode, Type> entry : localAnnotations.entrySet()) {
                 AnnotationNode localAnn = entry.getKey();
                 result = result.or(offsetVariableIndex(classNode, methodNode, new AnnotationHandle(localAnn), targetPairSupplier));
@@ -78,7 +75,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             return result;
         }
         if (annotation.matchesDesc(Patch.MODIFY_VAR)) {
-            Result result = offsetVariableIndex(classNode, methodNode, annotation, context);
+            Result result = offsetVariableIndex(classNode, methodNode, annotation, methodContext, context);
             if (result == Result.PASS) {
                 AnnotationValueHandle<Integer> ordinal = annotation.<Integer>getValue("ordinal").orElse(null);
                 if (ordinal == null && annotation.getValue("name").isEmpty()) {
@@ -86,7 +83,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
                     if (args.length < 1) {
                         return Result.PASS;
                     }
-                    Pair<ClassNode, MethodNode> targetPair = findTargetMethod(classNode, annotation, context);
+                    Pair<ClassNode, MethodNode> targetPair = methodContext.findInjectionTarget(classNode, annotation, context, AdapterUtil::getClassNode);
                     if (targetPair == null) {
                         return Result.PASS;
                     }
@@ -116,8 +113,8 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         return Result.PASS;
     }
 
-    private Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationHandle annotation, PatchContext context) {
-        return offsetVariableIndex(classNode, methodNode, annotation, () -> findTargetMethod(classNode, annotation, context));
+    private Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationHandle annotation, MethodContext methodContext, PatchContext context) {
+        return offsetVariableIndex(classNode, methodNode, annotation, () -> methodContext.findInjectionTarget(classNode, annotation, context, AdapterUtil::getClassNode));
     }
 
     private Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationHandle annotation, Supplier<Pair<ClassNode, MethodNode>> targetPairSupplier) {
@@ -153,40 +150,6 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             }
         }
         return Result.PASS;
-    }
-
-    private Pair<ClassNode, MethodNode> findTargetMethod(ClassNode classNode, AnnotationHandle annotation, PatchContext context) {
-        // Get method targets
-        List<String> methodRefs = annotation.<List<String>>getValue("method").orElseThrow().get();
-        if (methodRefs.size() > 1) {
-            // We only support single method targets for now
-            return null;
-        }
-        // Resolve method reference
-        String reference = context.getEnvironment().remap(classNode.name, methodRefs.get(0));
-        // Extract owner, name and desc using regex
-        Matcher matcher = METHOD_REF_PATTERN.matcher(reference);
-        if (!matcher.matches()) {
-            LOGGER.debug("Not a valid method reference: {}", reference);
-            return null;
-        }
-        String owner = matcher.group("owner");
-        String name = matcher.group("name");
-        String desc = matcher.group("desc");
-        // Find target class
-        // We use mixin's bytecode provider rather than our own interface because it's used by InjectionPoint#find, which is called below,
-        // and we'd have to provide it regardless of having our own.
-        ClassNode targetClass = AdapterUtil.getClassNode(Type.getType(owner).getInternalName());
-        if (targetClass == null) {
-            return null;
-        }
-        // Find target method in class
-        MethodNode targetMethod = targetClass.methods.stream().filter(mtd -> mtd.name.equals(name) && mtd.desc.equals(desc)).findFirst().orElse(null);
-        if (targetMethod == null) {
-            LOGGER.debug("Target method not found: {}.{}{}", owner, name, desc);
-            return null;
-        }
-        return Pair.of(targetClass, targetMethod);
     }
 
     @Nullable
@@ -235,7 +198,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             LOGGER.debug("Missing CI or CIR argument in injector of type {}", annotation.getDesc());
             return null;
         }
-        Pair<ClassNode, MethodNode> target = findTargetMethod(classNode, annotation, context);
+        Pair<ClassNode, MethodNode> target = methodContext.findInjectionTarget(classNode, annotation, context, AdapterUtil::getClassNode);
         if (target == null) {
             return null;
         }

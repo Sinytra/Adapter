@@ -45,7 +45,11 @@ public class BytecodeFixerJarGenerator {
         }
     }
 
-    public void save(Path path, Attributes additionalAttributes) {
+    public boolean save(Path path, Attributes additionalAttributes) {
+        if (this.generatedClasses.isEmpty()) {
+            return false;
+        }
+
         Manifest manifest = new Manifest();
         manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
         manifest.getMainAttributes().putValue(Constants.ManifestAttributes.MIXINCONFIGS, MIXIN_CONFIG_NAME);
@@ -70,6 +74,7 @@ public class BytecodeFixerJarGenerator {
             jos.putNextEntry(configEntry);
             jos.write(generateMixinConfig());
             jos.closeEntry();
+            return true;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

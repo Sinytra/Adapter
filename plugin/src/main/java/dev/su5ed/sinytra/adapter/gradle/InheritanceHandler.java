@@ -1,15 +1,15 @@
 package dev.su5ed.sinytra.adapter.gradle;
 
-import dev.su5ed.sinytra.adapter.gradle.provider.ClassProvider;
+import dev.su5ed.sinytra.adapter.patch.util.provider.ClassLookup;
 import org.objectweb.asm.tree.ClassNode;
 
 import java.util.*;
 
 public class InheritanceHandler {
-    private final ClassProvider classProvider;
+    private final ClassLookup classProvider;
     private final Map<String, Collection<String>> parentCache = new HashMap<>();
 
-    public InheritanceHandler(ClassProvider classProvider) {
+    public InheritanceHandler(ClassLookup classProvider) {
         this.classProvider = classProvider;
     }
 

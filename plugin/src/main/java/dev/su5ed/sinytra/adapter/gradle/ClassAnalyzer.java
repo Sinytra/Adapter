@@ -4,15 +4,16 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.mojang.datafixers.util.Pair;
 import dev.su5ed.sinytra.adapter.gradle.analysis.TraceCallback;
-import dev.su5ed.sinytra.adapter.gradle.provider.ClassProvider;
+import dev.su5ed.sinytra.adapter.patch.util.provider.ClassLookup;
 import dev.su5ed.sinytra.adapter.patch.LVTOffsets;
 import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.PatchInstance;
 import dev.su5ed.sinytra.adapter.patch.analysis.LocalVarRearrangement;
+import dev.su5ed.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
-import dev.su5ed.sinytra.adapter.gradle.analysis.MethodCallAnalyzer;
+import dev.su5ed.sinytra.adapter.gradle.analysis.ReplacedMethodCalls;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
@@ -41,8 +42,8 @@ public class ClassAnalyzer {
     private final ClassNode cleanNode;
     private final ClassNode dirtyNode;
     private final IMappingFile mappings;
-    private final ClassProvider cleanClassProvider;
-    private final ClassProvider dirtyClassProvider;
+    private final ClassLookup cleanClassProvider;
+    private final ClassLookup dirtyClassProvider;
     private final InheritanceHandler inheritanceHandler;
     private final TraceCallback trace;
 
@@ -60,7 +61,7 @@ public class ClassAnalyzer {
     private final Map<String, FieldNode> cleanFields;
     private final Map<String, FieldNode> dirtyFields;
 
-    public static ClassAnalyzer create(byte[] cleanData, byte[] dirtyData, IMappingFile mappings, ClassProvider cleanClassProvider, ClassProvider dirtyClassProvider) {
+    public static ClassAnalyzer create(byte[] cleanData, byte[] dirtyData, IMappingFile mappings, ClassLookup cleanClassProvider, ClassLookup dirtyClassProvider) {
         return new ClassAnalyzer(readClassNode(cleanData), readClassNode(dirtyData), mappings, cleanClassProvider, dirtyClassProvider);
     }
 
@@ -71,13 +72,13 @@ public class ClassAnalyzer {
         return classNode;
     }
 
-    public ClassAnalyzer(ClassNode cleanNode, ClassNode dirtyNode, IMappingFile mappings, ClassProvider cleanClassProvider, ClassProvider dirtyClassProvider) {
+    public ClassAnalyzer(ClassNode cleanNode, ClassNode dirtyNode, IMappingFile mappings, ClassLookup cleanClassProvider, ClassLookup dirtyClassProvider) {
         this.cleanNode = cleanNode;
         this.dirtyNode = dirtyNode;
         this.mappings = mappings;
         this.cleanClassProvider = cleanClassProvider;
         this.dirtyClassProvider = dirtyClassProvider;
-        ClassProvider joinedClassProvider = name -> dirtyClassProvider.getClass(name).or(() -> cleanClassProvider.getClass(name));
+        ClassLookup joinedClassProvider = name -> dirtyClassProvider.getClass(name).or(() -> cleanClassProvider.getClass(name));
         this.inheritanceHandler = new InheritanceHandler(joinedClassProvider);
         this.trace = new TraceCallback(LOGGER, this.cleanNode);
 
@@ -133,7 +134,7 @@ public class ClassAnalyzer {
             findExpandedMethods(patches, replacementCalls);
             findExpandedLambdas(patches, replacementCalls);
         }
-        MethodCallAnalyzer.findReplacedMethodCalls(this.dirtyNode, this.cleanToDirty, patches, this.trace);
+        ReplacedMethodCalls.findReplacedMethodCalls(this.dirtyNode, this.cleanToDirty, patches, this.trace);
         findUpdatedLambdaNames(patches);
         checkAccess(patches);
         calculateLVTOffsets(offsets, reorders);
