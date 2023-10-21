@@ -9,10 +9,10 @@ import dev.su5ed.sinytra.adapter.patch.selector.FieldMatcher;
 import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import dev.su5ed.sinytra.adapter.patch.serialization.MethodTransformSerialization;
 import dev.su5ed.sinytra.adapter.patch.transformer.RedirectAccessor;
+import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.spongepowered.asm.mixin.gen.AccessorInfo;
 
 import java.util.*;
 import java.util.function.Function;
@@ -60,11 +60,10 @@ public final class InterfacePatchInstance extends PatchInstance {
         if (KNOWN_INTERFACE_MIXIN_TYPES.contains(methodAnnotation.getDesc())) {
             // Find accessor target
             if (methodAnnotation.matchesDesc(Patch.ACCESSOR)) {
-                FieldMatcher matcher = Optional.ofNullable(AccessorInfo.AccessorName.of(method.name))
-                    .map(name -> environment.remap(owner, name.name))
+                FieldMatcher matcher = AdapterUtil.getAccessorTargetFieldName(owner, method, methodAnnotation, environment)
                     .map(FieldMatcher::new)
                     .orElse(null);
-                if (matcher != null && this.targetFields.stream().anyMatch(m -> m.matches(matcher))) {
+                if (matcher != null && (this.targetFields.isEmpty() || this.targetFields.stream().anyMatch(m -> m.matches(matcher)))) {
                     builder.methodAnnotation(methodAnnotation);
                     return true;
                 }

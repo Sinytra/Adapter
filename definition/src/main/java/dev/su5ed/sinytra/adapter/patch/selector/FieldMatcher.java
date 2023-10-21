@@ -20,6 +20,10 @@ public class FieldMatcher {
         this.desc = descIndex == -1 ? null : field.substring(descIndex + 1);
     }
 
+    public String getName() {
+        return this.name;
+    }
+
     public boolean matches(FieldMatcher other) {
         return matches(other.name, other.desc);
     }

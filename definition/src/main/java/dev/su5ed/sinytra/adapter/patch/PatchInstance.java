@@ -1,6 +1,5 @@
 package dev.su5ed.sinytra.adapter.patch;
 
-import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
@@ -50,14 +49,14 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
     public Result apply(ClassNode classNode, PatchEnvironment environment) {
         Result result = Result.PASS;
         PatchContext context = new PatchContext(classNode, environment);
-        Pair<Boolean, @Nullable AnnotationValueHandle<?>> classTarget = checkClassTarget(classNode);
-        if (classTarget.getFirst()) {
-            AnnotationValueHandle<?> classAnnotation = classTarget.getSecond();
+        ClassTarget classTarget = checkClassTarget(classNode);
+        if (classTarget != null) {
+            AnnotationValueHandle<?> classAnnotation = classTarget.handle();
             for (ClassTransform classTransform : this.classTransforms) {
-                result = result.or(classTransform.apply(classNode, classTarget.getSecond(), environment));
+                result = result.or(classTransform.apply(classNode, classTarget.handle(), environment));
             }
             for (MethodNode method : classNode.methods) {
-                MethodContext methodContext = checkMethodTarget(classAnnotation, classNode.name, method, environment);
+                MethodContext methodContext = checkMethodTarget(classAnnotation, classNode.name, method, environment, classTarget.targetTypes());
                 if (methodContext != null) {
                     for (MethodTransform transform : this.transforms) {
                         Collection<String> accepted = transform.getAcceptedAnnotations();
@@ -72,15 +71,15 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         return result;
     }
 
-    private Pair<Boolean, @Nullable AnnotationValueHandle<?>> checkClassTarget(ClassNode classNode) {
+    private ClassTarget checkClassTarget(ClassNode classNode) {
         if (classNode.invisibleAnnotations != null) {
             for (AnnotationNode annotation : classNode.invisibleAnnotations) {
                 if (annotation.desc.equals(MIXIN_ANN)) {
                     return PatchInstance.<List<Type>>findAnnotationValue(annotation.values, "value")
-                        .<Pair<Boolean, AnnotationValueHandle<?>>>map(types -> {
+                        .map(types -> {
                             for (Type targetType : types.get()) {
                                 if (this.targetClasses.isEmpty() || this.targetClasses.contains(targetType.getInternalName())) {
-                                    return Pair.of(true, types);
+                                    return new ClassTarget(types, types.get());
                                 }
                             }
                             return null;
@@ -89,26 +88,27 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
                             .map(types -> {
                                 for (String targetType : types.get()) {
                                     if (this.targetClasses.isEmpty() || this.targetClasses.contains(targetType)) {
-                                        return Pair.of(true, types);
+                                        return new ClassTarget(types, types.get().stream().map(Type::getObjectType).toList());
                                     }
                                 }
                                 return null;
                             }))
-                        .orElse(Pair.of(false, null));
+                        .orElse(null);
                 }
             }
         }
-        return Pair.of(this.targetClasses.isEmpty(), null);
+        return this.targetClasses.isEmpty() ? new ClassTarget(null, List.of()) : null;
     }
 
     @Nullable
-    private MethodContext checkMethodTarget(@Nullable AnnotationValueHandle<?> classAnnotation, String owner, MethodNode method, PatchEnvironment remaper) {
+    private MethodContext checkMethodTarget(@Nullable AnnotationValueHandle<?> classAnnotation, String owner, MethodNode method, PatchEnvironment remaper, List<Type> targetTypes) {
         if (method.visibleAnnotations != null) {
             for (AnnotationNode annotation : method.visibleAnnotations) {
                 if (this.targetAnnotations.isEmpty() || this.targetAnnotations.contains(annotation.desc)) {
                     MethodContext.Builder builder = MethodContext.builder();
                     if (classAnnotation != null) {
                         builder.classAnnotation(classAnnotation);
+                        builder.targetTypes(targetTypes);
                     }
                     AnnotationHandle annotationHandle = new AnnotationHandle(annotation);
                     if (checkAnnotation(owner, method, annotationHandle, remaper, builder) && (this.targetAnnotationValues == null || this.targetAnnotationValues.test(annotationHandle.getAllValues()))) {
@@ -134,6 +134,8 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         }
         return Optional.empty();
     }
+
+    private record ClassTarget(@Nullable AnnotationValueHandle<?> handle, List<Type> targetTypes) {}
 
     protected abstract static class BaseBuilder<T extends Builder<T>> implements Builder<T> {
         protected final Set<String> targetClasses = new HashSet<>();

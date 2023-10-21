@@ -2,15 +2,17 @@ package dev.su5ed.sinytra.adapter.patch.util;
 
 import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
+import dev.su5ed.sinytra.adapter.patch.PatchEnvironment;
+import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
+import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodNode;
 import org.slf4j.Logger;
+import org.spongepowered.asm.mixin.gen.AccessorInfo;
 import org.spongepowered.asm.service.MixinService;
 
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -110,6 +112,14 @@ public final class AdapterUtil {
     public static boolean isAnonymousClass(String name) {
         // Regex: second to last char in class name must be '$', and the class name must end with a number
         return name.matches("^.+\\$\\d+$");
+    }
+
+    public static Optional<String> getAccessorTargetFieldName(String owner, MethodNode method, AnnotationHandle annotationHandle, PatchEnvironment environment) {
+        return annotationHandle.<String>getValue("value")
+            .map(AnnotationValueHandle::get)
+            .filter(str -> !str.isEmpty())
+            .or(() -> Optional.ofNullable(AccessorInfo.AccessorName.of(method.name))
+                .map(name -> environment.remap(owner, name.name)));
     }
 
     private AdapterUtil() {}
