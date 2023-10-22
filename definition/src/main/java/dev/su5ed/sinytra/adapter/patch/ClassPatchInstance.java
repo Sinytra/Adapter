@@ -86,17 +86,14 @@ public final class ClassPatchInstance extends PatchInstance {
     }
 
     private Optional<Boolean> checkInjectionPointAnnotation(String owner, AnnotationHandle injectionPointAnnotation, PatchEnvironment environment, MethodContext.Builder builder) {
-        return injectionPointAnnotation.<String>getValue("target")
-            .flatMap(target -> {
-                AnnotationValueHandle<String> value = injectionPointAnnotation.<String>getValue("value").orElse(null);
-                String valueStr = value != null ? value.get() : null;
-                String targetStr = environment.remap(owner, target.get());
-                if (this.targetInjectionPoints.isEmpty() || this.targetInjectionPoints.stream().anyMatch(pred -> pred.test(valueStr, targetStr))) {
-                    builder.injectionPointAnnotation(injectionPointAnnotation);
-                    return Optional.of(true);
-                }
-                return Optional.empty();
-            });
+        AnnotationValueHandle<String> value = injectionPointAnnotation.<String>getValue("value").orElse(null);
+        String valueStr = value != null ? value.get() : null;
+        String targetStr = injectionPointAnnotation.<String>getValue("target").map(t -> environment.remap(owner, t.get())).orElse("");
+        if (this.targetInjectionPoints.isEmpty() || this.targetInjectionPoints.stream().anyMatch(pred -> pred.test(valueStr, targetStr))) {
+            builder.injectionPointAnnotation(injectionPointAnnotation);
+            return Optional.of(true);
+        }
+        return Optional.empty();
     }
 
     protected static class ClassPatchBuilderImpl extends BaseBuilder<ClassPatchBuilder> implements ClassPatchBuilder {
