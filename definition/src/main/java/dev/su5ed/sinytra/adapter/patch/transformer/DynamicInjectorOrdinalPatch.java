@@ -78,7 +78,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
             List<InstructionMatcher> dirtyMatchers = dirtyCalls.stream().map(i -> MethodCallAnalyzer.findSurroundingInstructions(i, insnRange)).toList();
 
             int ordinalValue = ordinal.get();
-            if (ordinalValue >= cleanMatchers.size()) {
+            if (ordinalValue < 0 || ordinalValue >= cleanMatchers.size()) {
                 return Patch.Result.PASS;
             }
             InstructionMatcher original = cleanMatchers.get(ordinalValue);
