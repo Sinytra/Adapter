@@ -6,6 +6,7 @@ import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMixinType;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.InsnList;
@@ -22,6 +23,7 @@ public sealed interface Patch permits PatchInstance {
     String INJECT = "Lorg/spongepowered/asm/mixin/injection/Inject;";
     String REDIRECT = "Lorg/spongepowered/asm/mixin/injection/Redirect;";
     String MODIFY_ARG = "Lorg/spongepowered/asm/mixin/injection/ModifyArg;";
+    String MODIFY_ARGS = "Lorg/spongepowered/asm/mixin/injection/ModifyArgs;";
     String MODIFY_VAR = "Lorg/spongepowered/asm/mixin/injection/ModifyVariable;";
     String MODIFY_CONST = "Lorg/spongepowered/asm/mixin/injection/ModifyConstant;";
     String OVERWRITE = "Lorg/spongepowered/asm/mixin/Overwrite;";
@@ -101,15 +103,23 @@ public sealed interface Patch permits PatchInstance {
 
         ClassPatchBuilder targetInjectionPoint(String value, String target);
 
+        default ClassPatchBuilder modifyInjectionPoint(String target) {
+            return modifyInjectionPoint(null, target);
+        }
+
         default ClassPatchBuilder modifyInjectionPoint(String value, String target) {
             return modifyInjectionPoint(value, target, true);
         }
 
-        ClassPatchBuilder modifyInjectionPoint(String value, String target, boolean resetValues);
-
-        default ClassPatchBuilder modifyInjectionPoint(String target) {
-            return modifyInjectionPoint(null, target);
+        default ClassPatchBuilder modifyInjectionPoint(String value, String target, boolean resetValues) {
+            return modifyInjectionPoint(value, target, resetValues, -1);
         }
+
+        default ClassPatchBuilder modifyInjectionPoint(String value, String target, int ordinal) {
+            return modifyInjectionPoint(value, target, true, ordinal);
+        }
+
+        ClassPatchBuilder modifyInjectionPoint(String value, String target, boolean resetValues, @Nullable Integer ordinal);
         
         ClassPatchBuilder redirectShadowMethod(String original, String target, BiConsumer<MethodInsnNode, InsnList> callFixer);
 
