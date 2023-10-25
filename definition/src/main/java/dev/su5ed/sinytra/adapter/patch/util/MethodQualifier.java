@@ -38,6 +38,12 @@ public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nu
         return Optional.empty();
     }
 
+    public boolean matches(MethodQualifier other) {
+        return (this.owner == null || other.owner() != null && this.owner.equals(other.owner()))
+        && this.name != null && other.name() != null && this.name.equals(other.name())
+        && (this.desc == null || other.desc() != null && this.desc.equals(other.desc()));
+    }
+
     public boolean isFull() {
         return this.owner != null && this.name != null && this.desc != null;
     }

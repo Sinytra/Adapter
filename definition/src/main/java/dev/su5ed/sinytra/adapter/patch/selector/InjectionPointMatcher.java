@@ -2,18 +2,16 @@ package dev.su5ed.sinytra.adapter.patch.selector;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import dev.su5ed.sinytra.adapter.patch.Patch;
-import dev.su5ed.sinytra.adapter.patch.PatchEnvironment;
+import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Objects;
 import java.util.Optional;
-import java.util.regex.Matcher;
+import java.util.function.Predicate;
 
-public record InjectionPointMatcher(@Nullable String value, String target) {
+public record InjectionPointMatcher(@Nullable String value, TargetMatcher target) {
     public static final Codec<InjectionPointMatcher> CODEC = RecordCodecBuilder.create(instance -> instance.group(
         Codec.STRING.optionalFieldOf("value").forGetter(i -> Optional.ofNullable(i.value())),
-        Codec.STRING.fieldOf("target").forGetter(InjectionPointMatcher::target)
+        Codec.STRING.fieldOf("target").forGetter(m -> m.target().target())
     ).apply(instance, InjectionPointMatcher::new));
 
     public InjectionPointMatcher(Optional<String> value, String target) {
@@ -21,22 +19,36 @@ public record InjectionPointMatcher(@Nullable String value, String target) {
     }
 
     public InjectionPointMatcher(@Nullable String value, String target) {
-        this.value = value;
-
-        Matcher matcher = Patch.METHOD_REF_PATTERN.matcher(target);
-        if (matcher.matches()) {
-            String owner = matcher.group("owner");
-            String name = matcher.group("name");
-            String desc = matcher.group("desc");
-
-            String mappedName = PatchEnvironment.remapReference(name);
-            this.target = Objects.requireNonNullElse(owner, "") + mappedName + Objects.requireNonNullElse(desc, "");
-        } else {
-            this.target = target;
-        }
+        this(value, TargetMatcher.create(target));
     }
 
     public boolean test(String value, String target) {
-        return this.target.equals(target) && (this.value == null || this.value.equals(value));
+        return (this.value == null || this.value.equals(value)) && this.target.test(target);
+    }
+
+    interface TargetMatcher extends Predicate<String> {
+        String target();
+
+        static TargetMatcher create(String target) {
+            return Optional.of(target)
+                .<TargetMatcher>flatMap(str -> MethodQualifier.create(str)
+                    .filter(q -> q.name() != null)
+                    .map(q -> new MethodQualifierMatcher(str, q)))
+                .orElseGet(() -> new SimpleTargetMatcher(target));
+        }
+    }
+
+    private record SimpleTargetMatcher(String target) implements TargetMatcher {
+        @Override
+        public boolean test(String s) {
+            return this.target.equals(s);
+        }
+    }
+
+    private record MethodQualifierMatcher(String target, MethodQualifier qualifier) implements TargetMatcher {
+        @Override
+        public boolean test(String s) {
+            return MethodQualifier.create(s).map(this.qualifier::matches).orElse(false);
+        }
     }
 }
