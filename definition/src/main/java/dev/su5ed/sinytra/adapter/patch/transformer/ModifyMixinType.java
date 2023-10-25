@@ -61,11 +61,16 @@ public record ModifyMixinType(String replacementDesc, Consumer<Builder> consumer
         }
 
         public Builder injectionPoint(String value, String target) {
+            return injectionPoint(value, target, b -> {});
+        }
+
+        public Builder injectionPoint(String value, String target, Consumer<AnnotationVisitor> builder) {
             AnnotationVisitor atNode = this.replacement.visitAnnotation("at", MixinConstants.AT);
             atNode.visit("value", value);
             if (!target.isEmpty()) {
                 atNode.visit("target", target);
             }
+            builder.accept(atNode);
             return this;
         }
     }

@@ -4,7 +4,6 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
-import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.FieldMatcher;
 import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import dev.su5ed.sinytra.adapter.patch.serialization.MethodTransformSerialization;
@@ -14,7 +13,10 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -36,7 +38,7 @@ public final class InterfacePatchInstance extends PatchInstance {
         this(targetClasses, targetFields, targetAnnotations, map -> true, List.of(), transforms);
     }
 
-    private InterfacePatchInstance(List<String> targetClasses, List<FieldMatcher> targetFields, List<String> targetAnnotations, Predicate<Map<String, AnnotationValueHandle<?>>> targetAnnotationValues, List<ClassTransform> classTransforms, List<MethodTransform> transforms) {
+    private InterfacePatchInstance(List<String> targetClasses, List<FieldMatcher> targetFields, List<String> targetAnnotations, Predicate<AnnotationHandle> targetAnnotationValues, List<ClassTransform> classTransforms, List<MethodTransform> transforms) {
         super(targetClasses, targetAnnotations, targetAnnotationValues, classTransforms, transforms);
 
         this.targetFields = targetFields;

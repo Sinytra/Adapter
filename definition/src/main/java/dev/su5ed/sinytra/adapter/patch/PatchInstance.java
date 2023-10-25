@@ -27,7 +27,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
 
     protected final List<String> targetAnnotations;
     @Nullable
-    protected final Predicate<Map<String, AnnotationValueHandle<?>>> targetAnnotationValues;
+    protected final Predicate<AnnotationHandle> targetAnnotationValues;
     protected final List<ClassTransform> classTransforms;
     protected final List<MethodTransform> transforms;
 
@@ -35,7 +35,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         this(targetClasses, targetAnnotations, map -> true, List.of(), transforms);
     }
 
-    protected PatchInstance(List<String> targetClasses, List<String> targetAnnotations, Predicate<Map<String, AnnotationValueHandle<?>>> targetAnnotationValues, List<ClassTransform> classTransforms, List<MethodTransform> transforms) {
+    protected PatchInstance(List<String> targetClasses, List<String> targetAnnotations, Predicate<AnnotationHandle> targetAnnotationValues, List<ClassTransform> classTransforms, List<MethodTransform> transforms) {
         this.targetClasses = targetClasses;
         this.targetAnnotations = targetAnnotations;
         this.targetAnnotationValues = targetAnnotationValues;
@@ -111,7 +111,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
                         builder.targetTypes(targetTypes);
                     }
                     AnnotationHandle annotationHandle = new AnnotationHandle(annotation);
-                    if (checkAnnotation(owner, method, annotationHandle, remaper, builder) && (this.targetAnnotationValues == null || this.targetAnnotationValues.test(annotationHandle.getAllValues()))) {
+                    if (checkAnnotation(owner, method, annotationHandle, remaper, builder) && (this.targetAnnotationValues == null || this.targetAnnotationValues.test(annotationHandle))) {
                         return builder.build();
                     }
                 }
@@ -140,7 +140,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
     protected abstract static class BaseBuilder<T extends Builder<T>> implements Builder<T> {
         protected final Set<String> targetClasses = new HashSet<>();
         protected final Set<String> targetAnnotations = new HashSet<>();
-        protected Predicate<Map<String, AnnotationValueHandle<?>>> targetAnnotationValues;
+        protected Predicate<AnnotationHandle> targetAnnotationValues;
         protected final List<ClassTransform> classTransforms = new ArrayList<>();
         protected final List<MethodTransform> transforms = new ArrayList<>();
 
@@ -157,7 +157,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         }
 
         @Override
-        public T targetAnnotationValues(Predicate<Map<String, AnnotationValueHandle<?>>> values) {
+        public T targetAnnotationValues(Predicate<AnnotationHandle> values) {
             this.targetAnnotationValues = this.targetAnnotationValues == null ? values : this.targetAnnotationValues.or(values);
             return coerce();
         }

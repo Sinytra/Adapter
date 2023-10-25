@@ -2,7 +2,6 @@ package dev.su5ed.sinytra.adapter.patch;
 
 import com.mojang.serialization.Codec;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
-import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMixinType;
@@ -12,7 +11,6 @@ import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.MethodInsnNode;
 
 import java.util.List;
-import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -67,7 +65,7 @@ public sealed interface Patch permits PatchInstance {
 
         T targetMixinType(String annotationDesc);
 
-        T targetAnnotationValues(Predicate<Map<String, AnnotationValueHandle<?>>> values);
+        T targetAnnotationValues(Predicate<AnnotationHandle> values);
 
         T modifyTargetClasses(Consumer<List<Type>> consumer);
 
@@ -100,6 +98,14 @@ public sealed interface Patch permits PatchInstance {
         }
 
         ClassPatchBuilder targetInjectionPoint(String value, String target);
+
+        default ClassPatchBuilder targetConstant(double doubleValue) {
+            return targetMixinType(Patch.MODIFY_CONST)
+                .targetAnnotationValues(handle -> handle.getNested("constant")
+                    .flatMap(cst -> cst.<Double>getValue("doubleValue")
+                        .map(val -> val.get() == doubleValue))
+                    .orElse(false));
+        }
 
         default ClassPatchBuilder modifyInjectionPoint(String value, String target) {
             return modifyInjectionPoint(value, target, true);
