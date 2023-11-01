@@ -26,7 +26,7 @@ public record ModifyInjectionPoint(@Nullable String value, String target, boolea
     ).apply(instance, ModifyInjectionPoint::new));
 
     public ModifyInjectionPoint(Optional<String> value, String target) {
-        this(value.orElse(null), target, true);
+        this(value.orElse(null), target, false);
     }
 
     @Override

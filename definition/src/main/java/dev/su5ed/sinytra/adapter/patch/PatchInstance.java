@@ -19,7 +19,7 @@ import java.util.function.Predicate;
 
 public abstract sealed class PatchInstance implements Patch permits ClassPatchInstance, InterfacePatchInstance {
     public static final String MIXIN_ANN = "Lorg/spongepowered/asm/mixin/Mixin;";
-    public static final Collection<String> KNOWN_MIXIN_TYPES = Set.of(Patch.INJECT, Patch.REDIRECT, Patch.MODIFY_ARG, Patch.MODIFY_VAR, Patch.MODIFY_CONST, Patch.MODIFY_EXPR_VAL, Patch.WRAP_OPERATION);
+    public static final Collection<String> KNOWN_MIXIN_TYPES = Set.of(Patch.INJECT, Patch.REDIRECT, Patch.MODIFY_ARG, Patch.MODIFY_ARGS, Patch.MODIFY_VAR, Patch.MODIFY_CONST, Patch.MODIFY_EXPR_VAL, Patch.WRAP_OPERATION);
 
     public static final Marker MIXINPATCH = MarkerFactory.getMarker("MIXINPATCH");
 

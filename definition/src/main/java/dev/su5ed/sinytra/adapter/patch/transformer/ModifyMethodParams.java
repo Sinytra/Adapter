@@ -4,15 +4,19 @@ import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import dev.su5ed.sinytra.adapter.patch.*;
+import dev.su5ed.sinytra.adapter.patch.MethodTransform;
+import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.Patch.Result;
+import dev.su5ed.sinytra.adapter.patch.PatchContext;
+import dev.su5ed.sinytra.adapter.patch.PatchInstance;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.ExtraCodecs;
-import it.unimi.dsi.fastutil.ints.*;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -94,6 +98,10 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
                     }
                 });
             }
+            return Result.APPLY;
+        }
+        if (annotation.matchesDesc(Patch.MODIFY_ARGS)) {
+            ModifyArgsOffsetTransformer.modify(methodNode, this.insertions);
             return Result.APPLY;
         }
 
@@ -310,7 +318,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
     public enum TargetType {
         ALL,
         METHOD(Patch.INJECT, Patch.OVERWRITE, Patch.MODIFY_VAR),
-        INJECTION_POINT(Patch.REDIRECT, Patch.MODIFY_ARG);
+        INJECTION_POINT(Patch.REDIRECT, Patch.MODIFY_ARG, Patch.MODIFY_ARGS);
 
         public static final Codec<TargetType> CODEC = Codec.STRING.xmap(TargetType::from, TargetType::name);
 

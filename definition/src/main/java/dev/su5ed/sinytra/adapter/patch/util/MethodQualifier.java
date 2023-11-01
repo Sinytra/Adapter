@@ -4,6 +4,8 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import dev.su5ed.sinytra.adapter.patch.PatchEnvironment;
 import org.jetbrains.annotations.Nullable;
+import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.MethodInsnNode;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -39,9 +41,17 @@ public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nu
     }
 
     public boolean matches(MethodQualifier other) {
-        return (this.owner == null || other.owner() != null && this.owner.equals(other.owner()))
-        && this.name != null && other.name() != null && this.name.equals(other.name())
-        && (this.desc == null || other.desc() != null && this.desc.equals(other.desc()));
+        return matches(other.owner(), other.name(), other.desc());
+    }
+
+    public boolean matches(MethodInsnNode insn) {
+        return matches(Type.getObjectType(insn.owner).getDescriptor(), insn.name, insn.desc);
+    }
+
+    public boolean matches(@Nullable String owner, @Nullable String name, @Nullable String desc) {
+        return (this.owner == null || this.owner.equals(owner))
+            && this.name != null && this.name.equals(name)
+            && (this.desc == null || this.desc.equals(desc));
     }
 
     public boolean isFull() {
