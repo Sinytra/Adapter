@@ -21,14 +21,6 @@ public class FieldTypePatchTransformer implements MethodTransform {
     private static final String UNIQUE_ANN = "Lorg/spongepowered/asm/mixin/Unique;";
     private static final String PREFIX = "adapter$";
 
-    private final BytecodeFixerUpper bfu;
-    private final BytecodeFixerJarGenerator generator;
-
-    public FieldTypePatchTransformer(BytecodeFixerUpper bfu) {
-        this.bfu = bfu;
-        this.generator = bfu.getGenerator();
-    }
-
     @Override
     public Collection<String> getAcceptedAnnotations() {
         return Set.of(Patch.ACCESSOR);
@@ -36,16 +28,17 @@ public class FieldTypePatchTransformer implements MethodTransform {
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
-        if (methodContext.targetTypes().size() == 1) {
+        BytecodeFixerUpper bfu = context.getEnvironment().getBytecodeFixerUpper();
+        if (bfu != null && methodContext.targetTypes().size() == 1) {
             String fieldFqn = AdapterUtil.getAccessorTargetFieldName(classNode.name, methodNode, methodContext.methodAnnotation(), context.getEnvironment()).orElse(null);
             if (fieldFqn != null) {
                 String fieldName = new FieldMatcher(fieldFqn).getName();
                 Type owner = methodContext.targetTypes().get(0);
-                Pair<Type, Type> updatedTypes = this.bfu.getFieldTypeChange(owner.getInternalName(), fieldName);
+                Pair<Type, Type> updatedTypes = bfu.getFieldTypeChange(owner.getInternalName(), fieldName);
                 if (updatedTypes != null) {
-                    FieldTypeFix typeAdapter = this.bfu.getFieldTypeAdapter(updatedTypes.getSecond(), updatedTypes.getFirst());
+                    FieldTypeFix typeAdapter = bfu.getFieldTypeAdapter(updatedTypes.getSecond(), updatedTypes.getFirst());
                     if (typeAdapter != null) {
-                        String targetMethod = addRedirectAcceptorField(owner, methodNode, fieldName, typeAdapter);
+                        String targetMethod = addRedirectAcceptorField(owner, methodNode, fieldName, typeAdapter, bfu.getGenerator());
 
                         methodNode.visibleAnnotations.remove(methodContext.methodAnnotation().unwrap());
                         AnnotationVisitor invokerAnn = methodNode.visitAnnotation(Patch.INVOKER, true);
@@ -58,8 +51,8 @@ public class FieldTypePatchTransformer implements MethodTransform {
         return Patch.Result.PASS;
     }
 
-    private String addRedirectAcceptorField(Type owner, MethodNode methodNode, String field, FieldTypeFix adapter) {
-        ClassNode node = getOrCreateMixinClass(owner);
+    private String addRedirectAcceptorField(Type owner, MethodNode methodNode, String field, FieldTypeFix adapter, BytecodeFixerJarGenerator generator) {
+        ClassNode node = getOrCreateMixinClass(owner, generator);
 
         String methodName = PREFIX + field;
         Type to = adapter.to();
@@ -87,9 +80,9 @@ public class FieldTypePatchTransformer implements MethodTransform {
         return methodName + methodDesc;
     }
 
-    private ClassNode getOrCreateMixinClass(Type targetClass) {
+    private ClassNode getOrCreateMixinClass(Type targetClass, BytecodeFixerJarGenerator generator) {
         String className = targetClass.getInternalName().replace('/', '_');
-        return this.generator.getOrCreateClass(className, s -> generateFieldAdapterMixin(s, targetClass));
+        return generator.getOrCreateClass(className, s -> generateFieldAdapterMixin(s, targetClass));
     }
 
     private ClassNode generateFieldAdapterMixin(String className, Type targetClass) {

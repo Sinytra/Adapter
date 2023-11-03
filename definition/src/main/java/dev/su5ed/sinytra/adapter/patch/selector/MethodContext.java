@@ -31,17 +31,9 @@ public record MethodContext(AnnotationValueHandle<?> classAnnotation, Annotation
 
     @Nullable
     public Pair<ClassNode, MethodNode> findInjectionTarget(ClassNode classNode, AnnotationHandle annotation, PatchContext context, Function<String, ClassNode> classLookup) {
-        // Get method targets
-        List<String> methodRefs = annotation.<List<String>>getValue("method").orElseThrow().get();
-        if (methodRefs.size() > 1) {
-            // We only support single method targets for now
-            return null;
-        }
-        // Resolve method reference
-        String reference = context.getEnvironment().remap(classNode.name, methodRefs.get(0));
-        // Extract owner, name and desc using regex
-        MethodQualifier qualifier = MethodQualifier.create(reference, false).filter(MethodQualifier::isFull).orElse(null);
-        if (qualifier == null) {
+        // Find target method qualifier
+        MethodQualifier qualifier = getTargetMethodQualifier(classNode, annotation, context);
+        if (qualifier == null || !qualifier.isFull()) {
             return null;
         }
         // Find target class
@@ -56,6 +48,20 @@ public record MethodContext(AnnotationValueHandle<?> classAnnotation, Annotation
             return null;
         }
         return Pair.of(targetClass, targetMethod);
+    }
+
+    @Nullable
+    public MethodQualifier getTargetMethodQualifier(ClassNode classNode, AnnotationHandle annotation, PatchContext context) {
+        // Get method targets
+        List<String> methodRefs = annotation.<List<String>>getValue("method").orElseThrow().get();
+        if (methodRefs.size() > 1) {
+            // We only support single method targets for now
+            return null;
+        }
+        // Resolve method reference
+        String reference = context.getEnvironment().remap(classNode.name, methodRefs.get(0));
+        // Extract owner, name and desc using regex
+        return MethodQualifier.create(reference, false).orElse(null);
     }
 
     public static Builder builder() {

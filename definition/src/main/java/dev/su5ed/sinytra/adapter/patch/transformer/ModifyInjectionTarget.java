@@ -44,7 +44,7 @@ public record ModifyInjectionTarget(List<String> replacementMethods) implements 
         } else {
             annotation.<List<String>>getValue("method").ifPresentOrElse(
                 handle -> handle.set(this.replacementMethods),
-                () -> annotation.appendValue("method", this.replacementMethods)  
+                () -> annotation.appendValue("method", this.replacementMethods)
             );
         }
         return Result.APPLY;

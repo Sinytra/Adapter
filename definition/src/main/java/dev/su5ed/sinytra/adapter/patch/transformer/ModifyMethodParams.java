@@ -10,6 +10,8 @@ import dev.su5ed.sinytra.adapter.patch.Patch.Result;
 import dev.su5ed.sinytra.adapter.patch.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.PatchInstance;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
+import dev.su5ed.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
+import dev.su5ed.sinytra.adapter.patch.fixes.FieldTypeFix;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
@@ -131,14 +133,16 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
             int varOffset = AdapterUtil.getLVTOffsetForType(type);
             offsetLVT(methodNode, index, lvtIndex, varOffset);
 
-            offsetSwaps.replaceAll(integerIntegerPair -> integerIntegerPair.mapFirst(j -> j >= index ? j + 1 : j));            
+            offsetSwaps.replaceAll(integerIntegerPair -> integerIntegerPair.mapFirst(j -> j >= index ? j + 1 : j));
 
             methodNode.localVariables.add(new LocalVariableNode("adapter_injected_" + index, type.getDescriptor(), null, self.start, self.end, lvtIndex));
         }
+        BytecodeFixerUpper bfu = context.getEnvironment().getBytecodeFixerUpper();
         this.replacements.forEach(pair -> {
             int index = pair.getFirst();
             Type type = pair.getSecond();
             newParameterTypes.set(index, type);
+            // FIXME Not actually accurate; account for wide types double & long
             int localIndex = offset + index;
             LocalVariableNode localVar = methodNode.localVariables.stream().filter(lvn -> lvn.index == localIndex).findFirst().orElseThrow();
             Type originalType = Type.getType(localVar.desc);
@@ -163,18 +167,21 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
                             } while ((previous = previous.getPrevious()) != null);
                         }
                     }
+                    if (insn instanceof VarInsnNode varInsn && varInsn.var == localIndex) {
+                        int nextOp = insn.getNext().getOpcode();
+                        if (bfu != null && nextOp != Opcodes.IFNULL && nextOp != Opcodes.IFNONNULL) {
+                            FieldTypeFix typeFix = bfu.getFieldTypeAdapter(type, originalType);
+                            if (typeFix != null) {
+                                typeFix.typePatch().apply(methodNode.instructions, varInsn);
+                            }
+                        }
+                        if (this.lvtFixer != null) {
+                            this.lvtFixer.accept(varInsn.var, varInsn, methodNode.instructions);
+                        }
+                    }
                 }
             }
         });
-        if (!this.replacements.isEmpty() && this.lvtFixer != null) {
-            //noinspection ForLoopReplaceableByForEach
-            for (ListIterator<AbstractInsnNode> iterator = methodNode.instructions.iterator(); iterator.hasNext(); ) {
-                AbstractInsnNode insn = iterator.next();
-                if (insn instanceof VarInsnNode varInsn && this.replacements.stream().anyMatch(pair -> offset + pair.getFirst() == varInsn.var)) {
-                    this.lvtFixer.accept(varInsn.var, varInsn, methodNode.instructions);
-                }
-            }
-        }
         this.substitutes.forEach(pair -> {
             int paramIndex = pair.getFirst();
             int substituteParamIndex = pair.getSecond();

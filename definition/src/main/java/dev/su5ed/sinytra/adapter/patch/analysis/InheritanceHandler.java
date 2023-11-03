@@ -1,7 +1,9 @@
-package dev.su5ed.sinytra.adapter.gradle;
+package dev.su5ed.sinytra.adapter.patch.analysis;
 
 import dev.su5ed.sinytra.adapter.patch.util.provider.ClassLookup;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodNode;
 
 import java.util.*;
 
@@ -17,6 +19,20 @@ public class InheritanceHandler {
         ClassNode childNode = this.classProvider.getClass(child).orElse(null);
         ClassNode parentNode = this.classProvider.getClass(parent).orElse(null);
         return childNode != null && parentNode != null && getClassParents(child).contains(parent);
+    }
+
+    public boolean isMethodOverriden(String cls, String name, String desc) {
+        for (String parent : getClassParents(cls)) {
+            ClassNode node = this.classProvider.getClass(parent).orElse(null);
+            if (node != null) {
+                for (MethodNode method : node.methods) {
+                    if (method.name.equals(name) && method.desc.equals(desc) && (method.access & Opcodes.ACC_PRIVATE) == 0 && (method.access & Opcodes.ACC_FINAL) == 0) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private Collection<String> getClassParents(String name) {

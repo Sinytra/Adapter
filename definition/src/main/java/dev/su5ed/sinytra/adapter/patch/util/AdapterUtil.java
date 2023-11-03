@@ -6,8 +6,7 @@ import dev.su5ed.sinytra.adapter.patch.PatchEnvironment;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.gen.AccessorInfo;
 import org.spongepowered.asm.service.MixinService;
@@ -98,16 +97,38 @@ public final class AdapterUtil {
     }
 
     public static ClassNode getClassNode(String internalName) {
+        return maybeGetClassNode(internalName).orElse(null);
+    }
+
+    public static Optional<ClassNode> maybeGetClassNode(String internalName) {
         try {
-            return MixinService.getService().getBytecodeProvider().getClassNode(internalName);
+            return Optional.of(MixinService.getService().getBytecodeProvider().getClassNode(internalName));
         } catch (ClassNotFoundException e) {
             LOGGER.debug("Target class not found: {}", internalName);
-            return null;
+            return Optional.empty();
         } catch (Throwable t) {
             LOGGER.debug("Error getting class", t);
-            return null;
+            return Optional.empty();
         }
     }
+
+    public static int getLVTIndexForParam(MethodNode method, int paramIndex, Type type) {
+        Type[] paramTypes = Type.getArgumentTypes(method.desc);
+        int ordinal = 0;
+        for (int i = paramIndex - 1; i > 0; i--) {
+            if (type.equals(paramTypes[i])) {
+                ordinal++;
+            }
+        }
+        List<LocalVariableNode> locals = method.localVariables.stream()
+            .sorted(Comparator.comparingInt(lvn -> lvn.index))
+            .filter(lvn -> lvn.desc.equals(type.getDescriptor()))
+            .toList();
+        if (locals.size() > ordinal) {
+            return locals.get(ordinal).index;
+        }
+        return -1;
+    } 
 
     public static boolean isAnonymousClass(String name) {
         // Regex: second to last char in class name must be '$', and the class name must end with a number

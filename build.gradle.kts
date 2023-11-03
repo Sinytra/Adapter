@@ -14,6 +14,9 @@ val timestamp: String = LocalDateTime.now().format(DateTimeFormatter.ofPattern("
 
 group = "dev.su5ed.sinytra.adapter"
 version = "${AdapterPlugin.getDefinitionVersion()?.let { "$it-" } ?: ""}$versionMc-$timestamp"
+base {
+    archivesName.set(project.name.lowercase())
+}
 
 println("Project version: $version")
 
@@ -50,6 +53,7 @@ publishing {
         create<MavenPublication>("mavenJava") {
             from(components["java"])
             fg.component(this)
+            artifactId = project.base.archivesName.get()
         }
     }
     repositories {

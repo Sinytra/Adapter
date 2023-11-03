@@ -17,6 +17,7 @@ public class MethodTransformSerialization {
         .put("modify_injection_target", ModifyInjectionTarget.CODEC)
         .put("modfiy_access", ModifyMethodAccess.CODEC)
         .put("modify_method", ModifyMethodParams.CODEC)
+        .put("soft_modify_method", SoftMethodParamsPatch.CODEC)
         .build();
 
     public static final Codec<MethodTransform> METHOD_TRANSFORM_CODEC =

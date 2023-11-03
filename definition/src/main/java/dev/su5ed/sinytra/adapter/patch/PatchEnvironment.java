@@ -1,6 +1,10 @@
 package dev.su5ed.sinytra.adapter.patch;
 
+import dev.su5ed.sinytra.adapter.patch.analysis.InheritanceHandler;
+import dev.su5ed.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
+import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.provider.ClassLookup;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
 import java.util.Optional;
@@ -20,12 +24,17 @@ public class PatchEnvironment {
 
     private final Map<String, Map<String, String>> refmap;
     private final ClassLookup cleanClassLookup;
+    @Nullable
+    private final BytecodeFixerUpper bytecodeFixerUpper;
     private final MixinClassGenerator classGenerator;
+    private final InheritanceHandler inheritanceHandler;
 
-    public PatchEnvironment(Map<String, Map<String, String>> refmap, ClassLookup cleanClassLookup) {
+    public PatchEnvironment(Map<String, Map<String, String>> refmap, ClassLookup cleanClassLookup, @Nullable BytecodeFixerUpper bytecodeFixerUpper) {
         this.refmap = refmap;
         this.cleanClassLookup = cleanClassLookup;
+        this.bytecodeFixerUpper = bytecodeFixerUpper;
         this.classGenerator = new MixinClassGenerator();
+        this.inheritanceHandler = new InheritanceHandler(AdapterUtil::maybeGetClassNode);
     }
 
     public MixinClassGenerator getClassGenerator() {
@@ -34,6 +43,15 @@ public class PatchEnvironment {
 
     public ClassLookup getCleanClassLookup() {
         return this.cleanClassLookup;
+    }
+
+    @Nullable
+    public BytecodeFixerUpper getBytecodeFixerUpper() {
+        return this.bytecodeFixerUpper;
+    }
+
+    public InheritanceHandler getInheritanceHandler() {
+        return this.inheritanceHandler;
     }
 
     public String remap(String cls, String reference) {
