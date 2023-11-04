@@ -322,6 +322,8 @@ public class ClassAnalyzer {
                             .build();
                         context.addPatch(patch);
                         replacementCalls.put(Type.getObjectType(this.dirtyNode.name).getDescriptor() + dirtyQualifier, Type.getObjectType(this.cleanNode.name).getDescriptor() + overloaderQualifier);
+
+                        this.cleanToDirty.put(this.cleanToDirty.inverse().get(overloaderMethod), method);
                     } else if (diff.insertions().isEmpty()) {
                         this.trace.logHeader();
                         LOGGER.info("SOFT OVERLOAD");
