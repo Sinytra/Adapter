@@ -23,8 +23,7 @@ public class ModifyArgsOffsetTransformer {
     private static final MethodQualifier ARGS_SET = new MethodQualifier("Lorg/spongepowered/asm/mixin/injection/invoke/arg/Args;", "set", "(ILjava/lang/Object;)V");
 
     public static void modify(MethodNode methodNode, List<Pair<Integer, Type>> insertions) {
-        List<AbstractInsnNode> insns = new ArrayList<>();
-        SourceInterpreter i = new ScanningSourceInterpreter(Opcodes.ASM9, insns);
+        ScanningSourceInterpreter i = new ScanningSourceInterpreter(Opcodes.ASM9);
         Analyzer<SourceValue> analyzer = new Analyzer<>(i);
 
         try {
@@ -33,7 +32,7 @@ public class ModifyArgsOffsetTransformer {
             throw new RuntimeException(e);
         }
 
-        for (AbstractInsnNode insn : insns) {
+        for (AbstractInsnNode insn : i.getInsns()) {
             if (insn instanceof IntInsnNode iinsn) {
                 insertions.forEach(pair -> {
                     int index = pair.getFirst();
@@ -48,12 +47,15 @@ public class ModifyArgsOffsetTransformer {
     }
 
     public static class ScanningSourceInterpreter extends SourceInterpreter {
-        private final List<AbstractInsnNode> insns;
+        private final List<AbstractInsnNode> insns = new ArrayList<>();
         private final Collection<MethodInsnNode> seen = new HashSet<>();
 
-        public ScanningSourceInterpreter(int api, List<AbstractInsnNode> insns) {
+        public ScanningSourceInterpreter(int api) {
             super(api);
-            this.insns = insns;
+        }
+
+        public List<AbstractInsnNode> getInsns() {
+            return this.insns;
         }
 
         @Override

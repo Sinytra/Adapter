@@ -88,6 +88,8 @@ public sealed interface Patch permits PatchInstance {
 
         T transform(MethodTransform transformer);
 
+        T chain(Consumer<T> consumer);
+
         PatchInstance build();
     }
 

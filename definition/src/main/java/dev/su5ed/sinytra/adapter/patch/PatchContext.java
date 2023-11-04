@@ -23,6 +23,10 @@ public class PatchContext {
         return this.environment;
     }
 
+    public String remap(String reference) {
+        return this.environment.remap(this.classNode.name, reference);
+    }
+
     public void postApply(Runnable consumer) {
         this.postApply.add(consumer);
     }

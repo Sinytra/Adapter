@@ -1,5 +1,7 @@
 package dev.su5ed.sinytra.adapter.gradle;
 
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.mojang.datafixers.util.Pair;
@@ -12,9 +14,11 @@ import dev.su5ed.sinytra.adapter.patch.analysis.InheritanceHandler;
 import dev.su5ed.sinytra.adapter.patch.analysis.LocalVarRearrangement;
 import dev.su5ed.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
+import dev.su5ed.sinytra.adapter.patch.transformer.ModifyInjectionTarget;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import dev.su5ed.sinytra.adapter.patch.transformer.SoftMethodParamsPatch;
+import dev.su5ed.sinytra.adapter.patch.transformer.filter.InjectionPointTransformerFilter;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import dev.su5ed.sinytra.adapter.patch.util.provider.ClassLookup;
@@ -26,6 +30,10 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.objectweb.asm.tree.analysis.Analyzer;
+import org.objectweb.asm.tree.analysis.AnalyzerException;
+import org.objectweb.asm.tree.analysis.SourceInterpreter;
+import org.objectweb.asm.tree.analysis.SourceValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,7 +66,7 @@ public class ClassAnalyzer {
     // Methods that exist in both classes, uses patched MethodNodes from the dirty class
     private final Multimap<String, MethodNode> dirtyCommonMethods = HashMultimap.create();
     // Clean class method to their dirty equivalents
-    private final Map<MethodNode, MethodNode> cleanToDirty = new HashMap<>();
+    private final BiMap<MethodNode, MethodNode> cleanToDirty = HashBiMap.create();
 
     private final Map<String, FieldNode> cleanFields;
     private final Map<String, FieldNode> dirtyFields;
@@ -295,15 +303,15 @@ public class ClassAnalyzer {
 
     private void findOverloadedMethods(List<? super PatchInstance> patches, Map<? super String, String> replacementCalls) {
         this.dirtyOnlyMethods.values().forEach(method -> {
-            Pair<Boolean, MethodNode> overloader = findOverloadMethod(this.dirtyNode.name, method, this.dirtyCommonMethods.values());
+            MethodOverload overloader = findOverloadMethod(this.dirtyNode.name, method, this.dirtyCommonMethods.values());
             if (overloader != null) {
-                MethodNode overloaderMethod = overloader.getSecond();
+                MethodNode overloaderMethod = overloader.methodNode();
                 ParametersDiff diff = ParametersDiff.compareMethodParameters(overloaderMethod, method);
                 if (!diff.insertions().isEmpty() || !diff.replacements().isEmpty()) {
                     String overloaderQualifier = overloaderMethod.name + overloaderMethod.desc;
                     String dirtyQualifier = method.name + method.desc;
 
-                    if (overloader.getFirst()) {
+                    if (overloader.isFullMatch()) {
                         this.trace.logHeader();
                         LOGGER.info("OVERLOAD");
                         LOGGER.info("   " + overloaderQualifier);
@@ -312,7 +320,7 @@ public class ClassAnalyzer {
                         PatchInstance patch = Patch.builder()
                             .targetClass(this.dirtyNode.name)
                             .targetMethod(overloaderQualifier)
-                            .modifyTarget(method.name + method.desc)
+                            .chain(b -> overloader.applyPatchTargetModifier(b, method))
                             .transform(ModifyMethodParams.create(diff, ModifyMethodParams.TargetType.METHOD))
                             .build();
                         patches.add(patch);
@@ -328,7 +336,7 @@ public class ClassAnalyzer {
                             .targetMethod(overloaderQualifier)
                             .transform(new SoftMethodParamsPatch(method.name + method.desc))
                             // IMPORTANT: Target modification must come AFTER soft params patch
-                            .modifyTarget(method.name + method.desc)
+                            .chain(b -> overloader.applyPatchTargetModifier(b, method))
                             .build();
                         patches.add(patch);
                     }
@@ -424,7 +432,7 @@ public class ClassAnalyzer {
                 if (insn instanceof MethodInsnNode minsn) {
                     String qualifier = MethodCallAnalyzer.getCallQualifier(minsn);
                     if (containsMethodCall(cleanMethod, minsn) && !containsMethodCall(dirtyMethod, minsn)) {
-                        redirectInjectionPoints.add(qualifier);   
+                        redirectInjectionPoints.add(qualifier);
                     }
                 }
             }
@@ -437,15 +445,6 @@ public class ClassAnalyzer {
                 patches.add(patch.build());
             }
         }
-    }
-
-    private boolean containsMethodCall(MethodNode methodNode, MethodInsnNode targetMinsn) {
-        for (AbstractInsnNode insn : methodNode.instructions) {
-            if (insn instanceof MethodInsnNode minsn && minsn.owner.equals(targetMinsn.owner) && minsn.name.equals(targetMinsn.name) && minsn.desc.equals(targetMinsn.desc)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private void tryFindExpandedMethod(List<? super PatchInstance> patches, Map<? super String, String> replacementCalls, MethodNode clean, MethodNode dirty) {
@@ -545,8 +544,8 @@ public class ClassAnalyzer {
     }
 
     @Nullable
-    private static Pair<Boolean, MethodNode> findOverloadMethod(final String owner, final MethodNode method, final Collection<MethodNode> others) {
-        List<MethodNode> found = new ArrayList<>();
+    private MethodOverload findOverloadMethod(final String owner, final MethodNode method, final Collection<MethodNode> others) {
+        List<Pair<MethodNode, List<String>>> found = new ArrayList<>();
         List<MethodNode> lowPriority = new ArrayList<>();
         for (final MethodNode other : others) {
             MatchResult matchResult = checkParameters(other, method);
@@ -556,55 +555,137 @@ public class ClassAnalyzer {
                 }
                 continue;
             }
-            if (isOverloadedMethod(other, owner, method)) {
-                found.add(other);
-            }
+            isOverloadedMethod(other, owner, method)
+                .ifPresent(exclusions -> found.add(Pair.of(other, exclusions)));
         }
         if (!found.isEmpty()) {
             if (found.size() == 1) {
-                return Pair.of(true, found.get(0));
+                return new MethodOverload(true, found.get(0).getFirst(), found.get(0).getSecond());
             }
             return null;
         }
         for (MethodNode other : lowPriority) {
-            if (isOverloadedMethod(other, owner, method)) {
-                found.add(other);
-            }
+            isOverloadedMethod(other, owner, method)
+                .ifPresent(exclusions -> found.add(Pair.of(other, exclusions)));
         }
-        return found.size() == 1 ? Pair.of(false, found.get(0)) : null;
+        return found.size() == 1 ? new MethodOverload(false, found.get(0).getFirst(), found.get(0).getSecond()) : null;
     }
 
-    private static boolean isOverloadedMethod(MethodNode other, String owner, MethodNode method) {
-        int labelCount = 0;
-        for (final AbstractInsnNode insn : other.instructions) {
-            if (insn instanceof LabelNode) {
-                labelCount++;
+    private record MethodOverload(boolean isFullMatch, MethodNode methodNode, List<String> excludedInjectionPoints) {
+        public void applyPatchTargetModifier(Patch.ClassPatchBuilder builder, MethodNode method) {
+            if (this.excludedInjectionPoints.isEmpty()) {
+                builder.modifyTarget(method.name + method.desc);
+            } else {
+                builder.transform(InjectionPointTransformerFilter.create(new ModifyInjectionTarget(List.of(method.name + method.desc)), this.excludedInjectionPoints));
             }
-            if (labelCount <= 1 && insn instanceof MethodInsnNode minsn && minsn.owner.equals(owner) && minsn.name.equals(method.name) && minsn.desc.equals(method.desc)) {
-                // Check return insn
-                boolean returnSeen = false;
-                for (AbstractInsnNode next = minsn.getNext(); next != null; next = next.getNext()) {
-                    // Skip debug nodes
-                    if (next instanceof LabelNode || next instanceof LineNumberNode || next instanceof FrameNode) {
-                        continue;
-                    }
-                    // Find first (and single) return after the dirtyMethod call
-                    if (RETURN_OPCODES.contains(next.getOpcode())) {
-                        // Multiple returns found
-                        if (returnSeen) {
-                            returnSeen = false;
-                            break;
-                        }
-                        returnSeen = true;
+        }
+    }
+
+    private Optional<List<String>> isOverloadedMethod(MethodNode other, String owner, MethodNode method) {
+        class MethodCallInterpreter extends SourceInterpreter {
+            private final Set<AbstractInsnNode> seen = new HashSet<>();
+            private final List<Pair<AbstractInsnNode, MethodInsnNode>> insns = new ArrayList<>();
+
+            public MethodCallInterpreter() {
+                super(Opcodes.ASM9);
+            }
+
+            @Override
+            public SourceValue naryOperation(AbstractInsnNode insn, List<? extends SourceValue> values) {
+                if (insn instanceof MethodInsnNode minsn && !this.seen.contains(minsn)) {
+                    if (values.isEmpty()) {
+                        this.insns.add(Pair.of(minsn, minsn));
                     } else {
-                        // Invalid insn found
+                        SourceValue value = values.get(0);
+                        if (value.insns.size() == 1) {
+                            AbstractInsnNode valueInsn = value.insns.iterator().next();
+                            this.insns.add(Pair.of(valueInsn, minsn));
+                        }
+                    }
+                    this.seen.add(minsn);
+                }
+                return super.naryOperation(insn, values);
+            }
+
+            public List<Pair<AbstractInsnNode, MethodInsnNode>> getInsns() {
+                return this.insns;
+            }
+        }
+        if (remapMethodName(this.cleanNode, other.name, other.desc).startsWith(LAMBDA_PREFIX) || method.name.startsWith(LAMBDA_PREFIX)) {
+            return Optional.empty();
+        }
+        if (method.name.equals("<init>") && !other.name.equals("<init>")) {
+            return Optional.empty();
+        }
+        MethodCallInterpreter interpreter = new MethodCallInterpreter();
+        Analyzer<SourceValue> analyzer = new Analyzer<>(interpreter);
+        try {
+            analyzer.analyze(other.name, other);
+        } catch (AnalyzerException e) {
+            throw new RuntimeException(e);
+        }
+
+        List<Pair<AbstractInsnNode, MethodInsnNode>> insns = interpreter.getInsns();
+        if (insns.isEmpty()) {
+            return Optional.empty();
+        }
+        Pair<AbstractInsnNode, MethodInsnNode> last = insns.get(insns.size() - 1);
+        if (insns.size() > 1 && other.instructions.indexOf(insns.get(0).getFirst()) < other.instructions.indexOf(last.getFirst())) {
+            return Optional.empty();
+        }
+        AbstractInsnNode start = last.getFirst();
+        boolean seenLabel = false;
+        for (AbstractInsnNode previous = start.getPrevious(); previous != null; previous = previous.getPrevious()) {
+            if (previous instanceof LabelNode) {
+                if (!seenLabel) {
+                    seenLabel = true;
+                } else {
+                    return Optional.empty();
+                }
+            }
+        }
+        MethodInsnNode minsn = last.getSecond();
+        if (minsn.owner.equals(owner) && minsn.name.equals(method.name) && minsn.desc.equals(method.desc)) {
+            boolean returnSeen = false;
+            for (AbstractInsnNode next = minsn.getNext(); next != null; next = next.getNext()) {
+                // Skip debug nodes
+                if (next instanceof LabelNode || next instanceof LineNumberNode || next instanceof FrameNode) {
+                    continue;
+                }
+                // Find first (and single) return after the dirtyMethod call
+                if (RETURN_OPCODES.contains(next.getOpcode())) {
+                    // Multiple returns found
+                    if (returnSeen) {
                         returnSeen = false;
                         break;
                     }
+                    returnSeen = true;
+                } else {
+                    // Invalid insn found
+                    returnSeen = false;
+                    break;
                 }
-                if (returnSeen) {
-                    return true;
+            }
+            if (returnSeen) {
+                List<String> exludedInjectionPoints = new ArrayList<>();
+                if (insns.size() > 1) {
+                    for (int i = 0; i < insns.size() - 1; i++) {
+                        MethodInsnNode callInsn = insns.get(i).getSecond();
+                        if (containsMethodCall(this.cleanToDirty.inverse().get(other), callInsn) && !containsMethodCall(method, callInsn)) {
+                            exludedInjectionPoints.add(MethodCallAnalyzer.getCallQualifier(callInsn));
+                        }
+                    }
                 }
+                return Optional.of(exludedInjectionPoints);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static boolean containsMethodCall(MethodNode methodNode, MethodInsnNode targetMinsn) {
+        for (AbstractInsnNode insn : methodNode.instructions) {
+            if (insn instanceof MethodInsnNode minsn && minsn.owner.equals(targetMinsn.owner) && minsn.name.equals(targetMinsn.name) && minsn.desc.equals(targetMinsn.desc)) {
+                return true;
             }
         }
         return false;

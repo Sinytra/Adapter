@@ -54,12 +54,12 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
         }
 
         ClassLookup cleanClassProvider = context.getEnvironment().getCleanClassLookup();
-        Pair<ClassNode, MethodNode> cleanTarget = methodContext.findInjectionTarget(classNode, methodContext.methodAnnotation(), context, s -> cleanClassProvider.getClass(s).orElse(null));
+        Pair<ClassNode, MethodNode> cleanTarget = methodContext.findInjectionTarget(methodContext.methodAnnotation(), context, s -> cleanClassProvider.getClass(s).orElse(null));
         if (cleanTarget == null) {
             return Patch.Result.PASS;
         }
 
-        Pair<ClassNode, MethodNode> dirtyTarget = methodContext.findInjectionTarget(classNode, methodContext.methodAnnotation(), context, AdapterUtil::getClassNode);
+        Pair<ClassNode, MethodNode> dirtyTarget = methodContext.findInjectionTarget(methodContext.methodAnnotation(), context, AdapterUtil::getClassNode);
         if (dirtyTarget == null) {
             return Patch.Result.PASS;
         }
@@ -67,9 +67,9 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
         Multimap<String, MethodInsnNode> cleanCallsMap = MethodCallAnalyzer.getMethodCalls(cleanTarget.getSecond(), new ArrayList<>());
         Multimap<String, MethodInsnNode> dirtyCallsMap = MethodCallAnalyzer.getMethodCalls(dirtyTarget.getSecond(), new ArrayList<>());
 
-        String cleanValue = context.getEnvironment().remap(classNode.name, value);
+        String cleanValue = context.remap(value);
         Collection<MethodInsnNode> cleanCalls = cleanCallsMap.get(cleanValue);
-        String dirtyValue = context.getEnvironment().remap(classNode.name, value);
+        String dirtyValue = context.remap(value);
         Collection<MethodInsnNode> dirtyCalls = dirtyCallsMap.get(dirtyValue);
 
         if (cleanCalls.size() != dirtyCalls.size()) {

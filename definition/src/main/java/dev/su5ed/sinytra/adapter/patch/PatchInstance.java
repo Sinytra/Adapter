@@ -53,7 +53,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         if (classTarget != null) {
             AnnotationValueHandle<?> classAnnotation = classTarget.handle();
             for (ClassTransform classTransform : this.classTransforms) {
-                result = result.or(classTransform.apply(classNode, classTarget.handle(), environment));
+                result = result.or(classTransform.apply(classNode, classTarget.handle(), context));
             }
             for (MethodNode method : classNode.methods) {
                 MethodContext methodContext = checkMethodTarget(classAnnotation, classNode.name, method, environment, classTarget.targetTypes());
@@ -213,6 +213,12 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         @Override
         public T transform(MethodTransform transformer) {
             this.transforms.add(transformer);
+            return coerce();
+        }
+
+        @Override
+        public T chain(Consumer<T> consumer) {
+            consumer.accept(coerce());
             return coerce();
         }
 

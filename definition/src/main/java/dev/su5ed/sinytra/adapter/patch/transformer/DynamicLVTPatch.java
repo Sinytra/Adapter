@@ -67,7 +67,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
                 return Result.PASS;
             }
             Result result = Result.PASS;
-            Supplier<Pair<ClassNode, MethodNode>> targetPairSupplier = Suppliers.memoize(() -> methodContext.findInjectionTarget(classNode, annotation, context, AdapterUtil::getClassNode));
+            Supplier<Pair<ClassNode, MethodNode>> targetPairSupplier = Suppliers.memoize(() -> methodContext.findInjectionTarget(annotation, context, AdapterUtil::getClassNode));
             for (Map.Entry<AnnotationNode, Type> entry : localAnnotations.entrySet()) {
                 AnnotationNode localAnn = entry.getKey();
                 result = result.or(offsetVariableIndex(classNode, methodNode, new AnnotationHandle(localAnn), targetPairSupplier));
@@ -83,7 +83,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
                     if (args.length < 1) {
                         return Result.PASS;
                     }
-                    Pair<ClassNode, MethodNode> targetPair = methodContext.findInjectionTarget(classNode, annotation, context, AdapterUtil::getClassNode);
+                    Pair<ClassNode, MethodNode> targetPair = methodContext.findInjectionTarget(annotation, context, AdapterUtil::getClassNode);
                     if (targetPair == null) {
                         return Result.PASS;
                     }
@@ -114,7 +114,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
     }
 
     private Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationHandle annotation, MethodContext methodContext, PatchContext context) {
-        return offsetVariableIndex(classNode, methodNode, annotation, () -> methodContext.findInjectionTarget(classNode, annotation, context, AdapterUtil::getClassNode));
+        return offsetVariableIndex(classNode, methodNode, annotation, () -> methodContext.findInjectionTarget(annotation, context, AdapterUtil::getClassNode));
     }
 
     private Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationHandle annotation, Supplier<Pair<ClassNode, MethodNode>> targetPairSupplier) {
@@ -198,7 +198,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             LOGGER.debug("Missing CI or CIR argument in injector of type {}", annotation.getDesc());
             return null;
         }
-        Pair<ClassNode, MethodNode> target = methodContext.findInjectionTarget(classNode, annotation, context, AdapterUtil::getClassNode);
+        Pair<ClassNode, MethodNode> target = methodContext.findInjectionTarget(annotation, context, AdapterUtil::getClassNode);
         if (target == null) {
             return null;
         }

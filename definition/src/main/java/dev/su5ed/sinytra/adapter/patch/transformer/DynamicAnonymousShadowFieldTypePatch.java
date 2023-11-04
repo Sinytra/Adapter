@@ -3,10 +3,10 @@ package dev.su5ed.sinytra.adapter.patch.transformer;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.mojang.logging.LogUtils;
+import dev.su5ed.sinytra.adapter.patch.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.ClassTransform;
 import dev.su5ed.sinytra.adapter.patch.Patch;
-import dev.su5ed.sinytra.adapter.patch.PatchEnvironment;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.*;
@@ -21,7 +21,7 @@ public class DynamicAnonymousShadowFieldTypePatch implements ClassTransform {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     @Override
-    public Patch.Result apply(ClassNode classNode, @Nullable AnnotationValueHandle<?> annotation, PatchEnvironment environment) {
+    public Patch.Result apply(ClassNode classNode, @Nullable AnnotationValueHandle<?> annotation, PatchContext context) {
         if (annotation == null || !annotation.getKey().equals("targets")) {
             return Patch.Result.PASS;
         }
@@ -30,7 +30,7 @@ public class DynamicAnonymousShadowFieldTypePatch implements ClassTransform {
             return Patch.Result.PASS;
         }
 
-        String targetReference = environment.remap(classNode.name, targets.get(0));
+        String targetReference = context.remap(targets.get(0));
         if (!AdapterUtil.isAnonymousClass(targetReference)) {
             return Patch.Result.PASS;
         }

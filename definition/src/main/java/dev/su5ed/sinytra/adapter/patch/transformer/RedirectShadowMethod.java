@@ -1,10 +1,10 @@
 package dev.su5ed.sinytra.adapter.patch.transformer;
 
 import com.mojang.logging.LogUtils;
+import dev.su5ed.sinytra.adapter.patch.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.ClassTransform;
 import dev.su5ed.sinytra.adapter.patch.Patch;
-import dev.su5ed.sinytra.adapter.patch.PatchEnvironment;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import org.jetbrains.annotations.Nullable;
@@ -24,7 +24,7 @@ public record RedirectShadowMethod(MethodQualifier original, MethodQualifier rep
     }
 
     @Override
-    public Patch.Result apply(ClassNode classNode, @Nullable AnnotationValueHandle<?> annotation, PatchEnvironment environment) {
+    public Patch.Result apply(ClassNode classNode, @Nullable AnnotationValueHandle<?> annotation, PatchContext context) {
         for (MethodNode method : classNode.methods) {
             MethodQualifier qualifier = new MethodQualifier(method.name, method.desc);
             if (this.original.equals(qualifier) && method.visibleAnnotations != null) {
