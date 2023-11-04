@@ -4,6 +4,10 @@ import com.google.common.collect.Multimap;
 import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.analysis.InstructionMatcher;
 import dev.su5ed.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
+import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
+import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
+import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -15,7 +19,7 @@ import java.util.*;
 public class ReplacedMethodCalls {
     private static final Logger LOGGER = LoggerFactory.getLogger("ReplacedMethodCalls");
 
-    public static void findReplacedMethodCalls(ClassNode dirtyNode, Map<MethodNode, MethodNode> cleanToDirty, List<Patch> patches, TraceCallback trace) {
+    public static void findReplacedMethodCalls(AnalysisContext context, ClassNode dirtyNode, Map<MethodNode, MethodNode> cleanToDirty) {
         cleanToDirty.forEach((cleanMethod, dirtyMethod) -> {
             int callAnalysisLimit = 2;
             int insnRange = 5;
@@ -26,7 +30,10 @@ public class ReplacedMethodCalls {
 
             dirtyCalls.asMap().forEach((qualifier, dirtyList) -> {
                 Collection<MethodInsnNode> cleanList = cleanCalls.get(qualifier);
-                if (cleanList.size() != dirtyList.size() && cleanList.size() <= callAnalysisLimit) {
+                if (cleanList.isEmpty() && dirtyList.size() == 1) {
+                    findOverloadedReplacement(context, dirtyMethod, qualifier, cleanCallOrder, dirtyCallOrder);
+                }
+                else if (cleanList.size() != dirtyList.size() && cleanList.size() <= callAnalysisLimit) {
                     List<InstructionMatcher> cleanMatchers = cleanList.stream().map(i -> MethodCallAnalyzer.findSurroundingInstructions(i, insnRange)).toList();
                     List<InstructionMatcher> dirtyMatchers = dirtyList.stream().map(i -> MethodCallAnalyzer.findSurroundingInstructions(i, insnRange)).toList();
 
@@ -36,7 +43,7 @@ public class ReplacedMethodCalls {
                         String original = MethodCallAnalyzer.getCallQualifier(matcher.insn());
                         String replacement = matcher.findReplacement(cleanCallOrder, dirtyCallOrder);
                         if (replacement != null && !replacement.equals(original)) {
-                            trace.logHeader();
+                            context.getTrace().logHeader();
                             LOGGER.info("Replacing method call in {} to {}.{} with {}", dirtyMethod.name, matcher.insn().owner, matcher.insn().name, replacement);
                             Patch patch = Patch.builder()
                                 .targetClass(dirtyNode.name)
@@ -45,12 +52,45 @@ public class ReplacedMethodCalls {
                                 .modifyInjectionPoint(replacement)
                                 .targetMixinType(Patch.INJECT)
                                 .build();
-                            patches.add(patch);
+                            context.addPatch(patch);
                         }
                     }
                 }
             });
         });
+    }
+
+    private static void findOverloadedReplacement(AnalysisContext context, MethodNode dirtyMethod, String qualifier, List<String> cleanCallOrder, List<String> dirtyCallOrder) {
+        int index = dirtyCallOrder.indexOf(qualifier);
+        if (index == -1 || index >= cleanCallOrder.size()) {
+            return;
+        }
+        String cleanCall = cleanCallOrder.get(index);
+        MethodQualifier cleanQualifier = MethodQualifier.create(cleanCall).filter(MethodQualifier::isFull).orElse(null);
+        if (cleanQualifier == null) {
+            return;
+        }
+        MethodQualifier dirtyQualifier = MethodQualifier.create(qualifier).filter(MethodQualifier::isFull).orElse(null);
+        if (dirtyQualifier == null) {
+            return;
+        }
+        // Same owner, same name, different desc => expanded method
+        String owner = cleanQualifier.internalOwnerName();
+        if (cleanQualifier.owner().equals(dirtyQualifier.owner()) && context.remapMethod(owner, cleanQualifier.name(), cleanQualifier.desc()).equals(dirtyQualifier.name()) && !cleanQualifier.desc().equals(dirtyQualifier.desc())) {
+            ParametersDiff diff = ParametersDiff.compareTypeParameters(Type.getArgumentTypes(cleanQualifier.desc()), Type.getArgumentTypes(dirtyQualifier.desc()));
+            if (!diff.insertions().isEmpty() && diff.replacements().isEmpty() && diff.removals().isEmpty()) {
+                context.getTrace().logHeader();
+                LOGGER.info("Replacing expanded method call in {} to {} with {}", dirtyMethod.name, cleanCall, qualifier);
+                Patch patch = Patch.builder()
+                    .targetClass(context.getDirtyNode().name)
+                    .targetMethod(dirtyMethod.name + dirtyMethod.desc)
+                    .targetInjectionPoint(cleanCall)
+                    .modifyInjectionPoint(qualifier)
+                    .transform(ModifyMethodParams.create(diff, ModifyMethodParams.TargetType.INJECTION_POINT))
+                    .build();
+                context.addPatch(patch);
+            }
+        }
     }
 
     private static List<InstructionMatcher> identifyMissingCalls(List<InstructionMatcher> cleanCalls, List<InstructionMatcher> dirtyCalls) {

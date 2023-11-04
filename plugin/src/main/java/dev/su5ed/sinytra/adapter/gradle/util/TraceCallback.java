@@ -1,4 +1,4 @@
-package dev.su5ed.sinytra.adapter.gradle.analysis;
+package dev.su5ed.sinytra.adapter.gradle.util;
 
 import org.objectweb.asm.tree.ClassNode;
 import org.slf4j.Logger;

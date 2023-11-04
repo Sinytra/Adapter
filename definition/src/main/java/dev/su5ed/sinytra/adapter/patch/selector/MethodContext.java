@@ -37,7 +37,7 @@ public record MethodContext(AnnotationValueHandle<?> classAnnotation, Annotation
             return null;
         }
         // Find target class
-        ClassNode targetClass = classLookup.apply(Type.getType(qualifier.owner()).getInternalName());
+        ClassNode targetClass = classLookup.apply(qualifier.internalOwnerName());
         if (targetClass == null) {
             return null;
         }

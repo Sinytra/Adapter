@@ -40,6 +40,10 @@ public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nu
         return Optional.empty();
     }
 
+    public String internalOwnerName() {
+        return Type.getType(this.owner).getInternalName();
+    }
+
     public boolean matches(MethodQualifier other) {
         return matches(other.owner(), other.name(), other.desc());
     }
