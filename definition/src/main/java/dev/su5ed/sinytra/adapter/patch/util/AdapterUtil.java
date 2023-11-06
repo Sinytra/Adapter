@@ -6,12 +6,15 @@ import dev.su5ed.sinytra.adapter.patch.PatchEnvironment;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.*;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.LocalVariableNode;
+import org.objectweb.asm.tree.MethodNode;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.gen.AccessorInfo;
 import org.spongepowered.asm.service.MixinService;
 
 import java.util.*;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -20,6 +23,7 @@ public final class AdapterUtil {
     public static final String SHADOW_ANN = "Lorg/spongepowered/asm/mixin/Shadow;";
     // Obfuscated variable names consist of '$$' followed by a number
     private static final String OBF_VAR_PATTERN = "^\\$\\$\\d+$";
+    private static final Pattern FIELD_REF_PATTERN = Pattern.compile("^(?<owner>L.+?;)?(?<name>[^:]+)?:(?<desc>.+)?$");
     private static final Map<Type, GeneratedVarName> GENERATED_VAR_NAMES = new HashMap<>();
     private static final Logger LOGGER = LogUtils.getLogger();
 
@@ -128,7 +132,7 @@ public final class AdapterUtil {
             return locals.get(ordinal).index;
         }
         return -1;
-    } 
+    }
 
     public static boolean isAnonymousClass(String name) {
         // Regex: second to last char in class name must be '$', and the class name must end with a number
@@ -141,6 +145,18 @@ public final class AdapterUtil {
             .filter(str -> !str.isEmpty())
             .or(() -> Optional.ofNullable(AccessorInfo.AccessorName.of(method.name))
                 .map(name -> environment.remap(owner, name.name)));
+    }
+
+    public static String maybeRemapFieldRef(String reference) {
+        Matcher matcher = FIELD_REF_PATTERN.matcher(reference);
+        if (matcher.matches()) {
+            String name = matcher.group("name");
+            String desc = matcher.group("desc");
+            if (name != null && desc != null) {
+                return Objects.requireNonNullElse(matcher.group("owner"), "") + PatchEnvironment.remapReference(name) + ":" + desc;
+            }
+        }
+        return reference;
     }
 
     private AdapterUtil() {}

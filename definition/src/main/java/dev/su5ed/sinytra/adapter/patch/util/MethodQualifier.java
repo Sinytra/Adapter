@@ -13,7 +13,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nullable String desc) {
-    private static final Pattern METHOD_QUALIFIER_PATTERN = Pattern.compile("^(?<owner>L.+?;)?(?<name>[^(]+)?(?<desc>\\(.*\\).+)?$");
+    private static final Pattern METHOD_QUALIFIER_PATTERN = Pattern.compile("^(?<owner>L.+?;)?(?<name>[^(:]+)?(?<desc>\\(.*\\).+)?$");
     public static final Codec<MethodQualifier> CODEC = Codec.STRING.comapFlatMap(
         str -> create(str).map(DataResult::success).orElseGet(() -> DataResult.error(() -> "Invalid method qualifier string " + str)),
         qualifier -> Objects.requireNonNullElse(qualifier.name(), "") + Objects.requireNonNullElse(qualifier.desc(), ""));

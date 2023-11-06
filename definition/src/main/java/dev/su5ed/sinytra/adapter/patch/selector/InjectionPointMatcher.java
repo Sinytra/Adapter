@@ -2,6 +2,7 @@ package dev.su5ed.sinytra.adapter.patch.selector;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,7 +35,7 @@ public record InjectionPointMatcher(@Nullable String value, TargetMatcher target
                 .<TargetMatcher>flatMap(str -> MethodQualifier.create(str)
                     .filter(q -> q.name() != null)
                     .map(q -> new MethodQualifierMatcher(str, q)))
-                .orElseGet(() -> new SimpleTargetMatcher(target));
+                .orElseGet(() -> new SimpleTargetMatcher(AdapterUtil.maybeRemapFieldRef(target)));
         }
     }
 
