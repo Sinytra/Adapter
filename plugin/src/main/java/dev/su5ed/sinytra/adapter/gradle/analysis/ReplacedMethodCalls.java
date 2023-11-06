@@ -1,6 +1,7 @@
 package dev.su5ed.sinytra.adapter.gradle.analysis;
 
 import com.google.common.collect.Multimap;
+import dev.su5ed.sinytra.adapter.gradle.util.MatchResult;
 import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.analysis.InstructionMatcher;
 import dev.su5ed.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
@@ -45,11 +46,15 @@ public class ReplacedMethodCalls {
                         if (replacement != null && !replacement.equals(original)) {
                             context.getTrace().logHeader();
                             LOGGER.info("Replacing method call in {} to {}.{} with {}", dirtyMethod.name, matcher.insn().owner, matcher.insn().name, replacement);
+                            boolean resetValues = MethodQualifier.create(replacement)
+                                .filter(MethodQualifier::isFull)
+                                .map(q -> OverloadedMethods.checkParameters(Type.getArgumentTypes(matcher.insn().desc), Type.getArgumentTypes(q.desc())) == MatchResult.NONE)
+                                .orElse(false);
                             Patch patch = Patch.builder()
                                 .targetClass(dirtyNode.name)
                                 .targetMethod(dirtyMethod.name + dirtyMethod.desc)
                                 .targetInjectionPoint(original)
-                                .modifyInjectionPoint(replacement)
+                                .modifyInjectionPoint(null, replacement, resetValues)
                                 .targetMixinType(Patch.INJECT)
                                 .build();
                             context.addPatch(patch);

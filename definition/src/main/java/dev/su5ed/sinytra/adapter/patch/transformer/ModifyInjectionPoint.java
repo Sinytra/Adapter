@@ -22,11 +22,12 @@ public record ModifyInjectionPoint(@Nullable String value, String target, boolea
     private static final Logger LOGGER = LogUtils.getLogger();
     public static final Codec<ModifyInjectionPoint> CODEC = RecordCodecBuilder.create(instance -> instance.group(
         Codec.STRING.optionalFieldOf("value").forGetter(i -> Optional.ofNullable(i.value())),
-        Codec.STRING.fieldOf("target").forGetter(ModifyInjectionPoint::target)
+        Codec.STRING.fieldOf("target").forGetter(ModifyInjectionPoint::target),
+        Codec.BOOL.optionalFieldOf("resetValues", false).forGetter(ModifyInjectionPoint::resetValues)
     ).apply(instance, ModifyInjectionPoint::new));
 
-    public ModifyInjectionPoint(Optional<String> value, String target) {
-        this(value.orElse(null), target, false);
+    public ModifyInjectionPoint(Optional<String> value, String target, boolean resetValues) {
+        this(value.orElse(null), target, resetValues);
     }
 
     @Override
