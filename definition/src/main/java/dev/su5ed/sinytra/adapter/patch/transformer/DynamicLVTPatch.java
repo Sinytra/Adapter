@@ -295,8 +295,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         return slice.getSlice(method);
     }
 
-    private record LocalVariable(int index, Type type) {
-    }
+    private record LocalVariable(int index, Type type) {}
 
     // Adapted from org.spongepowered.asm.mixin.injection.callback.CallbackInjector summariseLocals
     private static <T> List<T> summariseLocals(T[] locals, int pos) {

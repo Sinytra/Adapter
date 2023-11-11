@@ -60,4 +60,11 @@ public class PatchEnvironment {
             .map(map -> map.get(cleanReference))
             .orElse(reference);
     }
+
+    public void copyRefmap(String from, String to) {
+        Map<String, String> refs = this.refmap.get(from);
+        if (refs != null) {
+            this.refmap.put(to, refs);
+        }
+    } 
 }

@@ -40,7 +40,7 @@ public record SoftMethodParamsPatch(String replacementTarget) implements MethodT
         if (targetQualifier != null) {
             List<Pair<Integer, Type>> replacements = determineAutomaticReplacements(targetQualifier, methodNode, context, this.replacementTarget);
             if (!replacements.isEmpty()) {
-                ModifyMethodParams patch = new ModifyMethodParams(List.of(), replacements, List.of(), List.of(), List.of(), ModifyMethodParams.TargetType.ALL, null);
+                ModifyMethodParams patch = new ModifyMethodParams(List.of(), replacements, List.of(), List.of(), List.of(), ModifyMethodParams.TargetType.ALL, false, null);
                 return Patch.Result.APPLY.or(patch.apply(classNode, methodNode, methodContext, context));
             }
         }
