@@ -151,8 +151,8 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         }
 
         @Override
-        public T targetMixinType(String annotationDesc) {
-            this.targetAnnotations.add(annotationDesc);
+        public T targetMixinType(String... annotationDescs) {
+            this.targetAnnotations.addAll(List.of(annotationDescs));
             return coerce();
         }
 

@@ -64,7 +64,7 @@ public sealed interface Patch permits PatchInstance {
     interface Builder<T extends Builder<T>> {
         T targetClass(String... targets);
 
-        T targetMixinType(String annotationDesc);
+        T targetMixinType(String... annotationDescs);
 
         T targetAnnotationValues(Predicate<AnnotationHandle> values);
 

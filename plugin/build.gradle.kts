@@ -41,7 +41,8 @@ dependencies {
     implementation(group = "net.minecraftforge", name = "srgutils", version = "0.5.3")
     compileOnly(group = "net.neoforged", "artifactural", version = "3.0.17")
 
-    implementation("dev.su5ed.sinytra.adapter:definition")
+    implementation(group = "dev.su5ed.sinytra.adapter", name = "definition")
+    implementation(group = "org.apache.commons", name = "commons-lang3", version = "3.13.0")
 
     testImplementation(platform("org.junit:junit-bom:5.9.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
