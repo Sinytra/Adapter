@@ -14,10 +14,7 @@ import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -59,6 +56,7 @@ public final class ClassPatchInstance extends PatchInstance {
         } else if (KNOWN_MIXIN_TYPES.contains(methodAnnotation.getDesc())) {
             return methodAnnotation.<List<String>>getValue("method")
                 .map(value -> {
+                    List<String> matchingTargets = new ArrayList<>();
                     for (String target : value.get()) {
                         String remappedTarget = remaper.remap(owner, target);
                         MethodQualifier qualifier = MethodQualifier.create(remappedTarget).filter(q -> q.name() != null).orElse(null);
@@ -67,11 +65,15 @@ public final class ClassPatchInstance extends PatchInstance {
                         }
                         String targetName = qualifier.name();
                         String targetDesc = qualifier.desc();
-                        return (this.targetMethods.isEmpty() || this.targetMethods.stream().anyMatch(matcher -> matcher.matches(targetName, targetDesc)))
+                        if (this.targetMethods.isEmpty() || this.targetMethods.stream().anyMatch(matcher -> matcher.matches(targetName, targetDesc))
                             // Must call checkInjectionPoint first so that any present @At annotation is added to the method context builder
-                            && (checkInjectionPoint(owner, methodAnnotation, remaper, builder) || this.targetInjectionPoints.isEmpty());
+                            && (checkInjectionPoint(owner, methodAnnotation, remaper, builder) || this.targetInjectionPoints.isEmpty())
+                        ) {
+                            matchingTargets.add(target);
+                        }
                     }
-                    return false;
+                    builder.matchingTargets(matchingTargets);
+                    return !matchingTargets.isEmpty();
                 })
                 .orElse(false);
         }

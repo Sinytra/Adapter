@@ -180,6 +180,11 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         }
 
         @Override
+        public T modifyTarget(ModifyInjectionTarget.Action action, String... methods) {
+            return transform(new ModifyInjectionTarget(List.of(methods), action));
+        }
+
+        @Override
         public T modifyVariableIndex(int start, int offset) {
             return transform(new ChangeModifiedVariableIndex(start, offset));
         }

@@ -15,14 +15,15 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
-public record MethodContext(AnnotationValueHandle<?> classAnnotation, AnnotationHandle methodAnnotation, @Nullable AnnotationHandle injectionPointAnnotation, List<Type> targetTypes) {
+public record MethodContext(AnnotationValueHandle<?> classAnnotation, AnnotationHandle methodAnnotation, @Nullable AnnotationHandle injectionPointAnnotation, List<Type> targetTypes, List<String> matchingTargets) {
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    public MethodContext(AnnotationValueHandle<?> classAnnotation, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation, List<Type> targetTypes) {
+    public MethodContext(AnnotationValueHandle<?> classAnnotation, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation, List<Type> targetTypes, List<String> matchingTargets) {
         this.classAnnotation = Objects.requireNonNull(classAnnotation, "Missing class annotation");
         this.methodAnnotation = Objects.requireNonNull(methodAnnotation, "Missing method annotation");
         this.injectionPointAnnotation = injectionPointAnnotation;
         this.targetTypes = Objects.requireNonNull(targetTypes, "Missing target types");
+        this.matchingTargets = Objects.requireNonNull(matchingTargets, "Missing matching targets");
     }
 
     public AnnotationHandle injectionPointAnnotationOrThrow() {
@@ -73,6 +74,7 @@ public record MethodContext(AnnotationValueHandle<?> classAnnotation, Annotation
         private AnnotationHandle methodAnnotation;
         private AnnotationHandle injectionPointAnnotation;
         private final List<Type> targetTypes = new ArrayList<>();
+        private final List<String> matchingTargets = new ArrayList<>();
 
         public Builder classAnnotation(AnnotationValueHandle<?> annotation) {
             this.classAnnotation = annotation;
@@ -94,8 +96,13 @@ public record MethodContext(AnnotationValueHandle<?> classAnnotation, Annotation
             return this;
         }
 
+        public Builder matchingTargets(List<String> matchingTargets) {
+            this.matchingTargets.addAll(matchingTargets);
+            return this;
+        }
+
         public MethodContext build() {
-            return new MethodContext(this.classAnnotation, this.methodAnnotation, this.injectionPointAnnotation, List.copyOf(this.targetTypes));
+            return new MethodContext(this.classAnnotation, this.methodAnnotation, this.injectionPointAnnotation, List.copyOf(this.targetTypes), List.copyOf(this.matchingTargets));
         }
     }
 }

@@ -2,6 +2,7 @@ package dev.su5ed.sinytra.adapter.patch;
 
 import com.mojang.serialization.Codec;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
+import dev.su5ed.sinytra.adapter.patch.transformer.ModifyInjectionTarget;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMixinType;
@@ -73,6 +74,8 @@ public sealed interface Patch permits PatchInstance {
         T modifyParams(Consumer<ModifyMethodParams.Builder> consumer);
 
         T modifyTarget(String... methods);
+
+        T modifyTarget(ModifyInjectionTarget.Action action, String... methods);
 
         T modifyVariableIndex(int start, int offset);
 

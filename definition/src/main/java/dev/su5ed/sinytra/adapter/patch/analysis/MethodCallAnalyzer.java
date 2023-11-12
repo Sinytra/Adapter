@@ -28,7 +28,7 @@ public class MethodCallAnalyzer {
         }
         return calls.build();
     }
-    
+
     public static InstructionMatcher findSurroundingInstructions(MethodInsnNode insn, int range) {
         return findSurroundingInstructions(insn, range, false);
     }

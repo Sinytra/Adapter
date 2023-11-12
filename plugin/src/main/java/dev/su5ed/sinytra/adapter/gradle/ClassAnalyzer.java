@@ -17,6 +17,7 @@ import dev.su5ed.sinytra.adapter.patch.analysis.InheritanceHandler;
 import dev.su5ed.sinytra.adapter.patch.analysis.LocalVarRearrangement;
 import dev.su5ed.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
+import dev.su5ed.sinytra.adapter.patch.transformer.ModifyInjectionTarget;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import dev.su5ed.sinytra.adapter.patch.transformer.SoftMethodParamsPatch;
@@ -35,15 +36,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static dev.su5ed.sinytra.adapter.patch.util.AdapterUtil.isAnonymousClass;
 
 public class ClassAnalyzer {
     private static final Logger LOGGER = LoggerFactory.getLogger("ClassAnalyzer");
     public static final String LAMBDA_PREFIX = "lambda$";
-    private static final Pattern LAMBDA_PATTERN = Pattern.compile("^lambda\\$(.+)\\$.+$");
 
     private final ClassNode cleanNode;
     private final ClassNode dirtyNode;
@@ -212,52 +210,70 @@ public class ClassAnalyzer {
     }
 
     private void findUpdatedLambdaNames(List<? super PatchInstance> patches) {
-        Multimap<MethodNode, MethodNode> replacements = HashMultimap.create();
-        this.dirtyOnlyMethods.forEach((name, method) -> {
-            String dirtyMappedName = remapMethodName(this.dirtyNode, method.name, method.desc);
-            Matcher dirtyMatcher = LAMBDA_PATTERN.matcher(dirtyMappedName);
-            if (dirtyMatcher.matches()) {
-                // Find lambda in the same outer method, with the same descriptor but different number suffix
-                String dirtyLambdaName = dirtyMatcher.group(1);
-                this.cleanMethods.forEach((cleanName, cleanMethod) -> {
-                    String cleanLambdaName = getLambdaMethodName(this.cleanNode, cleanMethod);
-                    if (dirtyLambdaName.equals(cleanLambdaName)) {
-                        Type dirtyReturn = Type.getReturnType(method.desc);
-                        Type cleanReturn = Type.getReturnType(cleanMethod.desc);
-                        if (dirtyReturn.equals(cleanReturn)) {
-                            Type[] dirtyParams = Type.getArgumentTypes(method.desc);
-                            Type[] cleanParams = Type.getArgumentTypes(cleanMethod.desc);
-                            if (dirtyParams.length == cleanParams.length && OverloadedMethods.checkParameters(cleanParams, dirtyParams) == MatchResult.FULL) {
-                                replacements.put(cleanMethod, method);
-                            }
-                        }
+        this.cleanToDirty.forEach((clean, dirty) -> {
+            String dirtyMappedName = remapMethodName(this.dirtyNode, dirty.name, dirty.desc);
+            if (!dirtyMappedName.startsWith(LAMBDA_PREFIX)) {
+                List<String> cleanLambdas = findLambdasInMethod(this.cleanNode, clean, this.cleanMethods);
+                List<MethodNode> dirtyLambdas = findLambdasInMethod(this.dirtyNode, dirty, this.dirtyMethods).stream()
+                    .map(str -> findUniqueMethod(this.dirtyMethods, str))
+                    .toList();
+
+                Multimap<MethodNode, MethodNode> replacements = HashMultimap.create();
+                List<String> cleanQualifiers = cleanLambdas.stream()
+                    .map(str -> {
+                        MethodNode method = findUniqueMethod(this.cleanMethods, str);
+                        return method.name + method.desc;
+                    })
+                    .toList();
+                for (MethodNode dirtyLambda : dirtyLambdas) {
+                    if (!cleanQualifiers.contains(dirtyLambda.name + dirtyLambda.desc)) {
+                        findLambdaReplacements(dirtyLambdas, dirtyLambda, cleanLambdas).forEach(m -> replacements.put(m, dirtyLambda));
+                    }
+                }
+                replacements.asMap().forEach((original, replacementsMethods) -> {
+                    if (replacementsMethods.size() == 1) {
+                        MethodNode replacement = replacementsMethods.iterator().next();
+                        this.trace.logHeader();
+                        LOGGER.info("LAMBDA UPDATE");
+                        LOGGER.info(" << {} {}", original.name, original.desc);
+                        LOGGER.info(" >> {} {}", remapMethodName(this.dirtyNode, replacement.name, replacement.desc), replacement.desc);
+
+                        PatchInstance patch = Patch.builder()
+                            .targetClass(this.dirtyNode.name)
+                            .targetMethod(original.name + original.desc)
+                            .modifyTarget(ModifyInjectionTarget.Action.REPLACE, replacement.name + replacement.desc)
+                            .build();
+                        patches.add(patch);
                     }
                 });
             }
         });
-        replacements.asMap().forEach((original, replacementsMethods) -> {
-            if (replacementsMethods.size() == 1) {
-                MethodNode replacement = replacementsMethods.iterator().next();
-                this.trace.logHeader();
-                LOGGER.info("LAMBDA UPDATE");
-                LOGGER.info(" << {} {}", remapMethodName(this.cleanNode, original.name, original.desc), original.desc);
-                LOGGER.info(" >> {} {}", remapMethodName(this.dirtyNode, replacement.name, replacement.desc), replacement.desc);
-
-                PatchInstance patch = Patch.builder()
-                    .targetClass(this.dirtyNode.name)
-                    .targetMethod(original.name + original.desc)
-                    .modifyTarget(replacement.name + replacement.desc)
-                    .build();
-                patches.add(patch);
-            }
-        });
     }
 
-    @Nullable
-    private String getLambdaMethodName(ClassNode cls, MethodNode method) {
-        String mappedName = remapMethodName(cls, method.name, method.desc);
-        Matcher matcher = LAMBDA_PATTERN.matcher(mappedName);
-        return matcher.matches() ? matcher.group(1) : null;
+    private List<MethodNode> findLambdaReplacements(List<? extends MethodNode> dirtyLambdas, MethodNode dirtyLambda, List<String> cleanLambdas) {
+        List<MethodNode> replacements = new ArrayList<>();
+        List<String> cleanDescs = new ArrayList<>();
+        for (String cleanLambda : cleanLambdas) {
+            MethodNode cleanMethod = findUniqueMethod(this.cleanMethods, cleanLambda);
+            cleanDescs.add(cleanMethod.desc);
+            Type dirtyReturn = Type.getReturnType(dirtyLambda.desc);
+            Type cleanReturn = Type.getReturnType(cleanMethod.desc);
+            if (dirtyReturn.equals(cleanReturn)) {
+                Type[] dirtyParams = Type.getArgumentTypes(dirtyLambda.desc);
+                Type[] cleanParams = Type.getArgumentTypes(cleanMethod.desc);
+                if (dirtyParams.length == cleanParams.length && OverloadedMethods.checkParameters(cleanParams, dirtyParams) == MatchResult.FULL) {
+                    replacements.add(cleanMethod);
+                }
+            }
+        }
+        if (replacements.size() > 1) {
+            List<? extends MethodNode> dirtyDescs = dirtyLambdas.stream().filter(m -> m.desc.equals(dirtyLambda.desc)).toList();
+            if (cleanDescs.stream().filter(s -> dirtyLambda.desc.equals(s)).count() == dirtyDescs.size()) {
+                int index = dirtyDescs.indexOf(dirtyLambda);
+                return List.of(replacements.get(index));
+            }
+        }
+        return replacements;
     }
 
     private void updateReplacedInjectionPoints(List<? super PatchInstance> patches, Map<? extends String, String> replacementCalls) {
@@ -386,8 +402,8 @@ public class ClassAnalyzer {
     private void findExpandedLambdas(List<? super Patch> patches, Map<? super String, String> replacementCalls) {
         this.cleanToDirty.forEach((cleanMethod, dirtyMethod) -> {
             // Find lambdas sorted by their call order. This increases our precision when looking for replaced lambdas that had their suffix number changed.
-            List<String> cleanLambdas = findLambdasInMethod(this.cleanNode, cleanMethod);
-            List<String> dirtyLambdas = findLambdasInMethod(this.dirtyNode, dirtyMethod);
+            List<String> cleanLambdas = findLambdasInMethod(this.cleanNode, cleanMethod, null);
+            List<String> dirtyLambdas = findLambdasInMethod(this.dirtyNode, dirtyMethod, null);
             if (cleanLambdas.isEmpty() && !dirtyLambdas.isEmpty()) {
                 findMovedInsnsToLambdas(patches, cleanMethod, dirtyMethod, dirtyLambdas);
                 return;
@@ -517,7 +533,7 @@ public class ClassAnalyzer {
         }
     }
 
-    private List<String> findLambdasInMethod(ClassNode cls, MethodNode method) {
+    private List<String> findLambdasInMethod(ClassNode cls, MethodNode method, @Nullable Multimap<String, MethodNode> methods) {
         List<String> list = new ArrayList<>();
         for (AbstractInsnNode insn : method.instructions) {
             if (insn instanceof InvokeDynamicInsnNode indy && indy.bsmArgs.length >= 3) {
@@ -525,7 +541,12 @@ public class ClassAnalyzer {
                     if (bsmArg instanceof Handle handle && handle.getOwner().equals(cls.name)) {
                         String lambdaName = remapMethodName(cls, handle.getName(), handle.getDesc());
                         if (lambdaName.startsWith(LAMBDA_PREFIX)) {
-                            list.add(handle.getName());
+                            String name = handle.getName();
+                            list.add(name);
+                            if (methods != null) {
+                                MethodNode lambda = findUniqueMethod(methods, name);
+                                list.addAll(findLambdasInMethod(cls, lambda, methods));
+                            }
                             break;
                         }
                     }
@@ -553,7 +574,7 @@ public class ClassAnalyzer {
 
     private static MethodNode findUniqueMethod(Multimap<String, MethodNode> methods, String name) {
         Collection<MethodNode> values = methods.get(name);
-        if (values != null) {
+        if (values != null && !values.isEmpty()) {
             if (values.size() > 1) {
                 throw new IllegalStateException("Found multiple candidates for method " + name);
             }
