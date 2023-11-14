@@ -11,6 +11,7 @@ import org.objectweb.asm.tree.*;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 public record ExtractMixin(String targetClass) implements MethodTransform {
@@ -48,11 +49,11 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
     }
 
     private static List<AnnotationNode> getVisibleFieldAnnotations(ClassNode cls, String name) {
-        return cls.fields.stream().filter(f -> f.name.equals(name)).map(f -> f.visibleAnnotations).findFirst().orElse(List.of());
+        return cls.fields.stream().filter(f -> f.name.equals(name)).map(f -> f.visibleAnnotations).filter(Objects::nonNull).findFirst().orElse(List.of());
     }
 
     private static List<AnnotationNode> getVisibleMethodAnnotations(ClassNode cls, String name, String desc) {
-        return cls.methods.stream().filter(m -> m.name.equals(name) && m.desc.equals(desc)).map(f -> f.visibleAnnotations).findFirst().orElse(List.of());
+        return cls.methods.stream().filter(m -> m.name.equals(name) && m.desc.equals(desc)).map(f -> f.visibleAnnotations).filter(Objects::nonNull).findFirst().orElse(List.of());
     }
 
     private static boolean isShadowMember(List<AnnotationNode> annotations) {
