@@ -13,7 +13,10 @@ import org.slf4j.Logger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
+
+import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
 public record MethodContext(AnnotationValueHandle<?> classAnnotation, AnnotationHandle methodAnnotation, @Nullable AnnotationHandle injectionPointAnnotation, List<Type> targetTypes, List<String> matchingTargets) {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -30,15 +33,34 @@ public record MethodContext(AnnotationValueHandle<?> classAnnotation, Annotation
         return Objects.requireNonNull(injectionPointAnnotation, "Missing injection point annotation");
     }
 
+    @SuppressWarnings("unchecked")
+    public List<Type> getTargetClasses() {
+        if (this.classAnnotation.getKey().equals("value")) {
+            return (List<Type>) this.classAnnotation.get();
+        }
+        return List.of();
+    }
+
     @Nullable
     public Pair<ClassNode, MethodNode> findInjectionTarget(AnnotationHandle annotation, PatchContext context, Function<String, ClassNode> classLookup) {
         // Find target method qualifier
         MethodQualifier qualifier = getTargetMethodQualifier(annotation, context);
-        if (qualifier == null || !qualifier.isFull()) {
+        if (qualifier == null || qualifier.name() == null || qualifier.desc() == null) {
+            return null;
+        }
+        String owner = Optional.ofNullable(qualifier.owner())
+            .orElseGet(() -> {
+                List<Type> targetTypes = getTargetClasses(); 
+                if (targetTypes.size() == 1) {
+                    return targetTypes.get(0).getInternalName();
+                }
+                return null;
+            });
+        if (owner == null) {
             return null;
         }
         // Find target class
-        ClassNode targetClass = classLookup.apply(qualifier.internalOwnerName());
+        ClassNode targetClass = classLookup.apply(owner);
         if (targetClass == null) {
             return null;
         }
@@ -64,6 +86,14 @@ public record MethodContext(AnnotationValueHandle<?> classAnnotation, Annotation
         // Extract owner, name and desc using regex
         return MethodQualifier.create(reference, false).orElse(null);
     }
+
+    public void updateDescription(ClassNode classNode, MethodNode methodNode, List<Type> parameters) {
+        Type returnType = Type.getReturnType(methodNode.desc);
+        String newDesc = Type.getMethodDescriptor(returnType, parameters.toArray(Type[]::new));
+        LOGGER.info(MIXINPATCH, "Changing descriptor of method {}.{}{} to {}", classNode.name, methodNode.name, methodNode.desc, newDesc);
+        methodNode.desc = newDesc;
+        methodNode.signature = null;
+    }    
 
     public static Builder builder() {
         return new Builder();

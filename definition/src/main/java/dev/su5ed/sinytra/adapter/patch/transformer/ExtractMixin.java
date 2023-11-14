@@ -5,13 +5,13 @@ import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
+import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 public record ExtractMixin(String targetClass) implements MethodTransform {
@@ -24,9 +24,14 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
         // Sanity check
         boolean isStatic = (methodNode.access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC;
+        MethodQualifier qualifier = methodContext.getTargetMethodQualifier(methodContext.methodAnnotation(), context);
+        if (qualifier == null || !qualifier.isFull()) {
+            return Patch.Result.PASS;
+        }
+        boolean isInherited = context.getEnvironment().getInheritanceHandler().isClassInherited(this.targetClass, qualifier.internalOwnerName());
         for (AbstractInsnNode insn : methodNode.instructions) {
-            if (insn instanceof FieldInsnNode finsn && finsn.owner.equals(classNode.name) && !isShadowMember(getVisibleFieldAnnotations(classNode, finsn.name))
-                || insn instanceof MethodInsnNode minsn && minsn.owner.equals(classNode.name) && !isShadowMember(getVisibleMethodAnnotations(classNode, minsn.name, minsn.desc))
+            if (insn instanceof FieldInsnNode finsn && finsn.owner.equals(classNode.name) && !isInheritedField(classNode, finsn, isInherited)
+                || insn instanceof MethodInsnNode minsn && minsn.owner.equals(classNode.name) && !isInheritedMethod(classNode, minsn, isInherited)
             ) {
                 // We can't move methods that access their class instance
                 return Patch.Result.PASS;
@@ -48,15 +53,53 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
         return Patch.Result.APPLY;
     }
 
-    private static List<AnnotationNode> getVisibleFieldAnnotations(ClassNode cls, String name) {
-        return cls.fields.stream().filter(f -> f.name.equals(name)).map(f -> f.visibleAnnotations).filter(Objects::nonNull).findFirst().orElse(List.of());
+    private static boolean isInheritedField(ClassNode cls, FieldInsnNode finsn, boolean isTargetInherited) {
+        FieldNode field = cls.fields.stream()
+            .filter(f -> f.name.equals(finsn.name))
+            .findFirst()
+            .orElse(null);
+        if (field != null) {
+            List<AnnotationNode> annotations = field.visibleAnnotations != null ? field.visibleAnnotations : List.of();
+            if (isShadowMember(annotations)) {
+                return true;
+            }
+            if (isTargetInherited && finsn.getOpcode() != Opcodes.GETSTATIC) {
+                field.access = fixAccess(field.access);
+                return true;
+            }
+        }
+        return false;
     }
 
-    private static List<AnnotationNode> getVisibleMethodAnnotations(ClassNode cls, String name, String desc) {
-        return cls.methods.stream().filter(m -> m.name.equals(name) && m.desc.equals(desc)).map(f -> f.visibleAnnotations).filter(Objects::nonNull).findFirst().orElse(List.of());
+    private static boolean isInheritedMethod(ClassNode cls, MethodInsnNode minsn, boolean isTargetInherited) {
+        MethodNode method = cls.methods.stream()
+            .filter(m -> m.name.equals(minsn.name) && m.desc.equals(minsn.desc))
+            .findFirst()
+            .orElse(null);
+        if (method != null) {
+            List<AnnotationNode> annotations = method.visibleAnnotations != null ? method.visibleAnnotations : List.of();
+            if (isShadowMember(annotations)) {
+                return true;
+            }
+            if (isTargetInherited && minsn.getOpcode() != Opcodes.INVOKESTATIC) {
+                method.access = fixAccess(method.access);
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean isShadowMember(List<AnnotationNode> annotations) {
         return annotations.stream().anyMatch(an -> an.desc.equals(AdapterUtil.SHADOW_ANN));
+    }
+
+    private static int fixAccess(int access) {
+        int visibility = access & 0x7;
+        // Lower than protected
+        if (visibility == Opcodes.ACC_PRIVATE || visibility == 0) {
+            // Widen to protected
+            return access & ~0x7 | Opcodes.ACC_PROTECTED;
+        }
+        return visibility;
     }
 }

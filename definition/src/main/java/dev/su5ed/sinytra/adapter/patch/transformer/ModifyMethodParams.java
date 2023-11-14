@@ -267,11 +267,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
                 newParameterTypes.remove(removal.intValue());
             });
 
-        Type returnType = Type.getReturnType(methodNode.desc);
-        String newDesc = Type.getMethodDescriptor(returnType, newParameterTypes.toArray(Type[]::new));
-        LOGGER.info(MIXINPATCH, "Changing descriptor of method {}.{}{} to {}", classNode.name, methodNode.name, methodNode.desc, newDesc);
-        methodNode.desc = newDesc;
-        methodNode.signature = null;
+        methodContext.updateDescription(classNode, methodNode, newParameterTypes);
 
         return !this.swaps.isEmpty() || !this.replacements.isEmpty() || !this.substitutes.isEmpty() || !this.removals.isEmpty() ? Result.COMPUTE_FRAMES : Result.APPLY;
     }

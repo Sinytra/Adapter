@@ -7,7 +7,6 @@ import dev.su5ed.sinytra.adapter.patch.MethodTransform;
 import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.Patch.Result;
 import dev.su5ed.sinytra.adapter.patch.PatchContext;
-import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -48,22 +47,15 @@ public record ModifyMethodAccess(List<AccessChange> changes) implements MethodTr
                     methodNode.access |= change.modifier;
                     result = Result.APPLY;
                     if (change.modifier == Opcodes.ACC_STATIC && methodContext.methodAnnotation().matchesDesc(Patch.INJECT)) {
-                        AnnotationValueHandle<?> handle = methodContext.classAnnotation();
-                        if (handle != null && handle.getKey().equals("value")) {
-                            List<Type> types = (List<Type>) handle.get();
-                            if (types.size() == 1) {
-                                Type[] params = Type.getArgumentTypes(methodNode.desc);
-                                List<Type> newParams = new ArrayList<>(Arrays.asList(params));
-                                newParams.add(0, types.get(0));
+                        List<Type> types = methodContext.getTargetClasses();
+                        if (types.size() == 1) {
+                            Type[] params = Type.getArgumentTypes(methodNode.desc);
+                            List<Type> newParams = new ArrayList<>(Arrays.asList(params));
+                            newParams.add(0, types.get(0));
 
-                                Type returnType = Type.getReturnType(methodNode.desc);
-                                String newDesc = Type.getMethodDescriptor(returnType, newParams.toArray(Type[]::new));
-                                LOGGER.info(MIXINPATCH, "Changing descriptor of method {}.{}{} to {}", classNode.name, methodNode.name, methodNode.desc, newDesc);
-                                methodNode.desc = newDesc;
-                                methodNode.signature = null;
-                            } else {
-                                throw new IllegalStateException("Cannot automatically determine target instance type for mixin " + classNode.name);
-                            }
+                            methodContext.updateDescription(classNode, methodNode, newParams);
+                        } else {
+                            throw new IllegalStateException("Cannot automatically determine target instance type for mixin " + classNode.name);
                         }
                     }
                 }
