@@ -48,7 +48,7 @@ public record MethodContext(AnnotationValueHandle<?> classAnnotation, Annotation
         if (qualifier == null || qualifier.name() == null || qualifier.desc() == null) {
             return null;
         }
-        String owner = Optional.ofNullable(qualifier.owner())
+        String owner = Optional.ofNullable(qualifier.internalOwnerName())
             .orElseGet(() -> {
                 List<Type> targetTypes = getTargetClasses(); 
                 if (targetTypes.size() == 1) {
