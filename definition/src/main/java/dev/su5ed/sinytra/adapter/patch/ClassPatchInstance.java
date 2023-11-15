@@ -58,7 +58,7 @@ public final class ClassPatchInstance extends PatchInstance {
                 .map(value -> {
                     List<String> matchingTargets = new ArrayList<>();
                     for (String target : value.get()) {
-                        String remappedTarget = remaper.remap(owner, target);
+                        String remappedTarget = remaper.getRefmapHolder().remap(owner, target);
                         MethodQualifier qualifier = MethodQualifier.create(remappedTarget).filter(q -> q.name() != null).orElse(null);
                         if (qualifier == null) {
                             continue;
@@ -93,7 +93,7 @@ public final class ClassPatchInstance extends PatchInstance {
     private Optional<Boolean> checkInjectionPointAnnotation(String owner, AnnotationHandle injectionPointAnnotation, PatchEnvironment environment, MethodContext.Builder builder) {
         AnnotationValueHandle<String> value = injectionPointAnnotation.<String>getValue("value").orElse(null);
         String valueStr = value != null ? value.get() : null;
-        String targetStr = injectionPointAnnotation.<String>getValue("target").map(t -> environment.remap(owner, t.get())).orElse("");
+        String targetStr = injectionPointAnnotation.<String>getValue("target").map(t -> environment.getRefmapHolder().remap(owner, t.get())).orElse("");
         if (this.targetInjectionPoints.isEmpty() || this.targetInjectionPoints.stream().anyMatch(pred -> pred.test(valueStr, targetStr))) {
             builder.injectionPointAnnotation(injectionPointAnnotation);
             return Optional.of(true);

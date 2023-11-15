@@ -144,7 +144,7 @@ public final class AdapterUtil {
             .map(AnnotationValueHandle::get)
             .filter(str -> !str.isEmpty())
             .or(() -> Optional.ofNullable(AccessorInfo.AccessorName.of(method.name))
-                .map(name -> environment.remap(owner, name.name)));
+                .map(name -> environment.getRefmapHolder().remap(owner, name.name)));
     }
 
     public static String maybeRemapFieldRef(String reference) {

@@ -22,15 +22,15 @@ public class PatchEnvironment {
         PatchEnvironment.referenceMapper = matcherRemapper;
     }
 
-    private final Map<String, Map<String, String>> refmap;
+    private final RefmapHolder refmapHolder;
     private final ClassLookup cleanClassLookup;
     @Nullable
     private final BytecodeFixerUpper bytecodeFixerUpper;
     private final MixinClassGenerator classGenerator;
     private final InheritanceHandler inheritanceHandler;
 
-    public PatchEnvironment(Map<String, Map<String, String>> refmap, ClassLookup cleanClassLookup, @Nullable BytecodeFixerUpper bytecodeFixerUpper) {
-        this.refmap = refmap;
+    public PatchEnvironment(RefmapHolder refmapHolder, ClassLookup cleanClassLookup, @Nullable BytecodeFixerUpper bytecodeFixerUpper) {
+        this.refmapHolder = refmapHolder;
         this.cleanClassLookup = cleanClassLookup;
         this.bytecodeFixerUpper = bytecodeFixerUpper;
         this.classGenerator = new MixinClassGenerator();
@@ -54,17 +54,7 @@ public class PatchEnvironment {
         return this.inheritanceHandler;
     }
 
-    public String remap(String cls, String reference) {
-        String cleanReference = reference.replaceAll(" ", "");
-        return Optional.ofNullable(this.refmap.get(cls))
-            .map(map -> map.get(cleanReference))
-            .orElse(reference);
+    public RefmapHolder getRefmapHolder() {
+        return this.refmapHolder;
     }
-
-    public void copyRefmap(String from, String to) {
-        Map<String, String> refs = this.refmap.get(from);
-        if (refs != null) {
-            this.refmap.put(to, refs);
-        }
-    } 
 }

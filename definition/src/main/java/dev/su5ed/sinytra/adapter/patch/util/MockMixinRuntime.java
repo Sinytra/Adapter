@@ -55,7 +55,7 @@ public class MockMixinRuntime {
     private record ReferenceRemapper(PatchEnvironment env) implements IReferenceMapper {
         @Override
         public String remapWithContext(String context, String className, String reference) {
-            return this.env.remap(className, reference);
+            return this.env.getRefmapHolder().remap(className, reference);
         }
 
         //@formatter:off

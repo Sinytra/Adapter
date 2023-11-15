@@ -24,7 +24,7 @@ public class PatchContext {
     }
 
     public String remap(String reference) {
-        return this.environment.remap(this.classNode.name, reference);
+        return this.environment.getRefmapHolder().remap(this.classNode.name, reference);
     }
 
     public void postApply(Runnable consumer) {
