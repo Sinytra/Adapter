@@ -1,9 +1,6 @@
 package dev.su5ed.sinytra.adapter.gradle;
 
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.*;
 import com.mojang.datafixers.util.Pair;
 import dev.su5ed.sinytra.adapter.gradle.analysis.AnalysisContext;
 import dev.su5ed.sinytra.adapter.gradle.analysis.OverloadedMethods;
@@ -60,6 +57,7 @@ public class ClassAnalyzer {
     // Methods that exist in both classes, uses patched MethodNodes from the dirty class
     private final Multimap<String, MethodNode> dirtyCommonMethods = HashMultimap.create();
     // Clean class method to their dirty equivalents
+    private final BiMap<MethodNode, MethodNode> originalCleanToDirty;
     private final BiMap<MethodNode, MethodNode> cleanToDirty = HashBiMap.create();
 
     private final Map<String, FieldNode> cleanFields;
@@ -127,6 +125,7 @@ public class ClassAnalyzer {
                 throw new RuntimeException("Found duplicate field " + field.name + " in class " + this.dirtyNode.name);
             }
         }
+        this.originalCleanToDirty = ImmutableBiMap.copyOf(this.cleanToDirty);
     }
 
     public void analyze(List<? super Patch> patches, Multimap<ChangeCategory, String> info, Map<? super String, String> replacementCalls,
@@ -170,7 +169,7 @@ public class ClassAnalyzer {
     }
 
     private void calculateLVTOffsets(Map<String, Map<MethodQualifier, List<LVTOffsets.Offset>>> offsets, Map<String, Map<MethodQualifier, List<LVTOffsets.Swap>>> reorders) {
-        this.cleanToDirty.forEach((cleanMethod, dirtyMethod) -> {
+        this.originalCleanToDirty.forEach((cleanMethod, dirtyMethod) -> {
             if (cleanMethod.localVariables != null && dirtyMethod.localVariables != null) {
                 if (cleanMethod.localVariables.size() == dirtyMethod.localVariables.size()) {
                     Int2IntMap swaps = LocalVarRearrangement.getRearrangedParametersFromLocals(cleanMethod.localVariables, dirtyMethod.localVariables);
