@@ -5,10 +5,9 @@ import com.mojang.logging.LogUtils;
 import dev.su5ed.sinytra.adapter.patch.PatchEnvironment;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.LocalVariableNode;
-import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.gen.AccessorInfo;
 import org.spongepowered.asm.service.MixinService;
@@ -157,6 +156,17 @@ public final class AdapterUtil {
             }
         }
         return reference;
+    }
+
+    @Nullable
+    public static SingleValueHandle<Integer> handleLocalVarInsnValue(AbstractInsnNode insn) {
+        if (insn instanceof VarInsnNode varInsn) {
+            return SingleValueHandle.of(() -> varInsn.var, i -> varInsn.var = i);
+        }
+        if (insn instanceof IincInsnNode iincInsn) {
+            return SingleValueHandle.of(() -> iincInsn.var, i -> iincInsn.var = i);
+        }
+        return null;
     }
 
     private AdapterUtil() {}

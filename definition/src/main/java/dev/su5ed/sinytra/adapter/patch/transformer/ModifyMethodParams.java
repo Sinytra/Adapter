@@ -17,6 +17,7 @@ import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.ExtraCodecs;
+import dev.su5ed.sinytra.adapter.patch.util.SingleValueHandle;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import org.jetbrains.annotations.Nullable;
@@ -31,7 +32,8 @@ import java.util.*;
 import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
 public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements, List<Pair<Integer, Integer>> swaps,
-                                 List<Pair<Integer, Integer>> substitutes, List<Integer> removals, TargetType targetType, boolean ignoreOffset, @Nullable LVTFixer lvtFixer) implements MethodTransform {
+                                 List<Pair<Integer, Integer>> substitutes, List<Integer> removals, TargetType targetType, boolean ignoreOffset,
+                                 @Nullable LVTFixer lvtFixer) implements MethodTransform {
     public static final Codec<Pair<Integer, Type>> MODIFICATION_CODEC = Codec.pair(
         Codec.INT.fieldOf("index").codec(),
         ExtraCodecs.TYPE_CODEC.fieldOf("type").codec()
@@ -193,8 +195,9 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
                 newParameterTypes.remove(paramIndex);
                 methodNode.localVariables.removeIf(lvn -> lvn.index == localIndex);
                 for (AbstractInsnNode insn : methodNode.instructions) {
-                    if (insn instanceof VarInsnNode varInsn && varInsn.var == localIndex) {
-                        varInsn.var = substituteIndex;
+                    SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);
+                    if (handle != null && handle.get() == localIndex) {
+                        handle.set(substituteIndex);
                     }
                 }
             }
@@ -230,13 +233,14 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
                 }
             }
             for (AbstractInsnNode insn : methodNode.instructions) {
-                if (insn instanceof VarInsnNode varInsn) {
+                SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);
+                if (handle != null) {
                     for (Pair<Integer, Integer> pair : offsetSwaps) {
-                        if (varInsn.var == offset + pair.getFirst()) {
-                            varInsn.var = offset + pair.getSecond();
+                        if (handle.get() == offset + pair.getFirst()) {
+                            handle.set(offset + pair.getSecond());
                             break;
-                        } else if (varInsn.var == offset + pair.getSecond()) {
-                            varInsn.var = offset + pair.getFirst();
+                        } else if (handle.get() == offset + pair.getSecond()) {
+                            handle.set(offset + pair.getFirst());
                             break;
                         }
                     }
@@ -259,8 +263,9 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
                         }
                     }
                     for (AbstractInsnNode insn : methodNode.instructions) {
-                        if (insn instanceof VarInsnNode varInsn && varInsn.var >= lvn.index) {
-                            varInsn.var--;
+                        SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);
+                        if (handle != null && handle.get() >= lvn.index) {
+                            handle.set(handle.get() - 1);
                         }
                     }
                 }
@@ -280,8 +285,9 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
         }
 
         for (AbstractInsnNode insn : methodNode.instructions) {
-            if (insn instanceof VarInsnNode varInsnNode && varInsnNode.var >= lvtIndex) {
-                varInsnNode.var += offset;
+            SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);
+            if (handle != null && handle.get() >= lvtIndex) {
+                handle.set(handle.get() + offset);
             }
         }
 
