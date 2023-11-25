@@ -8,6 +8,7 @@ import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.ClassTransform;
 import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
@@ -36,7 +37,7 @@ public class DynamicAnonymousShadowFieldTypePatch implements ClassTransform {
         }
         ClassNode targetClass = AdapterUtil.getClassNode(targetReference);
         if (targetClass == null) {
-            return null;
+            return Patch.Result.PASS;
         }
 
         Map<String, String> renames = new HashMap<>();
