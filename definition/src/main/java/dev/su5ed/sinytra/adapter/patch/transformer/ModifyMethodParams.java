@@ -97,7 +97,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
                 this.insertions.forEach(pair -> {
                     int localIndex = offset + pair.getFirst();
                     int indexValue = indexHandle.get();
-                    if (localIndex >= indexValue) {
+                    if (indexValue >= localIndex) {
                         indexHandle.set(indexValue + 1);
                     }
                 });
