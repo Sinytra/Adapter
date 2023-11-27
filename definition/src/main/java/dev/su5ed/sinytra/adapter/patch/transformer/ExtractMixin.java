@@ -12,6 +12,7 @@ import org.objectweb.asm.tree.*;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 public record ExtractMixin(String targetClass) implements MethodTransform {
@@ -25,10 +26,11 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
         // Sanity check
         boolean isStatic = (methodNode.access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC;
         MethodQualifier qualifier = methodContext.getTargetMethodQualifier(methodContext.methodAnnotation(), context);
-        if (qualifier == null || !qualifier.isFull()) {
+        if (qualifier == null) {
             return Patch.Result.PASS;
         }
-        boolean isInherited = context.getEnvironment().getInheritanceHandler().isClassInherited(this.targetClass, qualifier.internalOwnerName());
+        String owner = Objects.requireNonNullElse(qualifier.internalOwnerName(), this.targetClass);
+        boolean isInherited = context.getEnvironment().getInheritanceHandler().isClassInherited(this.targetClass, owner);
         for (AbstractInsnNode insn : methodNode.instructions) {
             if (insn instanceof FieldInsnNode finsn && finsn.owner.equals(classNode.name) && !isInheritedField(classNode, finsn, isInherited)
                 || insn instanceof MethodInsnNode minsn && minsn.owner.equals(classNode.name) && !isInheritedMethod(classNode, minsn, isInherited)
