@@ -29,11 +29,11 @@ public class MethodCallAnalyzer {
         return calls.build();
     }
 
-    public static InstructionMatcher findSurroundingInstructions(MethodInsnNode insn, int range) {
+    public static InstructionMatcher findSurroundingInstructions(AbstractInsnNode insn, int range) {
         return findSurroundingInstructions(insn, range, false);
     }
 
-    public static InstructionMatcher findSurroundingInstructions(MethodInsnNode insn, int range, boolean remapCalls) {
+    public static InstructionMatcher findSurroundingInstructions(AbstractInsnNode insn, int range, boolean remapCalls) {
         LabelNode previousLabel = findFirstInsn(insn, LabelNode.class, BACKWARDS);
         LabelNode nextLabel = findFirstInsn(insn, LabelNode.class, FORWARD);
 

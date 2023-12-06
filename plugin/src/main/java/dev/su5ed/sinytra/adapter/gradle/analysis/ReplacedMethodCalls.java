@@ -47,14 +47,15 @@ public class ReplacedMethodCalls {
                     List<InstructionMatcher> missing = identifyMissingCalls(cleanMatchers, dirtyMatchers);
 
                     for (InstructionMatcher matcher : missing) {
-                        String original = MethodCallAnalyzer.getCallQualifier(matcher.insn());
+                        MethodInsnNode mInsn = (MethodInsnNode) matcher.insn(); 
+                        String original = MethodCallAnalyzer.getCallQualifier(mInsn);
                         String replacement = matcher.findReplacement(cleanCallOrder, dirtyCallOrder);
                         if (replacement != null && !replacement.equals(original)) {
                             context.getTrace().logHeader();
-                            LOGGER.info("Replacing method call in {} to {}.{} with {}", dirtyMethod.name, matcher.insn().owner, matcher.insn().name, replacement);
+                            LOGGER.info("Replacing method call in {} to {}.{} with {}", dirtyMethod.name, mInsn.owner, mInsn.name, replacement);
                             boolean resetValues = MethodQualifier.create(replacement)
                                 .filter(MethodQualifier::isFull)
-                                .map(q -> OverloadedMethods.checkParameters(Type.getArgumentTypes(matcher.insn().desc), Type.getArgumentTypes(q.desc())) == MatchResult.NONE)
+                                .map(q -> OverloadedMethods.checkParameters(Type.getArgumentTypes(mInsn.desc), Type.getArgumentTypes(q.desc())) == MatchResult.NONE)
                                 .orElse(false);
                             Patch patch = Patch.builder()
                                 .targetClass(dirtyNode.name)

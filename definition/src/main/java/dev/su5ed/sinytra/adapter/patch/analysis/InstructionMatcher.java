@@ -7,7 +7,7 @@ import org.objectweb.asm.tree.MethodInsnNode;
 
 import java.util.List;
 
-public record InstructionMatcher(MethodInsnNode insn, List<AbstractInsnNode> before, List<AbstractInsnNode> after) {
+public record InstructionMatcher(AbstractInsnNode insn, List<AbstractInsnNode> before, List<AbstractInsnNode> after) {
     @Nullable
     public String findReplacement(List<String> cleanCallOrder, List<String> dirtyCallOrder) {
         MethodInsnNode previousMethodCall = MethodCallAnalyzer.findFirstInsn(this.before.get(0), MethodInsnNode.class, MethodCallAnalyzer.BACKWARDS);
