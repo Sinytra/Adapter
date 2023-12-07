@@ -8,6 +8,7 @@ import dev.su5ed.sinytra.adapter.patch.MethodTransform;
 import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.Patch.Result;
 import dev.su5ed.sinytra.adapter.patch.PatchContext;
+import dev.su5ed.sinytra.adapter.patch.analysis.EnhancedParamsDiff;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
@@ -67,7 +68,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
                 return Result.PASS;
             }
             Result result = Result.PASS;
-            Supplier<Pair<ClassNode, MethodNode>> targetPairSupplier = Suppliers.memoize(() -> methodContext.findInjectionTarget(annotation, context, AdapterUtil::getClassNode));
+            Supplier<Pair<ClassNode, MethodNode>> targetPairSupplier = Suppliers.memoize(() -> methodContext.findInjectionTarget(context, AdapterUtil::getClassNode));
             for (Map.Entry<AnnotationNode, Type> entry : localAnnotations.entrySet()) {
                 AnnotationNode localAnn = entry.getKey();
                 result = result.or(offsetVariableIndex(classNode, methodNode, new AnnotationHandle(localAnn), targetPairSupplier));
@@ -83,7 +84,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
                     if (args.length < 1) {
                         return Result.PASS;
                     }
-                    Pair<ClassNode, MethodNode> targetPair = methodContext.findInjectionTarget(annotation, context, AdapterUtil::getClassNode);
+                    Pair<ClassNode, MethodNode> targetPair = methodContext.findInjectionTarget(context, AdapterUtil::getClassNode);
                     if (targetPair == null) {
                         return Result.PASS;
                     }
@@ -114,7 +115,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
     }
 
     private Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationHandle annotation, MethodContext methodContext, PatchContext context) {
-        return offsetVariableIndex(classNode, methodNode, annotation, () -> methodContext.findInjectionTarget(annotation, context, AdapterUtil::getClassNode));
+        return offsetVariableIndex(classNode, methodNode, annotation, () -> methodContext.findInjectionTarget(context, AdapterUtil::getClassNode));
     }
 
     private Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationHandle annotation, Supplier<Pair<ClassNode, MethodNode>> targetPairSupplier) {
@@ -190,6 +191,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         return summariseLocals(locals, startPos);
     }
 
+    @Nullable
     private ParametersDiff compareParameters(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
         AnnotationHandle annotation = methodContext.methodAnnotation();
         Type[] params = Type.getArgumentTypes(methodNode.desc);
@@ -198,7 +200,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             LOGGER.debug("Missing CI or CIR argument in injector of type {}", annotation.getDesc());
             return null;
         }
-        Pair<ClassNode, MethodNode> target = methodContext.findInjectionTarget(annotation, context, AdapterUtil::getClassNode);
+        Pair<ClassNode, MethodNode> target = methodContext.findInjectionTarget(context, AdapterUtil::getClassNode);
         if (target == null) {
             return null;
         }
@@ -220,7 +222,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         }
         List<Type> availableTypes = available.stream().map(LocalVariable::type).toList();
         // Compare expected and available params
-        ParametersDiff diff = ParametersDiff.compareTypeParameters(expected.toArray(Type[]::new), availableTypes.toArray(Type[]::new));
+        ParametersDiff diff = EnhancedParamsDiff.create(expected, availableTypes);
         if (diff.isEmpty()) {
             // No changes required
             return null;
@@ -256,8 +258,9 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         int maxInsert = getMaxLocalIndex(expected, diff.insertions());
         List<Pair<Integer, Type>> offsetInsertions = diff.insertions().stream().filter(pair -> pair.getFirst() < maxInsert).map(pair -> pair.mapFirst(i -> i + paramLocalPos)).toList();
         List<Pair<Integer, Integer>> offsetSwaps = diff.swaps().stream().filter(pair -> pair.getFirst() < maxInsert).map(pair -> pair.mapFirst(i -> i + paramLocalPos).mapSecond(i -> i + paramLocalPos)).toList();
+        List<Pair<Integer, Integer>> offsetMoves = diff.moves().stream().filter(pair -> pair.getFirst() < maxInsert).map(pair -> pair.mapFirst(i -> i + paramLocalPos).mapSecond(i -> i + paramLocalPos)).toList();
         List<Integer> offsetRemovals = diff.removals().stream().filter(i -> i < maxInsert).map(i -> i + paramLocalPos).toList();
-        ParametersDiff offsetDiff = new ParametersDiff(diff.originalCount(), offsetInsertions, List.of(), offsetSwaps, offsetRemovals);
+        ParametersDiff offsetDiff = new ParametersDiff(diff.originalCount(), offsetInsertions, List.of(), offsetSwaps, offsetRemovals, offsetMoves);
         if (offsetDiff.isEmpty()) {
             // No changes required
             return null;

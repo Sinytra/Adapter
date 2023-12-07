@@ -53,6 +53,7 @@ tasks {
 
     test {
         useJUnitPlatform()
+        systemProperty("adapter.definition.paramdiff.debug", true)
     }
 }
 

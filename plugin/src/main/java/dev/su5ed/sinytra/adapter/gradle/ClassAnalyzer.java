@@ -505,7 +505,7 @@ public class ClassAnalyzer {
                     }
                 }
                 if (valid) {
-                    diff = new ParametersDiff(diff.originalCount(), diff.insertions(), newReplacements, swaps, List.of());
+                    diff = new ParametersDiff(diff.originalCount(), diff.insertions(), newReplacements, swaps, List.of(), List.of());
                 } else {
                     return;
                 }

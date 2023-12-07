@@ -7,6 +7,7 @@ import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMixinType;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.MethodInsnNode;
@@ -15,7 +16,6 @@ import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.regex.Pattern;
 
 public sealed interface Patch permits PatchInstance {
     String INJECT = "Lorg/spongepowered/asm/mixin/injection/Inject;";
@@ -122,6 +122,8 @@ public sealed interface Patch permits PatchInstance {
         }
         
         ClassPatchBuilder redirectShadowMethod(String original, String target, BiConsumer<MethodInsnNode, InsnList> callFixer);
+
+        ClassPatchBuilder divertRedirector(Consumer<InstructionAdapter> patcher);
 
         ClassPatchBuilder disable();
     }

@@ -32,8 +32,8 @@ import java.util.*;
 import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
 public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements, List<Pair<Integer, Integer>> swaps,
-                                 List<Pair<Integer, Integer>> substitutes, List<Integer> removals, TargetType targetType, boolean ignoreOffset,
-                                 @Nullable LVTFixer lvtFixer) implements MethodTransform {
+                                 List<Pair<Integer, Integer>> substitutes, List<Integer> removals, List<Pair<Integer, Integer>> moves, TargetType targetType,
+                                 boolean ignoreOffset, @Nullable LVTFixer lvtFixer) implements MethodTransform {
     public static final Codec<Pair<Integer, Type>> MODIFICATION_CODEC = Codec.pair(
         Codec.INT.fieldOf("index").codec(),
         ExtraCodecs.TYPE_CODEC.fieldOf("type").codec()
@@ -47,17 +47,17 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
         MODIFICATION_CODEC.listOf().optionalFieldOf("replacements", List.of()).forGetter(ModifyMethodParams::replacements),
         SWAP_CODEC.listOf().optionalFieldOf("swaps", List.of()).forGetter(ModifyMethodParams::swaps),
         TargetType.CODEC.optionalFieldOf("targetInjectionPoint", TargetType.ALL).forGetter(ModifyMethodParams::targetType)
-    ).apply(instance, (insertions, replacements, swaps, targetInjectionPoint) -> new ModifyMethodParams(insertions, replacements, swaps, List.of(), List.of(), targetInjectionPoint, false, null)));
+    ).apply(instance, (insertions, replacements, swaps, targetInjectionPoint) -> new ModifyMethodParams(insertions, replacements, swaps, List.of(), List.of(), List.of(), targetInjectionPoint, false, null)));
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
     public static ModifyMethodParams create(String cleanMethodDesc, String dirtyMethodDesc, TargetType targetType) {
         ParametersDiff diff = ParametersDiff.compareTypeParameters(Type.getArgumentTypes(cleanMethodDesc), Type.getArgumentTypes(dirtyMethodDesc));
-        return new ModifyMethodParams(diff.insertions(), diff.replacements(), diff.swaps(), List.of(), diff.removals(), targetType, false, null);
+        return new ModifyMethodParams(diff.insertions(), diff.replacements(), diff.swaps(), List.of(), diff.removals(), List.of(), targetType, false, null);
     }
 
     public static ModifyMethodParams create(ParametersDiff diff, TargetType targetType) {
-        return new ModifyMethodParams(diff.insertions(), diff.replacements(), diff.swaps(), List.of(), diff.removals(), targetType, false, null);
+        return new ModifyMethodParams(diff.insertions(), diff.replacements(), diff.swaps(), List.of(), diff.removals(), diff.moves(), targetType, false, null);
     }
 
     public static Builder builder() {
@@ -65,7 +65,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
     }
 
     public ModifyMethodParams {
-        if (insertions.isEmpty() && replacements.isEmpty() && swaps.isEmpty() && substitutes.isEmpty() && removals.isEmpty()) {
+        if (insertions.isEmpty() && replacements.isEmpty() && swaps.isEmpty() && substitutes.isEmpty() && removals.isEmpty() && moves.isEmpty()) {
             throw new IllegalArgumentException("Method parameter transformation contains no changes");
         }
     }
@@ -110,6 +110,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
         }
 
         List<Pair<Integer, Integer>> offsetSwaps = new ArrayList<>(this.swaps);
+        List<Pair<Integer, Integer>> offsetMoves = new ArrayList<>(this.moves);
         LocalVariableNode self = methodNode.localVariables.stream().filter(lvn -> lvn.index == 0).findFirst().orElseThrow();
         Deque<Pair<Integer, Type>> insertionQueue = new ArrayDeque<>(this.insertions);
         while (!insertionQueue.isEmpty()) {
@@ -133,9 +134,11 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
             methodNode.parameters.add(index, newParameter);
 
             int varOffset = AdapterUtil.getLVTOffsetForType(type);
-            offsetLVT(methodNode, index, lvtIndex, varOffset);
+            offsetLVT(methodNode, lvtIndex, varOffset);
+            offsetParameters(methodNode, index);
 
             offsetSwaps.replaceAll(integerIntegerPair -> integerIntegerPair.mapFirst(j -> j >= index ? j + 1 : j));
+            offsetMoves.replaceAll(integerIntegerPair -> integerIntegerPair.mapFirst(j -> j >= index ? j + 1 : j).mapSecond(j -> j >= index ? j + 1 : j));
 
             methodNode.localVariables.add(new LocalVariableNode("adapter_injected_" + index, type.getDescriptor(), null, self.start, self.end, lvtIndex));
         }
@@ -251,33 +254,70 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
             .sorted(Comparator.<Integer>comparingInt(i -> i).reversed())
             .forEach(removal -> {
                 LOGGER.info(MIXINPATCH, "Removing parameter {} from method {}.{}", removal, classNode.name, methodNode.name);
-                if (removal < methodNode.parameters.size()) {
-                    methodNode.parameters.remove(removal.intValue());
-                }
-                methodNode.localVariables.sort(Comparator.comparingInt(lvn -> lvn.index));
-                LocalVariableNode lvn = methodNode.localVariables.remove(removal + offset);
-                if (lvn != null) {
-                    for (LocalVariableNode local : methodNode.localVariables) {
-                        if (local.index >= lvn.index) {
-                            local.index--;
-                        }
-                    }
-                    for (AbstractInsnNode insn : methodNode.instructions) {
-                        SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);
-                        if (handle != null && handle.get() >= lvn.index) {
-                            handle.set(handle.get() - 1);
-                        }
-                    }
-                }
-                newParameterTypes.remove(removal.intValue());
+                removeLocalVariable(methodNode, removal, offset, -1, newParameterTypes);
             });
+        offsetMoves.forEach(move -> {
+            int from = move.getFirst();
+            int to = move.getSecond();
+            LOGGER.info(MIXINPATCH, "Moving parameter from index {} to {} in method {}.{}", from, to, classNode.name, methodNode.name);
+            int tempIndex = -999;
+            Pair<@Nullable ParameterNode, @Nullable LocalVariableNode> removed = removeLocalVariable(methodNode, from, offset, tempIndex, newParameterTypes);
+            if (removed.getFirst() != null) {
+                methodNode.parameters.add(to, removed.getFirst());
+            }
+            LocalVariableNode lvn = removed.getSecond();
+            if (lvn != null) {
+                Type type = Type.getType(lvn.desc);
+                int varOffset = AdapterUtil.getLVTOffsetForType(type);
+                if (to > from) {
+                    to -= varOffset;
+                }
+                lvn.index = to + offset;
+                offsetLVT(methodNode, lvn.index, varOffset);
+                methodNode.localVariables.add(lvn.index, lvn);
+                for (AbstractInsnNode insn : methodNode.instructions) {
+                    SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);
+                    if (handle != null && handle.get() == tempIndex) {
+                        handle.set(lvn.index);
+                    }
+                }
+                newParameterTypes.add(to, type);
+            }
+        });
 
         methodContext.updateDescription(classNode, methodNode, newParameterTypes);
 
-        return !this.swaps.isEmpty() || !this.replacements.isEmpty() || !this.substitutes.isEmpty() || !this.removals.isEmpty() ? Result.COMPUTE_FRAMES : Result.APPLY;
+        return !this.swaps.isEmpty() || !this.replacements.isEmpty() || !this.substitutes.isEmpty() || !this.removals.isEmpty() || !this.moves.isEmpty() ? Result.COMPUTE_FRAMES : Result.APPLY;
     }
 
-    private static void offsetLVT(MethodNode methodNode, int paramIndex, int lvtIndex, int offset) {
+    private static Pair<@Nullable ParameterNode, @Nullable LocalVariableNode> removeLocalVariable(MethodNode methodNode, int paramIndex, int lvtOffset, int replaceIndex, List<Type> newParameterTypes) {
+        ParameterNode parameter = paramIndex < methodNode.parameters.size() ? methodNode.parameters.remove(paramIndex) : null;
+        methodNode.localVariables.sort(Comparator.comparingInt(lvn -> lvn.index));
+        LocalVariableNode lvn = methodNode.localVariables.remove(paramIndex + lvtOffset);
+        if (lvn != null) {
+            int varOffset = AdapterUtil.getLVTOffsetForType(Type.getType(lvn.desc));
+            for (LocalVariableNode local : methodNode.localVariables) {
+                if (local.index > lvn.index) {
+                    local.index -= varOffset;
+                }
+            }
+            for (AbstractInsnNode insn : methodNode.instructions) {
+                SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);
+                if (handle != null) {
+                    if (handle.get() == lvn.index) {
+                        handle.set(replaceIndex);
+                    }
+                    if (handle.get() > lvn.index) {
+                        handle.set(handle.get() - varOffset);
+                    }
+                }
+            }
+        }
+        newParameterTypes.remove(paramIndex);
+        return Pair.of(parameter, lvn);
+    }
+
+    private static void offsetLVT(MethodNode methodNode, int lvtIndex, int offset) {
         for (LocalVariableNode localVariable : methodNode.localVariables) {
             if (localVariable.index >= lvtIndex) {
                 localVariable.index += offset;
@@ -292,6 +332,20 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
         }
 
         // TODO All visible/invisible annotations
+        if (methodNode.visibleLocalVariableAnnotations != null) {
+            for (LocalVariableAnnotationNode localVariableAnnotation : methodNode.visibleLocalVariableAnnotations) {
+                List<Integer> annotationIndices = localVariableAnnotation.index;
+                for (int j = 0; j < annotationIndices.size(); j++) {
+                    Integer annoIndex = annotationIndices.get(j);
+                    if (annoIndex >= lvtIndex) {
+                        annotationIndices.set(j, annoIndex + 1);
+                    }
+                }
+            }
+        }
+    }
+
+    private static void offsetParameters(MethodNode methodNode, int paramIndex) {
         if (methodNode.invisibleParameterAnnotations != null) {
             List<List<AnnotationNode>> annotations = new ArrayList<>(Arrays.asList(methodNode.invisibleParameterAnnotations));
             if (paramIndex < annotations.size()) {
@@ -308,17 +362,6 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
                 int typeIndex = ref.getFormalParameterIndex();
                 if (ref.getSort() == TypeReference.METHOD_FORMAL_PARAMETER && typeIndex >= paramIndex) {
                     invisibleTypeAnnotations.set(j, new TypeAnnotationNode(TypeReference.newFormalParameterReference(typeIndex + 1).getValue(), typeAnnotation.typePath, typeAnnotation.desc));
-                }
-            }
-        }
-        if (methodNode.visibleLocalVariableAnnotations != null) {
-            for (LocalVariableAnnotationNode localVariableAnnotation : methodNode.visibleLocalVariableAnnotations) {
-                List<Integer> annotationIndices = localVariableAnnotation.index;
-                for (int j = 0; j < annotationIndices.size(); j++) {
-                    Integer annoIndex = annotationIndices.get(j);
-                    if (annoIndex >= lvtIndex) {
-                        annotationIndices.set(j, annoIndex + 1);
-                    }
                 }
             }
         }
@@ -396,7 +439,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
         }
 
         public ModifyMethodParams build() {
-            return new ModifyMethodParams(this.insertions, this.replacements, this.swap, this.substitutes, List.of(), this.targetType, this.ignoreOffset, this.lvtFixer);
+            return new ModifyMethodParams(this.insertions, this.replacements, this.swap, this.substitutes, List.of(), List.of(), this.targetType, this.ignoreOffset, this.lvtFixer);
         }
     }
 }

@@ -61,12 +61,12 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
         }
 
         ClassLookup cleanClassProvider = context.getEnvironment().getCleanClassLookup();
-        Pair<ClassNode, MethodNode> cleanTarget = methodContext.findInjectionTarget(methodContext.methodAnnotation(), context, s -> cleanClassProvider.getClass(s).orElse(null));
+        Pair<ClassNode, MethodNode> cleanTarget = methodContext.findInjectionTarget(context, s -> cleanClassProvider.getClass(s).orElse(null));
         if (cleanTarget == null) {
             return Patch.Result.PASS;
         }
 
-        Pair<ClassNode, MethodNode> dirtyTarget = methodContext.findInjectionTarget(methodContext.methodAnnotation(), context, AdapterUtil::getClassNode);
+        Pair<ClassNode, MethodNode> dirtyTarget = methodContext.findInjectionTarget(context, AdapterUtil::getClassNode);
         if (dirtyTarget == null) {
             return Patch.Result.PASS;
         }

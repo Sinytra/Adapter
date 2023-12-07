@@ -52,7 +52,7 @@ public class DynamicInheritedInjectionPointPatch implements MethodTransform {
             if (q == null) {
                 return Patch.Result.PASS;
             }
-            Pair<ClassNode, MethodNode> targetPair = methodContext.findInjectionTarget(annotation, context, AdapterUtil::getClassNode);
+            Pair<ClassNode, MethodNode> targetPair = methodContext.findInjectionTarget(context, AdapterUtil::getClassNode);
             if (targetPair == null) {
                 return Patch.Result.PASS;
             }

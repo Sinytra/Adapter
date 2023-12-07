@@ -25,7 +25,7 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
         // Sanity check
         boolean isStatic = (methodNode.access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC;
-        MethodQualifier qualifier = methodContext.getTargetMethodQualifier(methodContext.methodAnnotation(), context);
+        MethodQualifier qualifier = methodContext.getTargetMethodQualifier(context);
         if (qualifier == null) {
             return Patch.Result.PASS;
         }

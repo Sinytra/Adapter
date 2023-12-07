@@ -5,10 +5,12 @@ import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.su5ed.sinytra.adapter.patch.selector.*;
 import dev.su5ed.sinytra.adapter.patch.serialization.MethodTransformSerialization;
+import dev.su5ed.sinytra.adapter.patch.transformer.DivertRedirectorTransform;
 import dev.su5ed.sinytra.adapter.patch.transformer.DisableMixin;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyInjectionPoint;
 import dev.su5ed.sinytra.adapter.patch.transformer.RedirectShadowMethod;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
+import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.MethodInsnNode;
@@ -16,6 +18,7 @@ import org.objectweb.asm.tree.MethodNode;
 
 import java.util.*;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -127,6 +130,11 @@ public final class ClassPatchInstance extends PatchInstance {
         @Override
         public ClassPatchBuilder redirectShadowMethod(String original, String target, BiConsumer<MethodInsnNode, InsnList> callFixer) {
             return transform(new RedirectShadowMethod(original, target, callFixer));
+        }
+
+        @Override
+        public ClassPatchBuilder divertRedirector(Consumer<InstructionAdapter> patcher) {
+            return transform(new DivertRedirectorTransform(patcher));
         }
 
         @Override

@@ -18,7 +18,8 @@ import java.util.function.Function;
 
 import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
-public record MethodContext(AnnotationValueHandle<?> classAnnotation, AnnotationHandle methodAnnotation, @Nullable AnnotationHandle injectionPointAnnotation, List<Type> targetTypes, List<String> matchingTargets) {
+public record MethodContext(AnnotationValueHandle<?> classAnnotation, AnnotationHandle methodAnnotation, @Nullable AnnotationHandle injectionPointAnnotation,
+                            List<Type> targetTypes, List<String> matchingTargets) {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     public MethodContext(AnnotationValueHandle<?> classAnnotation, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation, List<Type> targetTypes, List<String> matchingTargets) {
@@ -42,15 +43,15 @@ public record MethodContext(AnnotationValueHandle<?> classAnnotation, Annotation
     }
 
     @Nullable
-    public Pair<ClassNode, MethodNode> findInjectionTarget(AnnotationHandle annotation, PatchContext context, Function<String, ClassNode> classLookup) {
+    public Pair<ClassNode, MethodNode> findInjectionTarget(PatchContext context, Function<String, ClassNode> classLookup) {
         // Find target method qualifier
-        MethodQualifier qualifier = getTargetMethodQualifier(annotation, context);
+        MethodQualifier qualifier = getTargetMethodQualifier(context);
         if (qualifier == null || qualifier.name() == null || qualifier.desc() == null) {
             return null;
         }
         String owner = Optional.ofNullable(qualifier.internalOwnerName())
             .orElseGet(() -> {
-                List<Type> targetTypes = getTargetClasses(); 
+                List<Type> targetTypes = getTargetClasses();
                 if (targetTypes.size() == 1) {
                     return targetTypes.get(0).getInternalName();
                 }
@@ -74,9 +75,9 @@ public record MethodContext(AnnotationValueHandle<?> classAnnotation, Annotation
     }
 
     @Nullable
-    public MethodQualifier getTargetMethodQualifier(AnnotationHandle annotation, PatchContext context) {
+    public MethodQualifier getTargetMethodQualifier(PatchContext context) {
         // Get method targets
-        List<String> methodRefs = annotation.<List<String>>getValue("method").orElseThrow().get();
+        List<String> methodRefs = methodAnnotation().<List<String>>getValue("method").orElseThrow().get();
         if (methodRefs.size() > 1) {
             // We only support single method targets for now
             return null;
@@ -87,13 +88,26 @@ public record MethodContext(AnnotationValueHandle<?> classAnnotation, Annotation
         return MethodQualifier.create(reference, false).orElse(null);
     }
 
+    @Nullable
+    public MethodQualifier getInjectionPointMethodQualifier(PatchContext context) {
+        // Get injection target
+        String target = injectionPointAnnotation().<String>getValue("target").map(AnnotationValueHandle::get).orElse(null);
+        if (target == null) {
+            return null;
+        }
+        // Resolve method reference
+        String reference = context.remap(target);
+        // Extract owner, name and desc using regex
+        return MethodQualifier.create(reference, false).orElse(null);
+    }
+
     public void updateDescription(ClassNode classNode, MethodNode methodNode, List<Type> parameters) {
         Type returnType = Type.getReturnType(methodNode.desc);
         String newDesc = Type.getMethodDescriptor(returnType, parameters.toArray(Type[]::new));
         LOGGER.info(MIXINPATCH, "Changing descriptor of method {}.{}{} to {}", classNode.name, methodNode.name, methodNode.desc, newDesc);
         methodNode.desc = newDesc;
         methodNode.signature = null;
-    }    
+    }
 
     public static Builder builder() {
         return new Builder();

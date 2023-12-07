@@ -20,7 +20,9 @@ import java.util.List;
 import java.util.stream.Stream;
 
 public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements, List<Pair<Integer, Integer>> swaps,
-                             List<Integer> removals) {
+                             List<Integer> removals, List<Pair<Integer, Integer>> moves) {
+    public static final ParametersDiff EMPTY = new ParametersDiff(-1, List.of(), List.of(), List.of(), List.of(), List.of());
+    
     public record MethodParameter(Type type, boolean isGeneratedType) {
         public MethodParameter(@Nullable String name, Type type) {
             this(type, name != null && AdapterUtil.isGeneratedVariableName(name, type));
@@ -37,7 +39,7 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
 
     public static ParametersDiff compareMethodParameters(MethodNode clean, MethodNode dirty) {
         if (clean.localVariables == null || dirty.localVariables == null) {
-            return new ParametersDiff(-1, List.of(), List.of(), List.of(), List.of());
+            return EMPTY;
         }
 
         int cleanParamCount = Type.getArgumentTypes(clean.desc).length;
@@ -155,7 +157,7 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
         if (j - i + removals.size() != insertions.size()) {
             throw new IllegalStateException("Unexpected difference in params size");
         }
-        return new ParametersDiff(i, insertions, replacements, swaps, removals);
+        return new ParametersDiff(i, insertions, replacements, swaps, removals, List.of());
     }
 
     public static ParametersDiff rearrangeParameters(List<Type> parameterTypes, List<Type> newParameterTypes) {
@@ -206,7 +208,7 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
 
         List<Pair<Integer, Integer>> swapsList = new ArrayList<>();
         swaps.forEach((from, to) -> swapsList.add(Pair.of(from, to)));
-        return new ParametersDiff(parameterTypes.size(), insertions, List.of(), swapsList, List.of());
+        return new ParametersDiff(parameterTypes.size(), insertions, List.of(), swapsList, List.of(), List.of());
     }
 
     public boolean isEmpty() {

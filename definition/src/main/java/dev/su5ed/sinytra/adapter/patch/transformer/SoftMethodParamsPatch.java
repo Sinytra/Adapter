@@ -36,11 +36,11 @@ public record SoftMethodParamsPatch(String replacementTarget) implements MethodT
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
-        MethodQualifier targetQualifier = methodContext.getTargetMethodQualifier(methodContext.methodAnnotation(), context);
+        MethodQualifier targetQualifier = methodContext.getTargetMethodQualifier(context);
         if (targetQualifier != null) {
             List<Pair<Integer, Type>> replacements = determineAutomaticReplacements(targetQualifier, methodNode, context, this.replacementTarget);
             if (!replacements.isEmpty()) {
-                ModifyMethodParams patch = new ModifyMethodParams(List.of(), replacements, List.of(), List.of(), List.of(), ModifyMethodParams.TargetType.ALL, false, null);
+                ModifyMethodParams patch = new ModifyMethodParams(List.of(), replacements, List.of(), List.of(), List.of(), List.of(), ModifyMethodParams.TargetType.ALL, false, null);
                 return Patch.Result.APPLY.or(patch.apply(classNode, methodNode, methodContext, context));
             }
         }
