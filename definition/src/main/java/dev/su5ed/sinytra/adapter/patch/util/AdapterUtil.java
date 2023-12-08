@@ -1,5 +1,6 @@
 package dev.su5ed.sinytra.adapter.patch.util;
 
+import com.google.common.base.Strings;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
 import dev.su5ed.sinytra.adapter.patch.PatchEnvironment;
@@ -33,7 +34,7 @@ public final class AdapterUtil {
                 new GeneratedVarName(Type.BYTE_TYPE, "b"),
                 new GeneratedVarName(Type.CHAR_TYPE, "c"),
                 new GeneratedVarName(Type.SHORT_TYPE, "short"),
-                new GeneratedVarName(Type.BOOLEAN_TYPE, "flag"),
+                new GeneratedVarName(Set.of(Type.BOOLEAN_TYPE), Set.of("flag", "bl")),
                 new GeneratedVarName(Type.DOUBLE_TYPE, "d"),
                 new GeneratedVarName(Type.FLOAT_TYPE, "f"),
                 new GeneratedVarName(Type.getObjectType("java/io/File"), "file"),
@@ -66,7 +67,7 @@ public final class AdapterUtil {
         public GeneratedVarName(Set<Type> types, Set<String> prefixes) {
             this.types = types;
             String matchingPrefixes = String.join("|", prefixes);
-            String patternString = "^(%s)\\d*$".formatted(matchingPrefixes);
+            String patternString = "^(%s)(?<index>\\d*)$".formatted(matchingPrefixes);
             this.pattern = Pattern.compile(patternString);
         }
 
@@ -76,6 +77,19 @@ public final class AdapterUtil {
 
         public boolean test(String str) {
             return this.pattern.matcher(str).matches();
+        }
+
+        public OptionalInt getOrdinal(String str) {
+            Matcher matcher = this.pattern.matcher(str);
+            if (matcher.matches()) {
+                String ordinal = matcher.group("index");
+                if (Strings.isNullOrEmpty(ordinal)) {
+                    return OptionalInt.of(0);
+                }
+                int intOrdinal = Integer.parseInt(ordinal);
+                return OptionalInt.of(intOrdinal);
+            }
+            return OptionalInt.empty();
         }
     }
 
@@ -93,6 +107,11 @@ public final class AdapterUtil {
             return name.matches(pattern);
         }
         return knownGenerated;
+    }
+
+    public static OptionalInt getGeneratedVariableOrdinal(String name, Type type) {
+        GeneratedVarName generator = GENERATED_VAR_NAMES.get(type);
+        return generator != null ? generator.getOrdinal(name) : OptionalInt.empty();
     }
 
     public static int getLVTOffsetForType(Type type) {
@@ -169,5 +188,6 @@ public final class AdapterUtil {
         return null;
     }
 
-    private AdapterUtil() {}
+    private AdapterUtil() {
+    }
 }
