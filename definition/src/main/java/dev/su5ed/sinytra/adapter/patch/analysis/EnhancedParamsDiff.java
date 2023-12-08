@@ -24,11 +24,9 @@ public class EnhancedParamsDiff {
 
         while (!cleanQueue.isEmpty()) {
             // Look ahead for matching types at the beginning of the list
-            // If the first two are equal, remove them and continue
+            // If the first two are equal, remove the first ones and repeat
             if (cleanQueue.size() > 1 && dirtyQueue.size() > 1 && cleanQueue.get(1).sameType(dirtyQueue.get(1))) {
                 cleanQueue.remove(0);
-                cleanQueue.remove(0);
-                dirtyQueue.remove(0);
                 dirtyQueue.remove(0);
                 continue;
             }
@@ -39,25 +37,16 @@ public class EnhancedParamsDiff {
                 break;
             }
             // Handle replaced types, needs improving
-            TypeWithContext cleanType = cleanQueue.get(0);
-            TypeWithContext dirtyType = dirtyQueue.get(0);
-            if (!cleanType.sameType(dirtyType)) {
-                if (DEBUG) {
-                    LOGGER.info("Replacing {} with {}", cleanType, dirtyType);
-                }
-                cleanQueue.remove(0);
-                dirtyQueue.remove(0);
-                builder.replace(dirtyType.pos(), dirtyType.type());
+            if (replaceType(builder, 0, cleanQueue, dirtyQueue) || cleanQueue.size() == 2 && dirtyQueue.size() == 2 && replaceType(builder, 1, cleanQueue, dirtyQueue)) {
                 continue;
             }
             // Find the smallest set of matching types by locating the position of the next clean type in the dirty list
             int dirtyTypeIndex = cleanQueue.size() == 1 ? dirty.size() - 1 : lookAhead(dirtyQueue, cleanQueue.get(1));
             if (dirtyTypeIndex != -1) {
-                int indexOffset = clean.size() - cleanQueue.size();
                 List<TypeWithContext> compareClean = extract(cleanQueue, 2);
                 List<TypeWithContext> compareDirty = extract(dirtyQueue, dirtyTypeIndex + 1);
 
-                compare(builder, compareClean, compareDirty, indexOffset);
+                compare(builder, compareClean, compareDirty);
             }
             // Yes
             else if (cleanQueue.size() > 1) {
@@ -77,6 +66,21 @@ public class EnhancedParamsDiff {
         }
 
         return builder.build(clean.size());
+    }
+
+    private static boolean replaceType(ParamDiffBuilder builder, int index, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
+        TypeWithContext cleanType = cleanQueue.get(index);
+        TypeWithContext dirtyType = dirtyQueue.get(index);
+        if (!cleanType.sameType(dirtyType)) {
+            if (DEBUG) {
+                LOGGER.info("Replacing {} with {}", cleanType, dirtyType);
+            }
+            cleanQueue.remove(index);
+            dirtyQueue.remove(index);
+            builder.replace(dirtyType.pos(), dirtyType.type());
+            return true;
+        }
+        return false;
     }
 
     private static boolean checkForSwaps(ParamDiffBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
@@ -170,7 +174,7 @@ public class EnhancedParamsDiff {
         }
     }
 
-    private static void compare(ParamDiffBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty, int indexOffset) {
+    private static void compare(ParamDiffBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
         if (DEBUG) {
             LOGGER.info("Running comparison for:\n{}", printTable(clean, dirty));
         }
@@ -181,6 +185,7 @@ public class EnhancedParamsDiff {
         if (DEBUG) {
             LOGGER.info("Comparison results:\n\tInserted: {}\n\tReplaced: {}\n\tSwapped:  {}\n\tRemoved:  {}", diff.insertions(), diff.removals(), diff.swaps(), diff.removals());
         }
+        int indexOffset = !dirty.isEmpty() ? dirty.get(0).pos() : 0;
         builder.merge(diff, indexOffset);
     }
 

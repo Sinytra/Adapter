@@ -7,10 +7,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
 
-import java.util.Deque;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,6 +41,7 @@ public class EnhancedParamsDiffTest {
         assertTrue(diff.replacements().isEmpty());
         assertTrue(diff.removals().isEmpty());
         assertTrue(diff.swaps().isEmpty());
+        Assertions.assertEquals(1, diff.moves().size());
     }
 
     @Test
@@ -66,6 +64,77 @@ public class EnhancedParamsDiffTest {
         assertTrue(diff.replacements().isEmpty());
         assertTrue(diff.removals().isEmpty());
         assertTrue(diff.swaps().isEmpty());
+        assertTrue(diff.moves().isEmpty());
+    }
+
+    @Test
+    void testCompareInsertedParameters2() {
+        List<Type> original = List.of(
+            Type.getType(String.class),
+            Type.INT_TYPE,
+            Type.getType(Object.class),
+            Type.getType(Object.class)
+        );
+        List<Type> modified = List.of(
+            Type.getType(String.class),
+            Type.INT_TYPE,
+            Type.DOUBLE_TYPE,
+            Type.getType(Object.class),
+            Type.getType(Object.class)
+        );
+
+        ParametersDiff diff = EnhancedParamsDiff.create(original, modified);
+        assertEquals(1, diff.insertions().size());
+        assertEquals(2, diff.insertions().get(0).getFirst());
+        assertTrue(diff.replacements().isEmpty());
+        assertTrue(diff.removals().isEmpty());
+        assertTrue(diff.swaps().isEmpty());
+        assertTrue(diff.moves().isEmpty());
+    }
+
+    @Test
+    void testCompareInsertedParametersIndexOffset() {
+        List<Type> original = List.of(
+            Type.getType(Collection.class),
+            Type.INT_TYPE,
+            Type.INT_TYPE,
+            Type.getType("Lnet/minecraft/client/resources/MobEffectTextureManager;"),
+            Type.getType(List.class),
+            Type.getType(Iterator.class),
+            Type.getType("Lnet/minecraft/world/effect/MobEffectInstance;"),
+            Type.getType("Lnet/minecraft/world/effect/MobEffect;"),
+            Type.INT_TYPE,
+            Type.INT_TYPE
+        );
+        List<Type> modified = List.of(
+            Type.getType(Collection.class),
+            Type.getObjectType("Lnet/minecraft/client/gui/screens/Screen;"),
+            Type.INT_TYPE,
+            Type.INT_TYPE,
+            Type.getType("Lnet/minecraft/client/resources/MobEffectTextureManager;"),
+            Type.getType(List.class),
+            Type.getType(Iterator.class),
+            Type.getType("Lnet/minecraft/world/effect/MobEffectInstance;"),
+            Type.getType("Lnet/minecraft/world/effect/MobEffect;"),
+            Type.getType("Lnet/minecraftforge/client/extensions/common/IClientMobEffectExtensions;"),
+            Type.INT_TYPE,
+            Type.INT_TYPE,
+            Type.FLOAT_TYPE,
+            Type.INT_TYPE,
+            Type.INT_TYPE
+        );
+
+        ParametersDiff diff = EnhancedParamsDiff.create(original, modified);
+        assertEquals(5, diff.insertions().size());
+        assertEquals(1, diff.insertions().get(0).getFirst());
+        assertEquals(9, diff.insertions().get(1).getFirst());
+        assertEquals(12, diff.insertions().get(2).getFirst());
+        assertEquals(13, diff.insertions().get(3).getFirst());
+        assertEquals(14, diff.insertions().get(4).getFirst());
+        assertTrue(diff.replacements().isEmpty());
+        assertTrue(diff.removals().isEmpty());
+        assertTrue(diff.swaps().isEmpty());
+        assertTrue(diff.moves().isEmpty());
     }
 
     @Test
@@ -86,6 +155,7 @@ public class EnhancedParamsDiffTest {
         assertEquals(1, diff.replacements().size());
         assertTrue(diff.removals().isEmpty());
         assertTrue(diff.swaps().isEmpty());
+        assertTrue(diff.moves().isEmpty());
     }
 
     @Test
@@ -108,6 +178,7 @@ public class EnhancedParamsDiffTest {
         assertEquals(1, diff.replacements().size());
         assertTrue(diff.removals().isEmpty());
         assertTrue(diff.swaps().isEmpty());
+        assertTrue(diff.moves().isEmpty());
     }
 
     @Test
@@ -134,6 +205,7 @@ public class EnhancedParamsDiffTest {
         assertTrue(diff.replacements().isEmpty());
         assertTrue(diff.removals().isEmpty());
         assertTrue(diff.swaps().isEmpty());
+        assertTrue(diff.moves().isEmpty());
     }
 
     @Test
@@ -157,6 +229,7 @@ public class EnhancedParamsDiffTest {
         assertTrue(diff.replacements().isEmpty());
         assertEquals(1, diff.removals().size());
         assertTrue(diff.swaps().isEmpty());
+        assertTrue(diff.moves().isEmpty());
     }
 
     @Test
@@ -183,7 +256,7 @@ public class EnhancedParamsDiffTest {
         assertEquals(1, diff.insertions().size());
         assertEquals(Pair.of(2, Type.getType(Deque.class)), diff.insertions().get(0));
         assertTrue(diff.replacements().isEmpty());
-        assertEquals(1, diff.moves().size());
         assertTrue(diff.removals().isEmpty());
+        assertEquals(1, diff.moves().size());
     }
 }
