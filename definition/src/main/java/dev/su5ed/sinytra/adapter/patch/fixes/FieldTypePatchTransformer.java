@@ -104,10 +104,14 @@ public class FieldTypePatchTransformer implements MethodTransform {
     }
 
     private static int getReturnOpcode(Type type) {
-        // TODO
-        if (type.getSort() == Type.OBJECT) {
-            return Opcodes.ARETURN;
-        }
-        throw new UnsupportedOperationException();
+        return switch (type.getSort()) {
+            case Type.OBJECT, Type.ARRAY -> Opcodes.ARETURN;
+            case Type.BOOLEAN, Type.BYTE, Type.SHORT, Type.CHAR, Type.INT -> Opcodes.IRETURN;
+            case Type.DOUBLE -> Opcodes.DRETURN;
+            case Type.FLOAT -> Opcodes.FRETURN;
+            case Type.LONG -> Opcodes.LRETURN;
+            case Type.VOID -> Opcodes.RETURN;
+            default -> throw new UnsupportedOperationException();
+        };
     }
 }
