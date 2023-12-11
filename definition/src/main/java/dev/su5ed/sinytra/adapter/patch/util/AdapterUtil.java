@@ -7,6 +7,7 @@ import dev.su5ed.sinytra.adapter.patch.PatchEnvironment;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import org.jetbrains.annotations.Nullable;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
@@ -186,6 +187,21 @@ public final class AdapterUtil {
             return SingleValueHandle.of(() -> iincInsn.var, i -> iincInsn.var = i);
         }
         return null;
+    }
+
+    public static int getInsnIntConstValue(InsnNode insn) {
+        int opcode = insn.getOpcode();
+        if (opcode >= Opcodes.ICONST_0 && opcode <= Opcodes.ICONST_5) {
+            return opcode - Opcodes.ICONST_0;
+        }
+        throw new IllegalArgumentException("Not an int constant opcode: " + opcode);
+    }
+
+    public static AbstractInsnNode getIntConstInsn(int value) {
+        if (value >= 1 && value <= 5) {
+            return new InsnNode(Opcodes.ICONST_0 + value);
+        }
+        return new LdcInsnNode(value);
     }
 
     private AdapterUtil() {

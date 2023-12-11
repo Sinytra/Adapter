@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.su5ed.sinytra.adapter.patch.MethodTransform;
+import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.Patch.Result;
 import dev.su5ed.sinytra.adapter.patch.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
@@ -42,12 +43,20 @@ public record ModifyInjectionPoint(@Nullable String value, String target, boolea
             AnnotationValueHandle<String> handle = annotation.<String>getValue("value").orElseThrow(() -> new IllegalArgumentException("Missing value handle"));
             handle.set(this.value);
         }
-        AnnotationValueHandle<String> handle = annotation.<String>getValue("target").orElseThrow(() -> new IllegalArgumentException("Missing target handle, did you specify the target descriptor?"));
         if (this.resetValues) {
             annotation.<Integer>getValue("ordinal").ifPresent(ordinal -> ordinal.set(-1));
         }
         LOGGER.info(MIXINPATCH, "Changing mixin method target {}.{} to {}", classNode.name, methodNode.name, this.target);
-        handle.set(this.target);
+        AnnotationValueHandle<String> handle = annotation.<String>getValue("target").orElse(null);
+        if (handle != null) {
+            String original = handle.get();
+            handle.set(this.target);
+            if (methodContext.methodAnnotation().matchesDesc(Patch.MODIFY_VAR)) {
+                ModifyArgsOffsetTransformer.handleModifiedDesc(methodNode, original, this.target);
+            }
+        } else {
+            annotation.appendValue("target", this.target);
+        }
         return Result.APPLY;
     }
 }
