@@ -13,19 +13,12 @@ import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
-import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
-import dev.su5ed.sinytra.adapter.patch.util.MockMixinRuntime;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.FabricUtil;
-import org.spongepowered.asm.mixin.injection.InjectionPoint;
-import org.spongepowered.asm.mixin.injection.code.ISliceContext;
-import org.spongepowered.asm.mixin.injection.code.MethodSlice;
-import org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionException;
-import org.spongepowered.asm.mixin.refmap.IMixinContext;
 import org.spongepowered.asm.util.Locals;
 
 import java.util.*;
@@ -68,7 +61,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
                 return Result.PASS;
             }
             Result result = Result.PASS;
-            Supplier<Pair<ClassNode, MethodNode>> targetPairSupplier = Suppliers.memoize(() -> methodContext.findInjectionTarget(context, AdapterUtil::getClassNode));
+            Supplier<Pair<ClassNode, MethodNode>> targetPairSupplier = Suppliers.memoize(methodContext::findDirtyInjectionTarget);
             for (Map.Entry<AnnotationNode, Type> entry : localAnnotations.entrySet()) {
                 AnnotationNode localAnn = entry.getKey();
                 result = result.or(offsetVariableIndex(classNode, methodNode, new AnnotationHandle(localAnn), targetPairSupplier));
@@ -76,7 +69,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             return result;
         }
         if (annotation.matchesDesc(Patch.MODIFY_VAR)) {
-            Result result = offsetVariableIndex(classNode, methodNode, annotation, methodContext, context);
+            Result result = offsetVariableIndex(classNode, methodNode, annotation, methodContext);
             if (result == Result.PASS) {
                 AnnotationValueHandle<Integer> ordinal = annotation.<Integer>getValue("ordinal").orElse(null);
                 if (ordinal == null && annotation.getValue("name").isEmpty()) {
@@ -84,7 +77,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
                     if (args.length < 1) {
                         return Result.PASS;
                     }
-                    Pair<ClassNode, MethodNode> targetPair = methodContext.findInjectionTarget(context, AdapterUtil::getClassNode);
+                    Pair<ClassNode, MethodNode> targetPair = methodContext.findDirtyInjectionTarget();
                     if (targetPair == null) {
                         return Result.PASS;
                     }
@@ -114,8 +107,8 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         return Result.PASS;
     }
 
-    private Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationHandle annotation, MethodContext methodContext, PatchContext context) {
-        return offsetVariableIndex(classNode, methodNode, annotation, () -> methodContext.findInjectionTarget(context, AdapterUtil::getClassNode));
+    private Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationHandle annotation, MethodContext methodContext) {
+        return offsetVariableIndex(classNode, methodNode, annotation, methodContext::findDirtyInjectionTarget);
     }
 
     private Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationHandle annotation, Supplier<Pair<ClassNode, MethodNode>> targetPairSupplier) {
@@ -155,25 +148,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
 
     @Nullable
     private List<LocalVariable> getTargetMethodLocals(ClassNode classNode, MethodNode methodNode, ClassNode targetClass, MethodNode targetMethod, MethodContext methodContext, PatchContext context, int startPos, int fabricCompatibility) {
-        AnnotationHandle atNode = methodContext.injectionPointAnnotation();
-        if (atNode == null) {
-            LOGGER.debug("Target @At annotation not found in method {}.{}{}", classNode.name, methodNode.name, methodNode.desc);
-            return null;
-        }
-        AnnotationHandle annotation = methodContext.methodAnnotation();
-        // Provide a minimum implementation of IMixinContext
-        IMixinContext mixinContext = MockMixinRuntime.forClass(classNode.name, context.getClassNode().name, context.getEnvironment());
-        // Parse injection point
-        InjectionPoint injectionPoint = InjectionPoint.parse(mixinContext, methodNode, annotation.unwrap(), atNode.unwrap());
-        // Find target instructions
-        InsnList instructions = getSlicedInsns(annotation, classNode, methodNode, targetClass, targetMethod, context);
-        List<AbstractInsnNode> targetInsns = new ArrayList<>();
-        try {
-            injectionPoint.find(targetMethod.desc, instructions, targetInsns);
-        } catch (InvalidInjectionException | UnsupportedOperationException e) {
-            LOGGER.error("Error finding injection insns: {}", e.getMessage());
-            return null;
-        }
+        List<AbstractInsnNode> targetInsns = methodContext.findInjectionTargetInsns(classNode, targetClass, methodNode, targetMethod, context);
         if (targetInsns.isEmpty()) {
             LOGGER.debug("Skipping LVT patch, no target instructions found");
             return null;
@@ -200,7 +175,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             LOGGER.debug("Missing CI or CIR argument in injector of type {}", annotation.getDesc());
             return null;
         }
-        Pair<ClassNode, MethodNode> target = methodContext.findInjectionTarget(context, AdapterUtil::getClassNode);
+        Pair<ClassNode, MethodNode> target = methodContext.findDirtyInjectionTarget();
         if (target == null) {
             return null;
         }
@@ -277,25 +252,6 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             }
         }
         return maxIndex;
-    }
-
-    private InsnList getSlicedInsns(AnnotationHandle parentAnnotation, ClassNode classNode, MethodNode injectorMethod, ClassNode targetClass, MethodNode targetMethod, PatchContext context) {
-        return parentAnnotation.<AnnotationNode>getValue("slice")
-            .map(handle -> {
-                Object value = handle.get();
-                return value instanceof List<?> list ? (AnnotationNode) list.get(0) : (AnnotationNode) value;
-            })
-            .map(sliceAnn -> {
-                IMixinContext mixinContext = MockMixinRuntime.forClass(classNode.name, targetClass.name, context.getEnvironment());
-                ISliceContext sliceContext = MockMixinRuntime.forSlice(mixinContext, injectorMethod);
-                return computeSlicedInsns(sliceContext, sliceAnn, targetMethod);
-            })
-            .orElse(targetMethod.instructions);
-    }
-
-    private InsnList computeSlicedInsns(ISliceContext context, AnnotationNode annotation, MethodNode method) {
-        MethodSlice slice = MethodSlice.parse(context, annotation);
-        return slice.getSlice(method);
     }
 
     private record LocalVariable(int index, Type type) {}

@@ -11,15 +11,35 @@ import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 import org.spongepowered.asm.mixin.injection.code.ISliceContext;
 import org.spongepowered.asm.mixin.injection.code.MethodSlice;
 import org.spongepowered.asm.mixin.injection.selectors.ISelectorContext;
+import org.spongepowered.asm.mixin.injection.struct.CallbackInjectionInfo;
+import org.spongepowered.asm.mixin.injection.struct.InjectionInfo;
 import org.spongepowered.asm.mixin.refmap.IMixinContext;
 import org.spongepowered.asm.mixin.refmap.IReferenceMapper;
 import org.spongepowered.asm.mixin.transformer.ext.Extensions;
 import org.spongepowered.asm.util.asm.IAnnotationHandle;
+import sun.misc.Unsafe;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Set;
 
 public class MockMixinRuntime {
+    private static final MethodHandles.Lookup TRUSTED_LOOKUP;
+    private static final Unsafe UNSAFE;
+
+    static {
+        try {
+            Field theUnsafe = Unsafe.class.getDeclaredField("theUnsafe");
+            theUnsafe.setAccessible(true);
+            UNSAFE = (Unsafe) theUnsafe.get(null);
+            Field hackfield = MethodHandles.Lookup.class.getDeclaredField("IMPL_LOOKUP");
+            TRUSTED_LOOKUP = (MethodHandles.Lookup) UNSAFE.getObject(UNSAFE.staticFieldBase(hackfield), UNSAFE.staticFieldOffset(hackfield));
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+    }
 
     public static IMixinContext forClass(String className, String targetClass, PatchEnvironment environment) {
         return new ClassMixinContext(className, targetClass, environment);
@@ -27,6 +47,18 @@ public class MockMixinRuntime {
 
     public static ISliceContext forSlice(IMixinContext context, MethodNode methodNode) {
         return new MethodSliceContext(context, methodNode);
+    }
+
+    public static InjectionInfo forInjectionInfo(String className, String targetClass, PatchEnvironment environment) {
+        try {
+            InjectionInfo injectionInfo = (InjectionInfo) UNSAFE.allocateInstance(CallbackInjectionInfo.class);
+            VarHandle handle = TRUSTED_LOOKUP.findVarHandle(InjectionInfo.class, "context", IMixinContext.class);
+            IMixinContext context = forClass(className, targetClass, environment);
+            handle.set(injectionInfo, context);
+            return injectionInfo;
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
     }
 
     private record MethodSliceContext(IMixinContext context, MethodNode methodNode) implements ISliceContext {

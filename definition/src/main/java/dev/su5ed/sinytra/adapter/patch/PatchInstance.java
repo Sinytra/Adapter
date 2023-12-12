@@ -56,7 +56,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
                 result = result.or(classTransform.apply(classNode, classTarget.handle(), context));
             }
             for (MethodNode method : classNode.methods) {
-                MethodContext methodContext = checkMethodTarget(classAnnotation, classNode.name, method, environment, classTarget.targetTypes());
+                MethodContext methodContext = checkMethodTarget(classAnnotation, classNode.name, method, environment, classTarget.targetTypes(), context);
                 if (methodContext != null) {
                     for (MethodTransform transform : this.transforms) {
                         Collection<String> accepted = transform.getAcceptedAnnotations();
@@ -101,7 +101,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
     }
 
     @Nullable
-    private MethodContext checkMethodTarget(@Nullable AnnotationValueHandle<?> classAnnotation, String owner, MethodNode method, PatchEnvironment remaper, List<Type> targetTypes) {
+    private MethodContext checkMethodTarget(@Nullable AnnotationValueHandle<?> classAnnotation, String owner, MethodNode method, PatchEnvironment remaper, List<Type> targetTypes, PatchContext context) {
         if (method.visibleAnnotations != null) {
             for (AnnotationNode annotation : method.visibleAnnotations) {
                 if (this.targetAnnotations.isEmpty() || this.targetAnnotations.contains(annotation.desc)) {
@@ -112,7 +112,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
                     }
                     AnnotationHandle annotationHandle = new AnnotationHandle(annotation);
                     if (checkAnnotation(owner, method, annotationHandle, remaper, builder) && (this.targetAnnotationValues == null || this.targetAnnotationValues.test(annotationHandle))) {
-                        return builder.build();
+                        return builder.build(context);
                     }
                 }
             }

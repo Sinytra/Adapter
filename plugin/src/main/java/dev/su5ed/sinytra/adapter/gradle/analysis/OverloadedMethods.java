@@ -6,12 +6,11 @@ import dev.su5ed.sinytra.adapter.patch.Patch;
 import dev.su5ed.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyInjectionTarget;
 import dev.su5ed.sinytra.adapter.patch.transformer.filter.InjectionPointTransformerFilter;
+import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.objectweb.asm.tree.analysis.Analyzer;
-import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.SourceInterpreter;
 import org.objectweb.asm.tree.analysis.SourceValue;
 
@@ -58,13 +57,7 @@ public class OverloadedMethods {
         if (method.name.equals("<init>") && !other.name.equals("<init>")) {
             return Optional.empty();
         }
-        MethodCallInterpreter interpreter = new MethodCallInterpreter();
-        Analyzer<SourceValue> analyzer = new Analyzer<>(interpreter);
-        try {
-            analyzer.analyze(other.name, other);
-        } catch (AnalyzerException e) {
-            throw new RuntimeException(e);
-        }
+        MethodCallInterpreter interpreter = AdapterUtil.analyzeMethod(other, new MethodCallInterpreter());
 
         List<Pair<AbstractInsnNode, MethodInsnNode>> insns = interpreter.getInsns();
         if (insns.isEmpty()) {

@@ -10,6 +10,10 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.objectweb.asm.tree.analysis.Analyzer;
+import org.objectweb.asm.tree.analysis.AnalyzerException;
+import org.objectweb.asm.tree.analysis.Interpreter;
+import org.objectweb.asm.tree.analysis.Value;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.gen.AccessorInfo;
 import org.spongepowered.asm.service.MixinService;
@@ -203,6 +207,16 @@ public final class AdapterUtil {
         }
         return new LdcInsnNode(value);
     }
+
+    public static <T extends Interpreter<V>, V extends Value> T analyzeMethod(MethodNode methodNode, T interpreter) {
+        Analyzer<V> analyzer = new Analyzer<>(interpreter);
+        try {
+            analyzer.analyze(methodNode.name, methodNode);
+        } catch (AnalyzerException e) {
+            throw new RuntimeException(e);
+        }
+        return interpreter;
+    } 
 
     private AdapterUtil() {
     }

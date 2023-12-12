@@ -14,7 +14,6 @@ import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
-import dev.su5ed.sinytra.adapter.patch.util.provider.ClassLookup;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -43,14 +42,11 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
         if (offsetHandlers.isEmpty()) {
             return Patch.Result.PASS;
         }
-
-        ClassLookup cleanClassProvider = context.getEnvironment().getCleanClassLookup();
-        Pair<ClassNode, MethodNode> cleanTarget = methodContext.findInjectionTarget(context, s -> cleanClassProvider.getClass(s).orElse(null));
+        Pair<ClassNode, MethodNode> cleanTarget = methodContext.findCleanInjectionTarget();
         if (cleanTarget == null) {
             return Patch.Result.PASS;
         }
-
-        Pair<ClassNode, MethodNode> dirtyTarget = methodContext.findInjectionTarget(context, AdapterUtil::getClassNode);
+        Pair<ClassNode, MethodNode> dirtyTarget = methodContext.findDirtyInjectionTarget();
         if (dirtyTarget == null) {
             return Patch.Result.PASS;
         }

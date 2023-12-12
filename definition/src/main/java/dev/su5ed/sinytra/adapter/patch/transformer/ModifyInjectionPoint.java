@@ -51,7 +51,7 @@ public record ModifyInjectionPoint(@Nullable String value, String target, boolea
         if (handle != null) {
             String original = handle.get();
             handle.set(this.target);
-            if (methodContext.methodAnnotation().matchesDesc(Patch.MODIFY_VAR)) {
+            if (methodContext.methodAnnotation().matchesDesc(Patch.MODIFY_ARGS)) {
                 ModifyArgsOffsetTransformer.handleModifiedDesc(methodNode, original, this.target);
             }
         } else {

@@ -7,8 +7,6 @@ import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.objectweb.asm.tree.analysis.Analyzer;
-import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.SourceInterpreter;
 import org.objectweb.asm.tree.analysis.SourceValue;
 
@@ -40,14 +38,7 @@ public class ModifyArgsOffsetTransformer {
     }
 
     public static void modify(MethodNode methodNode, List<Pair<Integer, Type>> insertions) {
-        ScanningSourceInterpreter i = new ScanningSourceInterpreter(Opcodes.ASM9);
-        Analyzer<SourceValue> analyzer = new Analyzer<>(i);
-
-        try {
-            analyzer.analyze(methodNode.name, methodNode);
-        } catch (AnalyzerException e) {
-            throw new RuntimeException(e);
-        }
+        ScanningSourceInterpreter i = AdapterUtil.analyzeMethod(methodNode, new ScanningSourceInterpreter(Opcodes.ASM9));
 
         for (AbstractInsnNode insn : i.getInsns()) {
             if (insn instanceof IntInsnNode iinsn) {

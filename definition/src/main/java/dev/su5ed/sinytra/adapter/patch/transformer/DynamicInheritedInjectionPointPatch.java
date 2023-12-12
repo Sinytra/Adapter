@@ -9,7 +9,6 @@ import dev.su5ed.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
-import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import dev.su5ed.sinytra.adapter.patch.util.MockMixinRuntime;
 import org.objectweb.asm.Opcodes;
@@ -52,7 +51,7 @@ public class DynamicInheritedInjectionPointPatch implements MethodTransform {
             if (q == null) {
                 return Patch.Result.PASS;
             }
-            Pair<ClassNode, MethodNode> targetPair = methodContext.findInjectionTarget(context, AdapterUtil::getClassNode);
+            Pair<ClassNode, MethodNode> targetPair = methodContext.findDirtyInjectionTarget();
             if (targetPair == null) {
                 return Patch.Result.PASS;
             }
