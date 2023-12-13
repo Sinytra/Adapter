@@ -100,6 +100,9 @@ public class DynamicModifyVarAtReturnPatch implements MethodTransform {
         ClassNode targetClass = injectionTarget.getFirst();
         MethodNode targetMethod = injectionTarget.getSecond();
         List<AbstractInsnNode> targetInsns = methodContext.findInjectionTargetInsns(classNode, targetClass, methodNode, targetMethod, context);
+        if (targetInsns.isEmpty()) {
+            return null;
+        }
         AbstractInsnNode targetInsn = targetInsns.get(ordinal == -1 ? targetInsns.size() - 1 : ordinal);
         // Find modified variable
         LocalVariableDiscriminator discriminator = LocalVariableDiscriminator.parse(methodContext.methodAnnotation().unwrap());

@@ -122,7 +122,7 @@ public record MethodContext(AnnotationValueHandle<?> classAnnotation, Annotation
         AnnotationHandle atNode = injectionPointAnnotation();
         if (atNode == null) {
             LOGGER.debug("Target @At annotation not found in method {}.{}{}", classNode.name, methodNode.name, methodNode.desc);
-            return null;
+            return List.of();
         }
         AnnotationHandle annotation = methodAnnotation();
         // Provide a minimum implementation of IMixinContext
@@ -136,7 +136,7 @@ public record MethodContext(AnnotationValueHandle<?> classAnnotation, Annotation
             injectionPoint.find(targetMethod.desc, instructions, targetInsns);
         } catch (InvalidInjectionException | UnsupportedOperationException e) {
             LOGGER.error("Error finding injection insns: {}", e.getMessage());
-            return null;
+            return List.of();
         }
         return targetInsns;
     }
