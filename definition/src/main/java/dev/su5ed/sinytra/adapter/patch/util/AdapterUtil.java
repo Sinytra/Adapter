@@ -9,6 +9,7 @@ import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.Analyzer;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
@@ -22,6 +23,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -127,7 +129,14 @@ public final class AdapterUtil {
             throw new RuntimeException(e);
         }
         return interpreter;
-    } 
+    }
+
+    public static InsnList insnsWithAdapter(Consumer<InstructionAdapter> consumer) {
+        MethodNode dummy = new MethodNode();
+        InstructionAdapter adapter = new InstructionAdapter(dummy);
+        consumer.accept(adapter);
+        return dummy.instructions;
+    }
 
     private AdapterUtil() {
     }

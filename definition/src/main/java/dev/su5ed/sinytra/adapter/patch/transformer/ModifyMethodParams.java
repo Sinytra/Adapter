@@ -14,7 +14,6 @@ import dev.su5ed.sinytra.adapter.patch.api.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
 import dev.su5ed.sinytra.adapter.patch.fixes.FieldTypeFix;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
-import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.SingleValueHandle;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -23,40 +22,30 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.TypeReference;
+import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
-public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements, List<Pair<Integer, Integer>> swaps,
-                                 List<Pair<Integer, Integer>> substitutes, List<Integer> removals, List<Pair<Integer, Integer>> moves, TargetType targetType,
-                                 boolean ignoreOffset, @Nullable LVTFixer lvtFixer) implements MethodTransform {
-    public static final Codec<Pair<Integer, Type>> MODIFICATION_CODEC = Codec.pair(
-        Codec.INT.fieldOf("index").codec(),
-        AdapterUtil.TYPE_CODEC.fieldOf("type").codec()
-    );
-    public static final Codec<Pair<Integer, Integer>> SWAP_CODEC = Codec.pair(
-        Codec.INT.fieldOf("original").codec(),
-        Codec.INT.fieldOf("replacement").codec()
-    );
+public record ModifyMethodParams(ParamsContext context, TargetType targetType, boolean ignoreOffset, @Nullable LVTFixer lvtFixer) implements MethodTransform {
     public static final Codec<ModifyMethodParams> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        MODIFICATION_CODEC.listOf().optionalFieldOf("insertions", List.of()).forGetter(ModifyMethodParams::insertions),
-        MODIFICATION_CODEC.listOf().optionalFieldOf("replacements", List.of()).forGetter(ModifyMethodParams::replacements),
-        SWAP_CODEC.listOf().optionalFieldOf("swaps", List.of()).forGetter(ModifyMethodParams::swaps),
+        ParamsContext.CODEC.fieldOf("context").forGetter(ModifyMethodParams::context),
         TargetType.CODEC.optionalFieldOf("targetInjectionPoint", TargetType.ALL).forGetter(ModifyMethodParams::targetType)
-    ).apply(instance, (insertions, replacements, swaps, targetInjectionPoint) -> new ModifyMethodParams(insertions, replacements, swaps, List.of(), List.of(), List.of(), targetInjectionPoint, false, null)));
+    ).apply(instance, (context, targetInjectionPoint) -> new ModifyMethodParams(context, targetInjectionPoint, false, null)));
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
     public static ModifyMethodParams create(String cleanMethodDesc, String dirtyMethodDesc, TargetType targetType) {
         ParametersDiff diff = ParametersDiff.compareTypeParameters(Type.getArgumentTypes(cleanMethodDesc), Type.getArgumentTypes(dirtyMethodDesc));
-        return new ModifyMethodParams(diff.insertions(), diff.replacements(), diff.swaps(), List.of(), diff.removals(), List.of(), targetType, false, null);
+        return create(diff, targetType);
     }
 
     public static ModifyMethodParams create(ParametersDiff diff, TargetType targetType) {
-        return new ModifyMethodParams(diff.insertions(), diff.replacements(), diff.swaps(), List.of(), diff.removals(), diff.moves(), targetType, false, null);
+        return new ModifyMethodParams(ParamsContext.create(diff), targetType, false, null);
     }
 
     public static Builder builder() {
@@ -64,7 +53,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
     }
 
     public ModifyMethodParams {
-        if (insertions.isEmpty() && replacements.isEmpty() && swaps.isEmpty() && substitutes.isEmpty() && removals.isEmpty() && moves.isEmpty()) {
+        if (context.isEmpty()) {
             throw new IllegalArgumentException("Method parameter transformation contains no changes");
         }
     }
@@ -91,27 +80,24 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
             : 0;
 
         if (annotation.matchesDesc(MixinConstants.MODIFY_VAR)) {
-            AnnotationValueHandle<Integer> indexHandle = annotation.<Integer>getValue("index").orElse(null);
-            if (indexHandle != null) {
-                this.insertions.forEach(pair -> {
-                    int localIndex = offset + pair.getFirst();
-                    int indexValue = indexHandle.get();
-                    if (indexValue >= localIndex) {
-                        indexHandle.set(indexValue + 1);
-                    }
-                });
-            }
+            annotation.<Integer>getValue("index").ifPresent(indexHandle -> this.context.insertions.forEach(pair -> {
+                int localIndex = offset + pair.getFirst();
+                int indexValue = indexHandle.get();
+                if (indexValue >= localIndex) {
+                    indexHandle.set(indexValue + 1);
+                }
+            }));
             return Result.APPLY;
         }
         if (annotation.matchesDesc(MixinConstants.MODIFY_ARGS)) {
-            ModifyArgsOffsetTransformer.modify(methodNode, this.insertions);
+            ModifyArgsOffsetTransformer.modify(methodNode, this.context.insertions);
             return Result.APPLY;
         }
 
-        List<Pair<Integer, Integer>> offsetSwaps = new ArrayList<>(this.swaps);
-        List<Pair<Integer, Integer>> offsetMoves = new ArrayList<>(this.moves);
+        List<Pair<Integer, Integer>> offsetSwaps = new ArrayList<>(this.context.swaps);
+        List<Pair<Integer, Integer>> offsetMoves = new ArrayList<>(this.context.moves);
         LocalVariableNode self = methodNode.localVariables.stream().filter(lvn -> lvn.index == 0).findFirst().orElseThrow();
-        Deque<Pair<Integer, Type>> insertionQueue = new ArrayDeque<>(this.insertions);
+        Deque<Pair<Integer, Type>> insertionQueue = new ArrayDeque<>(this.context.insertions);
         while (!insertionQueue.isEmpty()) {
             Pair<Integer, Type> pair = insertionQueue.pop();
             int index = pair.getFirst();
@@ -142,7 +128,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
             methodNode.localVariables.add(new LocalVariableNode("adapter_injected_" + index, type.getDescriptor(), null, self.start, self.end, lvtIndex));
         }
         BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
-        this.replacements.forEach(pair -> {
+        this.context.replacements.forEach(pair -> {
             int index = pair.getFirst();
             Type type = pair.getSecond();
             newParameterTypes.set(index, type);
@@ -186,7 +172,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
                 }
             }
         });
-        this.substitutes.forEach(pair -> {
+        this.context.substitutes.forEach(pair -> {
             int paramIndex = pair.getFirst();
             int substituteParamIndex = pair.getSecond();
             int localIndex = offset + paramIndex;
@@ -249,7 +235,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
                 }
             }
         }
-        this.removals.stream()
+        this.context.removals.stream()
             .sorted(Comparator.<Integer>comparingInt(i -> i).reversed())
             .forEach(removal -> {
                 LOGGER.info(MIXINPATCH, "Removing parameter {} from method {}.{}", removal, classNode.name, methodNode.name);
@@ -283,10 +269,25 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
                 newParameterTypes.add(to, type);
             }
         });
+        this.context.inlines.stream()
+            .sorted(Comparator.<Pair<Integer, Consumer<InstructionAdapter>>>comparingInt(Pair::getFirst).reversed())
+            .forEach(inline -> {
+                int index = inline.getFirst();
+                LOGGER.info(MIXINPATCH, "Inlining parameter {} of method {}.{}", index, classNode.name, methodNode.name);
+                int replaceIndex = -999 + index;
+                removeLocalVariable(methodNode, index, offset, replaceIndex, newParameterTypes);
+                for (AbstractInsnNode insn : methodNode.instructions) {
+                    if (insn instanceof VarInsnNode varInsn && varInsn.var == replaceIndex) {
+                        InsnList replacementInsns = AdapterUtil.insnsWithAdapter(inline.getSecond());
+                        methodNode.instructions.insert(varInsn, replacementInsns);
+                        methodNode.instructions.remove(varInsn);
+                    }
+                }
+            });
 
         methodContext.updateDescription(classNode, methodNode, newParameterTypes);
 
-        return !this.swaps.isEmpty() || !this.replacements.isEmpty() || !this.substitutes.isEmpty() || !this.removals.isEmpty() || !this.moves.isEmpty() ? Result.COMPUTE_FRAMES : Result.APPLY;
+        return !this.context.isEmpty() ? Result.COMPUTE_FRAMES : Result.APPLY;
     }
 
     private static Pair<@Nullable ParameterNode, @Nullable LocalVariableNode> removeLocalVariable(MethodNode methodNode, int paramIndex, int lvtOffset, int replaceIndex, List<Type> newParameterTypes) {
@@ -392,11 +393,45 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
         void accept(int index, AbstractInsnNode insn, InsnList list);
     }
 
+    public record ParamsContext(
+        List<Pair<Integer, Type>> insertions,
+        List<Pair<Integer, Type>> replacements,
+        List<Pair<Integer, Integer>> swaps,
+        List<Pair<Integer, Integer>> substitutes,
+        List<Integer> removals,
+        List<Pair<Integer, Integer>> moves,
+        List<Pair<Integer, Consumer<InstructionAdapter>>> inlines
+    ) {
+        public static final Codec<Pair<Integer, Type>> MODIFICATION_CODEC = Codec.pair(
+            Codec.INT.fieldOf("index").codec(),
+            AdapterUtil.TYPE_CODEC.fieldOf("type").codec()
+        );
+        public static final Codec<Pair<Integer, Integer>> SWAP_CODEC = Codec.pair(
+            Codec.INT.fieldOf("original").codec(),
+            Codec.INT.fieldOf("replacement").codec()
+        );
+        public static final Codec<ParamsContext> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            MODIFICATION_CODEC.listOf().optionalFieldOf("insertions", List.of()).forGetter(ParamsContext::insertions),
+            MODIFICATION_CODEC.listOf().optionalFieldOf("replacements", List.of()).forGetter(ParamsContext::replacements),
+            SWAP_CODEC.listOf().optionalFieldOf("swaps", List.of()).forGetter(ParamsContext::swaps)
+        ).apply(instance, (insertions, replacements, swaps) ->
+            new ParamsContext(insertions, replacements, swaps, List.of(), List.of(), List.of(), List.of())));
+
+        public static ParamsContext create(ParametersDiff diff) {
+            return new ParamsContext(diff.insertions(), diff.replacements(), diff.swaps(), List.of(), diff.removals(), List.of(), List.of());
+        }
+
+        public boolean isEmpty() {
+            return this.insertions.isEmpty() && this.replacements.isEmpty() && this.swaps.isEmpty() && this.substitutes.isEmpty() && this.removals.isEmpty() && this.moves.isEmpty() && this.inlines.isEmpty();
+        }
+    }
+
     public static class Builder {
         private final List<Pair<Integer, Type>> insertions = new ArrayList<>();
         private final List<Pair<Integer, Type>> replacements = new ArrayList<>();
         private final List<Pair<Integer, Integer>> substitutes = new ArrayList<>();
         private final List<Pair<Integer, Integer>> swap = new ArrayList<>();
+        private final List<Pair<Integer, Consumer<InstructionAdapter>>> inlines = new ArrayList<>();
         private TargetType targetType = TargetType.ALL;
         private boolean ignoreOffset = false;
         @Nullable
@@ -404,6 +439,16 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
 
         public Builder insert(int index, Type type) {
             this.insertions.add(Pair.of(index, type));
+            return this;
+        }
+
+        public Builder inline(int index, Consumer<InstructionAdapter> inliner) {
+            this.inlines.add(Pair.of(index, inliner));
+            return this;
+        }
+
+        public Builder replacements(List<Pair<Integer, Type>> replacements) {
+            this.replacements.addAll(replacements);
             return this;
         }
 
@@ -438,7 +483,8 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
         }
 
         public ModifyMethodParams build() {
-            return new ModifyMethodParams(this.insertions, this.replacements, this.swap, this.substitutes, List.of(), List.of(), this.targetType, this.ignoreOffset, this.lvtFixer);
+            ParamsContext context = new ParamsContext(this.insertions, this.replacements, this.swap, this.substitutes, List.of(), List.of(), this.inlines   );
+            return new ModifyMethodParams(context, this.targetType, this.ignoreOffset, this.lvtFixer);
         }
     }
 }
