@@ -104,6 +104,17 @@ public class EnhancedParamsDiff {
                     builder.insert(offset, inserted.type());
                 }
             }
+        } else if (!diff.entriesOnlyOnLeft().isEmpty() && diff.entriesDiffering().isEmpty() && diff.entriesOnlyOnRight().isEmpty()) {
+            for (Map.Entry<Type, Integer> entry : diff.entriesOnlyOnLeft().entrySet()) {
+                Type type = entry.getKey();
+                Integer count = entry.getValue();
+                if (count == 1) {
+                    TypeWithContext inserted = clean.stream().filter(t -> t.type().equals(type)).findFirst().orElseThrow();
+                    builder.remove(clean.indexOf(inserted));
+                    cleanGroup.remove(type);
+                    rearrangeClean.remove(inserted);
+                }
+            }
         }
 
         if (!sameTypeCount(cleanGroup, dirtyGroup)) {
@@ -287,6 +298,9 @@ public class EnhancedParamsDiff {
         }
 
         public ParamDiffBuilder remove(int index) {
+            if (DEBUG) {
+                LOGGER.info("Removing param at {}", index);
+            }
             this.removed.add(index);
             return this;
         }

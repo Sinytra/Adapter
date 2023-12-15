@@ -37,11 +37,34 @@ public class EnhancedParamsDiffTest {
         );
 
         ParametersDiff diff = EnhancedParamsDiff.create(clean, dirty);
-        Assertions.assertEquals(1, diff.insertions().size());
+        assertEquals(1, diff.insertions().size());
         assertTrue(diff.replacements().isEmpty());
         assertTrue(diff.removals().isEmpty());
         assertTrue(diff.swaps().isEmpty());
-        Assertions.assertEquals(1, diff.moves().size());
+        assertEquals(1, diff.moves().size());
+    }
+
+    @Test
+    void testRemovedParameter() {
+        List<Type> clean = List.of(
+            Type.getType(Iterable.class),
+            Type.getType(Iterator.class),
+            Type.getObjectType("Lnet/minecraft/world/item/ItemStack;"),
+            Type.getType("Lnet/minecraft/world/item/Item;")
+        );
+        List<Type> dirty = List.of(
+            Type.getType(Iterator.class),
+            Type.getObjectType("Lnet/minecraft/world/item/ItemStack;"),
+            Type.getType("Lnet/minecraft/world/item/Item;")
+        );
+
+        ParametersDiff diff = EnhancedParamsDiff.create(clean, dirty);
+        assertTrue(diff.insertions().isEmpty());
+        assertTrue(diff.replacements().isEmpty());
+        assertEquals(1, diff.removals().size());
+        assertEquals(0, diff.removals().get(0));
+        assertTrue(diff.swaps().isEmpty());
+        assertTrue(diff.moves().isEmpty());
     }
 
     @Test
