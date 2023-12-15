@@ -1,5 +1,7 @@
 package dev.su5ed.sinytra.adapter.patch;
 
+import dev.su5ed.sinytra.adapter.patch.api.MixinClassGenerator;
+import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Opcodes;
@@ -11,16 +13,16 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-public class MixinClassGenerator {
+public class MixinClassGeneratorImpl implements MixinClassGenerator {
     private final Map<String, GeneratedClass> generatedMixinClasses = new HashMap<>();
 
-    public record GeneratedClass(String originalName, String generatedName, ClassNode node) {}
-
+    @Nullable
     public Map<String, GeneratedClass> getGeneratedMixinClasses() {
-        return generatedMixinClasses;
+        return this.generatedMixinClasses;
     }
 
-    public ClassNode getGeneratedMixinClass(ClassNode original, String targetClass, @Nullable String parent) {
+    @Override
+    public ClassNode getOrGenerateMixinClass(ClassNode original, String targetClass, @Nullable String parent) {
         int lastSeparator = original.name.lastIndexOf('/');
         String pkg = original.name.substring(0, lastSeparator + 1);
         String[] parts = targetClass.split("/");
@@ -28,14 +30,14 @@ public class MixinClassGenerator {
         GeneratedClass generatedClass;
         synchronized (this.generatedMixinClasses) {
             generatedClass = this.generatedMixinClasses.computeIfAbsent(className, s -> {
-                ClassNode node = generateMixinClass(s, targetClass, parent);
+                ClassNode node = doGenerateMixinClass(s, targetClass, parent);
                 return new GeneratedClass(original.name, node.name, node);
             });
         }
         return generatedClass.node();
     }
 
-    private ClassNode generateMixinClass(String className, String targetClass, @Nullable String parent) {
+    private ClassNode doGenerateMixinClass(String className, String targetClass, @Nullable String parent) {
         ClassNode targetNode;
         try {
             targetNode = MixinService.getService().getBytecodeProvider().getClassNode(targetClass);
@@ -47,7 +49,7 @@ public class MixinClassGenerator {
         boolean itf = (targetNode.access & Opcodes.ACC_INTERFACE) == Opcodes.ACC_INTERFACE;
         int flags = itf ? Opcodes.ACC_INTERFACE : Opcodes.ACC_FINAL;
         node.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | flags, className, null, parent != null ? parent : "java/lang/Object", null);
-        AnnotationVisitor mixinAnn = node.visitAnnotation(PatchInstance.MIXIN_ANN, false);
+        AnnotationVisitor mixinAnn = node.visitAnnotation(MixinConstants.MIXIN, false);
         {
             AnnotationVisitor valueArray = mixinAnn.visitArray("value");
             valueArray.visit(null, Type.getType(Type.getObjectType(targetClass).getDescriptor()));

@@ -7,7 +7,7 @@ import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
 import dev.su5ed.sinytra.adapter.patch.ClassPatchInstance;
 import dev.su5ed.sinytra.adapter.patch.InterfacePatchInstance;
-import dev.su5ed.sinytra.adapter.patch.Patch;
+import dev.su5ed.sinytra.adapter.patch.api.Patch;
 
 import java.util.List;
 import java.util.Objects;

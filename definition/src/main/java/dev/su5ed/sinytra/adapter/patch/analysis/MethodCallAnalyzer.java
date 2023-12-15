@@ -2,7 +2,7 @@ package dev.su5ed.sinytra.adapter.patch.analysis;
 
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
-import dev.su5ed.sinytra.adapter.patch.PatchEnvironment;
+import dev.su5ed.sinytra.adapter.patch.api.GlobalReferenceMapper;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -54,12 +54,12 @@ public class MethodCallAnalyzer {
     private static AbstractInsnNode remapInsn(AbstractInsnNode insn) {
         if (insn instanceof MethodInsnNode minsn) {
             MethodInsnNode clone = (MethodInsnNode) minsn.clone(Map.of());
-            clone.name = PatchEnvironment.remapReference(clone.name);
+            clone.name = GlobalReferenceMapper.remapReference(clone.name);
             return clone;
         }
         if (insn instanceof FieldInsnNode finsn) {
             FieldInsnNode clone = (FieldInsnNode) finsn.clone(Map.of());
-            clone.name = PatchEnvironment.remapReference(clone.name);
+            clone.name = GlobalReferenceMapper.remapReference(clone.name);
             return clone;
         }
         return insn;

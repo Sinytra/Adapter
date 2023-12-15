@@ -2,7 +2,7 @@ package dev.su5ed.sinytra.adapter.gradle.analysis;
 
 import com.mojang.datafixers.util.Pair;
 import dev.su5ed.sinytra.adapter.gradle.util.MatchResult;
-import dev.su5ed.sinytra.adapter.patch.Patch;
+import dev.su5ed.sinytra.adapter.patch.api.Patch;
 import dev.su5ed.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyInjectionTarget;
 import dev.su5ed.sinytra.adapter.patch.transformer.filter.InjectionPointTransformerFilter;

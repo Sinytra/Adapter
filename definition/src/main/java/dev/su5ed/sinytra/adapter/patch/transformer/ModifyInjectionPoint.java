@@ -3,13 +3,13 @@ package dev.su5ed.sinytra.adapter.patch.transformer;
 import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import dev.su5ed.sinytra.adapter.patch.MethodTransform;
-import dev.su5ed.sinytra.adapter.patch.Patch;
-import dev.su5ed.sinytra.adapter.patch.Patch.Result;
-import dev.su5ed.sinytra.adapter.patch.PatchContext;
+import dev.su5ed.sinytra.adapter.patch.api.MethodContext;
+import dev.su5ed.sinytra.adapter.patch.api.MethodTransform;
+import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
+import dev.su5ed.sinytra.adapter.patch.api.Patch.Result;
+import dev.su5ed.sinytra.adapter.patch.api.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
-import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -51,7 +51,7 @@ public record ModifyInjectionPoint(@Nullable String value, String target, boolea
         if (handle != null) {
             String original = handle.get();
             handle.set(this.target);
-            if (methodContext.methodAnnotation().matchesDesc(Patch.MODIFY_ARGS)) {
+            if (methodContext.methodAnnotation().matchesDesc(MixinConstants.MODIFY_ARGS)) {
                 ModifyArgsOffsetTransformer.handleModifiedDesc(methodNode, original, this.target);
             }
         } else {

@@ -2,10 +2,10 @@ package dev.su5ed.sinytra.adapter.patch.transformer;
 
 import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
-import dev.su5ed.sinytra.adapter.patch.MethodTransform;
-import dev.su5ed.sinytra.adapter.patch.Patch.Result;
-import dev.su5ed.sinytra.adapter.patch.PatchContext;
-import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
+import dev.su5ed.sinytra.adapter.patch.api.MethodContext;
+import dev.su5ed.sinytra.adapter.patch.api.MethodTransform;
+import dev.su5ed.sinytra.adapter.patch.api.Patch.Result;
+import dev.su5ed.sinytra.adapter.patch.api.PatchContext;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.slf4j.Logger;

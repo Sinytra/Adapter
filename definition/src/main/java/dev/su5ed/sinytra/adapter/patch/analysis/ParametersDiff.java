@@ -4,6 +4,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.mojang.datafixers.util.Pair;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
+import dev.su5ed.sinytra.adapter.patch.util.GeneratedVariables;
 import it.unimi.dsi.fastutil.ints.Int2IntLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
@@ -25,7 +26,7 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
     
     public record MethodParameter(Type type, boolean isGeneratedType) {
         public MethodParameter(@Nullable String name, Type type) {
-            this(type, name != null && AdapterUtil.isGeneratedVariableName(name, type));
+            this(type, name != null && GeneratedVariables.isGeneratedVariableName(name, type));
         }
 
         public MethodParameter(LocalVariableNode lv) {

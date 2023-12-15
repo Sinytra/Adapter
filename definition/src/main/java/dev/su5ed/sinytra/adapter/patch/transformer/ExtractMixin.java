@@ -1,9 +1,6 @@
 package dev.su5ed.sinytra.adapter.patch.transformer;
 
-import dev.su5ed.sinytra.adapter.patch.MethodTransform;
-import dev.su5ed.sinytra.adapter.patch.Patch;
-import dev.su5ed.sinytra.adapter.patch.PatchContext;
-import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
+import dev.su5ed.sinytra.adapter.patch.api.*;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import org.objectweb.asm.Opcodes;
@@ -18,7 +15,7 @@ import java.util.Set;
 public record ExtractMixin(String targetClass) implements MethodTransform {
     @Override
     public Collection<String> getAcceptedAnnotations() {
-        return Set.of(Patch.WRAP_OPERATION, Patch.MODIFY_CONST, Patch.MODIFY_ARG, Patch.INJECT, Patch.REDIRECT);
+        return Set.of(MixinConstants.WRAP_OPERATION, MixinConstants.MODIFY_CONST, MixinConstants.MODIFY_ARG, MixinConstants.INJECT, MixinConstants.REDIRECT);
     }
 
     @Override
@@ -30,7 +27,7 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
             return Patch.Result.PASS;
         }
         String owner = Objects.requireNonNullElse(qualifier.internalOwnerName(), this.targetClass);
-        boolean isInherited = context.getEnvironment().getInheritanceHandler().isClassInherited(this.targetClass, owner);
+        boolean isInherited = context.environment().inheritanceHandler().isClassInherited(this.targetClass, owner);
         for (AbstractInsnNode insn : methodNode.instructions) {
             if (insn instanceof FieldInsnNode finsn && finsn.owner.equals(classNode.name) && !isInheritedField(classNode, finsn, isInherited)
                 || insn instanceof MethodInsnNode minsn && minsn.owner.equals(classNode.name) && !isInheritedMethod(classNode, minsn, isInherited)
@@ -41,8 +38,8 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
         }
         ClassNode targetClass = AdapterUtil.getClassNode(this.targetClass);
         // Get or generate new mixin class
-        ClassNode generatedTarget = context.getEnvironment().getClassGenerator().getGeneratedMixinClass(classNode, this.targetClass, targetClass != null ? targetClass.superName : null);
-        context.getEnvironment().getRefmapHolder().copyEntries(classNode.name, generatedTarget.name);
+        ClassNode generatedTarget = context.environment().classGenerator().getOrGenerateMixinClass(classNode, this.targetClass, targetClass != null ? targetClass.superName : null);
+        context.environment().refmapHolder().copyEntries(classNode.name, generatedTarget.name);
         // Add mixin method from original to generated class
         generatedTarget.methods.add(methodNode);
         // Remove original method
@@ -92,7 +89,7 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
     }
 
     private static boolean isShadowMember(List<AnnotationNode> annotations) {
-        return annotations.stream().anyMatch(an -> an.desc.equals(AdapterUtil.SHADOW_ANN));
+        return annotations.stream().anyMatch(an -> MixinConstants.SHADOW.equals(an.desc));
     }
 
     private static int fixAccess(int access) {

@@ -3,13 +3,13 @@ package dev.su5ed.sinytra.adapter.patch.transformer;
 import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import dev.su5ed.sinytra.adapter.patch.MethodTransform;
-import dev.su5ed.sinytra.adapter.patch.Patch;
-import dev.su5ed.sinytra.adapter.patch.Patch.Result;
-import dev.su5ed.sinytra.adapter.patch.PatchContext;
+import dev.su5ed.sinytra.adapter.patch.api.MethodContext;
+import dev.su5ed.sinytra.adapter.patch.api.MethodTransform;
+import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
+import dev.su5ed.sinytra.adapter.patch.api.Patch.Result;
+import dev.su5ed.sinytra.adapter.patch.api.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
-import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -39,7 +39,7 @@ public record ModifyInjectionTarget(List<String> replacementMethods, Action acti
     public Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
         LOGGER.info(MIXINPATCH, "Redirecting mixin {}.{} to {}", classNode.name, methodNode.name, this.replacementMethods);
         AnnotationHandle annotation = methodContext.methodAnnotation();
-        if (annotation.matchesDesc(Patch.OVERWRITE)) {
+        if (annotation.matchesDesc(MixinConstants.OVERWRITE)) {
             if (this.replacementMethods.size() > 1) {
                 throw new IllegalStateException("Cannot determine replacement @Overwrite method name, multiple specified: " + this.replacementMethods);
             }

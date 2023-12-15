@@ -8,7 +8,7 @@ import dev.su5ed.sinytra.adapter.gradle.analysis.ReplacedMethodCalls;
 import dev.su5ed.sinytra.adapter.gradle.util.MatchResult;
 import dev.su5ed.sinytra.adapter.gradle.util.TraceCallback;
 import dev.su5ed.sinytra.adapter.patch.LVTOffsets;
-import dev.su5ed.sinytra.adapter.patch.Patch;
+import dev.su5ed.sinytra.adapter.patch.api.Patch;
 import dev.su5ed.sinytra.adapter.patch.PatchInstance;
 import dev.su5ed.sinytra.adapter.patch.analysis.InheritanceHandler;
 import dev.su5ed.sinytra.adapter.patch.analysis.LocalVarRearrangement;

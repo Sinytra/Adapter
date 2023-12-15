@@ -3,9 +3,12 @@ package dev.su5ed.sinytra.adapter.patch;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.su5ed.sinytra.adapter.patch.api.ClassTransform;
+import dev.su5ed.sinytra.adapter.patch.api.MethodTransform;
+import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
+import dev.su5ed.sinytra.adapter.patch.api.PatchEnvironment;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.FieldMatcher;
-import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import dev.su5ed.sinytra.adapter.patch.serialization.MethodTransformSerialization;
 import dev.su5ed.sinytra.adapter.patch.transformer.RedirectAccessor;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
@@ -21,7 +24,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 public final class InterfacePatchInstance extends PatchInstance {
-    public static final Collection<String> KNOWN_INTERFACE_MIXIN_TYPES = Set.of(Patch.ACCESSOR);
+    public static final Collection<String> KNOWN_INTERFACE_MIXIN_TYPES = Set.of(MixinConstants.ACCESSOR);
 
     public static final Codec<InterfacePatchInstance> CODEC = RecordCodecBuilder
         .<InterfacePatchInstance>create(instance -> instance.group(
@@ -58,10 +61,10 @@ public final class InterfacePatchInstance extends PatchInstance {
     }
 
     @Override
-    protected boolean checkAnnotation(String owner, MethodNode method, AnnotationHandle methodAnnotation, PatchEnvironment environment, MethodContext.Builder builder) {
+    protected boolean checkAnnotation(String owner, MethodNode method, AnnotationHandle methodAnnotation, PatchEnvironment environment, MethodContextImpl.Builder builder) {
         if (KNOWN_INTERFACE_MIXIN_TYPES.contains(methodAnnotation.getDesc())) {
             // Find accessor target
-            if (methodAnnotation.matchesDesc(Patch.ACCESSOR)) {
+            if (methodAnnotation.matchesDesc(MixinConstants.ACCESSOR)) {
                 FieldMatcher matcher = AdapterUtil.getAccessorTargetFieldName(owner, method, methodAnnotation, environment)
                     .map(FieldMatcher::new)
                     .orElse(null);

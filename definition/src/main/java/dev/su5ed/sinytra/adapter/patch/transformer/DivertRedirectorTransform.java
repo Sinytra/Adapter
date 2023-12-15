@@ -1,10 +1,7 @@
 package dev.su5ed.sinytra.adapter.patch.transformer;
 
-import dev.su5ed.sinytra.adapter.patch.MethodTransform;
-import dev.su5ed.sinytra.adapter.patch.Patch;
-import dev.su5ed.sinytra.adapter.patch.PatchContext;
+import dev.su5ed.sinytra.adapter.patch.api.*;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
-import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.commons.InstructionAdapter;
@@ -18,7 +15,7 @@ public record DivertRedirectorTransform(Consumer<InstructionAdapter> patcher) im
 
     @Override
     public Collection<String> getAcceptedAnnotations() {
-        return Set.of(Patch.REDIRECT);
+        return Set.of(MixinConstants.REDIRECT);
     }
 
     @Override

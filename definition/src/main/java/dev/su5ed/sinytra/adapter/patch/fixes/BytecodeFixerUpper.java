@@ -2,7 +2,7 @@ package dev.su5ed.sinytra.adapter.patch.fixes;
 
 import com.google.common.collect.ImmutableMap;
 import com.mojang.datafixers.util.Pair;
-import dev.su5ed.sinytra.adapter.patch.PatchEnvironment;
+import dev.su5ed.sinytra.adapter.patch.api.GlobalReferenceMapper;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 
@@ -19,7 +19,7 @@ public final class BytecodeFixerUpper {
         ImmutableMap.Builder<String, Map<String, Pair<Type, Type>>> builder = ImmutableMap.builder();
         newFieldTypes.forEach((owner, fields) -> {
             ImmutableMap.Builder<String, Pair<Type, Type>> fieldsBuilder = ImmutableMap.builder();
-            fields.forEach((k, v) -> fieldsBuilder.put(PatchEnvironment.remapReference(k), v));
+            fields.forEach((k, v) -> fieldsBuilder.put(GlobalReferenceMapper.remapReference(k), v));
             builder.put(owner, fieldsBuilder.build());
         });
         this.newFieldTypes = builder.build();

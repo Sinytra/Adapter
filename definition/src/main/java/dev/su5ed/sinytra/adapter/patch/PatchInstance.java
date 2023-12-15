@@ -1,9 +1,9 @@
 package dev.su5ed.sinytra.adapter.patch;
 
 import com.mojang.serialization.Codec;
+import dev.su5ed.sinytra.adapter.patch.api.*;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
-import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import dev.su5ed.sinytra.adapter.patch.transformer.*;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
@@ -18,8 +18,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 public abstract sealed class PatchInstance implements Patch permits ClassPatchInstance, InterfacePatchInstance {
-    public static final String MIXIN_ANN = "Lorg/spongepowered/asm/mixin/Mixin;";
-    public static final Collection<String> KNOWN_MIXIN_TYPES = Set.of(Patch.INJECT, Patch.REDIRECT, Patch.MODIFY_ARG, Patch.MODIFY_ARGS, Patch.MODIFY_VAR, Patch.MODIFY_CONST, Patch.MODIFY_EXPR_VAL, Patch.WRAP_OPERATION);
+    public static final Collection<String> KNOWN_MIXIN_TYPES = Set.of(MixinConstants.INJECT, MixinConstants.REDIRECT, MixinConstants.MODIFY_ARG, MixinConstants.MODIFY_ARGS, MixinConstants.MODIFY_VAR, MixinConstants.MODIFY_CONST, MixinConstants.MODIFY_EXPR_VAL, MixinConstants.WRAP_OPERATION);
 
     public static final Marker MIXINPATCH = MarkerFactory.getMarker("MIXINPATCH");
 
@@ -48,7 +47,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
     @Override
     public Result apply(ClassNode classNode, PatchEnvironment environment) {
         Result result = Result.PASS;
-        PatchContext context = new PatchContext(classNode, environment);
+        PatchContextImpl context = new PatchContextImpl(classNode, environment);
         ClassTarget classTarget = checkClassTarget(classNode);
         if (classTarget != null) {
             AnnotationValueHandle<?> classAnnotation = classTarget.handle();
@@ -74,7 +73,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
     private ClassTarget checkClassTarget(ClassNode classNode) {
         if (classNode.invisibleAnnotations != null) {
             for (AnnotationNode annotation : classNode.invisibleAnnotations) {
-                if (annotation.desc.equals(MIXIN_ANN)) {
+                if (annotation.desc.equals(MixinConstants.MIXIN)) {
                     return PatchInstance.<List<Type>>findAnnotationValue(annotation.values, "value")
                         .map(types -> {
                             for (Type targetType : types.get()) {
@@ -105,7 +104,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         if (method.visibleAnnotations != null) {
             for (AnnotationNode annotation : method.visibleAnnotations) {
                 if (this.targetAnnotations.isEmpty() || this.targetAnnotations.contains(annotation.desc)) {
-                    MethodContext.Builder builder = MethodContext.builder();
+                    MethodContextImpl.Builder builder = MethodContextImpl.builder();
                     if (classAnnotation != null) {
                         builder.classAnnotation(classAnnotation);
                         builder.targetTypes(targetTypes);
@@ -120,7 +119,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         return null;
     }
 
-    protected abstract boolean checkAnnotation(String owner, MethodNode method, AnnotationHandle annotation, PatchEnvironment remaper, MethodContext.Builder builder);
+    protected abstract boolean checkAnnotation(String owner, MethodNode method, AnnotationHandle annotation, PatchEnvironment remaper, MethodContextImpl.Builder builder);
 
     public static <T> Optional<AnnotationValueHandle<T>> findAnnotationValue(@Nullable List<Object> values, String key) {
         if (values != null) {
@@ -192,11 +191,6 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         @Override
         public T modifyMethodAccess(ModifyMethodAccess.AccessChange... changes) {
             return transform(new ModifyMethodAccess(List.of(changes)));
-        }
-
-        @Override
-        public T modifyAnnotationValues(Predicate<AnnotationHandle> annotation) {
-            return transform(new ModifyAnnotationValues(annotation));
         }
 
         @Override

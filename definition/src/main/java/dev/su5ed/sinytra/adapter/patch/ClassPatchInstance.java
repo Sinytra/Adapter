@@ -3,6 +3,10 @@ package dev.su5ed.sinytra.adapter.patch;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.su5ed.sinytra.adapter.patch.api.ClassTransform;
+import dev.su5ed.sinytra.adapter.patch.api.MethodTransform;
+import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
+import dev.su5ed.sinytra.adapter.patch.api.PatchEnvironment;
 import dev.su5ed.sinytra.adapter.patch.selector.*;
 import dev.su5ed.sinytra.adapter.patch.serialization.MethodTransformSerialization;
 import dev.su5ed.sinytra.adapter.patch.transformer.DivertRedirectorTransform;
@@ -52,16 +56,17 @@ public final class ClassPatchInstance extends PatchInstance {
         return CODEC;
     }
 
-    protected boolean checkAnnotation(String owner, MethodNode method, AnnotationHandle methodAnnotation, PatchEnvironment remaper, MethodContext.Builder builder) {
+    @Override
+    protected boolean checkAnnotation(String owner, MethodNode method, AnnotationHandle methodAnnotation, PatchEnvironment remaper, MethodContextImpl.Builder builder) {
         builder.methodAnnotation(methodAnnotation);
-        if (methodAnnotation.matchesDesc(Patch.OVERWRITE)) {
+        if (methodAnnotation.matchesDesc(MixinConstants.OVERWRITE)) {
             return this.targetMethods.isEmpty() || this.targetMethods.stream().anyMatch(matcher -> matcher.matches(method.name, method.desc));
         } else if (KNOWN_MIXIN_TYPES.contains(methodAnnotation.getDesc())) {
             return methodAnnotation.<List<String>>getValue("method")
                 .map(value -> {
                     List<String> matchingTargets = new ArrayList<>();
                     for (String target : value.get()) {
-                        String remappedTarget = remaper.getRefmapHolder().remap(owner, target);
+                        String remappedTarget = remaper.refmapHolder().remap(owner, target);
                         MethodQualifier qualifier = MethodQualifier.create(remappedTarget).filter(q -> q.name() != null).orElse(null);
                         if (qualifier == null) {
                             continue;
@@ -83,7 +88,7 @@ public final class ClassPatchInstance extends PatchInstance {
         return false;
     }
 
-    private boolean checkInjectionPoint(String owner, AnnotationHandle methodAnnotation, PatchEnvironment environment, MethodContext.Builder builder) {
+    private boolean checkInjectionPoint(String owner, AnnotationHandle methodAnnotation, PatchEnvironment environment, MethodContextImpl.Builder builder) {
         return methodAnnotation.getNested("at")
             .flatMap(node -> checkInjectionPointAnnotation(owner, node, environment, builder))
             // Check slice.from target
@@ -93,10 +98,10 @@ public final class ClassPatchInstance extends PatchInstance {
             .orElse(this.targetInjectionPoints.isEmpty());
     }
 
-    private Optional<Boolean> checkInjectionPointAnnotation(String owner, AnnotationHandle injectionPointAnnotation, PatchEnvironment environment, MethodContext.Builder builder) {
+    private Optional<Boolean> checkInjectionPointAnnotation(String owner, AnnotationHandle injectionPointAnnotation, PatchEnvironment environment, MethodContextImpl.Builder builder) {
         AnnotationValueHandle<String> value = injectionPointAnnotation.<String>getValue("value").orElse(null);
         String valueStr = value != null ? value.get() : null;
-        String targetStr = injectionPointAnnotation.<String>getValue("target").map(t -> environment.getRefmapHolder().remap(owner, t.get())).orElse("");
+        String targetStr = injectionPointAnnotation.<String>getValue("target").map(t -> environment.refmapHolder().remap(owner, t.get())).orElse("");
         if (this.targetInjectionPoints.isEmpty() || this.targetInjectionPoints.stream().anyMatch(pred -> pred.test(valueStr, targetStr))) {
             builder.injectionPointAnnotation(injectionPointAnnotation);
             return Optional.of(true);
@@ -104,7 +109,7 @@ public final class ClassPatchInstance extends PatchInstance {
         return Optional.empty();
     }
 
-    protected static class ClassPatchBuilderImpl extends BaseBuilder<ClassPatchBuilder> implements ClassPatchBuilder {
+    public static class ClassPatchBuilderImpl extends BaseBuilder<ClassPatchBuilder> implements ClassPatchBuilder {
         private final Set<MethodMatcher> targetMethods = new HashSet<>();
         private final Set<InjectionPointMatcher> targetInjectionPoints = new HashSet<>();
 

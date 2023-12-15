@@ -1,6 +1,6 @@
 package dev.su5ed.sinytra.adapter.patch.util;
 
-import dev.su5ed.sinytra.adapter.patch.PatchEnvironment;
+import dev.su5ed.sinytra.adapter.patch.api.PatchEnvironment;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -87,7 +87,7 @@ public class MockMixinRuntime {
     private record ReferenceRemapper(PatchEnvironment env) implements IReferenceMapper {
         @Override
         public String remapWithContext(String context, String className, String reference) {
-            return this.env.getRefmapHolder().remap(className, reference);
+            return this.env.refmapHolder().remap(className, reference);
         }
 
         //@formatter:off

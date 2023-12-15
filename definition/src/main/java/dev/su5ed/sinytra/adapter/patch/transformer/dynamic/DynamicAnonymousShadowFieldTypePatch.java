@@ -1,14 +1,14 @@
-package dev.su5ed.sinytra.adapter.patch.transformer;
+package dev.su5ed.sinytra.adapter.patch.transformer.dynamic;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.mojang.logging.LogUtils;
-import dev.su5ed.sinytra.adapter.patch.PatchContext;
+import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
+import dev.su5ed.sinytra.adapter.patch.api.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
-import dev.su5ed.sinytra.adapter.patch.ClassTransform;
-import dev.su5ed.sinytra.adapter.patch.Patch;
+import dev.su5ed.sinytra.adapter.patch.api.ClassTransform;
+import dev.su5ed.sinytra.adapter.patch.api.Patch;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
@@ -49,7 +49,7 @@ public class DynamicAnonymousShadowFieldTypePatch implements ClassTransform {
         for (FieldNode field : classNode.fields) {
             if (field.visibleAnnotations != null) {
                 for (AnnotationNode ann : field.visibleAnnotations) {
-                    if (ann.desc.equals(AdapterUtil.SHADOW_ANN)) {
+                    if (MixinConstants.SHADOW.equals(ann.desc)) {
                         Collection<FieldNode> targetFields = fields.get(field.desc);
                         if (targetFields.size() == 1) {
                             FieldNode targetField = targetFields.iterator().next();

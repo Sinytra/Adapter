@@ -2,7 +2,7 @@ package dev.su5ed.sinytra.adapter.patch.util;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
-import dev.su5ed.sinytra.adapter.patch.PatchEnvironment;
+import dev.su5ed.sinytra.adapter.patch.api.GlobalReferenceMapper;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.MethodInsnNode;
@@ -34,7 +34,7 @@ public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nu
             String name = matcher.group("name");
             String desc = matcher.group("desc");
             if (name != null || desc != null) {
-                return Optional.of(new MethodQualifier(matcher.group("owner"), remap ? PatchEnvironment.remapReference(name) : name, desc));
+                return Optional.of(new MethodQualifier(matcher.group("owner"), remap ? GlobalReferenceMapper.remapReference(name) : name, desc));
             }
         }
         return Optional.empty();

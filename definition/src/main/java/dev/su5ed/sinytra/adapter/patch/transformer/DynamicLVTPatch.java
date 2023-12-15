@@ -4,15 +4,15 @@ import com.google.common.base.Suppliers;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
 import dev.su5ed.sinytra.adapter.patch.LVTOffsets;
-import dev.su5ed.sinytra.adapter.patch.MethodTransform;
-import dev.su5ed.sinytra.adapter.patch.Patch;
-import dev.su5ed.sinytra.adapter.patch.Patch.Result;
-import dev.su5ed.sinytra.adapter.patch.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.analysis.EnhancedParamsDiff;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
+import dev.su5ed.sinytra.adapter.patch.api.MethodContext;
+import dev.su5ed.sinytra.adapter.patch.api.MethodTransform;
+import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
+import dev.su5ed.sinytra.adapter.patch.api.Patch.Result;
+import dev.su5ed.sinytra.adapter.patch.api.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
-import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -36,7 +36,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
 
     @Override
     public Collection<String> getAcceptedAnnotations() {
-        return Set.of(Patch.INJECT, Patch.MODIFY_EXPR_VAL, Patch.MODIFY_VAR);
+        return Set.of(MixinConstants.INJECT, MixinConstants.MODIFY_EXPR_VAL, MixinConstants.MODIFY_VAR);
     }
 
     @Override
@@ -68,7 +68,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             }
             return result;
         }
-        if (annotation.matchesDesc(Patch.MODIFY_VAR)) {
+        if (annotation.matchesDesc(MixinConstants.MODIFY_VAR)) {
             Result result = offsetVariableIndex(classNode, methodNode, annotation, methodContext);
             if (result == Result.PASS) {
                 AnnotationValueHandle<Integer> ordinal = annotation.<Integer>getValue("ordinal").orElse(null);
@@ -96,7 +96,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             return result;
         }
         // Check if the mixin captures LVT
-        if (annotation.matchesDesc(Patch.INJECT) && annotation.getValue("locals").isPresent()) {
+        if (annotation.matchesDesc(MixinConstants.INJECT) && annotation.getValue("locals").isPresent()) {
             ParametersDiff diff = compareParameters(classNode, methodNode, methodContext, context);
             if (diff != null) {
                 // Apply parameter patch

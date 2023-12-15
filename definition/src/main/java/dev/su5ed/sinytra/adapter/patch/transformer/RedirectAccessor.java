@@ -1,12 +1,9 @@
 package dev.su5ed.sinytra.adapter.patch.transformer;
 
 import com.mojang.logging.LogUtils;
-import dev.su5ed.sinytra.adapter.patch.MethodTransform;
-import dev.su5ed.sinytra.adapter.patch.Patch;
-import dev.su5ed.sinytra.adapter.patch.PatchContext;
+import dev.su5ed.sinytra.adapter.patch.api.*;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
-import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.slf4j.Logger;
@@ -21,7 +18,7 @@ public record RedirectAccessor(String value) implements MethodTransform {
 
     @Override
     public Collection<String> getAcceptedAnnotations() {
-        return Set.of(Patch.ACCESSOR);
+        return Set.of(MixinConstants.ACCESSOR);
     }
 
     @Override

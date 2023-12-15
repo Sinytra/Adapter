@@ -4,19 +4,18 @@ import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import dev.su5ed.sinytra.adapter.patch.MethodTransform;
-import dev.su5ed.sinytra.adapter.patch.Patch;
-import dev.su5ed.sinytra.adapter.patch.Patch.Result;
-import dev.su5ed.sinytra.adapter.patch.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.PatchInstance;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
+import dev.su5ed.sinytra.adapter.patch.api.MethodContext;
+import dev.su5ed.sinytra.adapter.patch.api.MethodTransform;
+import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
+import dev.su5ed.sinytra.adapter.patch.api.Patch.Result;
+import dev.su5ed.sinytra.adapter.patch.api.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
 import dev.su5ed.sinytra.adapter.patch.fixes.FieldTypeFix;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
-import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
-import dev.su5ed.sinytra.adapter.patch.util.ExtraCodecs;
 import dev.su5ed.sinytra.adapter.patch.util.SingleValueHandle;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -36,7 +35,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
                                  boolean ignoreOffset, @Nullable LVTFixer lvtFixer) implements MethodTransform {
     public static final Codec<Pair<Integer, Type>> MODIFICATION_CODEC = Codec.pair(
         Codec.INT.fieldOf("index").codec(),
-        ExtraCodecs.TYPE_CODEC.fieldOf("type").codec()
+        AdapterUtil.TYPE_CODEC.fieldOf("type").codec()
     );
     public static final Codec<Pair<Integer, Integer>> SWAP_CODEC = Codec.pair(
         Codec.INT.fieldOf("original").codec(),
@@ -88,10 +87,10 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
         List<Type> newParameterTypes = new ArrayList<>(Arrays.asList(params));
         int offset = (methodNode.access & Opcodes.ACC_STATIC) == 0
             // If it's a redirect, the first param (index 1) is the object instance
-            ? annotation.matchesDesc(Patch.REDIRECT) && !this.ignoreOffset ? 2 : 1
+            ? annotation.matchesDesc(MixinConstants.REDIRECT) && !this.ignoreOffset ? 2 : 1
             : 0;
 
-        if (annotation.matchesDesc(Patch.MODIFY_VAR)) {
+        if (annotation.matchesDesc(MixinConstants.MODIFY_VAR)) {
             AnnotationValueHandle<Integer> indexHandle = annotation.<Integer>getValue("index").orElse(null);
             if (indexHandle != null) {
                 this.insertions.forEach(pair -> {
@@ -104,7 +103,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
             }
             return Result.APPLY;
         }
-        if (annotation.matchesDesc(Patch.MODIFY_ARGS)) {
+        if (annotation.matchesDesc(MixinConstants.MODIFY_ARGS)) {
             ModifyArgsOffsetTransformer.modify(methodNode, this.insertions);
             return Result.APPLY;
         }
@@ -142,7 +141,7 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
 
             methodNode.localVariables.add(new LocalVariableNode("adapter_injected_" + index, type.getDescriptor(), null, self.start, self.end, lvtIndex));
         }
-        BytecodeFixerUpper bfu = context.getEnvironment().getBytecodeFixerUpper();
+        BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
         this.replacements.forEach(pair -> {
             int index = pair.getFirst();
             Type type = pair.getSecond();
@@ -369,8 +368,8 @@ public record ModifyMethodParams(List<Pair<Integer, Type>> insertions, List<Pair
 
     public enum TargetType {
         ALL,
-        METHOD(Patch.INJECT, Patch.OVERWRITE, Patch.MODIFY_VAR),
-        INJECTION_POINT(Patch.REDIRECT, Patch.MODIFY_ARG, Patch.MODIFY_ARGS);
+        METHOD(MixinConstants.INJECT, MixinConstants.OVERWRITE, MixinConstants.MODIFY_VAR),
+        INJECTION_POINT(MixinConstants.REDIRECT, MixinConstants.MODIFY_ARG, MixinConstants.MODIFY_ARGS);
 
         public static final Codec<TargetType> CODEC = Codec.STRING.xmap(TargetType::from, TargetType::name);
 

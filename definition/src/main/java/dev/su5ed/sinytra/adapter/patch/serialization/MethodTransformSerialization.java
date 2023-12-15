@@ -4,7 +4,7 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
-import dev.su5ed.sinytra.adapter.patch.MethodTransform;
+import dev.su5ed.sinytra.adapter.patch.api.MethodTransform;
 import dev.su5ed.sinytra.adapter.patch.transformer.*;
 import dev.su5ed.sinytra.adapter.patch.transformer.filter.InjectionPointTransformerFilter;
 

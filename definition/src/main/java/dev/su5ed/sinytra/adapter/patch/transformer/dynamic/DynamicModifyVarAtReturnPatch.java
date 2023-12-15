@@ -1,14 +1,12 @@
-package dev.su5ed.sinytra.adapter.patch.transformer;
+package dev.su5ed.sinytra.adapter.patch.transformer.dynamic;
 
 import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
-import dev.su5ed.sinytra.adapter.patch.MethodTransform;
-import dev.su5ed.sinytra.adapter.patch.Patch;
-import dev.su5ed.sinytra.adapter.patch.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
+import dev.su5ed.sinytra.adapter.patch.api.*;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
-import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
+import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMixinType;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.MockMixinRuntime;
 import org.objectweb.asm.Opcodes;
@@ -28,12 +26,60 @@ import java.util.Set;
 
 import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
+/**
+ * Original mixin:
+ *
+ * <pre>{@code @ModifyVariable(
+ *     method = "exampleMethod",
+ *     at = @At("RETURN")
+ * )
+ * private void someMethodMixin(int original) {
+ *     return original * 2;
+ * }
+ * }</pre>
+ * <p>
+ * Original target:
+ *
+ * <pre>{@code
+ * public int exampleMethod() {
+ *     int i = 10;
+ *     // ...
+ * <<< return i;
+ * >>> return modify$zfk000$someMethodMixin(i);
+ * }
+ * }</pre>
+ * <p>
+ * Patched target:
+ * <pre>{@code
+ * public int exampleMethod() {
+ *     int i = 10;
+ *     // ...
+ * <<< return EventHooks.wrapVariable(i);
+ * >>> return EventHooks.wrapVariable(modify$zfk000$someMethodMixin(i));
+ * }
+ * }</pre>
+ * <p>
+ * Patched mixin:
+ * 
+ * <pre>{@code @ModifyArg(
+ *     method = "exampleMethod",
+ *     at = @At(
+ *         value = "INVOKE",
+ *         target="Lcom/example/EventHooks;wrapVariable(I)I"
+ *     ),
+ *     index = 0
+ * )
+ * private void someMethodMixin(int original) {
+ *     return original * 2;
+ * }
+ * }</pre>
+ */
 public class DynamicModifyVarAtReturnPatch implements MethodTransform {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     @Override
     public Collection<String> getAcceptedAnnotations() {
-        return Set.of(Patch.MODIFY_VAR);
+        return Set.of(MixinConstants.MODIFY_VAR);
     }
 
     @Override
@@ -85,7 +131,7 @@ public class DynamicModifyVarAtReturnPatch implements MethodTransform {
                 String qualifier = MethodCallAnalyzer.getCallQualifier(dirtyMinsn);
                 final int index = i;
                 LOGGER.info(MIXINPATCH, "Redirecting RETURN variable modifier to parameter {} of method call to {}", i, qualifier);
-                MethodTransform transform = new ModifyMixinType(Patch.MODIFY_ARG, b -> b.sameTarget()
+                MethodTransform transform = new ModifyMixinType(MixinConstants.MODIFY_ARG, b -> b.sameTarget()
                     .injectionPoint("INVOKE", qualifier)
                     .putValue("index", index));
                 result = transform.apply(classNode, methodNode, methodContext, context);
@@ -106,7 +152,7 @@ public class DynamicModifyVarAtReturnPatch implements MethodTransform {
         AbstractInsnNode targetInsn = targetInsns.get(ordinal == -1 ? targetInsns.size() - 1 : ordinal);
         // Find modified variable
         LocalVariableDiscriminator discriminator = LocalVariableDiscriminator.parse(methodContext.methodAnnotation().unwrap());
-        InjectionInfo injectionInfo = MockMixinRuntime.forInjectionInfo(classNode.name, targetClass.name, context.getEnvironment());
+        InjectionInfo injectionInfo = MockMixinRuntime.forInjectionInfo(classNode.name, targetClass.name, context.environment());
         Type returnType = Type.getReturnType(methodNode.desc);
         Target target = new Target(targetClass, targetMethod);
         LocalVariableDiscriminator.Context ctx = new LocalVariableDiscriminator.Context(injectionInfo, returnType, discriminator.isArgsOnly(), target, targetInsn);

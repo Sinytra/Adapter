@@ -3,13 +3,10 @@ package dev.su5ed.sinytra.adapter.patch.transformer;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import dev.su5ed.sinytra.adapter.patch.MethodTransform;
-import dev.su5ed.sinytra.adapter.patch.Patch;
-import dev.su5ed.sinytra.adapter.patch.PatchContext;
+import dev.su5ed.sinytra.adapter.patch.api.*;
 import dev.su5ed.sinytra.adapter.patch.analysis.InheritanceHandler;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
 import dev.su5ed.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
-import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import org.objectweb.asm.Type;
@@ -31,7 +28,7 @@ public record SoftMethodParamsPatch(String replacementTarget) implements MethodT
 
     @Override
     public Collection<String> getAcceptedAnnotations() {
-        return Set.of(Patch.INJECT);
+        return Set.of(MixinConstants.INJECT);
     }
 
     @Override
@@ -48,7 +45,7 @@ public record SoftMethodParamsPatch(String replacementTarget) implements MethodT
     }
 
     private List<Pair<Integer, Type>> determineAutomaticReplacements(MethodQualifier targetQualifier, MethodNode methodNode, PatchContext context, String replacement) {
-        BytecodeFixerUpper bfu = context.getEnvironment().getBytecodeFixerUpper();
+        BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
         if (bfu == null) {
             return List.of();
         }
@@ -67,7 +64,7 @@ public record SoftMethodParamsPatch(String replacementTarget) implements MethodT
                     Type original = args[pair.getFirst()];
                     return original.getSort() == Type.OBJECT && type.getSort() == Type.OBJECT
                         && (bfu.getFieldTypeAdapter(pair.getSecond(), original) != null
-                        || permittedTypeNarrowing(index, original, type, context.getEnvironment().getInheritanceHandler(), methodNode));
+                        || permittedTypeNarrowing(index, original, type, context.environment().inheritanceHandler(), methodNode));
                 })
                 .toList();
         }

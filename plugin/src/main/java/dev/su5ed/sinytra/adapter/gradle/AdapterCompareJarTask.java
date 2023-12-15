@@ -10,7 +10,7 @@ import com.mojang.serialization.JsonOps;
 import dev.su5ed.sinytra.adapter.patch.util.provider.ClassLookup;
 import dev.su5ed.sinytra.adapter.patch.util.provider.ZipClassLookup;
 import dev.su5ed.sinytra.adapter.patch.LVTOffsets;
-import dev.su5ed.sinytra.adapter.patch.Patch;
+import dev.su5ed.sinytra.adapter.patch.api.Patch;
 import dev.su5ed.sinytra.adapter.patch.PatchInstance;
 import dev.su5ed.sinytra.adapter.patch.serialization.PatchSerialization;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;

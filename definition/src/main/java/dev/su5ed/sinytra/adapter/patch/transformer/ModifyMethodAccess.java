@@ -3,11 +3,11 @@ package dev.su5ed.sinytra.adapter.patch.transformer;
 import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import dev.su5ed.sinytra.adapter.patch.MethodTransform;
-import dev.su5ed.sinytra.adapter.patch.Patch;
-import dev.su5ed.sinytra.adapter.patch.Patch.Result;
-import dev.su5ed.sinytra.adapter.patch.PatchContext;
-import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
+import dev.su5ed.sinytra.adapter.patch.api.MethodContext;
+import dev.su5ed.sinytra.adapter.patch.api.MethodTransform;
+import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
+import dev.su5ed.sinytra.adapter.patch.api.Patch.Result;
+import dev.su5ed.sinytra.adapter.patch.api.PatchContext;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -46,8 +46,8 @@ public record ModifyMethodAccess(List<AccessChange> changes) implements MethodTr
                     LOGGER.info(MIXINPATCH, "Adding access modifier {} to method {}.{}{}", change.modifier, classNode.name, methodNode.name, methodNode.desc);
                     methodNode.access |= change.modifier;
                     result = Result.APPLY;
-                    if (change.modifier == Opcodes.ACC_STATIC && methodContext.methodAnnotation().matchesDesc(Patch.INJECT)) {
-                        List<Type> types = methodContext.getTargetClasses();
+                    if (change.modifier == Opcodes.ACC_STATIC && methodContext.methodAnnotation().matchesDesc(MixinConstants.INJECT)) {
+                        List<Type> types = methodContext.targetTypes();
                         if (types.size() == 1) {
                             Type[] params = Type.getArgumentTypes(methodNode.desc);
                             List<Type> newParams = new ArrayList<>(Arrays.asList(params));

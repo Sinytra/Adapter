@@ -1,6 +1,6 @@
-package dev.su5ed.sinytra.adapter.patch;
+package dev.su5ed.sinytra.adapter.patch.api;
 
-import dev.su5ed.sinytra.adapter.patch.Patch.Result;
+import dev.su5ed.sinytra.adapter.patch.api.Patch.Result;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.ClassNode;

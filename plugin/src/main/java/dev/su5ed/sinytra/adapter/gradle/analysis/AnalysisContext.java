@@ -2,7 +2,7 @@ package dev.su5ed.sinytra.adapter.gradle.analysis;
 
 import com.google.common.collect.BiMap;
 import dev.su5ed.sinytra.adapter.gradle.util.TraceCallback;
-import dev.su5ed.sinytra.adapter.patch.Patch;
+import dev.su5ed.sinytra.adapter.patch.api.Patch;
 import net.minecraftforge.srgutils.IMappingFile;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;

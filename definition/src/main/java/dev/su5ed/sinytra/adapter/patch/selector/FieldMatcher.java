@@ -1,7 +1,7 @@
 package dev.su5ed.sinytra.adapter.patch.selector;
 
 import com.mojang.serialization.Codec;
-import dev.su5ed.sinytra.adapter.patch.PatchEnvironment;
+import dev.su5ed.sinytra.adapter.patch.api.GlobalReferenceMapper;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
@@ -16,7 +16,7 @@ public class FieldMatcher {
     public FieldMatcher(String field) {
         int descIndex = field.indexOf(':');
         String name = descIndex == -1 ? field : field.substring(0, descIndex);
-        this.name = PatchEnvironment.remapReference(name);
+        this.name = GlobalReferenceMapper.remapReference(name);
         this.desc = descIndex == -1 ? null : field.substring(descIndex + 1);
     }
 

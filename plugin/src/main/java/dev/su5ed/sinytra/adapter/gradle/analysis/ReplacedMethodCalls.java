@@ -2,7 +2,8 @@ package dev.su5ed.sinytra.adapter.gradle.analysis;
 
 import com.google.common.collect.Multimap;
 import dev.su5ed.sinytra.adapter.gradle.util.MatchResult;
-import dev.su5ed.sinytra.adapter.patch.Patch;
+import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
+import dev.su5ed.sinytra.adapter.patch.api.Patch;
 import dev.su5ed.sinytra.adapter.patch.analysis.InstructionMatcher;
 import dev.su5ed.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
@@ -20,8 +21,8 @@ import java.util.*;
 
 public class ReplacedMethodCalls {
     private static final Logger LOGGER = LoggerFactory.getLogger("ReplacedMethodCalls");
-    private static final String[] NEAREST_REPLACEMENT_TARGET_TYPES = { Patch.INJECT, Patch.MODIFY_VAR };
-    private static final String[] NEAREST_REPLACEMENT_TARGET_TYPES_EXTRA = ArrayUtils.add(NEAREST_REPLACEMENT_TARGET_TYPES, Patch.MODIFY_EXPR_VAL);
+    private static final String[] NEAREST_REPLACEMENT_TARGET_TYPES = { MixinConstants.INJECT, MixinConstants.MODIFY_VAR };
+    private static final String[] NEAREST_REPLACEMENT_TARGET_TYPES_EXTRA = ArrayUtils.add(NEAREST_REPLACEMENT_TARGET_TYPES, MixinConstants.MODIFY_EXPR_VAL);
 
     public static void findReplacedMethodCalls(AnalysisContext context, ClassNode dirtyNode, Map<MethodNode, MethodNode> cleanToDirty) {
         cleanToDirty.forEach((cleanMethod, dirtyMethod) -> {
@@ -62,7 +63,7 @@ public class ReplacedMethodCalls {
                                 .targetMethod(dirtyMethod.name + dirtyMethod.desc)
                                 .targetInjectionPoint(original)
                                 .modifyInjectionPoint(null, replacement, resetValues)
-                                .targetMixinType(Patch.INJECT)
+                                .targetMixinType(MixinConstants.INJECT)
                                 .build();
                             context.addPatch(patch);
                         }

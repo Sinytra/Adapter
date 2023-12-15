@@ -1,19 +1,16 @@
-package dev.su5ed.sinytra.adapter.patch.transformer;
+package dev.su5ed.sinytra.adapter.patch.transformer.dynamic;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
-import dev.su5ed.sinytra.adapter.patch.MethodTransform;
-import dev.su5ed.sinytra.adapter.patch.Patch;
-import dev.su5ed.sinytra.adapter.patch.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.analysis.InstructionMatcher;
 import dev.su5ed.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
+import dev.su5ed.sinytra.adapter.patch.api.*;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
-import dev.su5ed.sinytra.adapter.patch.selector.MethodContext;
-import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
+import dev.su5ed.sinytra.adapter.patch.util.GeneratedVariables;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -33,7 +30,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
 
     @Override
     public Collection<String> getAcceptedAnnotations() {
-        return Set.of(Patch.INJECT, Patch.MODIFY_VAR);
+        return Set.of(MixinConstants.INJECT, MixinConstants.MODIFY_VAR);
     }
 
     @Override
@@ -77,7 +74,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                 .filter(handler -> !handler.requiresTarget() || target != null)
                 .ifPresent(h -> handlers.add(new HandlerInstance(h, target, atOrdinal)));
         });
-        if (methodContext.methodAnnotation().matchesDesc(Patch.MODIFY_VAR)) {
+        if (methodContext.methodAnnotation().matchesDesc(MixinConstants.MODIFY_VAR)) {
             methodContext.methodAnnotation().<Integer>getValue("ordinal")
                 .ifPresent(varOrdinal -> handlers.add(new HandlerInstance(ModifyVariableOffsetHandler.INSTANCE, null, varOrdinal)));
         }
@@ -197,7 +194,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                 return OptionalInt.empty();
             }
             LocalVariableNode cleanLocal = cleanLocals.get(ordinal);
-            if (!AdapterUtil.isGeneratedVariableName(cleanLocal.name, Type.getType(cleanLocal.desc))) {
+            if (!GeneratedVariables.isGeneratedVariableName(cleanLocal.name, Type.getType(cleanLocal.desc))) {
                 return OptionalInt.empty();
             }
 
@@ -209,12 +206,12 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                 return OptionalInt.empty();
             }
             LocalVariableNode dirtyLocal = dirtyLocals.get(ordinal);
-            OptionalInt dirtyNameOrdinal = AdapterUtil.getGeneratedVariableOrdinal(dirtyLocal.name, Type.getType(dirtyLocal.desc));
+            OptionalInt dirtyNameOrdinal = GeneratedVariables.getGeneratedVariableOrdinal(dirtyLocal.name, Type.getType(dirtyLocal.desc));
             if (dirtyNameOrdinal.isEmpty() || ordinal == dirtyNameOrdinal.getAsInt()) {
                 return OptionalInt.empty();
             }
             List<LocalVariableNode> actual = dirtyLocals.stream()
-                .filter(lvn -> AdapterUtil.getGeneratedVariableOrdinal(lvn.name, Type.getType(lvn.desc)).orElse(-1) == ordinal)
+                .filter(lvn -> GeneratedVariables.getGeneratedVariableOrdinal(lvn.name, Type.getType(lvn.desc)).orElse(-1) == ordinal)
                 .toList();
             if (actual.size() == 1) {
                 return OptionalInt.of(dirtyLocals.indexOf(actual.get(0)));

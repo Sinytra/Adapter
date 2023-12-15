@@ -1,11 +1,11 @@
 package dev.su5ed.sinytra.adapter.patch.transformer;
 
 import com.mojang.logging.LogUtils;
-import dev.su5ed.sinytra.adapter.patch.PatchContext;
+import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
+import dev.su5ed.sinytra.adapter.patch.api.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
-import dev.su5ed.sinytra.adapter.patch.ClassTransform;
-import dev.su5ed.sinytra.adapter.patch.Patch;
-import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
+import dev.su5ed.sinytra.adapter.patch.api.ClassTransform;
+import dev.su5ed.sinytra.adapter.patch.api.Patch;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.*;
@@ -29,7 +29,7 @@ public record RedirectShadowMethod(MethodQualifier original, MethodQualifier rep
             MethodQualifier qualifier = new MethodQualifier(method.name, method.desc);
             if (this.original.equals(qualifier) && method.visibleAnnotations != null) {
                 for (AnnotationNode methodAnn : method.visibleAnnotations) {
-                    if (AdapterUtil.SHADOW_ANN.equals(methodAnn.desc)) {
+                    if (MixinConstants.SHADOW.equals(methodAnn.desc)) {
                         LOGGER.info(MIXINPATCH, "Redirecting shadow method {}.{} to {}{}", classNode.name, method.name, this.replacement.name(), this.replacement.desc());
                         method.name = this.replacement.name();
                         method.desc = this.replacement.desc();

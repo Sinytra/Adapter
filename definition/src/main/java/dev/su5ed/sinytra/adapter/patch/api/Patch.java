@@ -1,6 +1,9 @@
-package dev.su5ed.sinytra.adapter.patch;
+package dev.su5ed.sinytra.adapter.patch.api;
 
 import com.mojang.serialization.Codec;
+import dev.su5ed.sinytra.adapter.patch.ClassPatchInstance;
+import dev.su5ed.sinytra.adapter.patch.InterfacePatchInstance;
+import dev.su5ed.sinytra.adapter.patch.PatchInstance;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyInjectionTarget;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
@@ -17,21 +20,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
-public sealed interface Patch permits PatchInstance {
-    String INJECT = "Lorg/spongepowered/asm/mixin/injection/Inject;";
-    String REDIRECT = "Lorg/spongepowered/asm/mixin/injection/Redirect;";
-    String MODIFY_ARG = "Lorg/spongepowered/asm/mixin/injection/ModifyArg;";
-    String MODIFY_ARGS = "Lorg/spongepowered/asm/mixin/injection/ModifyArgs;";
-    String MODIFY_VAR = "Lorg/spongepowered/asm/mixin/injection/ModifyVariable;";
-    String MODIFY_CONST = "Lorg/spongepowered/asm/mixin/injection/ModifyConstant;";
-    String OVERWRITE = "Lorg/spongepowered/asm/mixin/Overwrite;";
-    // Interface mixins
-    String ACCESSOR = "Lorg/spongepowered/asm/mixin/gen/Accessor;";
-    String INVOKER = "Lorg/spongepowered/asm/mixin/gen/Invoker;";
-    // Mixinextras annotations
-    String MODIFY_EXPR_VAL = "Lcom/llamalad7/mixinextras/injector/ModifyExpressionValue;";
-    String WRAP_OPERATION = "Lcom/llamalad7/mixinextras/injector/wrapoperation/WrapOperation;";
-
+public interface Patch {
     static ClassPatchBuilder builder() {
         return new ClassPatchInstance.ClassPatchBuilderImpl();
     }
@@ -79,8 +68,6 @@ public sealed interface Patch permits PatchInstance {
 
         T modifyMethodAccess(ModifyMethodAccess.AccessChange... changes);
 
-        T modifyAnnotationValues(Predicate<AnnotationHandle> annotation);
-
         T extractMixin(String targetClass);
 
         T modifyMixinType(String newType, Consumer<ModifyMixinType.Builder> consumer);
@@ -104,7 +91,7 @@ public sealed interface Patch permits PatchInstance {
         ClassPatchBuilder targetInjectionPoint(String value, String target);
 
         default ClassPatchBuilder targetConstant(double doubleValue) {
-            return targetMixinType(Patch.MODIFY_CONST)
+            return targetMixinType(MixinConstants.MODIFY_CONST)
                 .targetAnnotationValues(handle -> handle.getNested("constant")
                     .flatMap(cst -> cst.<Double>getValue("doubleValue")
                         .map(val -> val.get() == doubleValue))
