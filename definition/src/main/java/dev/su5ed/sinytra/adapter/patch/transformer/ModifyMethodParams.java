@@ -287,7 +287,7 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
 
         methodContext.updateDescription(classNode, methodNode, newParameterTypes);
 
-        return !this.context.isEmpty() ? Result.COMPUTE_FRAMES : Result.APPLY;
+        return this.context.shouldComputeFrames() ? Result.COMPUTE_FRAMES : Result.APPLY;
     }
 
     private static Pair<@Nullable ParameterNode, @Nullable LocalVariableNode> removeLocalVariable(MethodNode methodNode, int paramIndex, int lvtOffset, int replaceIndex, List<Type> newParameterTypes) {
@@ -423,6 +423,10 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
 
         public boolean isEmpty() {
             return this.insertions.isEmpty() && this.replacements.isEmpty() && this.swaps.isEmpty() && this.substitutes.isEmpty() && this.removals.isEmpty() && this.moves.isEmpty() && this.inlines.isEmpty();
+        }
+
+        public boolean shouldComputeFrames() {
+            return !this.swaps.isEmpty() || !this.replacements.isEmpty() || !this.substitutes.isEmpty() || !this.removals.isEmpty();
         }
     }
 
