@@ -5,6 +5,7 @@ import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.slf4j.Logger;
 
@@ -31,7 +32,10 @@ public class EnhancedParamsDiff {
                 continue;
             }
             // Check for swapped / reordered types. Also handles unique-type insertions
-            if (checkForSwaps(builder, cleanQueue, dirtyQueue)) {
+            SwapResult swapResult = checkForSwaps(builder, cleanQueue, dirtyQueue);
+            if (swapResult != null) {
+                dirtyQueue.removeAll(swapResult.removeDirty);
+                builder.merge(swapResult.parametersDiff);
                 cleanQueue.clear();
                 dirtyQueue.clear();
                 break;
@@ -48,7 +52,6 @@ public class EnhancedParamsDiff {
 
                 compare(builder, compareClean, compareDirty);
             }
-            // Yes
             else if (cleanQueue.size() > 1) {
                 TypeWithContext type = cleanQueue.remove(1);
                 if (DEBUG) {
@@ -83,13 +86,18 @@ public class EnhancedParamsDiff {
         return false;
     }
 
-    private static boolean checkForSwaps(ParamDiffBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
+    private record SwapResult(List<TypeWithContext> removeDirty, ParametersDiff parametersDiff) {}
+
+    @Nullable
+    private static SwapResult checkForSwaps(ParamDiffBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
         Map<Type, Integer> cleanGroup = groupTypes(clean);
         Map<Type, Integer> dirtyGroup = groupTypes(dirty);
         MapDifference<Type, Integer> diff = Maps.difference(cleanGroup, dirtyGroup);
 
         List<TypeWithContext> rearrangeClean = new ArrayList<>(clean);
         List<TypeWithContext> rearrangeDirty = new ArrayList<>(dirty);
+        List<TypeWithContext> removeDirty = new ArrayList<>();
+        ParamDiffBuilder tempDiff = new ParamDiffBuilder();
         // Remove inserted parameters
         if (diff.entriesOnlyOnLeft().isEmpty() && diff.entriesDiffering().isEmpty() && !diff.entriesOnlyOnRight().isEmpty()) {
             for (Map.Entry<Type, Integer> entry : diff.entriesOnlyOnRight().entrySet()) {
@@ -99,9 +107,9 @@ public class EnhancedParamsDiff {
                     TypeWithContext inserted = dirty.stream().filter(t -> t.type().equals(type)).findFirst().orElseThrow();
                     dirtyGroup.remove(type);
                     rearrangeDirty.remove(inserted);
-                    dirty.remove(inserted);
+                    removeDirty.add(inserted);
                     int offset = inserted.pos() + (int) builder.getRemoved().stream().filter(i -> i < inserted.pos()).count();
-                    builder.insert(offset, inserted.type());
+                    tempDiff.insert(offset, inserted.type());
                 }
             }
         } else if (!diff.entriesOnlyOnLeft().isEmpty() && diff.entriesDiffering().isEmpty() && diff.entriesOnlyOnRight().isEmpty()) {
@@ -110,7 +118,7 @@ public class EnhancedParamsDiff {
                 Integer count = entry.getValue();
                 if (count == 1) {
                     TypeWithContext inserted = clean.stream().filter(t -> t.type().equals(type)).findFirst().orElseThrow();
-                    builder.remove(clean.indexOf(inserted));
+                    tempDiff.remove(clean.indexOf(inserted));
                     cleanGroup.remove(type);
                     rearrangeClean.remove(inserted);
                 }
@@ -118,7 +126,7 @@ public class EnhancedParamsDiff {
         }
 
         if (!sameTypeCount(cleanGroup, dirtyGroup)) {
-            return false;
+            return null;
         }
         if (DEBUG) {
             LOGGER.info("Checking for swaps in parameters:\n{}", printTable(rearrangeClean, rearrangeDirty));
@@ -137,9 +145,12 @@ public class EnhancedParamsDiff {
         if (!rearrangeClean.isEmpty() && !rearrangeDirty.isEmpty()) {
             // Run rearrangement
             rearrange(builder, rearrangeClean, rearrangeDirty);
-            return true;
+            return new SwapResult(removeDirty, tempDiff.build());
         }
-        return rearrangeClean.isEmpty() && rearrangeDirty.isEmpty();
+        else if (rearrangeClean.isEmpty() && rearrangeDirty.isEmpty()) {
+            return new SwapResult(removeDirty, tempDiff.build());
+        }
+        return null;
     }
 
     private static void rearrange(ParamDiffBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
@@ -305,6 +316,10 @@ public class EnhancedParamsDiff {
             return this;
         }
 
+        public ParamDiffBuilder merge(ParametersDiff diff) {
+            return merge(diff, 0);
+        }
+
         public ParamDiffBuilder merge(ParametersDiff diff, int indexOffset) {
             this.inserted.addAll(diff.insertions().stream().map(p -> p.mapFirst(i -> i + indexOffset)).toList());
             this.replaced.addAll(diff.replacements().stream().map(p -> p.mapFirst(i -> i + indexOffset)).toList());
@@ -317,8 +332,13 @@ public class EnhancedParamsDiff {
             return this.removed.build();
         }
 
+        public ParametersDiff build() {
+            return build(-1);
+        }
+
         public ParametersDiff build(int originalCount) {
-            return new ParametersDiff(originalCount, this.inserted.build(), this.replaced.build(), this.swapped.build(), this.removed.build(), this.moved.build());
+            List<Pair<Integer, Type>> sortedInsertions = this.inserted.build().stream().sorted(Comparator.comparingInt(Pair::getFirst)).toList();
+            return new ParametersDiff(originalCount, sortedInsertions, this.replaced.build(), this.swapped.build(), this.removed.build(), this.moved.build());
         }
     }
 }

@@ -3,7 +3,6 @@ package dev.su5ed.sinytra.adapter.patch.test;
 import com.mojang.datafixers.util.Pair;
 import dev.su5ed.sinytra.adapter.patch.analysis.EnhancedParamsDiff;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
 
@@ -109,6 +108,50 @@ public class EnhancedParamsDiffTest {
         ParametersDiff diff = EnhancedParamsDiff.create(original, modified);
         assertEquals(1, diff.insertions().size());
         assertEquals(2, diff.insertions().get(0).getFirst());
+        assertTrue(diff.replacements().isEmpty());
+        assertTrue(diff.removals().isEmpty());
+        assertTrue(diff.swaps().isEmpty());
+        assertTrue(diff.moves().isEmpty());
+    }
+
+    @Test
+    void testCompareInsertedParametersOrder() {
+        List<Type> original = List.of(
+            Type.getObjectType("net/minecraft/world/level/block/Block"),
+            Type.getObjectType("net/minecraft/core/BlockPos"),
+            Type.getObjectType("net/minecraft/world/level/block/entity/BlockEntity"),
+            Type.getObjectType("net/minecraft/nbt/CompoundTag")
+        );
+        List<Type> modified = List.of(
+            Type.getObjectType("net/minecraft/world/level/block/Block"),
+            Type.getObjectType("net/minecraft/core/BlockPos"),
+            Type.BOOLEAN_TYPE,
+            Type.BOOLEAN_TYPE,
+            Type.DOUBLE_TYPE,
+            Type.getObjectType("net/minecraft/world/level/block/state/BlockState"),
+            Type.BOOLEAN_TYPE,
+            Type.BOOLEAN_TYPE,
+            Type.BOOLEAN_TYPE,
+            Type.getObjectType("net/minecraft/world/level/block/entity/BlockEntity"),
+            Type.getObjectType("net/minecraft/nbt/CompoundTag"),
+            Type.getType(Iterator.class),
+            Type.getType(String.class)
+        );
+        List<Pair<Integer, Type>> expectedInsertions = List.of(
+            Pair.of(2, Type.BOOLEAN_TYPE),
+            Pair.of(3, Type.BOOLEAN_TYPE),
+            Pair.of(4, Type.DOUBLE_TYPE),
+            Pair.of(5, Type.getObjectType("net/minecraft/world/level/block/state/BlockState")),
+            Pair.of(6, Type.BOOLEAN_TYPE),
+            Pair.of(7, Type.BOOLEAN_TYPE),
+            Pair.of(8, Type.BOOLEAN_TYPE),
+            Pair.of(11, Type.getType(Iterator.class)),
+            Pair.of(12, Type.getType(String.class))
+        );
+
+        ParametersDiff diff = EnhancedParamsDiff.create(original, modified);
+        assertEquals(9, diff.insertions().size());
+        assertEquals(expectedInsertions, diff.insertions());
         assertTrue(diff.replacements().isEmpty());
         assertTrue(diff.removals().isEmpty());
         assertTrue(diff.swaps().isEmpty());
@@ -222,9 +265,9 @@ public class EnhancedParamsDiffTest {
 
         ParametersDiff diff = EnhancedParamsDiff.create(original, modified);
         assertEquals(3, diff.insertions().size());
-        assertEquals(Pair.of(5, Type.DOUBLE_TYPE), diff.insertions().get(0));
-        assertEquals(Pair.of(1, Type.FLOAT_TYPE), diff.insertions().get(1));
-        assertEquals(Pair.of(4, Type.FLOAT_TYPE), diff.insertions().get(2));
+        assertEquals(Pair.of(1, Type.FLOAT_TYPE), diff.insertions().get(0));
+        assertEquals(Pair.of(4, Type.FLOAT_TYPE), diff.insertions().get(1));
+        assertEquals(Pair.of(5, Type.DOUBLE_TYPE), diff.insertions().get(2));
         assertTrue(diff.replacements().isEmpty());
         assertTrue(diff.removals().isEmpty());
         assertTrue(diff.swaps().isEmpty());
