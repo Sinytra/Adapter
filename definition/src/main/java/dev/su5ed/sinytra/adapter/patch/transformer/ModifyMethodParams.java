@@ -418,7 +418,7 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
             new ParamsContext(insertions, replacements, swaps, List.of(), List.of(), List.of(), List.of())));
 
         public static ParamsContext create(ParametersDiff diff) {
-            return new ParamsContext(diff.insertions(), diff.replacements(), diff.swaps(), List.of(), diff.removals(), List.of(), List.of());
+            return new ParamsContext(diff.insertions(), diff.replacements(), diff.swaps(), List.of(), diff.removals(), diff.moves(), List.of());
         }
 
         public boolean isEmpty() {

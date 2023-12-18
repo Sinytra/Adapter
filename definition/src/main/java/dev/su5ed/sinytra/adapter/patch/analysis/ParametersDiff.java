@@ -213,6 +213,6 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
     }
 
     public boolean isEmpty() {
-        return this.insertions.isEmpty() && this.replacements.isEmpty() && this.swaps.isEmpty() && this.removals.isEmpty();
+        return this.insertions.isEmpty() && this.replacements.isEmpty() && this.swaps.isEmpty() && this.removals.isEmpty() && this.moves.isEmpty();
     }
 }
