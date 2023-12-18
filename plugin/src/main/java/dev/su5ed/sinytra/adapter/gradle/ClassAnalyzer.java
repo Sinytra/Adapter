@@ -451,6 +451,7 @@ public class ClassAnalyzer {
                 }
             }
             if (!redirectInjectionPoints.isEmpty()) {
+                // TODO handle method desc changes or filter injectors
                 Patch.ClassPatchBuilder patch = Patch.builder()
                     .targetClass(this.dirtyNode.name)
                     .targetMethod(dirtyMethod.name + dirtyMethod.desc)

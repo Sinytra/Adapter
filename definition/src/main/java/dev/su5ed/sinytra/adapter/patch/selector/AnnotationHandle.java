@@ -2,10 +2,7 @@ package dev.su5ed.sinytra.adapter.patch.selector;
 
 import org.objectweb.asm.tree.AnnotationNode;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 public final class AnnotationHandle {
     private final AnnotationNode annotationNode;
@@ -37,6 +34,22 @@ public final class AnnotationHandle {
     public <T> Optional<AnnotationValueHandle<T>> getValue(String key) {
         AnnotationValueHandle<T> handle = (AnnotationValueHandle<T>) this.handleCache.computeIfAbsent(key, k -> AnnotationValueHandle.create(this.annotationNode, key).orElse(null));
         return Optional.ofNullable(handle);
+    }
+
+    public void removeValues(String... keys) {
+        if (this.annotationNode.values != null) {
+            Collection<String> toRemove = Set.of(keys);
+            for (int keyIdx = 0; keyIdx < this.annotationNode.values.size(); keyIdx += 2) {
+                String atKey = (String) this.annotationNode.values.get(keyIdx);
+                if (toRemove.contains(atKey)) {
+                    int valueIdx = keyIdx + 1;
+                    this.annotationNode.values.remove(valueIdx);
+                    this.annotationNode.values.remove(keyIdx);
+                    keyIdx -= 2;
+                }
+            }
+            this.handleCache.clear();
+        }
     }
 
     public void appendValue(String key, Object value) {
