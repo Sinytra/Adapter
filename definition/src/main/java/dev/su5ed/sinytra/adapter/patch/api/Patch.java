@@ -72,6 +72,8 @@ public interface Patch {
 
         T modifyMixinType(String newType, Consumer<ModifyMixinType.Builder> consumer);
 
+        T transform(List<ClassTransform> classTransforms);
+
         T transform(ClassTransform transformer);
 
         T transform(MethodTransform transformer);

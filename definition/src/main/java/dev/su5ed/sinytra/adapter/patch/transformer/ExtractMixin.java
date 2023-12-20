@@ -58,8 +58,7 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
             .findFirst()
             .orElse(null);
         if (field != null) {
-            List<AnnotationNode> annotations = field.visibleAnnotations != null ? field.visibleAnnotations : List.of();
-            if (isShadowMember(annotations)) {
+            if (AdapterUtil.isShadowField(field)) {
                 return true;
             }
             if (isTargetInherited && finsn.getOpcode() != Opcodes.GETSTATIC) {
@@ -77,7 +76,7 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
             .orElse(null);
         if (method != null) {
             List<AnnotationNode> annotations = method.visibleAnnotations != null ? method.visibleAnnotations : List.of();
-            if (isShadowMember(annotations)) {
+            if (AdapterUtil.hasAnnotation(annotations, MixinConstants.SHADOW)) {
                 return true;
             }
             if (isTargetInherited && minsn.getOpcode() != Opcodes.INVOKESTATIC) {
@@ -86,10 +85,6 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
             }
         }
         return false;
-    }
-
-    private static boolean isShadowMember(List<AnnotationNode> annotations) {
-        return annotations.stream().anyMatch(an -> MixinConstants.SHADOW.equals(an.desc));
     }
 
     private static int fixAccess(int access) {

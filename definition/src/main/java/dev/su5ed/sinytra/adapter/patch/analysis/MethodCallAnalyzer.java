@@ -4,12 +4,13 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import dev.su5ed.sinytra.adapter.patch.api.GlobalReferenceMapper;
 import org.jetbrains.annotations.Nullable;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.objectweb.asm.tree.analysis.*;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
+import java.util.function.BiPredicate;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
@@ -76,5 +77,70 @@ public class MethodCallAnalyzer {
 
     public static String getCallQualifier(MethodInsnNode insn) {
         return Type.getObjectType(insn.owner).getDescriptor() + insn.name + insn.desc;
+    }
+
+    public static <T> List<T> analyzeMethod(MethodNode methodNode, NaryOperationHandler<T> handler) {
+        return analyzeMethod(methodNode, (insn, values) -> true, handler);
+    }
+
+    public static <T> List<T> analyzeMethod(MethodNode methodNode, BiPredicate<MethodInsnNode, List<? extends SourceValue>> filter, NaryOperationHandler<T> handler) {
+        AnalysingSourceInterpreter<T> i = new AnalysingSourceInterpreter<>(filter, handler);
+        Analyzer<?> analyzer = new Analyzer<>(i);
+        try {
+            analyzer.analyze(methodNode.name, methodNode);
+        } catch (AnalyzerException e) {
+            throw new RuntimeException(e);
+        }
+        return i.getResults();
+    }
+
+    public static <T extends Interpreter<V>, V extends Value> T analyzeInterpretMethod(MethodNode methodNode, T interpreter) {
+        Analyzer<V> analyzer = new Analyzer<>(interpreter);
+        try {
+            analyzer.analyze(methodNode.name, methodNode);
+        } catch (AnalyzerException e) {
+            throw new RuntimeException(e);
+        }
+        return interpreter;
+    }
+
+    public interface NaryOperationHandler<T> {
+        T accept(MethodInsnNode insn, List<? extends SourceValue> values);
+    }
+
+    @Nullable
+    public static AbstractInsnNode getSingleInsn(List<? extends SourceValue> values, int index) {
+        SourceValue value = values.get(index);
+        return value.insns.size() == 1 ? value.insns.iterator().next() : null;
+    }
+
+    private static class AnalysingSourceInterpreter<T> extends SourceInterpreter {
+        private final BiPredicate<MethodInsnNode, List<? extends SourceValue>> filter;
+        private final NaryOperationHandler<T> handler;
+        private final List<T> results = new ArrayList<>();
+        private final Collection<MethodInsnNode> seen = new HashSet<>();
+
+        public AnalysingSourceInterpreter(BiPredicate<MethodInsnNode, List<? extends SourceValue>> filter, NaryOperationHandler<T> handler) {
+            super(Opcodes.ASM9);
+
+            this.filter = filter;
+            this.handler = handler;
+        }
+
+        public List<T> getResults() {
+            return this.results;
+        }
+
+        @Override
+        public SourceValue naryOperation(AbstractInsnNode insn, List<? extends SourceValue> values) {
+            if (insn instanceof MethodInsnNode minsn && this.filter.test(minsn, values) && !this.seen.contains(minsn)) {
+                T result = this.handler.accept(minsn, values);
+                if (result != null) {
+                    this.results.add(result);
+                    this.seen.add(minsn);
+                }
+            }
+            return super.naryOperation(insn, values);
+        }
     }
 }

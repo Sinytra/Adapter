@@ -2,17 +2,14 @@ package dev.su5ed.sinytra.adapter.gradle.analysis;
 
 import com.mojang.datafixers.util.Pair;
 import dev.su5ed.sinytra.adapter.gradle.util.MatchResult;
-import dev.su5ed.sinytra.adapter.patch.api.Patch;
 import dev.su5ed.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
+import dev.su5ed.sinytra.adapter.patch.api.Patch;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyInjectionTarget;
 import dev.su5ed.sinytra.adapter.patch.transformer.filter.InjectionPointTransformerFilter;
-import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.objectweb.asm.tree.analysis.SourceInterpreter;
-import org.objectweb.asm.tree.analysis.SourceValue;
 
 import java.util.*;
 
@@ -57,9 +54,14 @@ public class OverloadedMethods {
         if (method.name.equals("<init>") && !other.name.equals("<init>")) {
             return Optional.empty();
         }
-        MethodCallInterpreter interpreter = AdapterUtil.analyzeMethod(other, new MethodCallInterpreter());
+        List<Pair<AbstractInsnNode, MethodInsnNode>> insns = MethodCallAnalyzer.analyzeMethod(other, (insn, values) -> {
+            if (values.isEmpty()) {
+                return Pair.of(insn, insn);
+            }
+            AbstractInsnNode valueInsn = MethodCallAnalyzer.getSingleInsn(values, 0);
+            return valueInsn != null ? Pair.of(valueInsn, insn) : null;
+        });
 
-        List<Pair<AbstractInsnNode, MethodInsnNode>> insns = interpreter.getInsns();
         if (insns.isEmpty()) {
             return Optional.empty();
         }
@@ -144,36 +146,6 @@ public class OverloadedMethods {
             } else {
                 builder.transform(InjectionPointTransformerFilter.create(new ModifyInjectionTarget(List.of(method.name + method.desc)), this.excludedInjectionPoints));
             }
-        }
-    }
-
-    private static class MethodCallInterpreter extends SourceInterpreter {
-        private final Set<AbstractInsnNode> seen = new HashSet<>();
-        private final List<Pair<AbstractInsnNode, MethodInsnNode>> insns = new ArrayList<>();
-
-        public MethodCallInterpreter() {
-            super(Opcodes.ASM9);
-        }
-
-        @Override
-        public SourceValue naryOperation(AbstractInsnNode insn, List<? extends SourceValue> values) {
-            if (insn instanceof MethodInsnNode minsn && !this.seen.contains(minsn)) {
-                if (values.isEmpty()) {
-                    this.insns.add(Pair.of(minsn, minsn));
-                } else {
-                    SourceValue value = values.get(0);
-                    if (value.insns.size() == 1) {
-                        AbstractInsnNode valueInsn = value.insns.iterator().next();
-                        this.insns.add(Pair.of(valueInsn, minsn));
-                    }
-                }
-                this.seen.add(minsn);
-            }
-            return super.naryOperation(insn, values);
-        }
-
-        public List<Pair<AbstractInsnNode, MethodInsnNode>> getInsns() {
-            return this.insns;
         }
     }
 }

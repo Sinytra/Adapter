@@ -47,9 +47,9 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
     @Override
     public Result apply(ClassNode classNode, PatchEnvironment environment) {
         Result result = Result.PASS;
-        PatchContextImpl context = new PatchContextImpl(classNode, environment);
         ClassTarget classTarget = checkClassTarget(classNode);
         if (classTarget != null) {
+            PatchContextImpl context = new PatchContextImpl(classNode, classTarget.targetTypes(), environment);
             AnnotationValueHandle<?> classAnnotation = classTarget.handle();
             for (ClassTransform classTransform : this.classTransforms) {
                 result = result.or(classTransform.apply(classNode, classTarget.handle(), context));
@@ -201,6 +201,12 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         @Override
         public T modifyMixinType(String newType, Consumer<ModifyMixinType.Builder> consumer) {
             return transform(new ModifyMixinType(newType, consumer));
+        }
+
+        @Override
+        public T transform(List<ClassTransform> classTransforms) {
+            this.classTransforms.addAll(classTransforms);
+            return coerce();
         }
 
         @Override

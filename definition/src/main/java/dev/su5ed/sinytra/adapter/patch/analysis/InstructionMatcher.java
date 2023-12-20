@@ -45,33 +45,6 @@ public record InstructionMatcher(AbstractInsnNode insn, List<AbstractInsnNode> b
         return null;
     }
 
-//        @Nullable
-//        public MethodInsnNode findReplacement() {
-//            AbstractInsnNode rangeFrom = this.before.get(0);
-//            AbstractInsnNode rangeTo = this.after.get(0);
-//
-//            MethodInsnNode replacement = null;
-//            boolean foundLabel = false;
-//            for (AbstractInsnNode insn = rangeFrom.getNext(); insn != null; insn = insn.getNext()) {
-//                if (insn == rangeTo) {
-//                    break;
-//                }
-//                if (insn instanceof LabelNode) {
-//                    if (foundLabel) {
-//                        // Multiple labels are not allowed
-//                        return null;
-//                    } else {
-//                        foundLabel = true;
-//                    }
-//                }
-//                if (insn instanceof MethodInsnNode minsn && replacement == null) {
-//                    replacement = minsn;
-//                }
-//            }
-//
-//            return replacement;
-//        }
-
     public boolean test(InstructionMatcher other) {
         if (this.before.size() == other.before.size() && this.after.size() == other.after.size()) {
             for (int i = 0; i < this.before.size(); i++) {

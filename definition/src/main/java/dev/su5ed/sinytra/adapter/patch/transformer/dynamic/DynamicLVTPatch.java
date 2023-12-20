@@ -1,4 +1,4 @@
-package dev.su5ed.sinytra.adapter.patch.transformer;
+package dev.su5ed.sinytra.adapter.patch.transformer.dynamic;
 
 import com.google.common.base.Suppliers;
 import com.mojang.datafixers.util.Pair;
@@ -13,6 +13,7 @@ import dev.su5ed.sinytra.adapter.patch.api.Patch.Result;
 import dev.su5ed.sinytra.adapter.patch.api.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
+import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;

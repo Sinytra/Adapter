@@ -2,6 +2,7 @@ package dev.su5ed.sinytra.adapter.patch;
 
 import dev.su5ed.sinytra.adapter.patch.api.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.api.PatchEnvironment;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 
 import java.util.ArrayList;
@@ -9,17 +10,24 @@ import java.util.List;
 
 public class PatchContextImpl implements PatchContext {
     private final ClassNode classNode;
+    private final List<Type> targetTypes;
     private final PatchEnvironment environment;
     private final List<Runnable> postApply = new ArrayList<>();
 
-    public PatchContextImpl(ClassNode classNode, PatchEnvironment environment) {
+    public PatchContextImpl(ClassNode classNode, List<Type> targetTypes, PatchEnvironment environment) {
         this.classNode = classNode;
+        this.targetTypes = targetTypes;
         this.environment = environment;
     }
 
     @Override
     public ClassNode classNode() {
         return this.classNode;
+    }
+
+    @Override
+    public List<Type> targetTypes() {
+        return this.targetTypes;
     }
 
     @Override

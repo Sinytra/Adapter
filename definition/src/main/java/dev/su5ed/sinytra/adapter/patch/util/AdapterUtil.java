@@ -3,6 +3,7 @@ package dev.su5ed.sinytra.adapter.patch.util;
 import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import dev.su5ed.sinytra.adapter.patch.api.GlobalReferenceMapper;
+import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
 import dev.su5ed.sinytra.adapter.patch.api.PatchEnvironment;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
@@ -11,10 +12,6 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.*;
-import org.objectweb.asm.tree.analysis.Analyzer;
-import org.objectweb.asm.tree.analysis.AnalyzerException;
-import org.objectweb.asm.tree.analysis.Interpreter;
-import org.objectweb.asm.tree.analysis.Value;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.gen.AccessorInfo;
 import org.spongepowered.asm.service.MixinService;
@@ -121,21 +118,20 @@ public final class AdapterUtil {
         return new LdcInsnNode(value);
     }
 
-    public static <T extends Interpreter<V>, V extends Value> T analyzeMethod(MethodNode methodNode, T interpreter) {
-        Analyzer<V> analyzer = new Analyzer<>(interpreter);
-        try {
-            analyzer.analyze(methodNode.name, methodNode);
-        } catch (AnalyzerException e) {
-            throw new RuntimeException(e);
-        }
-        return interpreter;
-    }
-
     public static InsnList insnsWithAdapter(Consumer<InstructionAdapter> consumer) {
         MethodNode dummy = new MethodNode();
         InstructionAdapter adapter = new InstructionAdapter(dummy);
         consumer.accept(adapter);
         return dummy.instructions;
+    }
+
+    public static boolean isShadowField(FieldNode field) {
+        List<AnnotationNode> annotations = field.visibleAnnotations != null ? field.visibleAnnotations : List.of();
+        return AdapterUtil.hasAnnotation(annotations, MixinConstants.SHADOW); 
+    }
+
+    public static boolean hasAnnotation(List<AnnotationNode> annotations, String desc) {
+        return annotations.stream().anyMatch(an -> desc.equals(an.desc));
     }
 
     private AdapterUtil() {

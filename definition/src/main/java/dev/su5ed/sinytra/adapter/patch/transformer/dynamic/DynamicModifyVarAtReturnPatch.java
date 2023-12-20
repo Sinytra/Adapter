@@ -7,7 +7,6 @@ import dev.su5ed.sinytra.adapter.patch.api.*;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMixinType;
-import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.MockMixinRuntime;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -114,7 +113,7 @@ public class DynamicModifyVarAtReturnPatch implements MethodTransform {
             return Patch.Result.PASS;
         }
         // Get method call argument instructions
-        MethodCallInterpreter interpreter = AdapterUtil.analyzeMethod(dirtyTarget.getSecond(), new MethodCallInterpreter(dirtyMinsn));
+        MethodCallInterpreter interpreter = MethodCallAnalyzer.analyzeInterpretMethod(dirtyTarget.getSecond(), new MethodCallInterpreter(dirtyMinsn));
         List<AbstractInsnNode> args = interpreter.getTargetArgs();
         if (args == null) {
             return Patch.Result.PASS;

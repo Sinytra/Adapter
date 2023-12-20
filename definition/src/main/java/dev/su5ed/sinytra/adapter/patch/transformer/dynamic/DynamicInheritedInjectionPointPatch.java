@@ -4,6 +4,7 @@ import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
 import dev.su5ed.sinytra.adapter.patch.api.*;
 import dev.su5ed.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
+import dev.su5ed.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
@@ -11,10 +12,7 @@ import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import dev.su5ed.sinytra.adapter.patch.util.MockMixinRuntime;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.MethodInsnNode;
-import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.injection.InjectionPoint;
 import org.spongepowered.asm.mixin.refmap.IMixinContext;
@@ -62,7 +60,7 @@ public class DynamicInheritedInjectionPointPatch implements MethodTransform {
             String owner = q.internalOwnerName();
             for (AbstractInsnNode insn : targetPair.getSecond().instructions) {
                 if (insn instanceof MethodInsnNode minsn && minsn.name.equals(q.name()) && minsn.desc.equals(q.desc()) && !minsn.owner.equals(owner)) {
-                    if (context.environment().inheritanceHandler().isClassInherited(minsn.owner, owner)) {
+                    if (context.environment().inheritanceHandler().isClassInherited(minsn.owner, owner) || isFixedField(minsn.getPrevious(), context)) {
                         target.set(MethodCallAnalyzer.getCallQualifier(minsn));
                         Patch.Result result = Patch.Result.APPLY;
                         if (annotation.matchesDesc(MixinConstants.REDIRECT) && (methodNode.access & Opcodes.ACC_STATIC) != Opcodes.ACC_STATIC) {
@@ -78,5 +76,13 @@ public class DynamicInheritedInjectionPointPatch implements MethodTransform {
             }
         }
         return Patch.Result.PASS;
+    }
+
+    private boolean isFixedField(AbstractInsnNode insn, PatchContext context) {
+        if (insn instanceof FieldInsnNode finsn) {
+            BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
+            return bfu.getFieldTypeChange(finsn.owner, GlobalReferenceMapper.remapReference(finsn.name)) != null;
+        }
+        return false;
     }
 }

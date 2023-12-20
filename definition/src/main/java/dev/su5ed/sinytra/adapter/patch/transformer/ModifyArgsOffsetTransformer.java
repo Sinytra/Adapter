@@ -1,18 +1,16 @@
 package dev.su5ed.sinytra.adapter.patch.transformer;
 
 import com.mojang.datafixers.util.Pair;
+import dev.su5ed.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.*;
-import org.objectweb.asm.tree.analysis.SourceInterpreter;
-import org.objectweb.asm.tree.analysis.SourceValue;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.IntInsnNode;
+import org.objectweb.asm.tree.MethodNode;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 
 public class ModifyArgsOffsetTransformer {
@@ -38,9 +36,8 @@ public class ModifyArgsOffsetTransformer {
     }
 
     public static void modify(MethodNode methodNode, List<Pair<Integer, Type>> insertions) {
-        ScanningSourceInterpreter i = AdapterUtil.analyzeMethod(methodNode, new ScanningSourceInterpreter(Opcodes.ASM9));
-
-        for (AbstractInsnNode insn : i.getInsns()) {
+        List<AbstractInsnNode> insns = MethodCallAnalyzer.analyzeMethod(methodNode, (insn, values) -> (ARGS_GET.matches(insn) || ARGS_SET.matches(insn)) && values.size() > 1, (insn, values) -> MethodCallAnalyzer.getSingleInsn(values, 1));
+        for (AbstractInsnNode insn : insns) {
             if (insn instanceof IntInsnNode iinsn) {
                 insertions.forEach(pair -> {
                     int index = pair.getFirst();
@@ -57,34 +54,6 @@ public class ModifyArgsOffsetTransformer {
             else {
                 throw new UnsupportedOperationException("Whoopsie! We can't handle " + insn.getClass().getName() + " instructions just yet!");
             }
-        }
-    }
-
-    public static class ScanningSourceInterpreter extends SourceInterpreter {
-        private final List<AbstractInsnNode> insns = new ArrayList<>();
-        private final Collection<MethodInsnNode> seen = new HashSet<>();
-
-        public ScanningSourceInterpreter(int api) {
-            super(api);
-        }
-
-        public List<AbstractInsnNode> getInsns() {
-            return this.insns;
-        }
-
-        @Override
-        public SourceValue naryOperation(AbstractInsnNode insn, List<? extends SourceValue> values) {
-            if (insn instanceof MethodInsnNode minsn && (ARGS_GET.matches(minsn) || ARGS_SET.matches(minsn)) && values.size() > 1 && !this.seen.contains(minsn)) {
-                SourceValue value = values.get(1);
-                if (value.insns.size() == 1) {
-                    AbstractInsnNode valueInsn = value.insns.iterator().next();
-                    this.insns.add(valueInsn);
-                    this.seen.add(minsn);
-                } else {
-                    throw new IllegalStateException("Got multiple source value insns: " + value.insns);
-                }
-            }
-            return super.naryOperation(insn, values);
         }
     }
 }
