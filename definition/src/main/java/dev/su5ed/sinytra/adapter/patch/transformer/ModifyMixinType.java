@@ -24,6 +24,7 @@ public record ModifyMixinType(String replacementDesc, Consumer<Builder> consumer
             AnnotationNode methodAnn = methodNode.visibleAnnotations.get(i);
             if (methodAnn == annotation.unwrap()) {
                 methodNode.visibleAnnotations.set(i, replacement);
+                annotation.refresh(replacement);
                 break;
             }
         }

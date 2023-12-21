@@ -5,7 +5,7 @@ import org.objectweb.asm.tree.AnnotationNode;
 import java.util.*;
 
 public final class AnnotationHandle {
-    private final AnnotationNode annotationNode;
+    private AnnotationNode annotationNode;
     private final Map<String, AnnotationValueHandle<?>> handleCache = new HashMap<>();
 
     public AnnotationHandle(AnnotationNode annotationNode) {
@@ -72,5 +72,10 @@ public final class AnnotationHandle {
             }
         }
         return map;
+    }
+
+    public void refresh(AnnotationNode annotationNode) {
+        this.annotationNode = annotationNode;
+        this.handleCache.values().forEach(v -> v.refresh(annotationNode));
     }
 }

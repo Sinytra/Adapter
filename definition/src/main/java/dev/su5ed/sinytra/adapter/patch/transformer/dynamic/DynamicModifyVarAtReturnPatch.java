@@ -44,7 +44,7 @@ import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
  *     int i = 10;
  *     // ...
  * <<< return i;
- * >>> return modify$zfk000$someMethodMixin(i);
+ * >>> return localvar$zfk000$someMethodMixin(i);
  * }
  * }</pre>
  * <p>

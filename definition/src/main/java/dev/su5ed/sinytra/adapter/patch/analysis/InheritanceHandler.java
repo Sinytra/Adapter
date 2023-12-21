@@ -16,6 +16,9 @@ public class InheritanceHandler {
     }
 
     public boolean isClassInherited(String child, String parent) {
+        if (child.equals(parent)) {
+            return true;
+        }
         ClassNode childNode = this.classProvider.getClass(child).orElse(null);
         ClassNode parentNode = this.classProvider.getClass(parent).orElse(null);
         return childNode != null && parentNode != null && getClassParents(child).contains(parent);

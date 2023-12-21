@@ -199,6 +199,11 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         }
 
         @Override
+        public T improveModifyVar() {
+            return transform(ModifyVarUpgradeToModifyExprVal.INSTANCE);
+        }
+
+        @Override
         public T modifyMixinType(String newType, Consumer<ModifyMixinType.Builder> consumer) {
             return transform(new ModifyMixinType(newType, consumer));
         }
