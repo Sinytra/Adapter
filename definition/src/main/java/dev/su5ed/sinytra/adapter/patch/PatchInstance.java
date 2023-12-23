@@ -195,7 +195,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
 
         @Override
         public T extractMixin(String targetClass) {
-            return transform(new ExtractMixin(targetClass));
+            return transform(ModifyVarUpgradeToModifyExprVal.INSTANCE).transform(new ExtractMixin(targetClass));
         }
 
         @Override

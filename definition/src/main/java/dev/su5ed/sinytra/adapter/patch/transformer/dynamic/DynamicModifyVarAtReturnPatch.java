@@ -93,11 +93,11 @@ public class DynamicModifyVarAtReturnPatch implements MethodTransform {
         }
         int ordinal = injectionPointAnnotation.<Integer>getValue("ordinal").map(AnnotationValueHandle::get).orElse(-1);
         // Find injection targets
-        Pair<ClassNode, MethodNode> cleanTarget = methodContext.findCleanInjectionTarget();
+        MethodContext.TargetPair cleanTarget = methodContext.findCleanInjectionTarget();
         if (cleanTarget == null) {
             return Patch.Result.PASS;
         }
-        Pair<ClassNode, MethodNode> dirtyTarget = methodContext.findDirtyInjectionTarget();
+        MethodContext.TargetPair dirtyTarget = methodContext.findDirtyInjectionTarget();
         if (dirtyTarget == null) {
             return Patch.Result.PASS;
         }
@@ -113,7 +113,7 @@ public class DynamicModifyVarAtReturnPatch implements MethodTransform {
             return Patch.Result.PASS;
         }
         // Get method call argument instructions
-        MethodCallInterpreter interpreter = MethodCallAnalyzer.analyzeInterpretMethod(dirtyTarget.getSecond(), new MethodCallInterpreter(dirtyMinsn));
+        MethodCallInterpreter interpreter = MethodCallAnalyzer.analyzeInterpretMethod(dirtyTarget.methodNode(), new MethodCallInterpreter(dirtyMinsn));
         List<AbstractInsnNode> args = interpreter.getTargetArgs();
         if (args == null) {
             return Patch.Result.PASS;
@@ -140,20 +140,18 @@ public class DynamicModifyVarAtReturnPatch implements MethodTransform {
         return result;
     }
 
-    private static Pair<AbstractInsnNode, Integer> getTargetPair(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, Pair<ClassNode, MethodNode> injectionTarget, int ordinal) {
+    private static Pair<AbstractInsnNode, Integer> getTargetPair(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, MethodContext.TargetPair injectionTarget, int ordinal) {
         // Find injection point insn
-        ClassNode targetClass = injectionTarget.getFirst();
-        MethodNode targetMethod = injectionTarget.getSecond();
-        List<AbstractInsnNode> targetInsns = methodContext.findInjectionTargetInsns(classNode, targetClass, methodNode, targetMethod, context);
+        List<AbstractInsnNode> targetInsns = methodContext.findInjectionTargetInsns(classNode, injectionTarget.classNode(), methodNode, injectionTarget.methodNode(), context);
         if (targetInsns.isEmpty()) {
             return null;
         }
         AbstractInsnNode targetInsn = targetInsns.get(ordinal == -1 ? targetInsns.size() - 1 : ordinal);
         // Find modified variable
         LocalVariableDiscriminator discriminator = LocalVariableDiscriminator.parse(methodContext.methodAnnotation().unwrap());
-        InjectionInfo injectionInfo = MockMixinRuntime.forInjectionInfo(classNode.name, targetClass.name, context.environment());
+        InjectionInfo injectionInfo = MockMixinRuntime.forInjectionInfo(classNode.name, injectionTarget.classNode().name, context.environment());
         Type returnType = Type.getReturnType(methodNode.desc);
-        Target target = new Target(targetClass, targetMethod);
+        Target target = new Target(injectionTarget.classNode(), injectionTarget.methodNode());
         LocalVariableDiscriminator.Context ctx = new LocalVariableDiscriminator.Context(injectionInfo, returnType, discriminator.isArgsOnly(), target, targetInsn);
         int local = discriminator.findLocal(ctx);
         return Pair.of(targetInsn, local);

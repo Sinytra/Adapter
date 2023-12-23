@@ -3,7 +3,6 @@ package dev.su5ed.sinytra.adapter.patch.transformer.dynamic;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
 import dev.su5ed.sinytra.adapter.patch.analysis.InstructionMatcher;
 import dev.su5ed.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
@@ -39,11 +38,11 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
         if (offsetHandlers.isEmpty()) {
             return Patch.Result.PASS;
         }
-        Pair<ClassNode, MethodNode> cleanTarget = methodContext.findCleanInjectionTarget();
+        MethodContext.TargetPair cleanTarget = methodContext.findCleanInjectionTarget();
         if (cleanTarget == null) {
             return Patch.Result.PASS;
         }
-        Pair<ClassNode, MethodNode> dirtyTarget = methodContext.findDirtyInjectionTarget();
+        MethodContext.TargetPair dirtyTarget = methodContext.findDirtyInjectionTarget();
         if (dirtyTarget == null) {
             return Patch.Result.PASS;
         }
@@ -88,7 +87,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
             return false;
         }
 
-        OptionalInt getUpdatedIndex(PatchContext context, MethodNode methodNode, String target, Pair<ClassNode, MethodNode> cleanTarget, Pair<ClassNode, MethodNode> dirtyTarget, int ordinal);
+        OptionalInt getUpdatedIndex(PatchContext context, MethodNode methodNode, String target, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget, int ordinal);
     }
 
     private static class InvokeOffsetHandler implements OffsetHandler {
@@ -100,9 +99,9 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
         }
 
         @Override
-        public OptionalInt getUpdatedIndex(PatchContext context, MethodNode methodNode, String target, Pair<ClassNode, MethodNode> cleanTarget, Pair<ClassNode, MethodNode> dirtyTarget, int ordinal) {
-            Multimap<String, MethodInsnNode> cleanCallsMap = MethodCallAnalyzer.getMethodCalls(cleanTarget.getSecond(), new ArrayList<>());
-            Multimap<String, MethodInsnNode> dirtyCallsMap = MethodCallAnalyzer.getMethodCalls(dirtyTarget.getSecond(), new ArrayList<>());
+        public OptionalInt getUpdatedIndex(PatchContext context, MethodNode methodNode, String target, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget, int ordinal) {
+            Multimap<String, MethodInsnNode> cleanCallsMap = MethodCallAnalyzer.getMethodCalls(cleanTarget.methodNode(), new ArrayList<>());
+            Multimap<String, MethodInsnNode> dirtyCallsMap = MethodCallAnalyzer.getMethodCalls(dirtyTarget.methodNode(), new ArrayList<>());
 
             String cleanValue = context.remap(target);
             Collection<? extends AbstractInsnNode> cleanCalls = cleanCallsMap.get(cleanValue);
@@ -133,9 +132,9 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
         private static final Set<Integer> RETURN_OPCODES = Set.of(Opcodes.RETURN, Opcodes.ARETURN, Opcodes.IRETURN, Opcodes.FRETURN, Opcodes.DRETURN, Opcodes.LRETURN);
 
         @Override
-        public OptionalInt getUpdatedIndex(PatchContext context, MethodNode methodNode, String target, Pair<ClassNode, MethodNode> cleanTarget, Pair<ClassNode, MethodNode> dirtyTarget, int ordinal) {
-            List<AbstractInsnNode> cleanReturnInsns = findReturnInsns(cleanTarget.getSecond());
-            List<AbstractInsnNode> dirtyReturnInsns = findReturnInsns(dirtyTarget.getSecond());
+        public OptionalInt getUpdatedIndex(PatchContext context, MethodNode methodNode, String target, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget, int ordinal) {
+            List<AbstractInsnNode> cleanReturnInsns = findReturnInsns(cleanTarget.methodNode());
+            List<AbstractInsnNode> dirtyReturnInsns = findReturnInsns(dirtyTarget.methodNode());
 
             if (dirtyReturnInsns.size() > cleanReturnInsns.size() && ordinal < cleanReturnInsns.size()) {
                 AbstractInsnNode cleanInsn = cleanReturnInsns.get(ordinal);
@@ -176,7 +175,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
         private static final OffsetHandler INSTANCE = new ModifyVariableOffsetHandler();
 
         @Override
-        public OptionalInt getUpdatedIndex(PatchContext context, MethodNode methodNode, String target, Pair<ClassNode, MethodNode> cleanTarget, Pair<ClassNode, MethodNode> dirtyTarget, int ordinal) {
+        public OptionalInt getUpdatedIndex(PatchContext context, MethodNode methodNode, String target, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget, int ordinal) {
             Type[] args = Type.getArgumentTypes(methodNode.desc);
             if (args.length < 1) {
                 return OptionalInt.empty();
@@ -186,7 +185,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
             if (targetType != Type.BOOLEAN_TYPE) {
                 return OptionalInt.empty();
             }
-            List<LocalVariableNode> cleanLocals = cleanTarget.getSecond().localVariables.stream()
+            List<LocalVariableNode> cleanLocals = cleanTarget.methodNode().localVariables.stream()
                 .filter(l -> Type.getType(l.desc) == targetType)
                 .sorted(Comparator.comparingInt(l -> l.index))
                 .toList();
@@ -198,7 +197,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                 return OptionalInt.empty();
             }
 
-            List<LocalVariableNode> dirtyLocals = dirtyTarget.getSecond().localVariables.stream()
+            List<LocalVariableNode> dirtyLocals = dirtyTarget.methodNode().localVariables.stream()
                 .filter(l -> Type.getType(l.desc) == targetType)
                 .sorted(Comparator.comparingInt(l -> l.index))
                 .toList();

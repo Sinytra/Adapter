@@ -3,6 +3,7 @@ package dev.su5ed.sinytra.adapter.patch.util;
 import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import dev.su5ed.sinytra.adapter.patch.api.GlobalReferenceMapper;
+import dev.su5ed.sinytra.adapter.patch.api.MethodContext;
 import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
 import dev.su5ed.sinytra.adapter.patch.api.PatchEnvironment;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
@@ -16,17 +17,17 @@ import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.gen.AccessorInfo;
 import org.spongepowered.asm.service.MixinService;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 public final class AdapterUtil {
     public static final Codec<Type> TYPE_CODEC = Codec.STRING.xmap(Type::getType, Type::getDescriptor);
     private static final Pattern FIELD_REF_PATTERN = Pattern.compile("^(?<owner>L.+?;)?(?<name>[^:]+)?:(?<desc>.+)?$");
+    private static final Type CI_TYPE = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfo");
+    private static final Type CIR_TYPE = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable");
     private static final Logger LOGGER = LogUtils.getLogger();
 
     public static int getLVTOffsetForType(Type type) {
@@ -127,11 +128,51 @@ public final class AdapterUtil {
 
     public static boolean isShadowField(FieldNode field) {
         List<AnnotationNode> annotations = field.visibleAnnotations != null ? field.visibleAnnotations : List.of();
-        return AdapterUtil.hasAnnotation(annotations, MixinConstants.SHADOW); 
+        return AdapterUtil.hasAnnotation(annotations, MixinConstants.SHADOW);
     }
 
     public static boolean hasAnnotation(List<AnnotationNode> annotations, String desc) {
-        return annotations.stream().anyMatch(an -> desc.equals(an.desc));
+        return annotations != null && annotations.stream().anyMatch(an -> desc.equals(an.desc));
+    }
+
+    // Adapted from org.spongepowered.asm.mixin.injection.callback.CallbackInjector summariseLocals
+    public static <T> List<T> summariseLocals(T[] locals, int pos) {
+        List<T> list = new ArrayList<>();
+        if (locals != null) {
+            for (int i = pos; i < locals.length; i++) {
+                if (locals[i] != null) {
+                    list.add(locals[i]);
+                }
+            }
+        }
+        return list;
+    }
+
+    @Nullable
+    public static CapturedLocals getCapturedLocals(MethodNode methodNode, MethodContext methodContext) {
+        AnnotationHandle annotation = methodContext.methodAnnotation();
+        Type[] params = Type.getArgumentTypes(methodNode.desc);
+        // Sanity check to make sure the injector method takes in a CI or CIR argument
+        if (Stream.of(params).noneMatch(p -> p.equals(CI_TYPE) || p.equals(CIR_TYPE))) {
+            LOGGER.debug("Missing CI or CIR argument in injector of type {}", annotation.getDesc());
+            return null;
+        }
+        MethodContext.TargetPair target = methodContext.findDirtyInjectionTarget();
+        if (target == null) {
+            return null;
+        }
+        Type[] targetParams = Type.getArgumentTypes(target.methodNode().desc);
+        boolean isStatic = (methodNode.access & Opcodes.ACC_STATIC) != 0;
+        int lvtOffset = isStatic ? 0 : 1;
+        // The first local var in the method's params comes after the target's params plus the CI/CIR parameter
+        int paramLocalPos = targetParams.length + 1;
+        // Get expected local variables from method parameters
+        List<Type> expected = AdapterUtil.summariseLocals(params, paramLocalPos);
+        return new CapturedLocals(target, isStatic, paramLocalPos, paramLocalPos + expected.size(), lvtOffset, expected, new LocalVariableLookup(methodNode.localVariables));
+    }
+
+    public record CapturedLocals(MethodContext.TargetPair target, boolean isStatic, int paramLocalStart, int paramLocalEnd, int lvtOffset,
+                                 List<Type> expected, LocalVariableLookup lvt) {
     }
 
     private AdapterUtil() {

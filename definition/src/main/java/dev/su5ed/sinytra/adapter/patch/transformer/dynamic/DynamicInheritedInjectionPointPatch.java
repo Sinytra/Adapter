@@ -47,18 +47,18 @@ public class DynamicInheritedInjectionPointPatch implements MethodTransform {
             if (q == null) {
                 return Patch.Result.PASS;
             }
-            Pair<ClassNode, MethodNode> targetPair = methodContext.findDirtyInjectionTarget();
+            MethodContext.TargetPair targetPair = methodContext.findDirtyInjectionTarget();
             if (targetPair == null) {
                 return Patch.Result.PASS;
             }
             List<AbstractInsnNode> insns = new ArrayList<>();
-            injectionPoint.find(targetPair.getSecond().desc, targetPair.getSecond().instructions, insns);
+            injectionPoint.find(targetPair.methodNode().desc, targetPair.methodNode().instructions, insns);
             if (!insns.isEmpty()) {
                 return Patch.Result.PASS;
             }
 
             String owner = q.internalOwnerName();
-            for (AbstractInsnNode insn : targetPair.getSecond().instructions) {
+            for (AbstractInsnNode insn : targetPair.methodNode().instructions) {
                 if (insn instanceof MethodInsnNode minsn && minsn.name.equals(q.name()) && minsn.desc.equals(q.desc()) && !minsn.owner.equals(owner)) {
                     if (context.environment().inheritanceHandler().isClassInherited(minsn.owner, owner) || isFixedField(minsn.getPrevious(), context)) {
                         target.set(MethodCallAnalyzer.getCallQualifier(minsn));

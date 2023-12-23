@@ -434,6 +434,7 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
         private final List<Pair<Integer, Type>> insertions = new ArrayList<>();
         private final List<Pair<Integer, Type>> replacements = new ArrayList<>();
         private final List<Pair<Integer, Integer>> substitutes = new ArrayList<>();
+        private final List<Integer> removals = new ArrayList<>();
         private final List<Pair<Integer, Integer>> swap = new ArrayList<>();
         private final List<Pair<Integer, Consumer<InstructionAdapter>>> inlines = new ArrayList<>();
         private TargetType targetType = TargetType.ALL;
@@ -466,6 +467,16 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
             return this;
         }
 
+        public Builder remove(int index) {
+            this.removals.add(index);
+            return this;
+        }
+
+        public Builder remove(Collection<Integer> indices) {
+            this.removals.addAll(indices);
+            return this;
+        }
+
         public Builder swap(int original, int replacement) {
             this.swap.add(Pair.of(original, replacement));
             return this;
@@ -485,9 +496,14 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
             this.lvtFixer = lvtFixer;
             return this;
         }
+        
+        public Builder chain(Consumer<Builder> consumer) {
+            consumer.accept(this);
+            return this;
+        }
 
         public ModifyMethodParams build() {
-            ParamsContext context = new ParamsContext(this.insertions, this.replacements, this.swap, this.substitutes, List.of(), List.of(), this.inlines   );
+            ParamsContext context = new ParamsContext(this.insertions, this.replacements, this.swap, this.substitutes, this.removals, List.of(), this.inlines);
             return new ModifyMethodParams(context, this.targetType, this.ignoreOffset, this.lvtFixer);
         }
     }

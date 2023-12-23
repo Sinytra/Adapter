@@ -212,6 +212,15 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
         return new ParametersDiff(parameterTypes.size(), insertions, List.of(), swapsList, List.of(), List.of());
     }
 
+    public ParametersDiff offset(int offset, int limit) {
+        List<Pair<Integer, Type>> offsetInsertions = this.insertions.stream().filter(pair -> pair.getFirst() < limit).map(pair -> pair.mapFirst(i -> i + offset)).toList();
+        List<Pair<Integer, Type>> offsetReplacements = this.replacements.stream().filter(pair -> pair.getFirst() < limit).map(pair -> pair.mapFirst(i -> i + offset)).toList();
+        List<Pair<Integer, Integer>> offsetSwaps = this.swaps.stream().filter(pair -> pair.getFirst() < limit).map(pair -> pair.mapFirst(i -> i + offset).mapSecond(i -> i + offset)).toList();
+        List<Pair<Integer, Integer>> offsetMoves = this.moves.stream().filter(pair -> pair.getFirst() < limit).map(pair -> pair.mapFirst(i -> i + offset).mapSecond(i -> i + offset)).toList();
+        List<Integer> offsetRemovals = this.removals.stream().filter(i -> i < limit).map(i -> i + offset).toList();
+        return new ParametersDiff(this.originalCount, offsetInsertions, offsetReplacements, offsetSwaps, offsetRemovals, offsetMoves);
+    }
+
     public boolean isEmpty() {
         return this.insertions.isEmpty() && this.replacements.isEmpty() && this.swaps.isEmpty() && this.removals.isEmpty() && this.moves.isEmpty();
     }

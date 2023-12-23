@@ -1,6 +1,5 @@
 package dev.su5ed.sinytra.adapter.patch.api;
 
-import com.mojang.datafixers.util.Pair;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
@@ -27,9 +26,9 @@ public interface MethodContext {
 
     PatchContext patchContext();
 
-    Pair<ClassNode, MethodNode> findCleanInjectionTarget();
+    TargetPair findCleanInjectionTarget();
 
-    Pair<ClassNode, MethodNode> findDirtyInjectionTarget();
+    TargetPair findDirtyInjectionTarget();
 
     @Nullable
     MethodQualifier getTargetMethodQualifier(PatchContext context);
@@ -40,4 +39,14 @@ public interface MethodContext {
     List<AbstractInsnNode> findInjectionTargetInsns(ClassNode classNode, ClassNode targetClass, MethodNode methodNode, MethodNode targetMethod, PatchContext context);
 
     void updateDescription(ClassNode classNode, MethodNode methodNode, List<Type> parameters);
+
+    @Nullable
+    List<LocalVariable> getTargetMethodLocals(ClassNode classNode, MethodNode methodNode, ClassNode targetClass, MethodNode targetMethod);
+
+    @Nullable
+    List<LocalVariable> getTargetMethodLocals(ClassNode classNode, MethodNode methodNode, ClassNode targetClass, MethodNode targetMethod, int startPos, int fabricCompatibility);
+    
+    record LocalVariable(int index, Type type) {}
+
+    record TargetPair(ClassNode classNode, MethodNode methodNode) {};
 }
