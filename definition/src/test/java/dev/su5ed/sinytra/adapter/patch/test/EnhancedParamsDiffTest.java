@@ -115,6 +115,40 @@ public class EnhancedParamsDiffTest {
     }
 
     @Test
+    void testCompareInsertedParameters3() {
+        List<Type> original = List.of(
+            Type.INT_TYPE,
+            Type.INT_TYPE
+        );
+        List<Type> modified = List.of(
+            Type.getObjectType("net/minecraftforge/client/event/RenderTooltipEvent$Pre"),
+            Type.INT_TYPE,
+            Type.INT_TYPE,
+            Type.INT_TYPE,
+            Type.INT_TYPE,
+            Type.getObjectType("org/joml/Vector2ic"),
+            Type.INT_TYPE,
+            Type.INT_TYPE
+        );
+        List<Pair<Integer, Type>> expectedInsertions = List.of(
+            Pair.of(0, Type.getObjectType("net/minecraftforge/client/event/RenderTooltipEvent$Pre")),
+            Pair.of(3, Type.INT_TYPE),
+            Pair.of(4, Type.INT_TYPE),
+            Pair.of(5, Type.getObjectType("org/joml/Vector2ic")),
+            Pair.of(6, Type.INT_TYPE),
+            Pair.of(7, Type.INT_TYPE)
+        );
+
+        ParametersDiff diff = EnhancedParamsDiff.create(original, modified);
+        assertEquals(6, diff.insertions().size());
+        assertEquals(expectedInsertions, diff.insertions());
+        assertTrue(diff.replacements().isEmpty());
+        assertTrue(diff.removals().isEmpty());
+        assertTrue(diff.swaps().isEmpty());
+        assertTrue(diff.moves().isEmpty());
+    }
+
+    @Test
     void testCompareInsertedParametersOrder() {
         List<Type> original = List.of(
             Type.getObjectType("net/minecraft/world/level/block/Block"),

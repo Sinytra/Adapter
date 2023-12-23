@@ -6,11 +6,8 @@ import com.mojang.logging.LogUtils;
 import dev.su5ed.sinytra.adapter.patch.LVTOffsets;
 import dev.su5ed.sinytra.adapter.patch.analysis.EnhancedParamsDiff;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
-import dev.su5ed.sinytra.adapter.patch.api.MethodContext;
-import dev.su5ed.sinytra.adapter.patch.api.MethodTransform;
-import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
+import dev.su5ed.sinytra.adapter.patch.api.*;
 import dev.su5ed.sinytra.adapter.patch.api.Patch.Result;
-import dev.su5ed.sinytra.adapter.patch.api.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
@@ -146,6 +143,9 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
     @Nullable
     private ParametersDiff compareParameters(ClassNode classNode, MethodNode methodNode, MethodContext methodContext) {
         AdapterUtil.CapturedLocals capturedLocals = AdapterUtil.getCapturedLocals(methodNode, methodContext);
+        if (capturedLocals == null) {
+            return null;
+        }
 
         // Get available local variables at the injection point in the target method
         List<MethodContext.LocalVariable> available = methodContext.getTargetMethodLocals(classNode, methodNode, capturedLocals.target().classNode(), capturedLocals.target().methodNode());

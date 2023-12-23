@@ -26,7 +26,7 @@ public class EnhancedParamsDiff {
         while (!cleanQueue.isEmpty()) {
             // Look ahead for matching types at the beginning of the list
             // If the first two are equal, remove the first ones and repeat
-            if (cleanQueue.size() > 1 && dirtyQueue.size() > 1 && cleanQueue.get(1).sameType(dirtyQueue.get(1))) {
+            if (cleanQueue.size() > 1 && dirtyQueue.size() > 1 && cleanQueue.get(0).sameType(dirtyQueue.get(0)) && cleanQueue.get(1).sameType(dirtyQueue.get(1))) {
                 cleanQueue.remove(0);
                 dirtyQueue.remove(0);
                 continue;
@@ -47,8 +47,9 @@ public class EnhancedParamsDiff {
             // Find the smallest set of matching types by locating the position of the next clean type in the dirty list
             int dirtyTypeIndex = cleanQueue.size() == 1 ? dirty.size() - 1 : lookAhead(dirtyQueue, cleanQueue.get(1));
             if (dirtyTypeIndex != -1) {
+                int offset = cleanQueue.get(0).sameType(dirtyQueue.get(0)) ? 1 : 2;
                 List<TypeWithContext> compareClean = extract(cleanQueue, 2);
-                List<TypeWithContext> compareDirty = extract(dirtyQueue, dirtyTypeIndex + 1);
+                List<TypeWithContext> compareDirty = extract(dirtyQueue, dirtyTypeIndex + offset);
 
                 compare(builder, compareClean, compareDirty);
             }
@@ -74,6 +75,11 @@ public class EnhancedParamsDiff {
     private static boolean replaceType(ParamDiffBuilder builder, int index, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
         TypeWithContext cleanType = cleanQueue.get(index);
         TypeWithContext dirtyType = dirtyQueue.get(index);
+        int next = index + 1;
+        // Handle possible insertions
+        if (dirtyQueue.size() > next && cleanType.sameType(dirtyQueue.get(next))) {
+            return false;
+        }
         if (!cleanType.sameType(dirtyType)) {
             if (DEBUG) {
                 LOGGER.info("Replacing {} with {}", cleanType, dirtyType);
@@ -99,7 +105,7 @@ public class EnhancedParamsDiff {
         List<TypeWithContext> removeDirty = new ArrayList<>();
         ParamDiffBuilder tempDiff = new ParamDiffBuilder();
         // Remove inserted parameters
-        if (diff.entriesOnlyOnLeft().isEmpty() && diff.entriesDiffering().isEmpty() && !diff.entriesOnlyOnRight().isEmpty()) {
+        if (diff.entriesOnlyOnLeft().isEmpty() && !diff.entriesOnlyOnRight().isEmpty()) {
             for (Map.Entry<Type, Integer> entry : diff.entriesOnlyOnRight().entrySet()) {
                 Type type = entry.getKey();
                 Integer count = entry.getValue();
@@ -112,7 +118,7 @@ public class EnhancedParamsDiff {
                     tempDiff.insert(offset, inserted.type());
                 }
             }
-        } else if (!diff.entriesOnlyOnLeft().isEmpty() && diff.entriesDiffering().isEmpty() && diff.entriesOnlyOnRight().isEmpty()) {
+        } else if (!diff.entriesOnlyOnLeft().isEmpty() && diff.entriesOnlyOnRight().isEmpty()) {
             for (Map.Entry<Type, Integer> entry : diff.entriesOnlyOnLeft().entrySet()) {
                 Type type = entry.getKey();
                 Integer count = entry.getValue();

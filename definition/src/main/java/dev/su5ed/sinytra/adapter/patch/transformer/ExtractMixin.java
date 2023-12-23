@@ -179,6 +179,9 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
      */
     private static Patch.Result recreateLocalVariables(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, ClassNode extractClass) {
         AdapterUtil.CapturedLocals capturedLocals = AdapterUtil.getCapturedLocals(methodNode, methodContext);
+        if (capturedLocals == null) {
+            return Patch.Result.PASS;
+        }
         int paramLocalStart = capturedLocals.paramLocalStart();
 
         // Mixin requires capturing locals in their original order, so we must filter out unused ones 
