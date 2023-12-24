@@ -254,6 +254,7 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
             }
         });
         LabelNode end = new LabelNode();
+        Map<Integer, Integer> newIndices = new HashMap<>();
         usageCount.forEach((index, count) -> {
             if (count > 1) {
                 LocalVariableNode node = targetTable.getByIndex(index);
@@ -274,6 +275,7 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
                         }
                     }
                 });
+                newIndices.put(index, newIndex);
             }
         });
 
@@ -285,8 +287,18 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
         }
         // Load recreated locals
         used.forEach(ordinal -> {
-            int index = targetTable.getByOrdinal(ordinal).index;
-            replacementInsns.add(varInsnLists.get(index)); 
+            LocalVariableNode node = targetTable.getByOrdinal(ordinal);
+            InsnList insns = varInsnLists.get(node.index);
+            if (insns != null) {
+                replacementInsns.add(insns);
+            } else {
+                Type type = Type.getType(node.desc);
+                int newIndex = newIndices.getOrDefault(node.index, -1);
+                if (newIndex == -1) {
+                    throw new IllegalArgumentException("Missing new index for var " + node.index);
+                }
+                replacementInsns.add(new VarInsnNode(OpcodeUtil.getLoadOpcode(type.getSort()), newIndex));
+            }
         });
         // Call overloaded method
         replacementInsns.add(new MethodInsnNode(capturedLocals.isStatic() ? Opcodes.INVOKESTATIC : Opcodes.INVOKEVIRTUAL, extractClass.name, copy.name, copy.desc));

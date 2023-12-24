@@ -235,12 +235,12 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
                 }
             }
         }
+        if (!this.context.removals.isEmpty()) {
+            LOGGER.info(MIXINPATCH, "Removing parameters {} from method {}.{}", this.context.removals, classNode.name, methodNode.name);
+        }
         this.context.removals.stream()
             .sorted(Comparator.<Integer>comparingInt(i -> i).reversed())
-            .forEach(removal -> {
-                LOGGER.info(MIXINPATCH, "Removing parameter {} from method {}.{}", removal, classNode.name, methodNode.name);
-                removeLocalVariable(methodNode, removal, offset, -1, newParameterTypes);
-            });
+            .forEach(removal -> removeLocalVariable(methodNode, removal, offset, -1, newParameterTypes));
         offsetMoves.forEach(move -> {
             int from = move.getFirst();
             int to = move.getSecond();
