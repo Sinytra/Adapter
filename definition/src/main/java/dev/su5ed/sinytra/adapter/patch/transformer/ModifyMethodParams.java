@@ -12,7 +12,7 @@ import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
 import dev.su5ed.sinytra.adapter.patch.api.Patch.Result;
 import dev.su5ed.sinytra.adapter.patch.api.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
-import dev.su5ed.sinytra.adapter.patch.fixes.FieldTypeFix;
+import dev.su5ed.sinytra.adapter.patch.fixes.TypeAdapter;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.SingleValueHandle;
@@ -160,9 +160,9 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
                     if (insn instanceof VarInsnNode varInsn && varInsn.var == localIndex) {
                         int nextOp = insn.getNext().getOpcode();
                         if (bfu != null && nextOp != Opcodes.IFNULL && nextOp != Opcodes.IFNONNULL) {
-                            FieldTypeFix typeFix = bfu.getFieldTypeAdapter(type, originalType);
+                            TypeAdapter typeFix = bfu.getTypeAdapter(type, originalType);
                             if (typeFix != null) {
-                                typeFix.typePatch().apply(methodNode.instructions, varInsn);
+                                typeFix.apply(methodNode.instructions, varInsn);
                             }
                         }
                         if (this.lvtFixer != null) {

@@ -88,11 +88,11 @@ public class FieldTypeUsageTransformer implements ClassTransform {
     }
 
     private static boolean runFieldFix(BytecodeFixerUpper bfu, Pair<Type, Type> updatedTypes, MethodNode method, FieldInsnNode finsn) {
-        FieldTypeFix typeAdapter = bfu.getFieldTypeAdapter(updatedTypes.getSecond(), updatedTypes.getFirst());
+        TypeAdapter typeAdapter = bfu.getTypeAdapter(updatedTypes.getSecond(), updatedTypes.getFirst());
         if (typeAdapter != null) {
             LOGGER.info("Running fixup for field {}.{}{} in method {}{}", finsn.owner, finsn.name, finsn.desc, method.name, method.desc);
             finsn.desc = updatedTypes.getSecond().getDescriptor();
-            typeAdapter.typePatch().apply(method.instructions, finsn);
+            typeAdapter.apply(method.instructions, finsn);
             return true;
         }
         return false;

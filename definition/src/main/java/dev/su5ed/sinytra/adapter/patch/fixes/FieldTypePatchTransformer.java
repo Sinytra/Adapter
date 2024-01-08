@@ -31,7 +31,7 @@ public class FieldTypePatchTransformer implements MethodTransform {
                 Type owner = methodContext.targetTypes().get(0);
                 Pair<Type, Type> updatedTypes = bfu.getFieldTypeChange(owner.getInternalName(), fieldName);
                 if (updatedTypes != null) {
-                    FieldTypeFix typeAdapter = bfu.getFieldTypeAdapter(updatedTypes.getSecond(), updatedTypes.getFirst());
+                    TypeAdapter typeAdapter = bfu.getTypeAdapter(updatedTypes.getSecond(), updatedTypes.getFirst());
                     if (typeAdapter != null) {
                         String targetMethod = addRedirectAcceptorField(owner, methodNode, fieldName, typeAdapter, bfu.getGenerator());
 
@@ -46,7 +46,7 @@ public class FieldTypePatchTransformer implements MethodTransform {
         return Patch.Result.PASS;
     }
 
-    private String addRedirectAcceptorField(Type owner, MethodNode methodNode, String field, FieldTypeFix adapter, BytecodeFixerJarGenerator generator) {
+    private String addRedirectAcceptorField(Type owner, MethodNode methodNode, String field, TypeAdapter adapter, BytecodeFixerJarGenerator generator) {
         ClassNode node = getOrCreateMixinClass(owner, generator);
 
         String methodName = PREFIX + field;
@@ -65,7 +65,7 @@ public class FieldTypePatchTransformer implements MethodTransform {
                     method.visitVarInsn(Opcodes.ALOAD, 0);
                 }
                 method.visitFieldInsn(isStatic ? Opcodes.GETSTATIC : Opcodes.GETFIELD, owner.getInternalName(), field, adapter.from().getDescriptor());
-                adapter.typePatch().apply(method.instructions, method.instructions.getLast());
+                adapter.apply(method.instructions, method.instructions.getLast());
                 method.visitInsn(getReturnOpcode(to));
                 method.visitEnd();
             }

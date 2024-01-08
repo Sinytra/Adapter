@@ -65,7 +65,7 @@ public record SoftMethodParamsPatch(String replacementTarget) implements MethodT
                     Type type = pair.getSecond();
                     Type original = args[pair.getFirst()];
                     return original.getSort() == Type.OBJECT && type.getSort() == Type.OBJECT
-                        && (bfu.getFieldTypeAdapter(pair.getSecond(), original) != null
+                        && (bfu.getTypeAdapter(pair.getSecond(), original) != null
                         || permittedTypeNarrowing(index, original, type, context.environment().inheritanceHandler(), methodNode));
                 })
                 .toList();
