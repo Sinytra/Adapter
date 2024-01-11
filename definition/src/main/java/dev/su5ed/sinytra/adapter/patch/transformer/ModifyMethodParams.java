@@ -15,6 +15,7 @@ import dev.su5ed.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
 import dev.su5ed.sinytra.adapter.patch.fixes.TypeAdapter;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
+import dev.su5ed.sinytra.adapter.patch.util.LocalVariableLookup;
 import dev.su5ed.sinytra.adapter.patch.util.SingleValueHandle;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -127,14 +128,15 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
 
             methodNode.localVariables.add(new LocalVariableNode("adapter_injected_" + index, type.getDescriptor(), null, self.start, self.end, lvtIndex));
         }
+        LocalVariableLookup lvtLookup = new LocalVariableLookup(methodNode.localVariables);
         BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
         this.context.replacements.forEach(pair -> {
             int index = pair.getFirst();
             Type type = pair.getSecond();
             newParameterTypes.set(index, type);
-            // FIXME Not actually accurate; account for wide types double & long
-            int localIndex = offset + index;
-            LocalVariableNode localVar = methodNode.localVariables.stream().filter(lvn -> lvn.index == localIndex).findFirst().orElseThrow();
+            int lvtOrdinal = offset + index;
+            LocalVariableNode localVar = lvtLookup.getByOrdinal(lvtOrdinal);
+            int localIndex = localVar.index;
             Type originalType = Type.getType(localVar.desc);
             localVar.desc = type.getDescriptor();
             localVar.signature = null;
