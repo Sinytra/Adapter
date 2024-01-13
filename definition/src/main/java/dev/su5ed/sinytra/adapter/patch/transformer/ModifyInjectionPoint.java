@@ -5,9 +5,9 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.su5ed.sinytra.adapter.patch.api.MethodContext;
 import dev.su5ed.sinytra.adapter.patch.api.MethodTransform;
-import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
 import dev.su5ed.sinytra.adapter.patch.api.Patch.Result;
 import dev.su5ed.sinytra.adapter.patch.api.PatchContext;
+import dev.su5ed.sinytra.adapter.patch.fixes.MethodUpgrader;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import org.jetbrains.annotations.Nullable;
@@ -48,9 +48,7 @@ public record ModifyInjectionPoint(@Nullable String value, String target, boolea
         if (handle != null) {
             String original = handle.get();
             handle.set(this.target);
-            if (methodContext.methodAnnotation().matchesDesc(MixinConstants.MODIFY_ARGS)) {
-                ModifyArgsOffsetTransformer.handleModifiedDesc(methodNode, original, this.target);
-            }
+            MethodUpgrader.upgradeMethod(classNode, methodNode, methodContext, original, this.target);
         } else {
             annotation.appendValue("target", this.target);
         }

@@ -16,6 +16,7 @@ import dev.su5ed.sinytra.adapter.patch.fixes.TypeAdapter;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.LocalVariableLookup;
+import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import dev.su5ed.sinytra.adapter.patch.util.SingleValueHandle;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -39,6 +40,7 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
     ).apply(instance, (context, targetInjectionPoint) -> new ModifyMethodParams(context, targetInjectionPoint, false, null)));
 
     private static final Logger LOGGER = LogUtils.getLogger();
+    private static final MethodQualifier WO_ORIGINAL_CALL = new MethodQualifier("Lcom/llamalad7/mixinextras/injector/wrapoperation/Operation;", "call", "([Ljava/lang/Object;)Ljava/lang/Object;");
 
     public static ModifyMethodParams create(String cleanMethodDesc, String dirtyMethodDesc, TargetType targetType) {
         ParametersDiff diff = ParametersDiff.compareTypeParameters(Type.getArgumentTypes(cleanMethodDesc), Type.getArgumentTypes(dirtyMethodDesc));
@@ -140,9 +142,13 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
             Type originalType = Type.getType(localVar.desc);
             localVar.desc = type.getDescriptor();
             localVar.signature = null;
+            List<AbstractInsnNode> ignoreInsns = findWrapOperationOriginalCall(methodNode, methodContext);
             if (type.getSort() == Type.OBJECT && originalType.getSort() == Type.OBJECT) {
                 // Replace variable usages with the new type
                 for (AbstractInsnNode insn : methodNode.instructions) {
+                    if (ignoreInsns.contains(insn)) {
+                        continue;
+                    }
                     if (insn instanceof MethodInsnNode minsn && minsn.owner.equals(originalType.getInternalName())) {
                         // Find var load instruction
                         AbstractInsnNode previous = minsn.getPrevious();
@@ -367,6 +373,27 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
                 }
             }
         }
+    }
+
+    private static List<AbstractInsnNode> findWrapOperationOriginalCall(MethodNode methodNode, MethodContext methodContext) {
+        if (methodContext.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
+            List<AbstractInsnNode> list = new ArrayList<>();
+            outer:
+            for (AbstractInsnNode insn : methodNode.instructions) {
+                if (insn instanceof MethodInsnNode minsn && WO_ORIGINAL_CALL.matches(minsn)) {
+                    for (AbstractInsnNode prev = insn.getPrevious(); prev != null; prev = prev.getPrevious()) {
+                        if (prev instanceof LabelNode) {
+                            continue outer;
+                        }
+                        if (AdapterUtil.canHandleLocalVarInsnValue(prev)) {
+                            list.add(prev);
+                        }
+                    }
+                }
+            }
+            return List.copyOf(list);
+        }
+        return List.of();
     }
 
     public enum TargetType {

@@ -17,15 +17,7 @@ public class ModifyArgsOffsetTransformer {
     private static final MethodQualifier ARGS_GET = new MethodQualifier("Lorg/spongepowered/asm/mixin/injection/invoke/arg/Args;", "get", "(I)Ljava/lang/Object;");
     private static final MethodQualifier ARGS_SET = new MethodQualifier("Lorg/spongepowered/asm/mixin/injection/invoke/arg/Args;", "set", "(ILjava/lang/Object;)V");
 
-    public static void handleModifiedDesc(MethodNode methodNode, String oldQualifier, String newQualifier) {
-        String cleanDesc = MethodQualifier.create(oldQualifier).map(MethodQualifier::desc).orElse(null);
-        if (cleanDesc == null) {
-            return;
-        }
-        String dirtyDesc = MethodQualifier.create(newQualifier).map(MethodQualifier::desc).orElse(null);
-        if (dirtyDesc == null) {
-            return;
-        }
+    public static void handleModifiedDesc(MethodNode methodNode, String cleanDesc, String dirtyDesc) {
         Type[] cleanArgs = Type.getArgumentTypes(cleanDesc);
         Type[] dirtyArgs = Type.getArgumentTypes(dirtyDesc);
         // TODO Use EPD

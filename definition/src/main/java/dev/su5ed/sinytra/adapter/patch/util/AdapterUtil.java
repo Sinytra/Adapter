@@ -104,6 +104,10 @@ public final class AdapterUtil {
         return null;
     }
 
+    public static boolean canHandleLocalVarInsnValue(AbstractInsnNode insn) {
+        return insn instanceof VarInsnNode || insn instanceof IincInsnNode;
+    }
+
     public static int getInsnIntConstValue(InsnNode insn) {
         int opcode = insn.getOpcode();
         if (opcode >= Opcodes.ICONST_0 && opcode <= Opcodes.ICONST_5) {
