@@ -77,9 +77,11 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
         AnnotationHandle annotation = methodContext.methodAnnotation();
         Type[] params = Type.getArgumentTypes(methodNode.desc);
         List<Type> newParameterTypes = new ArrayList<>(Arrays.asList(params));
-        int offset = (methodNode.access & Opcodes.ACC_STATIC) == 0
-            // If it's a redirect, the first param (index 1) is the object instance
-            ? annotation.matchesDesc(MixinConstants.REDIRECT) && !this.ignoreOffset ? 2 : 1
+        boolean isNonStatic = (methodNode.access & Opcodes.ACC_STATIC) == 0;
+        boolean needsOffset = annotation.matchesDesc(MixinConstants.REDIRECT) && !this.ignoreOffset;
+        int offset = isNonStatic
+            // If it's a redirect, the first local variable (index 1) is the object instance
+            ? needsOffset ? 2 : 1
             : 0;
 
         if (annotation.matchesDesc(MixinConstants.MODIFY_VAR)) {
@@ -117,18 +119,19 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
             } else {
                 lvtIndex = lvtOrdinal;
             }
+            int paramOrdinal = isNonStatic && needsOffset ? index + 1 : index;
             ParameterNode newParameter = new ParameterNode(null, Opcodes.ACC_SYNTHETIC);
-            newParameterTypes.add(index, type);
-            methodNode.parameters.add(index, newParameter);
+            newParameterTypes.add(paramOrdinal, type);
+            methodNode.parameters.add(paramOrdinal, newParameter);
 
             int varOffset = AdapterUtil.getLVTOffsetForType(type);
             offsetLVT(methodNode, lvtIndex, varOffset);
-            offsetParameters(methodNode, index);
+            offsetParameters(methodNode, paramOrdinal);
 
-            offsetSwaps.replaceAll(integerIntegerPair -> integerIntegerPair.mapFirst(j -> j >= index ? j + 1 : j));
-            offsetMoves.replaceAll(integerIntegerPair -> integerIntegerPair.mapFirst(j -> j >= index ? j + 1 : j).mapSecond(j -> j >= index ? j + 1 : j));
+            offsetSwaps.replaceAll(integerIntegerPair -> integerIntegerPair.mapFirst(j -> j >= paramOrdinal ? j + 1 : j));
+            offsetMoves.replaceAll(integerIntegerPair -> integerIntegerPair.mapFirst(j -> j >= paramOrdinal ? j + 1 : j).mapSecond(j -> j >= paramOrdinal ? j + 1 : j));
 
-            methodNode.localVariables.add(new LocalVariableNode("adapter_injected_" + index, type.getDescriptor(), null, self.start, self.end, lvtIndex));
+            methodNode.localVariables.add(new LocalVariableNode("adapter_injected_" + paramOrdinal, type.getDescriptor(), null, self.start, self.end, lvtIndex));
         }
         LocalVariableLookup lvtLookup = new LocalVariableLookup(methodNode.localVariables);
         BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
