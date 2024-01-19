@@ -157,7 +157,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                 .filter(i -> !(i instanceof FrameNode) && !(i instanceof LineNumberNode))
                 .takeWhile(i -> !RETURN_OPCODES.contains(i.getOpcode()))
                 .toList();
-            return Lists.reverse(insns).subList(0, 6);
+            return Lists.reverse(insns).subList(0, Math.min(insns.size(), 6));
         }
 
         private static List<AbstractInsnNode> findReturnInsns(MethodNode methodNode) {
@@ -182,7 +182,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
             }
             Type targetType = args[0];
             // Support only bools for now
-            if (targetType != Type.BOOLEAN_TYPE) {
+            if (targetType != Type.BOOLEAN_TYPE && targetType != Type.INT_TYPE) {
                 return OptionalInt.empty();
             }
             List<LocalVariableNode> cleanLocals = cleanTarget.methodNode().localVariables.stream()
