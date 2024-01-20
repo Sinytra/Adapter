@@ -33,6 +33,7 @@ import java.util.function.Consumer;
 
 import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
+// TODO Refactor
 public record ModifyMethodParams(ParamsContext context, TargetType targetType, boolean ignoreOffset, @Nullable LVTFixer lvtFixer) implements MethodTransform {
     public static final Codec<ModifyMethodParams> CODEC = RecordCodecBuilder.create(instance -> instance.group(
         ParamsContext.CODEC.fieldOf("context").forGetter(ModifyMethodParams::context),

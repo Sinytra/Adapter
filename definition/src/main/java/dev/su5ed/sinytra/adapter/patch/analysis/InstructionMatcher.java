@@ -3,6 +3,7 @@ package dev.su5ed.sinytra.adapter.patch.analysis;
 import dev.su5ed.sinytra.adapter.patch.util.InsnComparator;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.MethodInsnNode;
 
 import java.util.List;
@@ -57,6 +58,20 @@ public record InstructionMatcher(AbstractInsnNode insn, List<AbstractInsnNode> b
             for (int i = 0; i < this.after.size(); i++) {
                 AbstractInsnNode insn = this.after.get(i);
                 AbstractInsnNode otherInsn = other.after.get(i);
+                if (!InsnComparator.instructionsEqual(insn, otherInsn)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean test(InsnList first, InsnList second) {
+        if (first.size() == second.size()) {
+            for (int i = 0; i < first.size(); i++) {
+                AbstractInsnNode insn = first.get(i);
+                AbstractInsnNode otherInsn = second.get(i);
                 if (!InsnComparator.instructionsEqual(insn, otherInsn)) {
                     return false;
                 }
