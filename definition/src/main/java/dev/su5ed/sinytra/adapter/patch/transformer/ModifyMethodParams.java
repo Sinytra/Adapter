@@ -18,8 +18,6 @@ import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.LocalVariableLookup;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import dev.su5ed.sinytra.adapter.patch.util.SingleValueHandle;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.ints.IntSet;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -202,51 +200,29 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
                 }
             }
         });
-        IntSet seenSwaps = new IntOpenHashSet();
         for (Pair<Integer, Integer> swapPair : offsetSwaps) {
             int from = swapPair.getFirst();
-            if (seenSwaps.contains(from)) {
-                continue;
-            }
             int to = swapPair.getSecond();
             ParameterNode fromNode = methodNode.parameters.get(from);
             ParameterNode toNode = methodNode.parameters.get(to);
+
+            final String fromName = fromNode.name;
+            fromNode.name = toNode.name;
+            toNode.name = fromName;
+
             methodNode.parameters.set(from, toNode);
             methodNode.parameters.set(to, fromNode);
             Type fromType = newParameterTypes.get(from);
             Type toType = newParameterTypes.get(to);
             newParameterTypes.set(from, toType);
             newParameterTypes.set(to, fromType);
-            seenSwaps.add(to);
             LOGGER.info(MIXINPATCH, "Swapped parameters at positions {} and {}", from, to);
+
+            swapLVT(methodNode, offset, to, from)
+                .andThen(swapLVT(methodNode, offset, from, to))
+                .accept(null);
         }
-        if (!offsetSwaps.isEmpty()) {
-            for (LocalVariableNode lvn : methodNode.localVariables) {
-                for (Pair<Integer, Integer> pair : offsetSwaps) {
-                    if (lvn.index == offset + pair.getFirst()) {
-                        lvn.index = offset + pair.getSecond();
-                        break;
-                    } else if (lvn.index == offset + pair.getSecond()) {
-                        lvn.index = offset + pair.getFirst();
-                        break;
-                    }
-                }
-            }
-            for (AbstractInsnNode insn : methodNode.instructions) {
-                SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);
-                if (handle != null) {
-                    for (Pair<Integer, Integer> pair : offsetSwaps) {
-                        if (handle.get() == offset + pair.getFirst()) {
-                            handle.set(offset + pair.getSecond());
-                            break;
-                        } else if (handle.get() == offset + pair.getSecond()) {
-                            handle.set(offset + pair.getFirst());
-                            break;
-                        }
-                    }
-                }
-            }
-        }
+
         if (!this.context.removals.isEmpty()) {
             LOGGER.info(MIXINPATCH, "Removing parameters {} from method {}.{}", this.context.removals, classNode.name, methodNode.name);
         }
@@ -300,6 +276,26 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
         methodContext.updateDescription(classNode, methodNode, newParameterTypes);
 
         return this.context.shouldComputeFrames() ? Result.COMPUTE_FRAMES : Result.APPLY;
+    }
+
+    private Consumer<Void> swapLVT(MethodNode methodNode, int offset, int from, int to) {
+        Consumer<Void> r = v -> {};
+        for (LocalVariableNode lvn : methodNode.localVariables) {
+            if (lvn.index == offset + from) {
+                r = r.andThen(v -> lvn.index = offset + to);
+            }
+        }
+
+        for (AbstractInsnNode insn : methodNode.instructions) {
+            SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);
+            if (handle != null) {
+                if (handle.get() == offset + from) {
+                    r = r.andThen(v -> handle.set(offset + to));
+                }
+            }
+        }
+
+        return r;
     }
 
     private static Pair<@Nullable ParameterNode, @Nullable LocalVariableNode> removeLocalVariable(MethodNode methodNode, int paramIndex, int lvtOffset, int replaceIndex, List<Type> newParameterTypes) {
