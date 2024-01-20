@@ -1,10 +1,18 @@
 plugins {
     `java-library`
     `maven-publish`
+    id("net.neoforged.gradleutils").version("3.0.0-alpha.10")
 }
 
 group = "dev.su5ed.sinytra.adapter"
-version = "1.10.5"
+gradleutils.version {
+    branches {
+        suffixBranch()
+    }
+}
+
+version = gradleutils.version
+println("Definition version: $version")
 
 java {
     toolchain {
@@ -69,7 +77,7 @@ publishing {
             name = "Su5eD"
             url = uri("https://maven.su5ed.dev/releases")
             credentials {
-                username = System.getenv("MAVEN_USERNAME") ?: "not"
+                username = System.getenv("MAVEN_USER") ?: "not"
                 password = System.getenv("MAVEN_PASSWORD") ?: "set"
             }
         }

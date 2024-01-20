@@ -18,7 +18,7 @@ base {
     archivesName.set(project.name.lowercase())
 }
 
-println("Project version: $version")
+println("Data version: $version")
 
 java {
     toolchain {
