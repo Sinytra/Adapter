@@ -10,11 +10,11 @@ import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.service.MixinService;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class MixinClassGeneratorImpl implements MixinClassGenerator {
-    private final Map<String, GeneratedClass> generatedMixinClasses = new HashMap<>();
+    private final Map<String, GeneratedClass> generatedMixinClasses = new ConcurrentHashMap<>();
 
     @Nullable
     public Map<String, GeneratedClass> getGeneratedMixinClasses() {
