@@ -61,7 +61,7 @@ publishing {
             name = "Su5eD"
             url = uri("https://maven.su5ed.dev/releases")
             credentials {
-                username = System.getenv("MAVEN_USERNAME") ?: "not"
+                username = System.getenv("MAVEN_USER") ?: "not"
                 password = System.getenv("MAVEN_PASSWORD") ?: "set"
             }
         }
