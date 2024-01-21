@@ -110,27 +110,21 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
                 continue;
             }
 
-            int lvtOrdinal = offset + index;
-            int lvtIndex;
-            if (index > offset) {
-                List<LocalVariableNode> lvt = methodNode.localVariables.stream().sorted(Comparator.comparingInt(lvn -> lvn.index)).toList();
-                lvtIndex = lvt.get(lvtOrdinal).index;
-            } else {
-                lvtIndex = lvtOrdinal;
-            }
+            final LVTSnapshot snapshot = LVTSnapshot.take(methodNode);
+
+            int lvtIndex = calculateLVTIndex(newParameterTypes, isNonStatic, (needsOffset ? 1 : 0) + index);
             int paramOrdinal = isNonStatic && needsOffset ? index + 1 : index;
-            ParameterNode newParameter = new ParameterNode(null, Opcodes.ACC_SYNTHETIC);
+            ParameterNode newParameter = new ParameterNode("adapter_injected_" + paramOrdinal, Opcodes.ACC_SYNTHETIC);
             newParameterTypes.add(paramOrdinal, type);
             methodNode.parameters.add(paramOrdinal, newParameter);
 
-            int varOffset = AdapterUtil.getLVTOffsetForType(type);
-            offsetLVT(methodNode, lvtIndex, varOffset);
             offsetParameters(methodNode, paramOrdinal);
 
             offsetSwaps.replaceAll(integerIntegerPair -> integerIntegerPair.mapFirst(j -> j >= paramOrdinal ? j + 1 : j));
             offsetMoves.replaceAll(integerIntegerPair -> integerIntegerPair.mapFirst(j -> j >= paramOrdinal ? j + 1 : j).mapSecond(j -> j >= paramOrdinal ? j + 1 : j));
 
-            methodNode.localVariables.add(new LocalVariableNode("adapter_injected_" + paramOrdinal, type.getDescriptor(), null, self.start, self.end, lvtIndex));
+            methodNode.localVariables.add(paramOrdinal + (isNonStatic ? 1 : 0), new LocalVariableNode(newParameter.name, type.getDescriptor(), null, self.start, self.end, lvtIndex));
+            snapshot.applyDifference(methodNode);
         }
         LocalVariableLookup lvtLookup = new LocalVariableLookup(methodNode.localVariables);
         BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
@@ -185,19 +179,23 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
         this.context.substitutes.forEach(pair -> {
             int paramIndex = pair.getFirst();
             int substituteParamIndex = pair.getSecond();
-            int localIndex = offset + paramIndex;
-            int substituteIndex = offset + substituteParamIndex;
+            int localIndex = calculateLVTIndex(newParameterTypes, isNonStatic, paramIndex);
+            LVTSnapshot lvtSnapshot = LVTSnapshot.take(methodNode);
             if (methodNode.parameters.size() > paramIndex) {
                 LOGGER.info("Substituting parameter {} for {} in {}.{}", paramIndex, substituteParamIndex, classNode.name, methodNode.name);
                 methodNode.parameters.remove(paramIndex);
                 newParameterTypes.remove(paramIndex);
+                int substituteIndex = calculateLVTIndex(newParameterTypes, isNonStatic, substituteParamIndex);
                 methodNode.localVariables.removeIf(lvn -> lvn.index == localIndex);
                 for (AbstractInsnNode insn : methodNode.instructions) {
                     SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);
-                    if (handle != null && handle.get() == localIndex) {
+                    if (handle == null) continue;
+
+                    if (handle.get() == localIndex) {
                         handle.set(substituteIndex);
                     }
                 }
+                lvtSnapshot.applyDifference(methodNode);
             }
         });
         for (Pair<Integer, Integer> swapPair : offsetSwaps) {
@@ -206,9 +204,8 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
             ParameterNode fromNode = methodNode.parameters.get(from);
             ParameterNode toNode = methodNode.parameters.get(to);
 
-            final String fromName = fromNode.name;
-            fromNode.name = toNode.name;
-            toNode.name = fromName;
+            int fromOldLVT = calculateLVTIndex(newParameterTypes, isNonStatic, from);
+            int toOldLVT = calculateLVTIndex(newParameterTypes, isNonStatic, to);
 
             methodNode.parameters.set(from, toNode);
             methodNode.parameters.set(to, fromNode);
@@ -216,10 +213,15 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
             Type toType = newParameterTypes.get(to);
             newParameterTypes.set(from, toType);
             newParameterTypes.set(to, fromType);
-            LOGGER.info(MIXINPATCH, "Swapped parameters at positions {} and {}", from, to);
+            LOGGER.info(MIXINPATCH, "Swapped parameters at positions {}({}) and {}({}) in {}.{}", from, fromNode.name, to, toNode.name, classNode.name, methodNode.name);
 
-            swapLVT(methodNode, offset, to, from)
-                .andThen(swapLVT(methodNode, offset, from, to))
+            int fromNewLVT = calculateLVTIndex(newParameterTypes, isNonStatic, from);
+            int toNewLVT = calculateLVTIndex(newParameterTypes, isNonStatic, to);
+
+            // Account for "big" LVT variables (like longs and doubles)
+            // Uses of the old parameter need to be the new parameter and vice versa
+            swapLVT(methodNode, fromOldLVT, toNewLVT)
+                .andThen(swapLVT(methodNode, toOldLVT, fromNewLVT))
                 .accept(null);
         }
 
@@ -278,19 +280,28 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
         return this.context.shouldComputeFrames() ? Result.COMPUTE_FRAMES : Result.APPLY;
     }
 
-    private Consumer<Void> swapLVT(MethodNode methodNode, int offset, int from, int to) {
+    private int calculateLVTIndex(List<Type> parameters, boolean nonStatic, int index) {
+        int lvt = nonStatic ? 1 : 0;
+        for (int i = 0; i < index; i++) {
+            lvt += parameters.get(i).getSize();
+        }
+        return lvt;
+    }
+
+    private Consumer<Void> swapLVT(MethodNode methodNode, int from, int to) {
         Consumer<Void> r = v -> {};
         for (LocalVariableNode lvn : methodNode.localVariables) {
-            if (lvn.index == offset + from) {
-                r = r.andThen(v -> lvn.index = offset + to);
+            if (lvn.index == from) {
+                r = r.andThen(v -> lvn.index = to);
             }
         }
 
         for (AbstractInsnNode insn : methodNode.instructions) {
             SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);
             if (handle != null) {
-                if (handle.get() == offset + from) {
-                    r = r.andThen(v -> handle.set(offset + to));
+                if (handle.get() == from) {
+                    LOGGER.info("Swapping in LVT: {} to {}", from, to);
+                    r = r.andThen(v -> handle.set(to));
                 }
             }
         }
@@ -299,29 +310,22 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
     }
 
     private static Pair<@Nullable ParameterNode, @Nullable LocalVariableNode> removeLocalVariable(MethodNode methodNode, int paramIndex, int lvtOffset, int replaceIndex, List<Type> newParameterTypes) {
+        final LVTSnapshot snapshot = LVTSnapshot.take(methodNode);
         ParameterNode parameter = paramIndex < methodNode.parameters.size() ? methodNode.parameters.remove(paramIndex) : null;
         methodNode.localVariables.sort(Comparator.comparingInt(lvn -> lvn.index));
         LocalVariableNode lvn = methodNode.localVariables.remove(paramIndex + lvtOffset);
         if (lvn != null) {
-            int varOffset = AdapterUtil.getLVTOffsetForType(Type.getType(lvn.desc));
-            for (LocalVariableNode local : methodNode.localVariables) {
-                if (local.index > lvn.index) {
-                    local.index -= varOffset;
-                }
-            }
             for (AbstractInsnNode insn : methodNode.instructions) {
                 SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);
                 if (handle != null) {
                     if (handle.get() == lvn.index) {
                         handle.set(replaceIndex);
                     }
-                    if (handle.get() > lvn.index) {
-                        handle.set(handle.get() - varOffset);
-                    }
                 }
             }
         }
         newParameterTypes.remove(paramIndex);
+        snapshot.applyDifference(methodNode);
         return Pair.of(parameter, lvn);
     }
 

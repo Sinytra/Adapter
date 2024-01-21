@@ -112,7 +112,7 @@ public class ParameterComparisonTest {
         System.out.println("Insertions:");
         diff.insertions().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
         assertEquals(1, diff.insertions().size());
-        assertEquals(7, diff.insertions().get(0).getFirst());
+        assertEquals(9, diff.insertions().get(0).getFirst());
         assertEquals(Type.FLOAT_TYPE, diff.insertions().get(0).getSecond());
 
         System.out.println("Replacements:");
