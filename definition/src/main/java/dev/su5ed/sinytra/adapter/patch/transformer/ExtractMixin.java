@@ -73,7 +73,7 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
             if (AdapterUtil.isShadowField(field)) {
                 return true;
             }
-            if (isTargetInherited && finsn.getOpcode() != Opcodes.GETSTATIC) {
+            if (isTargetInherited) {
                 field.access = fixAccess(field.access);
                 return true;
             }
@@ -91,7 +91,7 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
             if (AdapterUtil.hasAnnotation(annotations, MixinConstants.SHADOW)) {
                 return true;
             }
-            if (isTargetInherited && minsn.getOpcode() != Opcodes.INVOKESTATIC) {
+            if (isTargetInherited) {
                 method.access = fixAccess(method.access);
                 return true;
             }
@@ -104,9 +104,10 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
         // Lower than protected
         if (visibility == Opcodes.ACC_PRIVATE || visibility == 0) {
             // Widen to protected
-            return access & ~0x7 | Opcodes.ACC_PROTECTED;
+            // Add synthetic to avoid mixin complaining about non-private static members being present
+            return access & ~0x7 | Opcodes.ACC_PROTECTED | Opcodes.ACC_SYNTHETIC;
         }
-        return visibility;
+        return access;
     }
 
     /**
@@ -150,9 +151,9 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
      *     )
      * )
      * private void renderArmor(GuiGraphics context, CallbackInfo info) {
-     * 
+     *
      * }
-     * 
+     *
      * private void adapter$bridge$renderArmor(GuiGraphics context, CallbackInfo info, int left, int top) {
      *     return drawArmor(context, left, top);
      * }}</pre>
@@ -171,7 +172,7 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
      *     int shared = context.someMethod();
      *     return adapter$bridge$renderArmor(context, shared.getLeft(), shared.getTop());
      * }
-     * 
+     *
      * private void adapter$bridge$renderArmor(GuiGraphics context, CallbackInfo info, int left, int top) {
      *     return drawArmor(context, left, top);
      * }
