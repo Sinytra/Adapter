@@ -74,6 +74,10 @@ tasks {
     named("compileTestClassesJava", JavaCompile::class.java) {
         options.compilerArgs = listOf("-parameters")
     }
+
+    named("testClasses") {
+        dependsOn("compileTestClassesJava")
+    }
 }
 
 publishing {

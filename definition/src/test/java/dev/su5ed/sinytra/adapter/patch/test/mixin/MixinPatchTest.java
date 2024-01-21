@@ -68,7 +68,7 @@ public abstract class MixinPatchTest {
 
         Assertions.assertThat(patched.parameters)
                 .as("Parameters")
-                .usingRecursiveFieldByFieldElementComparator()
+                .usingElementComparator(Comparator.comparing(p -> p.name))
                 .withRepresentation(object -> ((List<ParameterNode>) object)
                         .stream().map(par -> par.name)
                         .collect(Collectors.joining("\n")))

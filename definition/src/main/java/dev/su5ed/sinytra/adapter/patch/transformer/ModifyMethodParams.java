@@ -112,27 +112,19 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
 
             final LVTSnapshot snapshot = LVTSnapshot.take(methodNode);
 
-            int lvtOrdinal = offset + index;
-            int lvtIndex;
-            if (index > offset) {
-                List<LocalVariableNode> lvt = methodNode.localVariables.stream().sorted(Comparator.comparingInt(lvn -> lvn.index)).toList();
-                lvtIndex = lvt.get(lvtOrdinal).index;
-            } else {
-                lvtIndex = lvtOrdinal;
-            }
+            int lvtIndex = calculateLVTIndex(newParameterTypes, isNonStatic, (needsOffset ? 1 : 0) + index);
             int paramOrdinal = isNonStatic && needsOffset ? index + 1 : index;
-            ParameterNode newParameter = new ParameterNode(null, Opcodes.ACC_SYNTHETIC);
+            ParameterNode newParameter = new ParameterNode("adapter_injected_" + paramOrdinal, Opcodes.ACC_SYNTHETIC);
             newParameterTypes.add(paramOrdinal, type);
             methodNode.parameters.add(paramOrdinal, newParameter);
-
-            snapshot.applyDifference(methodNode);
 
             offsetParameters(methodNode, paramOrdinal);
 
             offsetSwaps.replaceAll(integerIntegerPair -> integerIntegerPair.mapFirst(j -> j >= paramOrdinal ? j + 1 : j));
             offsetMoves.replaceAll(integerIntegerPair -> integerIntegerPair.mapFirst(j -> j >= paramOrdinal ? j + 1 : j).mapSecond(j -> j >= paramOrdinal ? j + 1 : j));
 
-            methodNode.localVariables.add(new LocalVariableNode("adapter_injected_" + paramOrdinal, type.getDescriptor(), null, self.start, self.end, lvtIndex));
+            methodNode.localVariables.add(paramOrdinal + (isNonStatic ? 1 : 0), new LocalVariableNode(newParameter.name, type.getDescriptor(), null, self.start, self.end, lvtIndex));
+            snapshot.applyDifference(methodNode);
         }
         LocalVariableLookup lvtLookup = new LocalVariableLookup(methodNode.localVariables);
         BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();

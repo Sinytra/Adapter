@@ -57,7 +57,7 @@ public class LVTSnapshot {
                 }
             }
             newNode.localVariables.forEach(node -> {
-                if (node.index >= local.index) {
+                if (!node.name.equals(local.name) && node.index >= local.index) {
                     node.index += local.desc.getSize();
                 }
             });
