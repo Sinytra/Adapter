@@ -108,12 +108,20 @@ public final class AdapterUtil {
         return insn instanceof VarInsnNode || insn instanceof IincInsnNode;
     }
 
-    public static int getInsnIntConstValue(InsnNode insn) {
+    public static int getInsnIntConstValue(AbstractInsnNode insn) {
+        return getIntConstValue(insn)
+                .orElseThrow(() -> new IllegalArgumentException("Not an int constant opcode: " + insn.getOpcode()));
+    }
+
+    public static OptionalInt getIntConstValue(AbstractInsnNode insn) {
         int opcode = insn.getOpcode();
         if (opcode >= Opcodes.ICONST_0 && opcode <= Opcodes.ICONST_5) {
-            return opcode - Opcodes.ICONST_0;
+            return OptionalInt.of(opcode - Opcodes.ICONST_0);
         }
-        throw new IllegalArgumentException("Not an int constant opcode: " + opcode);
+        if (opcode == Opcodes.BIPUSH || opcode == Opcodes.SIPUSH) {
+            return OptionalInt.of(((IntInsnNode) insn).operand);
+        }
+        return OptionalInt.empty();
     }
 
     public static AbstractInsnNode getIntConstInsn(int value) {
