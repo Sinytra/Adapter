@@ -7,6 +7,7 @@ import com.mojang.serialization.DataResult;
 import dev.su5ed.sinytra.adapter.patch.api.MethodTransform;
 import dev.su5ed.sinytra.adapter.patch.transformer.*;
 import dev.su5ed.sinytra.adapter.patch.transformer.filter.InjectionPointTransformerFilter;
+import dev.su5ed.sinytra.adapter.patch.transformer.param.TransformParameters;
 
 import java.util.Objects;
 
@@ -27,6 +28,7 @@ public class MethodTransformSerialization {
         .put("modify_injection_target", ModifyInjectionTarget.CODEC)
         .put("modfiy_access", ModifyMethodAccess.CODEC)
         .put("modify_method", ModifyMethodParams.CODEC)
+        .put("transform_parameters", TransformParameters.CODEC)
         .put("soft_modify_method", SoftMethodParamsPatch.CODEC)
         .put("injection_point_filter", InjectionPointTransformerFilter.CODEC)
         .build();

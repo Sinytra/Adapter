@@ -300,7 +300,7 @@ public class ClassAnalyzer {
                                     .targetMethod(dirtyMethod.name + dirtyMethod.desc)
                                     .targetInjectionPoint(oldQualifier)
                                     .modifyInjectionPoint(callQualifier)
-                                    .transform(ModifyMethodParams.create(diff, ModifyMethodParams.TargetType.INJECTION_POINT))
+                                    .transformMethods(diff.createTransforms(ModifyMethodParams.TargetType.INJECTION_POINT))
                                     .build();
                                 patches.add(patch);
                                 seen.add(oldQualifier);
@@ -333,7 +333,7 @@ public class ClassAnalyzer {
                             .targetClass(this.dirtyNode.name)
                             .targetMethod(overloaderQualifier)
                             .chain(b -> overloader.applyPatchTargetModifier(b, method))
-                            .transform(ModifyMethodParams.create(diff, ModifyMethodParams.TargetType.METHOD))
+                            .transformMethods(diff.createTransforms(ModifyMethodParams.TargetType.METHOD))
                             .build();
                         context.addPatch(patch);
                         replacementCalls.put(Type.getObjectType(this.dirtyNode.name).getDescriptor() + dirtyQualifier, Type.getObjectType(this.cleanNode.name).getDescriptor() + overloaderQualifier);
@@ -527,7 +527,7 @@ public class ClassAnalyzer {
                 .targetClass(this.dirtyNode.name)
                 .targetMethod(cleanQualifier)
                 .modifyTarget(dirtyQualifier)
-                .transform(ModifyMethodParams.create(diff, ModifyMethodParams.TargetType.METHOD))
+                .transformMethods(diff.createTransforms(ModifyMethodParams.TargetType.METHOD))
                 .build();
             patches.add(patch);
         }

@@ -9,6 +9,8 @@ import dev.su5ed.sinytra.adapter.patch.transformer.ModifyInjectionTarget;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMixinType;
+import dev.su5ed.sinytra.adapter.patch.transformer.param.TransformParameters;
+import org.jetbrains.annotations.ApiStatus;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.ClassNode;
@@ -60,6 +62,9 @@ public interface Patch {
 
         T modifyParams(Consumer<ModifyMethodParams.Builder> consumer);
 
+        @ApiStatus.Experimental
+        T transformParams(Consumer<TransformParameters.Builder> consumer);
+
         T modifyTarget(String... methods);
 
         T modifyTarget(ModifyInjectionTarget.Action action, String... methods);
@@ -79,6 +84,8 @@ public interface Patch {
         T transform(ClassTransform transformer);
 
         T transform(MethodTransform transformer);
+
+        T transformMethods(List<MethodTransform> transformers);
 
         T chain(Consumer<T> consumer);
 

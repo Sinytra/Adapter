@@ -9,14 +9,19 @@ import dev.su5ed.sinytra.adapter.patch.api.PatchEnvironment;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.VisibleForTesting;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.*;
+import org.objectweb.asm.util.Textifier;
+import org.objectweb.asm.util.TraceMethodVisitor;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.gen.AccessorInfo;
 import org.spongepowered.asm.service.MixinService;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -108,17 +113,27 @@ public final class AdapterUtil {
         return insn instanceof VarInsnNode || insn instanceof IincInsnNode;
     }
 
-    public static int getInsnIntConstValue(InsnNode insn) {
+    public static int getInsnIntConstValue(AbstractInsnNode insn) {
+        return getIntConstValue(insn)
+                .orElseThrow(() -> new IllegalArgumentException("Not an int constant opcode: " + insn.getOpcode()));
+    }
+
+    public static OptionalInt getIntConstValue(AbstractInsnNode insn) {
         int opcode = insn.getOpcode();
         if (opcode >= Opcodes.ICONST_0 && opcode <= Opcodes.ICONST_5) {
-            return opcode - Opcodes.ICONST_0;
+            return OptionalInt.of(opcode - Opcodes.ICONST_0);
         }
-        throw new IllegalArgumentException("Not an int constant opcode: " + opcode);
+        if (opcode == Opcodes.BIPUSH || opcode == Opcodes.SIPUSH) {
+            return OptionalInt.of(((IntInsnNode) insn).operand);
+        }
+        return OptionalInt.empty();
     }
 
     public static AbstractInsnNode getIntConstInsn(int value) {
         if (value >= 1 && value <= 5) {
             return new InsnNode(Opcodes.ICONST_0 + value);
+        } else if (value > 5 && value <= 127) {
+            return new IntInsnNode(Opcodes.BIPUSH, value);
         }
         return new LdcInsnNode(value);
     }
@@ -177,6 +192,21 @@ public final class AdapterUtil {
 
     public record CapturedLocals(MethodContext.TargetPair target, boolean isStatic, int paramLocalStart, int paramLocalEnd, int lvtOffset,
                                  List<Type> expected, LocalVariableLookup lvt) {
+    }
+
+    @VisibleForTesting
+    public static String methodNodeToString(MethodNode node) {
+        Textifier text = new Textifier();
+        node.accept(new TraceMethodVisitor(text));
+        return toString(text);
+    }
+
+    private static String toString(Textifier text) {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        text.print(pw);
+        pw.flush();
+        return sw.toString();
     }
 
     private AdapterUtil() {
