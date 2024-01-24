@@ -41,7 +41,7 @@ public class LocalVariableLookup {
 
     public List<LocalVariableNode> getForType(Type type) {
         return this.byType.computeIfAbsent(type, t -> this.sortedLocals.stream()
-            .filter(l -> Type.getType(l.desc) == type)
+            .filter(l -> Type.getType(l.desc).equals(type))
             .toList());
     }
 

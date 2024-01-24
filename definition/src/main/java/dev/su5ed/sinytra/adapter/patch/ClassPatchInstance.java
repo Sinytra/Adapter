@@ -145,7 +145,7 @@ public final class ClassPatchInstance extends PatchInstance {
         @Override
         public ClassPatchBuilder updateRedirectTarget(String originalTarget, String newTarget) {
             return targetInjectionPoint(originalTarget)
-                .transform(new ModifyDelegatingRedirect(
+                .transform(new ModifyRedirectToWrapper(
                     MethodQualifier.create(originalTarget).orElseThrow(),
                     MethodQualifier.create(newTarget).orElseThrow()
                 ))

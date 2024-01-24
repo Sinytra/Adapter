@@ -2,7 +2,6 @@ package dev.su5ed.sinytra.adapter.patch.analysis;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Lists;
 import com.mojang.datafixers.util.Pair;
 import dev.su5ed.sinytra.adapter.patch.api.MethodTransform;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;

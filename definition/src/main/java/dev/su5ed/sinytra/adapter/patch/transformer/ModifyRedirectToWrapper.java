@@ -12,14 +12,11 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public record ModifyDelegatingRedirect(MethodQualifier originalTarget, MethodQualifier newTarget) implements MethodTransform {
+public record ModifyRedirectToWrapper(MethodQualifier originalTarget, MethodQualifier newTarget) implements MethodTransform {
     private static final Type OPERATION_TYPE = Type.getObjectType("com/llamalad7/mixinextras/injector/wrapoperation/Operation");
 
     @Override
@@ -55,28 +52,41 @@ public record ModifyDelegatingRedirect(MethodQualifier originalTarget, MethodQua
             }
         }
 
-        Type returnType = Type.getReturnType(this.newTarget.desc());
-        List<Type> args = ImmutableList.<Type>builder()
-            .add(sameOwnerType ? new Type[0] : new Type[]{newOwnerType})
-            .add(Type.getArgumentTypes(this.newTarget.desc()))
-            .build();
-        ModifyMethodParams patch = ModifyMethodParams.builder()
+        ModifyMethodParams removeOldParamsPatch = ModifyMethodParams.builder()
             .chain(b -> {
                 for (int i = offset; i < Type.getArgumentTypes(methodNode.desc).length; i++) {
                     b.remove(i);
                 }
-                b.insert(1, OPERATION_TYPE);
-                for (Type type : Lists.reverse(args)) {
-                    b.insert(1, type);
-                }
             })
+            .ignoreOffset()
             .build();
-        patch.apply(classNode, methodNode, methodContext, context);
+        removeOldParamsPatch.apply(classNode, methodNode, methodContext, context);
+
+        List<Type> args = Lists.reverse(ImmutableList.<Type>builder()
+            .add(sameOwnerType ? new Type[0] : new Type[]{newOwnerType})
+            .add(Type.getArgumentTypes(this.newTarget.desc()))
+            .build());
+        ModifyMethodParams addNewParamsPatch = ModifyMethodParams.builder()
+            .chain(b -> {
+                for (int i = 0; i < args.size(); i++) {
+                    Type type = args.get(i);
+                    b.insert(i, type);
+                }
+                b.insert(args.size(), OPERATION_TYPE);
+            })
+            .ignoreOffset()
+            .build();
+        addNewParamsPatch.apply(classNode, methodNode, methodContext, context);
 
         LocalVariableLookup updatedLookup = new LocalVariableLookup(methodNode.localVariables);
-        List<LocalVariableNode> localVars = List.of(updatedLookup.getByOrdinal(1)); // TODO Unhardcode
+        LocalVariableNode operationVar = updatedLookup.getForType(OPERATION_TYPE).get(0);
+        int operationParamOrdinal = updatedLookup.getOrdinal(operationVar);
+        List<LocalVariableNode> localVars = new ArrayList<>();
+        for (int i = 1; i < operationParamOrdinal; i++) {
+            localVars.add(updatedLookup.getByOrdinal(i));
+        }
         InsnList originalCallInsns = AdapterUtil.insnsWithAdapter(a -> {
-            a.load(offset + 2, OPERATION_TYPE);
+            a.load(operationVar.index, OPERATION_TYPE);
             a.iconst(localVars.size());
             a.newarray(Type.getObjectType("java/lang/Object"));
             for (int i = 0; i < localVars.size(); i++) {
@@ -89,7 +99,7 @@ public record ModifyDelegatingRedirect(MethodQualifier originalTarget, MethodQua
                 a.visitInsn(Opcodes.AASTORE);
             }
             a.invokeinterface("com/llamalad7/mixinextras/injector/wrapoperation/Operation", "call", "([Ljava/lang/Object;)Ljava/lang/Object;");
-            OpcodeUtil.castObjectType(returnType, a);
+            OpcodeUtil.castObjectType(Type.getReturnType(this.newTarget.desc()), a);
         });
         for (List<AbstractInsnNode> list : insns) {
             methodNode.instructions.insertBefore(list.get(0), originalCallInsns);
