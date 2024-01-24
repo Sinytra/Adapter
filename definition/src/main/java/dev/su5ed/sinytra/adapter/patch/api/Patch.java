@@ -122,6 +122,8 @@ public interface Patch {
         ClassPatchBuilder redirectShadowMethod(String original, String target, BiConsumer<MethodInsnNode, InsnList> callFixer);
 
         ClassPatchBuilder divertRedirector(Consumer<InstructionAdapter> patcher);
+        
+        ClassPatchBuilder updateRedirectTarget(String originalTarget, String newTarget);
 
         ClassPatchBuilder disable();
     }

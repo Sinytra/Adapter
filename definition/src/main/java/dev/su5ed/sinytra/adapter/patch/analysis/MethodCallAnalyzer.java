@@ -3,6 +3,7 @@ package dev.su5ed.sinytra.adapter.patch.analysis;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import dev.su5ed.sinytra.adapter.patch.api.GlobalReferenceMapper;
+import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -77,6 +78,19 @@ public class MethodCallAnalyzer {
 
     public static String getCallQualifier(MethodInsnNode insn) {
         return Type.getObjectType(insn.owner).getDescriptor() + insn.name + insn.desc;
+    }
+
+    public static List<List<AbstractInsnNode>> getInvocationInsns(MethodNode methodNode, MethodQualifier qualifier) {
+        return analyzeMethod(methodNode, (insn, values) -> qualifier.matches(insn) && values.size() > 1, (insn, values) -> {
+            List<AbstractInsnNode> insns = new ArrayList<>();
+            for (SourceValue value : values) {
+                if (value.insns.size() == 1) {
+                    insns.add(value.insns.iterator().next());
+                }
+            }
+            insns.add(insn);
+            return insns;
+        });
     }
 
     public static <T> List<T> analyzeMethod(MethodNode methodNode, NaryOperationHandler<T> handler) {

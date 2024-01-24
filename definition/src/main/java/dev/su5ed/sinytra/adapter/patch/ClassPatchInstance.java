@@ -7,12 +7,12 @@ import dev.su5ed.sinytra.adapter.patch.api.ClassTransform;
 import dev.su5ed.sinytra.adapter.patch.api.MethodTransform;
 import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
 import dev.su5ed.sinytra.adapter.patch.api.PatchEnvironment;
-import dev.su5ed.sinytra.adapter.patch.selector.*;
+import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
+import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
+import dev.su5ed.sinytra.adapter.patch.selector.InjectionPointMatcher;
+import dev.su5ed.sinytra.adapter.patch.selector.MethodMatcher;
 import dev.su5ed.sinytra.adapter.patch.serialization.MethodTransformSerialization;
-import dev.su5ed.sinytra.adapter.patch.transformer.DivertRedirectorTransform;
-import dev.su5ed.sinytra.adapter.patch.transformer.DisableMixin;
-import dev.su5ed.sinytra.adapter.patch.transformer.ModifyInjectionPoint;
-import dev.su5ed.sinytra.adapter.patch.transformer.RedirectShadowMethod;
+import dev.su5ed.sinytra.adapter.patch.transformer.*;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.AnnotationNode;
@@ -140,6 +140,18 @@ public final class ClassPatchInstance extends PatchInstance {
         @Override
         public ClassPatchBuilder divertRedirector(Consumer<InstructionAdapter> patcher) {
             return transform(new DivertRedirectorTransform(patcher));
+        }
+
+        @Override
+        public ClassPatchBuilder updateRedirectTarget(String originalTarget, String newTarget) {
+            return targetInjectionPoint(originalTarget)
+                .transform(new ModifyDelegatingRedirect(
+                    MethodQualifier.create(originalTarget).orElseThrow(),
+                    MethodQualifier.create(newTarget).orElseThrow()
+                ))
+                .modifyMixinType(MixinConstants.WRAP_OPERATION, b -> b
+                    .sameTarget()
+                    .injectionPoint("INVOKE", newTarget));
         }
 
         @Override
