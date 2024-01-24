@@ -2,7 +2,13 @@ package dev.su5ed.sinytra.adapter.patch.analysis;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Lists;
 import com.mojang.datafixers.util.Pair;
+import dev.su5ed.sinytra.adapter.patch.api.MethodTransform;
+import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
+import dev.su5ed.sinytra.adapter.patch.transformer.param.InjectParameterTransform;
+import dev.su5ed.sinytra.adapter.patch.transformer.param.ParameterTransformer;
+import dev.su5ed.sinytra.adapter.patch.transformer.param.TransformParameters;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.GeneratedVariables;
 import it.unimi.dsi.fastutil.ints.Int2IntLinkedOpenHashMap;
@@ -23,7 +29,24 @@ import java.util.stream.Stream;
 public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements, List<Pair<Integer, Integer>> swaps,
                              List<Integer> removals, List<Pair<Integer, Integer>> moves) {
     public static final ParametersDiff EMPTY = new ParametersDiff(-1, List.of(), List.of(), List.of(), List.of(), List.of());
-    
+
+    public List<MethodTransform> createTransforms(ModifyMethodParams.TargetType type) {
+        final var list = new ArrayList<MethodTransform>();
+        var light = ModifyMethodParams.ParamsContext.createLight(this);
+        if (!light.isEmpty()) {
+            list.add(new ModifyMethodParams(
+                    light,
+                    type, false, null
+            ));
+        }
+        if (!insertions.isEmpty()) {
+            list.add(new TransformParameters(insertions.stream()
+                    .<ParameterTransformer>map(p -> new InjectParameterTransform(p.getFirst(), p.getSecond()))
+                    .toList(), true));
+        }
+        return list;
+    }
+
     public record MethodParameter(Type type, boolean isGeneratedType) {
         public MethodParameter(@Nullable String name, Type type) {
             this(type, name != null && GeneratedVariables.isGeneratedVariableName(name, type));

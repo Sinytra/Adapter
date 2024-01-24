@@ -157,7 +157,7 @@ public class ReplacedMethodCalls {
                     .targetMethod(dirtyMethod.name + dirtyMethod.desc)
                     .targetInjectionPoint(cleanCall)
                     .modifyInjectionPoint(qualifier)
-                    .transform(ModifyMethodParams.create(diff, ModifyMethodParams.TargetType.INJECTION_POINT))
+                    .transformMethods(diff.createTransforms(ModifyMethodParams.TargetType.INJECTION_POINT))
                     .build();
                 context.addPatch(patch);
                 return true;

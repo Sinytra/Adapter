@@ -40,6 +40,8 @@ public interface MethodContext {
 
     void updateDescription(ClassNode classNode, MethodNode methodNode, List<Type> parameters);
 
+    boolean isStatic(MethodNode methodNode);
+
     @Nullable
     List<LocalVariable> getTargetMethodLocals(ClassNode classNode, MethodNode methodNode, ClassNode targetClass, MethodNode targetMethod);
 

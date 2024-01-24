@@ -5,6 +5,7 @@ import dev.su5ed.sinytra.adapter.patch.api.*;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.transformer.*;
+import dev.su5ed.sinytra.adapter.patch.transformer.param.TransformParameters;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AnnotationNode;
@@ -174,6 +175,13 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         }
 
         @Override
+        public T transformParams(Consumer<TransformParameters.Builder> consumer) {
+            final var builder = new TransformParameters.Builder();
+            consumer.accept(builder);
+            return transform(builder.build());
+        }
+
+        @Override
         public T modifyTarget(String... methods) {
             return transform(new ModifyInjectionTarget(List.of(methods)));
         }
@@ -223,6 +231,12 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         @Override
         public T transform(MethodTransform transformer) {
             this.transforms.add(transformer);
+            return coerce();
+        }
+
+        @Override
+        public T transformMethods(List<MethodTransform> transformers) {
+            transformers.forEach(this::transform);
             return coerce();
         }
 

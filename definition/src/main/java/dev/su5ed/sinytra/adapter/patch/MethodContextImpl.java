@@ -123,6 +123,11 @@ public record MethodContextImpl(AnnotationValueHandle<?> classAnnotation, Annota
     }
 
     @Override
+    public boolean isStatic(MethodNode methodNode) {
+        return (methodNode.access & Opcodes.ACC_STATIC) != 0;
+    }
+
+    @Override
     public @Nullable List<LocalVariable> getTargetMethodLocals(ClassNode classNode, MethodNode methodNode, ClassNode targetClass, MethodNode targetMethod) {
         Type[] targetParams = Type.getArgumentTypes(targetMethod.desc);
         boolean isStatic = (methodNode.access & Opcodes.ACC_STATIC) != 0;

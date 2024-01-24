@@ -15,6 +15,7 @@ public class MixinConstants {
     // Mixinextras annotations
     public static final String MODIFY_EXPR_VAL = "Lcom/llamalad7/mixinextras/injector/ModifyExpressionValue;";
     public static final String WRAP_OPERATION = "Lcom/llamalad7/mixinextras/injector/wrapoperation/WrapOperation;";
+    public static final String OPERATION_INTERNAL_NAME = "com/llamalad7/mixinextras/injector/wrapoperation/Operation";
     // Misc
     public static final String MIXIN = "Lorg/spongepowered/asm/mixin/Mixin;";
     public static final String AT = "Lorg/spongepowered/asm/mixin/injection/At;";

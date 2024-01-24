@@ -357,7 +357,7 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
         }
     }
 
-    private static void offsetParameters(MethodNode methodNode, int paramIndex) {
+    public static void offsetParameters(MethodNode methodNode, int paramIndex) {
         if (methodNode.invisibleParameterAnnotations != null) {
             List<List<AnnotationNode>> annotations = new ArrayList<>(Arrays.asList(methodNode.invisibleParameterAnnotations));
             if (paramIndex < annotations.size()) {
@@ -403,7 +403,7 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
     public enum TargetType {
         ALL,
         METHOD(MixinConstants.INJECT, MixinConstants.OVERWRITE, MixinConstants.MODIFY_VAR),
-        INJECTION_POINT(MixinConstants.REDIRECT, MixinConstants.MODIFY_ARG, MixinConstants.MODIFY_ARGS);
+        INJECTION_POINT(MixinConstants.REDIRECT, MixinConstants.MODIFY_ARG, MixinConstants.MODIFY_ARGS, MixinConstants.WRAP_OPERATION);
 
         public static final Codec<TargetType> CODEC = Codec.STRING.xmap(TargetType::from, TargetType::name);
 
@@ -452,6 +452,10 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
 
         public static ParamsContext create(ParametersDiff diff) {
             return new ParamsContext(diff.insertions(), diff.replacements(), diff.swaps(), List.of(), diff.removals(), diff.moves(), List.of());
+        }
+
+        public static ParamsContext createLight(ParametersDiff diff) {
+            return new ParamsContext(List.of(), diff.replacements(), diff.swaps(), List.of(), diff.removals(), diff.moves(), List.of());
         }
 
         public boolean isEmpty() {
