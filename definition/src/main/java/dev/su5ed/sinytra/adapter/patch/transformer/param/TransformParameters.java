@@ -2,6 +2,8 @@ package dev.su5ed.sinytra.adapter.patch.transformer.param;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.CheckReturnValue;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.su5ed.sinytra.adapter.patch.api.MethodContext;
@@ -25,6 +27,7 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
             .put("inject_parameter", InjectParameterTransform.CODEC)
             .put("swap_parameters", SwapParametersTransformer.CODEC)
             .put("substitute_parameters", SubstituteParameterTransformer.CODEC)
+            .put("remove_parameter", RemoveParameterTransformer.CODEC)
             .build();
 
     public static final Codec<TransformParameters> CODEC = RecordCodecBuilder.create(in -> in.group(
@@ -62,6 +65,7 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
         return CODEC;
     }
 
+    @CanIgnoreReturnValue
     public static class Builder {
         private final List<ParameterTransformer> transformers = new ArrayList<>();
         private boolean offset = false;
@@ -87,11 +91,16 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
             return this.transform(new InlineParameterTransformer(target, adapter));
         }
 
+        public Builder remove(int index) {
+            return this.transform(new RemoveParameterTransformer(index));
+        }
+
         public Builder withOffset() {
             this.offset = true;
             return this;
         }
 
+        @CheckReturnValue
         public TransformParameters build() {
             return new TransformParameters(transformers, offset);
         }

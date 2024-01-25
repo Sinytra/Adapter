@@ -78,7 +78,7 @@ public interface ParameterTransformer {
                 // Assume that people are only calling `call` on the operation object
                 if (!(
                         AdapterUtil.getIntConstValue(methodNode.instructions.get(loadInsnIndex + 1)).isPresent() &&
-                        methodNode.instructions.get(loadInsnIndex + 2) instanceof TypeInsnNode n && n.getOpcode() == Opcodes.ANEWARRAY
+                                methodNode.instructions.get(loadInsnIndex + 2) instanceof TypeInsnNode n && n.getOpcode() == Opcodes.ANEWARRAY
                 )) {
                     return;
                 }
@@ -203,10 +203,24 @@ public interface ParameterTransformer {
                             methodNode.instructions.set(methodNode.instructions.get(methodNode.instructions.indexOf(objects[j - 1].get(0)) - 1), AdapterUtil.getIntConstInsn(j - 1));
                         }
                     }
-                    methodNode.instructions.remove(methodNode.instructions.get(methodNode.instructions.indexOf(toRemove.get(0)) - 1));
-                    methodNode.instructions.remove(methodNode.instructions.get(methodNode.instructions.indexOf(toRemove.get(toRemove.size() - 1)) + 1));
-                    methodNode.instructions.remove(methodNode.instructions.get(methodNode.instructions.indexOf(toRemove.get(toRemove.size() - 1)) + 2));
+
+                    final AbstractInsnNode dup = methodNode.instructions.get(methodNode.instructions.indexOf(toRemove.get(toRemove.size() - 1)) + 2);
+                    List.of(
+                            methodNode.instructions.get(methodNode.instructions.indexOf(toRemove.get(0)) - 1),
+                            methodNode.instructions.get(methodNode.instructions.indexOf(toRemove.get(toRemove.size() - 1)) + 1)
+                    ).forEach(methodNode.instructions::remove);
                     toRemove.forEach(methodNode.instructions::remove);
+                    if (dup.getOpcode() == Opcodes.DUP) {
+                        methodNode.instructions.remove(dup);
+                    }
+
+                    if (position > 0 && !objects[position - 1].isEmpty()) {
+                        // Make sure that the last one doesn't have a DUP
+                        final int lastOfPrevious = methodNode.instructions.indexOf(objects[position - 1].get(objects[position - 1].size() - 1));
+                        if (methodNode.instructions.get(lastOfPrevious + 2).getOpcode() == Opcodes.DUP) {
+                            methodNode.instructions.remove(methodNode.instructions.get(lastOfPrevious + 2));
+                        }
+                    }
                 });
 
                 // Continue from the new position of the call
@@ -230,7 +244,9 @@ public interface ParameterTransformer {
 
     interface WrapOpModification {
         void insertParameter(int index, Consumer<InsnList> adapter);
+
         void replaceParameter(int index, Consumer<InsnList> adapter);
+
         void removeParameter(int index);
     }
 }
