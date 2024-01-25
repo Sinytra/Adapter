@@ -14,7 +14,7 @@ public class ParameterSubstitutionTest extends MixinPatchTest {
                         .targetInjectionPoint("")
                         .targetMethod("injectTarget")
                         .targetMixinType(MixinConstants.INJECT)
-                        .modifyParams(params -> params.substitute(1, 0))
+                        .transformParams(params -> params.substitute(1, 0))
         );
     }
 
@@ -27,7 +27,7 @@ public class ParameterSubstitutionTest extends MixinPatchTest {
                         .targetInjectionPoint("")
                         .targetMethod("injectTarget2")
                         .targetMixinType(MixinConstants.INJECT)
-                        .modifyParams(params -> params.substitute(2, 0))
+                        .transformParams(params -> params.substitute(2, 0))
         );
     }
 
@@ -40,7 +40,7 @@ public class ParameterSubstitutionTest extends MixinPatchTest {
                         .targetInjectionPoint("")
                         .targetMethod("injectTarget3")
                         .targetMixinType(MixinConstants.INJECT)
-                        .modifyParams(params -> params.substitute(1, 2))
+                        .transformParams(params -> params.substitute(1, 2))
         );
     }
 

@@ -8,6 +8,7 @@ import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
 import dev.su5ed.sinytra.adapter.patch.api.PatchEnvironment;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
+import it.unimi.dsi.fastutil.ints.Int2IntFunction;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 import org.objectweb.asm.Opcodes;
@@ -107,6 +108,19 @@ public final class AdapterUtil {
             return SingleValueHandle.of(() -> iincInsn.var, i -> iincInsn.var = i);
         }
         return null;
+    }
+
+    public static void replaceLVT(MethodNode methodNode, Int2IntFunction operator) {
+        for (AbstractInsnNode insn : methodNode.instructions) {
+            SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);
+            if (handle == null) continue;
+
+            final int oldValue = handle.get();
+            final int newValue = operator.applyAsInt(oldValue);
+            if (newValue != oldValue) {
+                handle.set(newValue);
+            }
+        }
     }
 
     public static boolean canHandleLocalVarInsnValue(AbstractInsnNode insn) {

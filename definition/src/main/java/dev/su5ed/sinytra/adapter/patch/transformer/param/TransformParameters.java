@@ -10,18 +10,21 @@ import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
 import dev.su5ed.sinytra.adapter.patch.api.Patch;
 import dev.su5ed.sinytra.adapter.patch.api.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Consumer;
 
 public record TransformParameters(List<ParameterTransformer> transformers, boolean withOffset) implements MethodTransform {
     private static final BiMap<String, Codec<? extends ParameterTransformer>> TRANSFORMER_CODECS = ImmutableBiMap.<String, Codec<? extends ParameterTransformer>>builder()
             .put("inject_parameter", InjectParameterTransform.CODEC)
+            .put("swap_parameters", SwapParametersTransformer.CODEC)
+            .put("substitute_parameters", SubstituteParameterTransformer.CODEC)
             .build();
 
     public static final Codec<TransformParameters> CODEC = RecordCodecBuilder.create(in -> in.group(
@@ -70,6 +73,18 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
 
         public Builder inject(int parameterIndex, Type type) {
             return this.transform(new InjectParameterTransform(parameterIndex, type));
+        }
+
+        public Builder swap(int from, int to) {
+            return this.transform(new SwapParametersTransformer(from, to));
+        }
+
+        public Builder substitute(int target, int substitute) {
+            return this.transform(new SubstituteParameterTransformer(target, substitute));
+        }
+
+        public Builder inline(int target, Consumer<InstructionAdapter> adapter) {
+            return this.transform(new InlineParameterTransformer(target, adapter));
         }
 
         public Builder withOffset() {

@@ -288,7 +288,7 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
         return lvt;
     }
 
-    private Consumer<Void> swapLVT(MethodNode methodNode, int from, int to) {
+    public static Consumer<Void> swapLVT(MethodNode methodNode, int from, int to) {
         Consumer<Void> r = v -> {};
         for (LocalVariableNode lvn : methodNode.localVariables) {
             if (lvn.index == from) {
