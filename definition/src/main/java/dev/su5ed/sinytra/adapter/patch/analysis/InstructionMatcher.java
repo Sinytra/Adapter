@@ -47,18 +47,22 @@ public record InstructionMatcher(AbstractInsnNode insn, List<AbstractInsnNode> b
     }
 
     public boolean test(InstructionMatcher other) {
+        return test(other, 0);
+    }
+
+    public boolean test(InstructionMatcher other, int flags) {
         if (this.before.size() == other.before.size() && this.after.size() == other.after.size()) {
             for (int i = 0; i < this.before.size(); i++) {
                 AbstractInsnNode insn = this.before.get(i);
                 AbstractInsnNode otherInsn = other.before.get(i);
-                if (!InsnComparator.instructionsEqual(insn, otherInsn)) {
+                if (!InsnComparator.instructionsEqual(insn, otherInsn, flags)) {
                     return false;
                 }
             }
             for (int i = 0; i < this.after.size(); i++) {
                 AbstractInsnNode insn = this.after.get(i);
                 AbstractInsnNode otherInsn = other.after.get(i);
-                if (!InsnComparator.instructionsEqual(insn, otherInsn)) {
+                if (!InsnComparator.instructionsEqual(insn, otherInsn, flags)) {
                     return false;
                 }
             }

@@ -10,6 +10,7 @@ import dev.su5ed.sinytra.adapter.patch.api.*;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.util.GeneratedVariables;
+import dev.su5ed.sinytra.adapter.patch.util.InsnComparator;
 import dev.su5ed.sinytra.adapter.patch.util.LocalVariableLookup;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -144,7 +145,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                     .map(i -> new InstructionMatcher(i, findReturnPrecedingInsns(i), List.of()))
                     .toList();
                 List<InstructionMatcher> matches = dirtyMatchers.stream()
-                    .filter(original::test)
+                    .filter(m -> original.test(m, InsnComparator.IGNORE_VAR_INDEX))
                     .toList();
                 if (matches.size() == 1) {
                     return OptionalInt.of(dirtyMatchers.indexOf(matches.get(0)));

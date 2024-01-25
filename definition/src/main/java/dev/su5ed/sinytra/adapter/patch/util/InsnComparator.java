@@ -33,8 +33,13 @@ import java.util.Objects;
 
 // Source: https://git.sleeping.town/Nil/NilLoader/src/commit/d66d783a5f7ac72a3688594335b3285fcb975b07/src/main/java/nilloader/api/lib/mini/PatchContext.java
 public class InsnComparator {
+    public static final int IGNORE_VAR_INDEX = 0x001;
 
     public static boolean instructionsEqual(AbstractInsnNode a, AbstractInsnNode b) {
+        return instructionsEqual(a, b, 0);
+    }
+
+    public static boolean instructionsEqual(AbstractInsnNode a, AbstractInsnNode b, int flags) {
         if (a == b) return true;
         if (a == null || b == null) return false;
         if (a.getClass() != b.getClass()) return false;
@@ -105,7 +110,7 @@ public class InsnComparator {
         } else if (a instanceof VarInsnNode) {
             VarInsnNode va = (VarInsnNode) a;
             VarInsnNode vb = (VarInsnNode) b;
-            return va.var == vb.var;
+            return (flags & IGNORE_VAR_INDEX) != 0 || va.var == vb.var;
         }
         throw new IllegalArgumentException("Unknown insn type " + a.getClass().getName());
     }
