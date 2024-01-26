@@ -10,13 +10,13 @@ public class ParameterSwapTest extends MixinPatchTest {
     @Test
     void testSimpleSwap() throws Exception {
         assertSameCode(
-                "org/sinytra/adapter/test/mixins/ParameterSwapMixin",
-                "testSwap",
-                Patch.builder()
-                        .targetInjectionPoint("")
-                        .targetMethod("injectTarget")
-                        .targetMixinType(MixinConstants.INJECT)
-                        .transformParams(params -> params.swap(0, 1))
+            "org/sinytra/adapter/test/mixins/ParameterSwapMixin",
+            "testSwap",
+            Patch.builder()
+                .targetInjectionPoint("")
+                .targetMethod("injectTarget")
+                .targetMixinType(MixinConstants.INJECT)
+                .transformParams(params -> params.swap(0, 1))
         );
     }
 
@@ -24,14 +24,14 @@ public class ParameterSwapTest extends MixinPatchTest {
     @Test
     void testComplexSwap() throws Exception {
         assertSameCode(
-                "org/sinytra/adapter/test/mixins/ParameterSwapMixin",
-                "testComplexSwap",
-                Patch.builder()
-                        .targetInjectionPoint("")
-                        .targetMethod("injectTarget2")
-                        .targetMixinType(MixinConstants.INJECT)
-                        .transformParams(params -> params.swap(2, 1)
-                                .swap(1, 0))
+            "org/sinytra/adapter/test/mixins/ParameterSwapMixin",
+            "testComplexSwap",
+            Patch.builder()
+                .targetInjectionPoint("")
+                .targetMethod("injectTarget2")
+                .targetMixinType(MixinConstants.INJECT)
+                .transformParams(params -> params.swap(2, 1)
+                    .swap(1, 0))
         );
     }
 
@@ -39,13 +39,13 @@ public class ParameterSwapTest extends MixinPatchTest {
     @Test
     void testBigSwap() throws Exception {
         assertSameCode(
-                "org/sinytra/adapter/test/mixins/ParameterSwapMixin",
-                "testBigSwap",
-                Patch.builder()
-                        .targetInjectionPoint("")
-                        .targetMethod("injectTarget3")
-                        .targetMixinType(MixinConstants.INJECT)
-                        .transformParams(params -> params.swap(0, 1))
+            "org/sinytra/adapter/test/mixins/ParameterSwapMixin",
+            "testBigSwap",
+            Patch.builder()
+                .targetInjectionPoint("")
+                .targetMethod("injectTarget3")
+                .targetMixinType(MixinConstants.INJECT)
+                .transformParams(params -> params.swap(0, 1))
         );
     }
 }

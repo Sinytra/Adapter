@@ -259,6 +259,27 @@ public class EnhancedParamsDiffTest {
     }
 
     @Test
+    void testCompareReplacedParameters2() {
+        List<Type> original = List.of(
+            Type.INT_TYPE,
+            Type.INT_TYPE,
+            Type.getType(List.class)
+        );
+        List<Type> modified = List.of(
+            Type.FLOAT_TYPE,
+            Type.INT_TYPE,
+            Type.getType(List.class)
+        );
+
+        ParametersDiff diff = EnhancedParamsDiff.create(original, modified);
+        assertTrue(diff.insertions().isEmpty());
+        assertEquals(1, diff.replacements().size());
+        assertTrue(diff.removals().isEmpty());
+        assertTrue(diff.swaps().isEmpty());
+        assertTrue(diff.moves().isEmpty());
+    }
+
+    @Test
     void testCompareCombinedParameters() {
         List<Type> original = List.of(
             Type.getType(String.class),
