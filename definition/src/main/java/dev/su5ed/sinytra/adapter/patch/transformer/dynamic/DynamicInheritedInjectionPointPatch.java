@@ -1,9 +1,8 @@
 package dev.su5ed.sinytra.adapter.patch.transformer.dynamic;
 
-import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
-import dev.su5ed.sinytra.adapter.patch.api.*;
 import dev.su5ed.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
+import dev.su5ed.sinytra.adapter.patch.api.*;
 import dev.su5ed.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
@@ -60,7 +59,7 @@ public class DynamicInheritedInjectionPointPatch implements MethodTransform {
             String owner = q.internalOwnerName();
             for (AbstractInsnNode insn : targetPair.methodNode().instructions) {
                 if (insn instanceof MethodInsnNode minsn && minsn.name.equals(q.name()) && minsn.desc.equals(q.desc()) && !minsn.owner.equals(owner)) {
-                    if (context.environment().inheritanceHandler().isClassInherited(minsn.owner, owner) || isFixedField(minsn.getPrevious(), context)) {
+                    if (context.environment().inheritanceHandler().isClassInherited(minsn.owner, owner) || isFixedField(minsn, context)) {
                         target.set(MethodCallAnalyzer.getCallQualifier(minsn));
                         Patch.Result result = Patch.Result.APPLY;
                         if (annotation.matchesDesc(MixinConstants.REDIRECT) && (methodNode.access & Opcodes.ACC_STATIC) != Opcodes.ACC_STATIC) {
@@ -79,9 +78,14 @@ public class DynamicInheritedInjectionPointPatch implements MethodTransform {
     }
 
     private boolean isFixedField(AbstractInsnNode insn, PatchContext context) {
-        if (insn instanceof FieldInsnNode finsn) {
-            BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
-            return bfu.getFieldTypeChange(finsn.owner, GlobalReferenceMapper.remapReference(finsn.name)) != null;
+        for (AbstractInsnNode prev = insn.getPrevious(); prev != null; prev = prev.getPrevious()) {
+            if (prev instanceof LabelNode) {
+                break;
+            }
+            if (prev instanceof FieldInsnNode finsn) {
+                BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
+                return bfu.getFieldTypeChange(finsn.owner, GlobalReferenceMapper.remapReference(finsn.name)) != null;
+            }
         }
         return false;
     }
