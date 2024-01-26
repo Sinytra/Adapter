@@ -199,7 +199,7 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
             }
         }
         // Find instructions used to initialize each used variable in the target method
-        LocalVariableLookup targetTable = new LocalVariableLookup(capturedLocals.target().methodNode().localVariables);
+        LocalVariableLookup targetTable = new LocalVariableLookup(capturedLocals.target().methodNode());
         Int2ObjectMap<InsnList> varInsnLists = new Int2ObjectOpenHashMap<>();
         Int2IntMap usageCount = new Int2IntOpenHashMap();
         used.forEach(ordinal -> {

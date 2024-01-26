@@ -201,7 +201,7 @@ public final class AdapterUtil {
         int paramLocalPos = targetParams.length + 1;
         // Get expected local variables from method parameters
         List<Type> expected = AdapterUtil.summariseLocals(params, paramLocalPos);
-        return new CapturedLocals(target, isStatic, paramLocalPos, paramLocalPos + expected.size(), lvtOffset, expected, new LocalVariableLookup(methodNode.localVariables));
+        return new CapturedLocals(target, isStatic, paramLocalPos, paramLocalPos + expected.size(), lvtOffset, expected, new LocalVariableLookup(methodNode));
     }
 
     public record CapturedLocals(MethodContext.TargetPair target, boolean isStatic, int paramLocalStart, int paramLocalEnd, int lvtOffset,

@@ -26,7 +26,7 @@ public record ModifyRedirectToWrapper(MethodQualifier originalTarget, MethodQual
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
-        LocalVariableLookup lookup = new LocalVariableLookup(methodNode.localVariables);
+        LocalVariableLookup lookup = new LocalVariableLookup(methodNode);
         Type newOwnerType = Type.getType(this.newTarget.owner());
         boolean sameOwnerType = Type.getType(this.originalTarget.owner()).equals(newOwnerType);
 
@@ -78,7 +78,7 @@ public record ModifyRedirectToWrapper(MethodQualifier originalTarget, MethodQual
             .build();
         addNewParamsPatch.apply(classNode, methodNode, methodContext, context);
 
-        LocalVariableLookup updatedLookup = new LocalVariableLookup(methodNode.localVariables);
+        LocalVariableLookup updatedLookup = new LocalVariableLookup(methodNode);
         LocalVariableNode operationVar = updatedLookup.getForType(OPERATION_TYPE).get(0);
         int operationParamOrdinal = updatedLookup.getOrdinal(operationVar);
         List<LocalVariableNode> localVars = new ArrayList<>();

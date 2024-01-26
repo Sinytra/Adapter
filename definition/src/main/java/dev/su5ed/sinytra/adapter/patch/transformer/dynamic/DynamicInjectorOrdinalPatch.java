@@ -209,7 +209,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                 return OptionalInt.empty();
             }
 
-            LocalVariableLookup dirtyVarLookup = new LocalVariableLookup(dirtyTarget.methodNode().localVariables);
+            LocalVariableLookup dirtyVarLookup = new LocalVariableLookup(dirtyTarget.methodNode());
             List<LocalVariableNode> dirtyLocals = dirtyVarLookup.getForType(targetType);
             if (cleanLocals.size() != dirtyLocals.size() || dirtyLocals.size() <= ordinal) {
                 return findReplacementLocal(cleanTarget.methodNode(), dirtyTarget.methodNode(), cleanLocal)

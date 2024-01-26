@@ -126,7 +126,7 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
             methodNode.localVariables.add(paramOrdinal + (isNonStatic ? 1 : 0), new LocalVariableNode(newParameter.name, type.getDescriptor(), null, self.start, self.end, lvtIndex));
             snapshot.applyDifference(methodNode);
         }
-        LocalVariableLookup lvtLookup = new LocalVariableLookup(methodNode.localVariables);
+        LocalVariableLookup lvtLookup = new LocalVariableLookup(methodNode);
         BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
         this.context.replacements.forEach(pair -> {
             int index = pair.getFirst();

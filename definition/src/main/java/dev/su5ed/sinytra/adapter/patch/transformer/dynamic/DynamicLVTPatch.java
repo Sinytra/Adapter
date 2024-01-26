@@ -6,12 +6,16 @@ import com.mojang.logging.LogUtils;
 import dev.su5ed.sinytra.adapter.patch.LVTOffsets;
 import dev.su5ed.sinytra.adapter.patch.analysis.EnhancedParamsDiff;
 import dev.su5ed.sinytra.adapter.patch.analysis.ParametersDiff;
-import dev.su5ed.sinytra.adapter.patch.api.*;
+import dev.su5ed.sinytra.adapter.patch.api.MethodContext;
+import dev.su5ed.sinytra.adapter.patch.api.MethodTransform;
+import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
 import dev.su5ed.sinytra.adapter.patch.api.Patch.Result;
+import dev.su5ed.sinytra.adapter.patch.api.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
+import dev.su5ed.sinytra.adapter.patch.util.LocalVariableLookup;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -20,6 +24,7 @@ import org.spongepowered.asm.mixin.FabricUtil;
 
 import java.util.*;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
@@ -159,8 +164,8 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             // No changes required
             return null;
         }
-        // Replacements are not supported, as they would require LVT fixups and converters
-        if (!diff.replacements().isEmpty()) {
+        // Replacements are only partially supported, as most would require LVT fixups and converters
+        if (!diff.replacements().isEmpty() && areReplacedParamsUsed(diff.replacements(), methodNode)) {
             // Check if we can rearrange parameters
             ParametersDiff rearrange = ParametersDiff.rearrangeParameters(capturedLocals.expected(), availableTypes);
             if (rearrange == null) {
@@ -196,6 +201,19 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             return null;
         }
         return offsetDiff;
+    }
+
+    private static boolean areReplacedParamsUsed(List<Pair<Integer, Type>> replacements, MethodNode methodNode) {
+        LocalVariableLookup lookup = new LocalVariableLookup(methodNode);
+        Set<Integer> paramLocals = replacements.stream()
+            .map(p -> lookup.getByParameterOrdinal(p.getFirst()).index)
+            .collect(Collectors.toSet());
+        for (AbstractInsnNode insn : methodNode.instructions) {
+            if (insn instanceof VarInsnNode varInsn && paramLocals.contains(varInsn.var)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static int getMaxLocalIndex(List<Type> expected, List<Pair<Integer, Type>> insertions) {
