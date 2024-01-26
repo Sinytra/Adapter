@@ -6,12 +6,9 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import dev.su5ed.sinytra.adapter.patch.api.MethodContext;
-import dev.su5ed.sinytra.adapter.patch.api.MethodTransform;
-import dev.su5ed.sinytra.adapter.patch.api.MixinConstants;
-import dev.su5ed.sinytra.adapter.patch.api.Patch;
-import dev.su5ed.sinytra.adapter.patch.api.PatchContext;
+import dev.su5ed.sinytra.adapter.patch.api.*;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
+import dev.su5ed.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.ClassNode;
@@ -19,25 +16,32 @@ import org.objectweb.asm.tree.MethodNode;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
 
-public record TransformParameters(List<ParameterTransformer> transformers, boolean withOffset) implements MethodTransform {
+public record TransformParameters(List<ParameterTransformer> transformers, boolean withOffset, ModifyMethodParams.TargetType targetType) implements MethodTransform {
     private static final BiMap<String, Codec<? extends ParameterTransformer>> TRANSFORMER_CODECS = ImmutableBiMap.<String, Codec<? extends ParameterTransformer>>builder()
-            .put("inject_parameter", InjectParameterTransform.CODEC)
-            .put("swap_parameters", SwapParametersTransformer.CODEC)
-            .put("substitute_parameters", SubstituteParameterTransformer.CODEC)
-            .put("remove_parameter", RemoveParameterTransformer.CODEC)
-            .build();
+        .put("inject_parameter", InjectParameterTransform.CODEC)
+        .put("swap_parameters", SwapParametersTransformer.CODEC)
+        .put("substitute_parameters", SubstituteParameterTransformer.CODEC)
+        .put("remove_parameter", RemoveParameterTransformer.CODEC)
+        .build();
 
     public static final Codec<TransformParameters> CODEC = RecordCodecBuilder.create(in -> in.group(
-            Codec.STRING
-                    .<ParameterTransformer>dispatch(c -> TRANSFORMER_CODECS.inverse().get(c.codec()), TRANSFORMER_CODECS::get)
-                    .listOf()
-                    .fieldOf("transformers")
-                    .forGetter(TransformParameters::transformers),
-            Codec.BOOL.optionalFieldOf("withOffset", false).forGetter(TransformParameters::withOffset)
+        Codec.STRING
+            .<ParameterTransformer>dispatch(c -> TRANSFORMER_CODECS.inverse().get(c.codec()), TRANSFORMER_CODECS::get)
+            .listOf()
+            .fieldOf("transformers")
+            .forGetter(TransformParameters::transformers),
+        Codec.BOOL.optionalFieldOf("withOffset", false).forGetter(TransformParameters::withOffset),
+        ModifyMethodParams.TargetType.CODEC.optionalFieldOf("targetType", ModifyMethodParams.TargetType.ALL).forGetter(TransformParameters::targetType)
     ).apply(in, TransformParameters::new));
+
+    @Override
+    public Collection<String> getAcceptedAnnotations() {
+        return this.targetType.getTargetMixinTypes();
+    }
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
@@ -69,6 +73,7 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
     public static class Builder {
         private final List<ParameterTransformer> transformers = new ArrayList<>();
         private boolean offset = false;
+        private ModifyMethodParams.TargetType targetType = ModifyMethodParams.TargetType.ALL;
 
         public Builder transform(ParameterTransformer transformer) {
             this.transformers.add(transformer);
@@ -100,9 +105,14 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
             return this;
         }
 
+        public Builder targetType(ModifyMethodParams.TargetType targetType) {
+            this.targetType = targetType;
+            return this;
+        }
+
         @CheckReturnValue
         public TransformParameters build() {
-            return new TransformParameters(transformers, offset);
+            return new TransformParameters(transformers, offset, targetType);
         }
     }
 }

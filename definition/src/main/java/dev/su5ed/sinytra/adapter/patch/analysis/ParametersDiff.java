@@ -30,8 +30,8 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
     public static final ParametersDiff EMPTY = new ParametersDiff(-1, List.of(), List.of(), List.of(), List.of(), List.of());
 
     public List<MethodTransform> createTransforms(ModifyMethodParams.TargetType type) {
-        final var list = new ArrayList<MethodTransform>();
-        var light = ModifyMethodParams.ParamsContext.createLight(this);
+        List<MethodTransform> list = new ArrayList<>();
+        ModifyMethodParams.ParamsContext light = ModifyMethodParams.ParamsContext.createLight(this);
         if (!light.isEmpty()) {
             list.add(new ModifyMethodParams(
                     light,
@@ -41,7 +41,7 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
         if (!insertions.isEmpty()) {
             list.add(new TransformParameters(insertions.stream()
                     .<ParameterTransformer>map(p -> new InjectParameterTransform(p.getFirst(), p.getSecond()))
-                    .toList(), true));
+                    .toList(), true, type));
         }
         return list;
     }

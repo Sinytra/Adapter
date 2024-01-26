@@ -420,6 +420,10 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
         public Set<String> getTargetMixinTypes() {
             return this.targetMixinTypes;
         }
+
+        public boolean test(AnnotationHandle methodAnnotation) {
+            return this.targetMixinTypes.contains(methodAnnotation.getDesc());
+        }
     }
 
     public interface LVTFixer {
