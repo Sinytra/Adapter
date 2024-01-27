@@ -29,8 +29,6 @@ import java.util.stream.Collectors;
 import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
 public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements MethodTransform {
-    private static final String LOCAL_ANN = "Lcom/llamalad7/mixinextras/sugar/Local;";
-
     private static final Logger LOGGER = LogUtils.getLogger();
 
     @Override
@@ -44,28 +42,15 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         if (methodNode.invisibleParameterAnnotations != null) {
             // Find @Local annotations on method parameters
             Type[] paramTypes = Type.getArgumentTypes(methodNode.desc);
-            Map<AnnotationNode, Type> localAnnotations = new HashMap<>();
-            for (int i = 0; i < methodNode.invisibleParameterAnnotations.length; i++) {
-                List<AnnotationNode> parameterAnnotations = methodNode.invisibleParameterAnnotations[i];
-                if (parameterAnnotations != null) {
-                    for (AnnotationNode paramAnn : parameterAnnotations) {
-                        if (LOCAL_ANN.equals(paramAnn.desc)) {
-                            Type type = paramTypes[i];
-                            localAnnotations.put(paramAnn, type);
-                        }
-                    }
+            List<AnnotationNode> localAnnotations = AdapterUtil.getAnnotatedParameters(methodNode, paramTypes, MixinConstants.LOCAL, (node, type) -> node);
+            if (!localAnnotations.isEmpty()) {
+                Result result = Result.PASS;
+                Supplier<MethodContext.TargetPair> targetPairSupplier = Suppliers.memoize(methodContext::findDirtyInjectionTarget);
+                for (AnnotationNode localAnn : localAnnotations) {
+                    result = result.or(offsetVariableIndex(classNode, methodNode, new AnnotationHandle(localAnn), targetPairSupplier));
                 }
+                return result;
             }
-            if (localAnnotations.isEmpty()) {
-                return Result.PASS;
-            }
-            Result result = Result.PASS;
-            Supplier<MethodContext.TargetPair> targetPairSupplier = Suppliers.memoize(methodContext::findDirtyInjectionTarget);
-            for (Map.Entry<AnnotationNode, Type> entry : localAnnotations.entrySet()) {
-                AnnotationNode localAnn = entry.getKey();
-                result = result.or(offsetVariableIndex(classNode, methodNode, new AnnotationHandle(localAnn), targetPairSupplier));
-            }
-            return result;
         }
         if (annotation.matchesDesc(MixinConstants.MODIFY_VAR)) {
             Result result = offsetVariableIndex(classNode, methodNode, annotation, methodContext);

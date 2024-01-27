@@ -24,6 +24,7 @@ import org.spongepowered.asm.service.MixinService;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.*;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -129,7 +130,7 @@ public final class AdapterUtil {
 
     public static int getInsnIntConstValue(AbstractInsnNode insn) {
         return getIntConstValue(insn)
-                .orElseThrow(() -> new IllegalArgumentException("Not an int constant opcode: " + insn.getOpcode()));
+            .orElseThrow(() -> new IllegalArgumentException("Not an int constant opcode: " + insn.getOpcode()));
     }
 
     public static OptionalInt getIntConstValue(AbstractInsnNode insn) {
@@ -181,6 +182,24 @@ public final class AdapterUtil {
         return list;
     }
 
+    public static <T> List<T> getAnnotatedParameters(MethodNode methodNode, Type[] parameters, String annotationDesc, BiFunction<AnnotationNode, Type, T> processor) {
+        List<T> list = new ArrayList<>();
+        if (methodNode.invisibleParameterAnnotations != null) {
+            for (int i = 0; i < methodNode.invisibleParameterAnnotations.length; i++) {
+                List<AnnotationNode> parameterAnnotations = methodNode.invisibleParameterAnnotations[i];
+                if (parameterAnnotations != null) {
+                    for (AnnotationNode paramAnn : parameterAnnotations) {
+                        if (annotationDesc.equals(paramAnn.desc)) {
+                            Type type = parameters[i];
+                            list.add(processor.apply(paramAnn, type));
+                        }
+                    }
+                }
+            }
+        }
+        return list;
+    }
+
     @Nullable
     public static CapturedLocals getCapturedLocals(MethodNode methodNode, MethodContext methodContext) {
         AnnotationHandle annotation = methodContext.methodAnnotation();
@@ -194,13 +213,16 @@ public final class AdapterUtil {
         if (target == null) {
             return null;
         }
+        List<Type> ignored = getAnnotatedParameters(methodNode, params, MixinConstants.SHARE, (node, type) -> type);
+        Type[] availableParams = Stream.of(params).filter(t -> !ignored.contains(t)).toArray(Type[]::new);
+
         Type[] targetParams = Type.getArgumentTypes(target.methodNode().desc);
         boolean isStatic = (methodNode.access & Opcodes.ACC_STATIC) != 0;
         int lvtOffset = isStatic ? 0 : 1;
         // The first local var in the method's params comes after the target's params plus the CI/CIR parameter
         int paramLocalPos = targetParams.length + 1;
         // Get expected local variables from method parameters
-        List<Type> expected = AdapterUtil.summariseLocals(params, paramLocalPos);
+        List<Type> expected = AdapterUtil.summariseLocals(availableParams, paramLocalPos);
         return new CapturedLocals(target, isStatic, paramLocalPos, paramLocalPos + expected.size(), lvtOffset, expected, new LocalVariableLookup(methodNode));
     }
 
