@@ -16,6 +16,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -234,6 +235,17 @@ public interface ParameterTransformer {
         int lvt = nonStatic ? 1 : 0;
         for (int i = 0; i < index; i++) {
             lvt += parameters.get(i).getSize();
+        }
+        return lvt;
+    }
+
+    static int calculateLocalLVTIndex(List<LocalVariableNode> locals, boolean nonStatic, int index) {
+        locals = new ArrayList<>(locals);
+        locals.sort(Comparator.comparing(l -> l.index));
+        if (nonStatic) locals.remove(0);
+        int lvt = nonStatic ? 1 : 0;
+        for (int i = 0; i < index; i++) {
+            lvt += Type.getType(locals.get(i).desc).getSize();
         }
         return lvt;
     }

@@ -27,7 +27,7 @@ public record SubstituteParameterTransformer(int target, int substitute) impleme
         final int paramIndex = this.target + offset;
         final int substituteParamIndex = this.substitute + offset;
         final boolean isNonStatic = !methodContext.isStatic(methodNode);
-        final int localIndex = ParameterTransformer.calculateLVTIndex(parameters, isNonStatic, paramIndex);
+        final int localIndex = ParameterTransformer.calculateLocalLVTIndex(methodNode.localVariables, isNonStatic, paramIndex);
 
         if (methodNode.parameters.size() <= paramIndex) {
             return Patch.Result.PASS;
@@ -35,11 +35,13 @@ public record SubstituteParameterTransformer(int target, int substitute) impleme
 
         withLVTSnapshot(methodNode, () -> {
             LOGGER.info("Substituting parameter {} for {} in {}.{}", paramIndex, substituteParamIndex, classNode.name, methodNode.name);
-            parameters.remove(paramIndex);
-            methodNode.parameters.remove(paramIndex);
-            methodNode.localVariables.removeIf(lvn -> lvn.index == localIndex);
+            if (paramIndex < parameters.size()) {
+                parameters.remove(paramIndex);
+                methodNode.parameters.remove(paramIndex);
+            }
 
-            final int substituteIndex = ParameterTransformer.calculateLVTIndex(parameters, isNonStatic, substituteParamIndex);
+            final int substituteIndex = ParameterTransformer.calculateLocalLVTIndex(methodNode.localVariables, isNonStatic, substituteParamIndex);
+            methodNode.localVariables.removeIf(lvn -> lvn.index == localIndex);
             AdapterUtil.replaceLVT(methodNode, idx -> idx == localIndex ? substituteIndex : idx);
         });
 
