@@ -14,7 +14,6 @@ import dev.su5ed.sinytra.adapter.patch.api.PatchContext;
 import dev.su5ed.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
 import dev.su5ed.sinytra.adapter.patch.fixes.TypeAdapter;
 import dev.su5ed.sinytra.adapter.patch.selector.AnnotationHandle;
-import dev.su5ed.sinytra.adapter.patch.transformer.param.ParameterTransformer;
 import dev.su5ed.sinytra.adapter.patch.util.AdapterUtil;
 import dev.su5ed.sinytra.adapter.patch.util.LocalVariableLookup;
 import dev.su5ed.sinytra.adapter.patch.util.MethodQualifier;
@@ -180,14 +179,14 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
         this.context.substitutes.forEach(pair -> {
             int paramIndex = pair.getFirst();
             int substituteParamIndex = pair.getSecond();
-            int localIndex = calculateLVTIndex(newParameterTypes, isNonStatic, paramIndex);
-            LVTSnapshot lvtSnapshot = LVTSnapshot.take(methodNode);
             if (methodNode.parameters.size() > paramIndex) {
+                int localIndex = calculateLVTIndex(newParameterTypes, isNonStatic, paramIndex);
+                LVTSnapshot lvtSnapshot = LVTSnapshot.take(methodNode);
                 LOGGER.info("Substituting parameter {} for {} in {}.{}", paramIndex, substituteParamIndex, classNode.name, methodNode.name);
                 methodNode.parameters.remove(paramIndex);
                 newParameterTypes.remove(paramIndex);
+                int substituteIndex = calculateLVTIndex(newParameterTypes, isNonStatic, substituteParamIndex);
                 methodNode.localVariables.removeIf(lvn -> lvn.index == localIndex);
-                int substituteIndex = ParameterTransformer.calculateLocalLVTIndex(methodNode.localVariables, isNonStatic, substituteParamIndex);
                 for (AbstractInsnNode insn : methodNode.instructions) {
                     SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);
                     if (handle == null) continue;
