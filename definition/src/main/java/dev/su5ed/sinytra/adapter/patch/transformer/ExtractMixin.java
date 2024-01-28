@@ -9,12 +9,14 @@ import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
 public record ExtractMixin(String targetClass) implements MethodTransform {
@@ -31,22 +33,21 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
         if (qualifier == null) {
             return Patch.Result.PASS;
         }
+
         String owner = Objects.requireNonNullElse(qualifier.internalOwnerName(), this.targetClass);
         boolean isInherited = context.environment().inheritanceHandler().isClassInherited(this.targetClass, owner);
-        for (AbstractInsnNode insn : methodNode.instructions) {
-            if (insn instanceof FieldInsnNode finsn && finsn.owner.equals(classNode.name) && !isInheritedField(classNode, finsn, isInherited)
-                || insn instanceof MethodInsnNode minsn && minsn.owner.equals(classNode.name) && !isInheritedMethod(classNode, minsn, isInherited)
-            ) {
-                // We can't move methods that access their class instance
-                return Patch.Result.PASS;
-            }
+        Candidates candidates = findCandidates(classNode, methodNode);
+        if (!candidates.canMove(classNode, isInherited)) {
+            return Patch.Result.PASS;
         }
+
         ClassNode targetClass = AdapterUtil.getClassNode(this.targetClass);
         // Get or generate new mixin class
         ClassNode generatedTarget = context.environment().classGenerator().getOrGenerateMixinClass(classNode, this.targetClass, targetClass != null ? targetClass.superName : null);
         context.environment().refmapHolder().copyEntries(classNode.name, generatedTarget.name);
-        // Add mixin method from original to generated class
-        generatedTarget.methods.add(methodNode);
+        // Add mixin methods from original to generated class
+        generatedTarget.methods.addAll(candidates.methods);
+        candidates.handleUpdates().forEach(c -> c.accept(generatedTarget));
 
         // Take care of captured locals
         Patch.Result result = Patch.Result.PASS;
@@ -55,16 +56,55 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
         }
 
         // Remove original method
-        context.postApply(() -> classNode.methods.remove(methodNode));
+        context.postApply(() -> classNode.methods.removeAll(candidates.methods));
         if (!isStatic && methodNode.localVariables != null) {
-            methodNode.localVariables.stream().filter(l -> l.index == 0).findFirst().ifPresent(lvn -> {
-                lvn.desc = Type.getObjectType(generatedTarget.name).getDescriptor();
-            });
+            methodNode.localVariables.stream().filter(l -> l.index == 0).findFirst().ifPresent(lvn -> lvn.desc = Type.getObjectType(generatedTarget.name).getDescriptor());
         }
         return result.or(Patch.Result.APPLY);
     }
 
-    private static boolean isInheritedField(ClassNode cls, FieldInsnNode finsn, boolean isTargetInherited) {
+    record Candidates(List<MethodNode> methods, List<Consumer<ClassNode>> handleUpdates) {
+        public boolean canMove(ClassNode classNode, boolean isInherited) {
+            List<Runnable> accessFixes = new ArrayList<>();
+            for (MethodNode methodNode : this.methods) {
+                for (AbstractInsnNode insn : methodNode.instructions) {
+                    if (insn instanceof FieldInsnNode finsn && finsn.owner.equals(classNode.name) && !isInheritedField(classNode, finsn, isInherited, accessFixes)
+                        || insn instanceof MethodInsnNode minsn && minsn.owner.equals(classNode.name) && !isInheritedMethod(classNode, minsn, isInherited, accessFixes)
+                    ) {
+                        // We can't move methods that access their class instance
+                        return false;
+                    }
+                }
+            }
+            accessFixes.forEach(Runnable::run);
+            return true;
+        }
+    }
+
+    private static Candidates findCandidates(ClassNode classNode, MethodNode methodNode) {
+        List<MethodNode> methods = new ArrayList<>();
+        List<Consumer<ClassNode>> handleUpdates = new ArrayList<>();
+        methods.add(methodNode);
+        for (AbstractInsnNode insn : methodNode.instructions) {
+            if (insn instanceof InvokeDynamicInsnNode indy && indy.bsmArgs.length >= 3) {
+                for (int i = 0; i < indy.bsmArgs.length; i++) {
+                    if (indy.bsmArgs[i] instanceof Handle handle && handle.getOwner().equals(classNode.name) && handle.getName().startsWith(AdapterUtil.LAMBDA_PREFIX + methodNode.name)) {
+                        final int finalI = i;
+                        classNode.methods.stream()
+                            .filter(m -> m.name.equals(handle.getName()) && m.desc.equals(handle.getDesc()))
+                            .findFirst()
+                            .ifPresent(m -> {
+                                methods.add(m);
+                                handleUpdates.add(t -> indy.bsmArgs[finalI] = new Handle(handle.getTag(), t.name, handle.getName(), handle.getDesc(), handle.isInterface()));
+                            });
+                    }
+                }
+            }
+        }
+        return new Candidates(methods, handleUpdates);
+    }
+
+    private static boolean isInheritedField(ClassNode cls, FieldInsnNode finsn, boolean isTargetInherited, List<Runnable> accessUpdates) {
         FieldNode field = cls.fields.stream()
             .filter(f -> f.name.equals(finsn.name))
             .findFirst()
@@ -74,14 +114,14 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
                 return true;
             }
             if (isTargetInherited) {
-                field.access = fixAccess(field.access);
+                accessUpdates.add(() -> field.access = fixAccess(field.access));
                 return true;
             }
         }
         return false;
     }
 
-    private static boolean isInheritedMethod(ClassNode cls, MethodInsnNode minsn, boolean isTargetInherited) {
+    private static boolean isInheritedMethod(ClassNode cls, MethodInsnNode minsn, boolean isTargetInherited, List<Runnable> accessUpdates) {
         MethodNode method = cls.methods.stream()
             .filter(m -> m.name.equals(minsn.name) && m.desc.equals(minsn.desc))
             .findFirst()
@@ -92,7 +132,7 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
                 return true;
             }
             if (isTargetInherited) {
-                method.access = fixAccess(method.access);
+                accessUpdates.add(() ->  method.access = fixAccess(method.access));
                 return true;
             }
         }
