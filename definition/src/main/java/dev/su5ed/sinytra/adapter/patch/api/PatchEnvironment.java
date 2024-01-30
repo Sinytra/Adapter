@@ -7,8 +7,8 @@ import dev.su5ed.sinytra.adapter.patch.util.provider.ClassLookup;
 import org.jetbrains.annotations.Nullable;
 
 public interface PatchEnvironment {
-    static PatchEnvironment create(RefmapHolder refmapHolder, ClassLookup cleanClassLookup, @Nullable BytecodeFixerUpper bytecodeFixerUpper) {
-        return new PatchEnvironmentImpl(refmapHolder, cleanClassLookup, bytecodeFixerUpper);
+    static PatchEnvironment create(RefmapHolder refmapHolder, ClassLookup cleanClassLookup, @Nullable BytecodeFixerUpper bytecodeFixerUpper, int fabricLVTCompatibility) {
+        return new PatchEnvironmentImpl(refmapHolder, cleanClassLookup, bytecodeFixerUpper, fabricLVTCompatibility);
     }
 
     MixinClassGenerator classGenerator();
@@ -21,4 +21,6 @@ public interface PatchEnvironment {
     InheritanceHandler inheritanceHandler();
 
     RefmapHolder refmapHolder();
+
+    int fabricLVTCompatibility();
 }

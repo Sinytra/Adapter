@@ -14,7 +14,6 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
-import org.spongepowered.asm.mixin.FabricUtil;
 import org.spongepowered.asm.mixin.injection.InjectionPoint;
 import org.spongepowered.asm.mixin.injection.code.ISliceContext;
 import org.spongepowered.asm.mixin.injection.code.MethodSlice;
@@ -134,11 +133,11 @@ public record MethodContextImpl(AnnotationValueHandle<?> classAnnotation, Annota
         int lvtOffset = isStatic ? 0 : 1;
         // The starting LVT index is of the first var after all method parameters. Offset by 1 for instance methods to skip 'this'
         int targetLocalPos = targetParams.length + lvtOffset;
-        return getTargetMethodLocals(classNode, methodNode, targetClass, targetMethod, targetLocalPos, FabricUtil.COMPATIBILITY_LATEST);
+        return getTargetMethodLocals(classNode, methodNode, targetClass, targetMethod, targetLocalPos);
     }
 
     @Nullable
-    public List<LocalVariable> getTargetMethodLocals(ClassNode classNode, MethodNode methodNode, ClassNode targetClass, MethodNode targetMethod, int startPos, int fabricCompatibility) {
+    public List<LocalVariable> getTargetMethodLocals(ClassNode classNode, MethodNode methodNode, ClassNode targetClass, MethodNode targetMethod, int startPos) {
         List<AbstractInsnNode> targetInsns = findInjectionTargetInsns(classNode, targetClass, methodNode, targetMethod, patchContext());
         if (targetInsns.isEmpty()) {
             LOGGER.debug("Skipping LVT patch, no target instructions found");
@@ -148,7 +147,7 @@ public record MethodContextImpl(AnnotationValueHandle<?> classAnnotation, Annota
         LocalVariableNode[] localVariables;
         // Synchronize to avoid issues in mixin. This is necessary.
         synchronized (this) {
-            localVariables = Locals.getLocalsAt(targetClass, targetMethod, targetInsns.get(0), fabricCompatibility);
+            localVariables = Locals.getLocalsAt(targetClass, targetMethod, targetInsns.get(0), patchContext().environment().fabricLVTCompatibility());
         }
         LocalVariable[] locals = Stream.of(localVariables)
             .filter(Objects::nonNull)

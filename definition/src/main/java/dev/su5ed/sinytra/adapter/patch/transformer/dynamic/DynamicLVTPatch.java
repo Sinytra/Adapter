@@ -20,7 +20,6 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
-import org.spongepowered.asm.mixin.FabricUtil;
 
 import java.util.*;
 import java.util.function.Supplier;
@@ -65,7 +64,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
                     if (targetPair == null) {
                         return Result.PASS;
                     }
-                    List<MethodContext.LocalVariable> available = methodContext.getTargetMethodLocals(classNode, methodNode, targetPair.classNode(), targetPair.methodNode(), 0, FabricUtil.COMPATIBILITY_0_9_2);
+                    List<MethodContext.LocalVariable> available = methodContext.getTargetMethodLocals(classNode, methodNode, targetPair.classNode(), targetPair.methodNode(), 0);
                     if (available == null) {
                         return Result.PASS;
                     }
