@@ -21,7 +21,10 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 
-import java.util.*;
+import java.util.Comparator;
+import java.util.List;
+import java.util.OptionalInt;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -29,11 +32,7 @@ import static dev.su5ed.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
 public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements MethodTransform {
     private static final Logger LOGGER = LogUtils.getLogger();
-
-    @Override
-    public Collection<String> getAcceptedAnnotations() {
-        return Set.of(MixinConstants.INJECT, MixinConstants.MODIFY_EXPR_VAL, MixinConstants.MODIFY_VAR);
-    }
+    private static final Set<String> ANNOTATIONS = Set.of(MixinConstants.INJECT, MixinConstants.MODIFY_EXPR_VAL, MixinConstants.MODIFY_VAR);
 
     @Override
     public Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
@@ -50,6 +49,9 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
                 }
                 return result;
             }
+        }
+        if (!ANNOTATIONS.contains(annotation.getDesc())) {
+            return Result.PASS;
         }
         if (annotation.matchesDesc(MixinConstants.MODIFY_VAR)) {
             Result result = offsetVariableIndex(classNode, methodNode, annotation, methodContext);
