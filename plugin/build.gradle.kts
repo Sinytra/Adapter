@@ -2,7 +2,7 @@ plugins {
     `java-gradle-plugin`
 }
 
-group = "dev.su5ed.sinytra.adapter"
+group = "org.sinytra.adapter"
 version = "1.0-SNAPSHOT"
 
 java {
@@ -14,8 +14,8 @@ java {
 gradlePlugin {
     plugins {
         register("adapter") {
-            id = "dev.su5ed.sinytra.adapter.gradle"
-            implementationClass = "dev.su5ed.sinytra.adapter.gradle.AdapterPlugin"
+            id = "org.sinytra.adapter.gradle"
+            implementationClass = "org.sinytra.adapter.gradle.AdapterPlugin"
         }
     }
 }
@@ -41,7 +41,7 @@ dependencies {
     implementation(group = "net.minecraftforge", name = "srgutils", version = "0.5.3")
     compileOnly(group = "net.neoforged", "artifactural", version = "3.0.17")
 
-    implementation(group = "dev.su5ed.sinytra.adapter", name = "definition")
+    implementation(group = "org.sinytra.adapter", name = "definition")
     implementation(group = "org.apache.commons", name = "commons-lang3", version = "3.13.0")
 
     testImplementation(platform("org.junit:junit-bom:5.9.1"))

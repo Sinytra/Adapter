@@ -1,10 +1,10 @@
-import dev.su5ed.sinytra.adapter.gradle.AdapterPlugin
+import org.sinytra.adapter.gradle.AdapterPlugin
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 plugins {
     id("net.neoforged.gradle") version "[6.0,6.2)"
-    id("dev.su5ed.sinytra.adapter.gradle")
+    id("org.sinytra.adapter.gradle")
     `maven-publish`
 }
 
@@ -12,7 +12,7 @@ val versionMc: String by project
 val versionForge: String by project
 val timestamp: String = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd.HHmmss"))
 
-group = "dev.su5ed.sinytra.adapter"
+group = "org.sinytra.adapter"
 version = "${AdapterPlugin.getDefinitionVersion()?.let { "$it-" } ?: ""}$versionMc-$timestamp"
 base {
     archivesName.set(project.name.lowercase())
