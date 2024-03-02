@@ -48,6 +48,7 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
         // Add mixin methods from original to generated class
         generatedTarget.methods.addAll(candidates.methods);
         candidates.handleUpdates().forEach(c -> c.accept(generatedTarget));
+        candidates.methods().forEach(method -> updateOwnerRefereces(method, classNode, this.targetClass));
 
         // Take care of captured locals
         Patch.Result result = Patch.Result.PASS;
@@ -104,6 +105,16 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
         return new Candidates(methods, handleUpdates);
     }
 
+    private static void updateOwnerRefereces(MethodNode methodNode, ClassNode originalClass, String targetClass) {
+        for (AbstractInsnNode insn : methodNode.instructions) {
+            if (insn instanceof MethodInsnNode minsn && minsn.owner.equals(originalClass.name)) {
+                minsn.owner = targetClass;
+            } else if (insn instanceof FieldInsnNode finsn && finsn.owner.equals(originalClass.name)) {
+                finsn.owner = targetClass;
+            }
+        }
+    }
+
     private static boolean isInheritedField(ClassNode cls, FieldInsnNode finsn, boolean isTargetInherited, List<Runnable> accessUpdates) {
         FieldNode field = cls.fields.stream()
             .filter(f -> f.name.equals(finsn.name))
@@ -145,7 +156,8 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
         if (visibility == Opcodes.ACC_PRIVATE || visibility == 0) {
             // Widen to protected
             // Add synthetic to avoid mixin complaining about non-private static members being present
-            return access & ~0x7 | Opcodes.ACC_PROTECTED | Opcodes.ACC_SYNTHETIC;
+            // Setting the access to public will prevent the member from being renamed
+            return access & ~0x7 | Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC;
         }
         return access;
     }
