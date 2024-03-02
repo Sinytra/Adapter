@@ -44,6 +44,28 @@ public class EnhancedParamsDiffTest {
     }
 
     @Test
+    void testReplacedParameters() {
+        List<Type> clean = List.of(
+            Type.getObjectType("net/minecraft/world/item/enchantment/EnchantmentCategory"),
+            Type.getObjectType("net/minecraft/world/item/Item"),
+            Type.getObjectType("com/llamalad7/mixinextras/injector/wrapoperation/Operation"),
+            Type.getObjectType("com/llamalad7/mixinextras/sugar/ref/LocalRef")
+        );
+        List<Type> dirty = List.of(
+            Type.getObjectType("net/minecraft/world/item/enchantment/Enchantment"),
+            Type.getObjectType("net/minecraft/world/item/ItemStack"),
+            Type.getObjectType("com/llamalad7/mixinextras/injector/wrapoperation/Operation"),
+            Type.getObjectType("com/llamalad7/mixinextras/sugar/ref/LocalRef")
+        );
+
+        ParametersDiff diff = EnhancedParamsDiff.create(clean, dirty);
+        assertTrue(diff.insertions().isEmpty());
+        assertEquals(2, diff.replacements().size());
+        assertTrue(diff.removals().isEmpty());
+        assertTrue(diff.swaps().isEmpty());
+    }
+
+    @Test
     void testRemovedParameter() {
         List<Type> clean = List.of(
             Type.getType(Iterable.class),

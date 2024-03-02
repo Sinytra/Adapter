@@ -52,6 +52,14 @@ public class EnhancedParamsDiff {
                 List<TypeWithContext> compareDirty = extract(dirtyQueue, dirtyTypeIndex + offset);
 
                 compare(builder, compareClean, compareDirty);
+            }
+            // If there is no match for the first available type, look further ahead. This is good for handling cases
+            // where the sizes of both sets are equal and the first couple types have been replaced / modified
+            else if (cleanQueue.size() == dirtyQueue.size() && (dirtyTypeIndex = findClosestMatch(cleanQueue, dirtyQueue)) > 1) {
+                List<TypeWithContext> compareClean = extract(cleanQueue, dirtyTypeIndex);
+                List<TypeWithContext> compareDirty = extract(dirtyQueue, dirtyTypeIndex);
+
+                compare(builder, compareClean, compareDirty);
             } else if (cleanQueue.size() > 1) {
                 TypeWithContext type = cleanQueue.remove(1);
                 if (DEBUG) {
@@ -69,6 +77,16 @@ public class EnhancedParamsDiff {
         }
 
         return builder.build(clean.size());
+    }
+
+    private static int findClosestMatch(List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
+        for (TypeWithContext typeWithContext : cleanQueue) {
+            int pos = lookAhead(dirtyQueue, typeWithContext);
+            if (pos != -1) {
+                return pos;
+            }
+        }
+        return -1;
     }
 
     private static boolean replaceType(ParamDiffBuilder builder, int index, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
@@ -97,7 +115,7 @@ public class EnhancedParamsDiff {
     private static boolean isPossiblyInjected(int index, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
         for (int i = index; i < cleanQueue.size(); i++) {
             if (!cleanQueue.get(i).equals(dirtyQueue.get(i))) {
-                return true; 
+                return true;
             }
         }
         return false;

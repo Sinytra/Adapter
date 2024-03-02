@@ -6,6 +6,7 @@ import dev.su5ed.sinytra.adapter.patch.api.RefmapHolder;
 import org.assertj.core.api.Assertions;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.*;
+import org.spongepowered.asm.mixin.FabricUtil;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,7 +42,8 @@ public abstract class MixinPatchTest {
                     return Optional.empty();
                 }
             },
-            null
+            null,
+            FabricUtil.COMPATIBILITY_LATEST
         );
         patch.apply(patched, env);
         return new LoadResult(patched, load(className));
