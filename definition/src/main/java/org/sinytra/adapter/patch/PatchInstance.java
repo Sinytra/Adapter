@@ -56,7 +56,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
                 result = result.or(classTransform.apply(classNode, classTarget.handle(), context));
             }
             for (MethodNode method : classNode.methods) {
-                MethodContext methodContext = checkMethodTarget(classAnnotation, classNode.name, method, environment, classTarget.targetTypes(), context);
+                MethodContext methodContext = checkMethodTarget(classAnnotation, classNode, method, environment, classTarget.targetTypes(), context);
                 if (methodContext != null) {
                     for (MethodTransform transform : this.transforms) {
                         Collection<String> accepted = transform.getAcceptedAnnotations();
@@ -101,17 +101,18 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
     }
 
     @Nullable
-    private MethodContext checkMethodTarget(@Nullable AnnotationValueHandle<?> classAnnotation, String owner, MethodNode method, PatchEnvironment remaper, List<Type> targetTypes, PatchContext context) {
+    private MethodContext checkMethodTarget(@Nullable AnnotationValueHandle<?> classAnnotation, ClassNode owner, MethodNode method, PatchEnvironment remaper, List<Type> targetTypes, PatchContext context) {
         if (method.visibleAnnotations != null) {
             for (AnnotationNode annotation : method.visibleAnnotations) {
                 if (this.targetAnnotations.isEmpty() || this.targetAnnotations.contains(annotation.desc)) {
                     MethodContextImpl.Builder builder = MethodContextImpl.builder();
                     if (classAnnotation != null) {
+                        builder.classNode(owner);
                         builder.classAnnotation(classAnnotation);
                         builder.targetTypes(targetTypes);
                     }
                     AnnotationHandle annotationHandle = new AnnotationHandle(annotation);
-                    if (checkAnnotation(owner, method, annotationHandle, remaper, builder) && (this.targetAnnotationValues == null || this.targetAnnotationValues.test(annotationHandle))) {
+                    if (checkAnnotation(owner.name, method, annotationHandle, remaper, builder) && (this.targetAnnotationValues == null || this.targetAnnotationValues.test(annotationHandle))) {
                         return builder.build(context);
                     }
                 }

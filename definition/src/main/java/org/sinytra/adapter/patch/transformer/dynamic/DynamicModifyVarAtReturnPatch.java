@@ -141,7 +141,7 @@ public class DynamicModifyVarAtReturnPatch implements MethodTransform {
 
     private static Pair<AbstractInsnNode, Integer> getTargetPair(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, MethodContext.TargetPair injectionTarget, int ordinal) {
         // Find injection point insn
-        List<AbstractInsnNode> targetInsns = methodContext.findInjectionTargetInsns(classNode, injectionTarget.classNode(), methodNode, injectionTarget.methodNode(), context);
+        List<AbstractInsnNode> targetInsns = methodContext.findInjectionTargetInsns(injectionTarget);
         if (targetInsns.isEmpty()) {
             return null;
         }

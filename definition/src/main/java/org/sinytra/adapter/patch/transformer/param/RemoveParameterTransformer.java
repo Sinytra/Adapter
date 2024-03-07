@@ -20,7 +20,7 @@ public record RemoveParameterTransformer(int index) implements ParameterTransfor
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, List<Type> parameters, int offset) {
         final int target = this.index() + offset;
-        final int lvtIndex = ParameterTransformer.calculateLVTIndex(parameters, !methodContext.isStatic(methodNode), target);
+        final int lvtIndex = ParameterTransformer.calculateLVTIndex(parameters, !methodContext.isStatic(), target);
 
         // Remove the use of the param in a wrapop first to avoid the new LVT messing with the outcome of that
         extractWrapOperation(methodContext, methodNode, parameters, op -> op.removeParameter(target));

@@ -61,15 +61,17 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
                     if (targetPair == null) {
                         return Patch.Result.PASS;
                     }
-                    List<MethodContext.LocalVariable> available = methodContext.getTargetMethodLocals(classNode, methodNode, targetPair.classNode(), targetPair.methodNode(), 0);
-                    if (available == null) {
-                        return Patch.Result.PASS;
-                    }
-                    Type expected = args[0];
-                    int count = (int) available.stream().filter(lv -> lv.type().equals(expected)).count();
-                    if (count == 1) {
-                        annotation.appendValue("ordinal", 0);
-                        return Patch.Result.APPLY;
+                    for (Integer level : methodContext.getLvtCompatLevelsOrdered()) {
+                        List<MethodContext.LocalVariable> available = methodContext.getTargetMethodLocals(targetPair, 0, level);
+                        if (available == null) {
+                            return Patch.Result.PASS;
+                        }
+                        Type expected = args[0];
+                        int count = (int) available.stream().filter(lv -> lv.type().equals(expected)).count();
+                        if (count == 1) {
+                            annotation.appendValue("ordinal", 0);
+                            return Patch.Result.APPLY;
+                        }
                     }
                 }
             }
@@ -134,7 +136,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         }
 
         // Get available local variables at the injection point in the target method
-        List<MethodContext.LocalVariable> available = methodContext.getTargetMethodLocals(classNode, methodNode, capturedLocals.target().classNode(), capturedLocals.target().methodNode());
+        List<MethodContext.LocalVariable> available = methodContext.getTargetMethodLocals(capturedLocals.target());
         if (available == null) {
             return null;
         }

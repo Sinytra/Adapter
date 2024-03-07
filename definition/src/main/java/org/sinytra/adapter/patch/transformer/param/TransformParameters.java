@@ -45,7 +45,7 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
-        boolean isStatic = methodContext.isStatic(methodNode);
+        boolean isStatic = methodContext.isStatic();
         Type[] params = Type.getArgumentTypes(methodNode.desc);
         List<Type> newParameterTypes = new ArrayList<>(Arrays.asList(params));
         Patch.Result result = Patch.Result.PASS;
@@ -59,7 +59,7 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
             result = result.or(transform.apply(classNode, methodNode, methodContext, context, newParameterTypes, offset));
         }
 
-        methodContext.updateDescription(classNode, methodNode, newParameterTypes);
+        methodContext.updateDescription(newParameterTypes);
 
         return result;
     }

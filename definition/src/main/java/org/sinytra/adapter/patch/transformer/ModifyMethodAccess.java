@@ -49,7 +49,7 @@ public record ModifyMethodAccess(List<AccessChange> changes) implements MethodTr
                             List<Type> newParams = new ArrayList<>(Arrays.asList(params));
                             newParams.add(0, types.get(0));
 
-                            methodContext.updateDescription(classNode, methodNode, newParams);
+                            methodContext.updateDescription(newParams);
                         } else {
                             throw new IllegalStateException("Cannot automatically determine target instance type for mixin " + classNode.name);
                         }

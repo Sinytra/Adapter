@@ -33,7 +33,7 @@ public record SoftMethodParamsPatch(String replacementTarget) implements MethodT
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
-        MethodQualifier targetQualifier = methodContext.getTargetMethodQualifier(context);
+        MethodQualifier targetQualifier = methodContext.getTargetMethodQualifier();
         if (targetQualifier != null) {
             List<Pair<Integer, Type>> replacements = determineAutomaticReplacements(targetQualifier, methodNode, context, this.replacementTarget);
             if (!replacements.isEmpty()) {

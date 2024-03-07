@@ -1,5 +1,9 @@
 package org.sinytra.adapter.patch.api;
 
+import org.spongepowered.asm.mixin.FabricUtil;
+
+import java.util.List;
+
 public class MixinConstants {
     // Standard mixins
     public static final String INJECT = "Lorg/spongepowered/asm/mixin/injection/Inject;";
@@ -23,4 +27,5 @@ public class MixinConstants {
     public static final String AT = "Lorg/spongepowered/asm/mixin/injection/At;";
     public static final String UNIQUE = "Lorg/spongepowered/asm/mixin/Unique;";
     public static final String SHADOW = "Lorg/spongepowered/asm/mixin/Shadow;";
+    public static final List<Integer> LVT_COMPATIBILITY_LEVELS = List.of(FabricUtil.COMPATIBILITY_0_10_0, FabricUtil.COMPATIBILITY_0_9_2);
 }

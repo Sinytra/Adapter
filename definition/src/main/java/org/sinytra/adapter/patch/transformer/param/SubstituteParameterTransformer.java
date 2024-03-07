@@ -26,7 +26,7 @@ public record SubstituteParameterTransformer(int target, int substitute) impleme
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, List<Type> parameters, int offset) {
         final int paramIndex = this.target + offset;
         final int substituteParamIndex = this.substitute + offset;
-        final boolean isNonStatic = !methodContext.isStatic(methodNode);
+        final boolean isNonStatic = !methodContext.isStatic();
         final int localIndex = ParameterTransformer.calculateLVTIndex(parameters, isNonStatic, paramIndex);
 
         if (methodNode.parameters.size() <= paramIndex) {

@@ -1,11 +1,13 @@
 package org.sinytra.adapter.patch;
 
+import com.google.common.base.Suppliers;
 import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.api.MethodContext;
+import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.PatchContext;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
@@ -21,24 +23,42 @@ import org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionExceptio
 import org.spongepowered.asm.mixin.refmap.IMixinContext;
 import org.spongepowered.asm.util.Locals;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-public record MethodContextImpl(AnnotationValueHandle<?> classAnnotation, AnnotationHandle methodAnnotation, @Nullable AnnotationHandle injectionPointAnnotation,
-                                List<Type> targetTypes, List<String> matchingTargets, PatchContext patchContext) implements MethodContext {
+public final class MethodContextImpl implements MethodContext {
     private static final Logger LOGGER = LogUtils.getLogger();
+    private final ClassNode classNode;
+    private final AnnotationValueHandle<?> classAnnotation;
+    private final MethodNode methodNode;
+    private final AnnotationHandle methodAnnotation;
+    private final @Nullable AnnotationHandle injectionPointAnnotation;
+    private final List<Type> targetTypes;
+    private final List<String> matchingTargets;
+    private final PatchContext patchContext;
 
-    public MethodContextImpl(AnnotationValueHandle<?> classAnnotation, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation, List<Type> targetTypes, List<String> matchingTargets, PatchContext patchContext) {
+    private final Supplier<TargetPair> cleanInjectionPairCache;
+    private final Supplier<TargetPair> dirtyInjectionPairCache;
+    private final Map<TargetPair, List<AbstractInsnNode>> targetInstructionsCache;
+
+    public MethodContextImpl(ClassNode classNode, AnnotationValueHandle<?> classAnnotation, MethodNode methodNode, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation, List<Type> targetTypes, List<String> matchingTargets, PatchContext patchContext) {
+        this.classNode = Objects.requireNonNull(classNode, "Missing class node");
         this.classAnnotation = Objects.requireNonNull(classAnnotation, "Missing class annotation");
+        this.methodNode = Objects.requireNonNull(methodNode, "Missing method node");
         this.methodAnnotation = Objects.requireNonNull(methodAnnotation, "Missing method annotation");
         this.injectionPointAnnotation = injectionPointAnnotation;
         this.targetTypes = Objects.requireNonNull(targetTypes, "Missing target types");
         this.matchingTargets = Objects.requireNonNull(matchingTargets, "Missing matching targets");
         this.patchContext = patchContext;
+
+        this.cleanInjectionPairCache = Suppliers.memoize(() -> {
+            ClassLookup cleanClassLookup = this.patchContext.environment().cleanClassLookup();
+            return findInjectionTarget(s -> cleanClassLookup.getClass(s).orElse(null));
+        });
+        this.dirtyInjectionPairCache = Suppliers.memoize(() -> findInjectionTarget(AdapterUtil::getClassNode));
+        this.targetInstructionsCache = new HashMap<>();
     }
 
     @Override
@@ -48,18 +68,17 @@ public record MethodContextImpl(AnnotationValueHandle<?> classAnnotation, Annota
 
     @Override
     public TargetPair findCleanInjectionTarget() {
-        ClassLookup cleanClassLookup = this.patchContext.environment().cleanClassLookup();
-        return findInjectionTarget(this.patchContext, s -> cleanClassLookup.getClass(s).orElse(null));
+        return this.cleanInjectionPairCache.get();
     }
 
     @Override
     public TargetPair findDirtyInjectionTarget() {
-        return findInjectionTarget(this.patchContext, AdapterUtil::getClassNode);
+        return this.dirtyInjectionPairCache.get();
     }
 
     @Nullable
     @Override
-    public MethodQualifier getTargetMethodQualifier(PatchContext context) {
+    public MethodQualifier getTargetMethodQualifier() {
         // Get method targets
         List<String> methodRefs = methodAnnotation().<List<String>>getValue("method").orElseThrow().get();
         if (methodRefs.size() > 1) {
@@ -67,76 +86,59 @@ public record MethodContextImpl(AnnotationValueHandle<?> classAnnotation, Annota
             return null;
         }
         // Resolve method reference
-        String reference = context.remap(methodRefs.get(0));
+        String reference = patchContext().remap(methodRefs.get(0));
         // Extract owner, name and desc using regex
         return MethodQualifier.create(reference, false).orElse(null);
     }
 
     @Nullable
     @Override
-    public MethodQualifier getInjectionPointMethodQualifier(PatchContext context) {
+    public MethodQualifier getInjectionPointMethodQualifier() {
         // Get injection target
         String target = injectionPointAnnotation().<String>getValue("target").map(AnnotationValueHandle::get).orElse(null);
         if (target == null) {
             return null;
         }
         // Resolve method reference
-        String reference = context.remap(target);
+        String reference = patchContext().remap(target);
         // Extract owner, name and desc using regex
         return MethodQualifier.create(reference, false).orElse(null);
     }
 
     @Override
-    public List<AbstractInsnNode> findInjectionTargetInsns(ClassNode classNode, ClassNode targetClass, MethodNode methodNode, MethodNode targetMethod, PatchContext context) {
-        AnnotationHandle atNode = injectionPointAnnotation();
-        if (atNode == null) {
-            LOGGER.debug("Target @At annotation not found in method {}.{}{}", classNode.name, methodNode.name, methodNode.desc);
-            return List.of();
-        }
-        AnnotationHandle annotation = methodAnnotation();
-        // Provide a minimum implementation of IMixinContext
-        IMixinContext mixinContext = MockMixinRuntime.forClass(classNode.name, targetClass.name, context.environment());
-        // Parse injection point
-        InjectionPoint injectionPoint = InjectionPoint.parse(mixinContext, methodNode, annotation.unwrap(), atNode.unwrap());
-        // Find target instructions
-        InsnList instructions = getSlicedInsns(annotation, classNode, methodNode, targetClass, targetMethod, context);
-        List<AbstractInsnNode> targetInsns = new ArrayList<>();
-        try {
-            injectionPoint.find(targetMethod.desc, instructions, targetInsns);
-        } catch (InvalidInjectionException | UnsupportedOperationException e) {
-            LOGGER.error("Error finding injection insns: {}", e.getMessage());
-            return List.of();
-        }
-        return targetInsns;
+    public List<AbstractInsnNode> findInjectionTargetInsns(TargetPair target) {
+        return this.targetInstructionsCache.computeIfAbsent(target, this::computeInjectionTargetInsns);
     }
 
     @Override
-    public void updateDescription(ClassNode classNode, MethodNode methodNode, List<Type> parameters) {
-        Type returnType = Type.getReturnType(methodNode.desc);
+    public void updateDescription(List<Type> parameters) {
+        Type returnType = Type.getReturnType(this.methodNode.desc);
         String newDesc = Type.getMethodDescriptor(returnType, parameters.toArray(Type[]::new));
-        LOGGER.info(PatchInstance.MIXINPATCH, "Changing descriptor of method {}.{}{} to {}", classNode.name, methodNode.name, methodNode.desc, newDesc);
-        methodNode.desc = newDesc;
-        methodNode.signature = null;
+        LOGGER.info(PatchInstance.MIXINPATCH, "Changing descriptor of method {}.{}{} to {}", this.classNode.name, this.methodNode.name, this.methodNode.desc, newDesc);
+        this.methodNode.desc = newDesc;
+        this.methodNode.signature = null;
     }
 
     @Override
-    public boolean isStatic(MethodNode methodNode) {
-        return (methodNode.access & Opcodes.ACC_STATIC) != 0;
-    }
-
-    @Override
-    public @Nullable List<LocalVariable> getTargetMethodLocals(ClassNode classNode, MethodNode methodNode, ClassNode targetClass, MethodNode targetMethod) {
-        Type[] targetParams = Type.getArgumentTypes(targetMethod.desc);
-        boolean isStatic = (methodNode.access & Opcodes.ACC_STATIC) != 0;
-        int lvtOffset = isStatic ? 0 : 1;
-        // The starting LVT index is of the first var after all method parameters. Offset by 1 for instance methods to skip 'this'
-        int targetLocalPos = targetParams.length + lvtOffset;
-        return getTargetMethodLocals(classNode, methodNode, targetClass, targetMethod, targetLocalPos);
+    public boolean isStatic() {
+        return (this.methodNode.access & Opcodes.ACC_STATIC) != 0;
     }
 
     @Nullable
-    public List<LocalVariable> getTargetMethodLocals(ClassNode classNode, MethodNode methodNode, ClassNode targetClass, MethodNode targetMethod, int startPos) {
-        List<AbstractInsnNode> targetInsns = findInjectionTargetInsns(classNode, targetClass, methodNode, targetMethod, patchContext());
+    @Override
+    public List<LocalVariable> getTargetMethodLocals(TargetPair target) {
+        Type[] targetParams = Type.getArgumentTypes(target.methodNode().desc);
+        boolean isStatic = (this.methodNode.access & Opcodes.ACC_STATIC) != 0;
+        int lvtOffset = isStatic ? 0 : 1;
+        // The starting LVT index is of the first var after all method parameters. Offset by 1 for instance methods to skip 'this'
+        int targetLocalPos = targetParams.length + lvtOffset;
+        return getTargetMethodLocals(target, targetLocalPos);
+    }
+
+    @Nullable
+    @Override
+    public List<LocalVariable> getTargetMethodLocals(TargetPair target, int startPos, int lvtCompatLevel) {
+        List<AbstractInsnNode> targetInsns = findInjectionTargetInsns(target);
         if (targetInsns.isEmpty()) {
             LOGGER.debug("Skipping LVT patch, no target instructions found");
             return null;
@@ -145,13 +147,44 @@ public record MethodContextImpl(AnnotationValueHandle<?> classAnnotation, Annota
         LocalVariableNode[] localVariables;
         // Synchronize to avoid issues in mixin. This is necessary.
         synchronized (this) {
-            localVariables = Locals.getLocalsAt(targetClass, targetMethod, targetInsns.get(0), patchContext().environment().fabricLVTCompatibility());
+            localVariables = Locals.getLocalsAt(target.classNode(), target.methodNode(), targetInsns.get(0), lvtCompatLevel);
         }
         LocalVariable[] locals = Stream.of(localVariables)
             .filter(Objects::nonNull)
             .map(lv -> new LocalVariable(lv.index, Type.getType(lv.desc)))
             .toArray(LocalVariable[]::new);
         return AdapterUtil.summariseLocals(locals, startPos);
+    }
+
+    private List<AbstractInsnNode> computeInjectionTargetInsns(TargetPair target) {
+        AnnotationHandle atNode = injectionPointAnnotation();
+        if (atNode == null) {
+            LOGGER.debug("Target @At annotation not found in method {}.{}{}", this.classNode.name, this.methodNode.name, this.methodNode.desc);
+            return List.of();
+        }
+        AnnotationHandle annotation = methodAnnotation();
+        // Provide a minimum implementation of IMixinContext
+        IMixinContext mixinContext = MockMixinRuntime.forClass(this.classNode.name, target.classNode().name, patchContext().environment());
+        // Parse injection point
+        InjectionPoint injectionPoint = InjectionPoint.parse(mixinContext, this.methodNode, annotation.unwrap(), atNode.unwrap());
+        // Find target instructions
+        InsnList instructions = getSlicedInsns(annotation, this.classNode, this.methodNode, target.classNode(), target.methodNode(), patchContext());
+        List<AbstractInsnNode> targetInsns = new ArrayList<>();
+        try {
+            injectionPoint.find(target.methodNode().desc, instructions, targetInsns);
+        } catch (InvalidInjectionException | UnsupportedOperationException e) {
+            LOGGER.error("Error finding injection insns: {}", e.getMessage());
+            return List.of();
+        }
+        return targetInsns;
+    }
+
+    @Override
+    public List<Integer> getLvtCompatLevelsOrdered() {
+        int currentLevel = patchContext().environment().fabricLVTCompatibility();
+        return MixinConstants.LVT_COMPATIBILITY_LEVELS.stream()
+            .sorted(Comparator.comparingInt(i -> i == currentLevel ? 1 : 0))
+            .toList();
     }
 
     private InsnList getSlicedInsns(AnnotationHandle parentAnnotation, ClassNode classNode, MethodNode injectorMethod, ClassNode targetClass, MethodNode targetMethod, PatchContext context) {
@@ -174,9 +207,9 @@ public record MethodContextImpl(AnnotationValueHandle<?> classAnnotation, Annota
     }
 
     @Nullable
-    private TargetPair findInjectionTarget(PatchContext context, Function<String, ClassNode> classLookup) {
+    private TargetPair findInjectionTarget(Function<String, ClassNode> classLookup) {
         // Find target method qualifier
-        MethodQualifier qualifier = getTargetMethodQualifier(context);
+        MethodQualifier qualifier = getTargetMethodQualifier();
         if (qualifier == null || qualifier.name() == null || qualifier.desc() == null) {
             return null;
         }
@@ -209,15 +242,58 @@ public record MethodContextImpl(AnnotationValueHandle<?> classAnnotation, Annota
         return new Builder();
     }
 
+    @Override
+    public AnnotationValueHandle<?> classAnnotation() {
+        return this.classAnnotation;
+    }
+
+    @Override
+    public AnnotationHandle methodAnnotation() {
+        return this.methodAnnotation;
+    }
+
+    @Override
+    @Nullable
+    public AnnotationHandle injectionPointAnnotation() {
+        return this.injectionPointAnnotation;
+    }
+
+    @Override
+    public List<Type> targetTypes() {
+        return this.targetTypes;
+    }
+
+    @Override
+    public List<String> matchingTargets() {
+        return this.matchingTargets;
+    }
+
+    @Override
+    public PatchContext patchContext() {
+        return this.patchContext;
+    }
+
     public static class Builder {
+        private ClassNode classNode;
         private AnnotationValueHandle<?> classAnnotation;
+        private MethodNode methodNode;
         private AnnotationHandle methodAnnotation;
         private AnnotationHandle injectionPointAnnotation;
         private final List<Type> targetTypes = new ArrayList<>();
         private final List<String> matchingTargets = new ArrayList<>();
 
+        public Builder classNode(ClassNode classNode) {
+            this.classNode = classNode;
+            return this;
+        }
+
         public Builder classAnnotation(AnnotationValueHandle<?> annotation) {
             this.classAnnotation = annotation;
+            return this;
+        }
+
+        public Builder methodNode(MethodNode methodNode) {
+            this.methodNode = methodNode;
             return this;
         }
 
@@ -242,7 +318,7 @@ public record MethodContextImpl(AnnotationValueHandle<?> classAnnotation, Annota
         }
 
         public MethodContextImpl build(PatchContext context) {
-            return new MethodContextImpl(this.classAnnotation, this.methodAnnotation, this.injectionPointAnnotation, List.copyOf(this.targetTypes), List.copyOf(this.matchingTargets), context);
+            return new MethodContextImpl(this.classNode, this.classAnnotation, this.methodNode, this.methodAnnotation, this.injectionPointAnnotation, List.copyOf(this.targetTypes), List.copyOf(this.matchingTargets), context);
         }
     }
 }

@@ -29,7 +29,7 @@ public record SwapParametersTransformer(int from, int to) implements ParameterTr
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, List<Type> parameters, int offset) {
         int from = offset + this.from;
         int to = offset + this.to;
-        boolean nonStatic = !methodContext.isStatic(methodNode);
+        boolean nonStatic = !methodContext.isStatic();
         ParameterNode fromNode = methodNode.parameters.get(from);
         ParameterNode toNode = methodNode.parameters.get(to);
 

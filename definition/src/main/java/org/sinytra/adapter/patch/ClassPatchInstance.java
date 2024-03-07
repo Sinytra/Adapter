@@ -58,6 +58,7 @@ public final class ClassPatchInstance extends PatchInstance {
 
     @Override
     protected boolean checkAnnotation(String owner, MethodNode method, AnnotationHandle methodAnnotation, PatchEnvironment remaper, MethodContextImpl.Builder builder) {
+        builder.methodNode(method);
         builder.methodAnnotation(methodAnnotation);
         if (methodAnnotation.matchesDesc(MixinConstants.OVERWRITE)) {
             return this.targetMethods.isEmpty() || this.targetMethods.stream().anyMatch(matcher -> matcher.matches(method.name, method.desc));

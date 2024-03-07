@@ -69,6 +69,7 @@ public final class InterfacePatchInstance extends PatchInstance {
                     .map(FieldMatcher::new)
                     .orElse(null);
                 if (matcher != null && (this.targetFields.isEmpty() || this.targetFields.stream().anyMatch(m -> m.matches(matcher)))) {
+                    builder.methodNode(method);
                     builder.methodAnnotation(methodAnnotation);
                     return true;
                 }

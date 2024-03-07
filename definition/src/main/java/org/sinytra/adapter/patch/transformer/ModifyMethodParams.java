@@ -271,7 +271,7 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
                 }
             });
 
-        methodContext.updateDescription(classNode, methodNode, newParameterTypes);
+        methodContext.updateDescription(newParameterTypes);
 
         return this.context.shouldComputeFrames() ? Patch.Result.COMPUTE_FRAMES : Patch.Result.APPLY;
     }

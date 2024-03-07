@@ -22,7 +22,7 @@ public record DivertRedirectorTransform(Consumer<InstructionAdapter> patcher) im
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
         String value = methodContext.injectionPointAnnotation().<String>getValue("value").map(AnnotationValueHandle::get).orElse(null);
         if ("INVOKE".equals(value)) {
-            MethodQualifier target = methodContext.getInjectionPointMethodQualifier(context);
+            MethodQualifier target = methodContext.getInjectionPointMethodQualifier();
             if (target != null) {
                 boolean applied = false;
                 for (AbstractInsnNode insn : methodNode.instructions) {

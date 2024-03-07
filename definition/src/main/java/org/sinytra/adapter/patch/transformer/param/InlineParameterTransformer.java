@@ -31,7 +31,7 @@ public record InlineParameterTransformer(int target, Consumer<InstructionAdapter
             }
 
             methodNode.localVariables.sort(Comparator.comparingInt(lvn -> lvn.index));
-            LocalVariableNode lvn = methodNode.localVariables.remove(index + (methodContext.isStatic(methodNode) ? 0 : 1));
+            LocalVariableNode lvn = methodNode.localVariables.remove(index + (methodContext.isStatic() ? 0 : 1));
             AdapterUtil.replaceLVT(methodNode, idx -> idx == lvn.index ? replaceIndex : idx);
         });
 

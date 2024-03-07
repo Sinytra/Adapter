@@ -31,24 +31,31 @@ public interface MethodContext {
     TargetPair findDirtyInjectionTarget();
 
     @Nullable
-    MethodQualifier getTargetMethodQualifier(PatchContext context);
+    MethodQualifier getTargetMethodQualifier();
 
     @Nullable
-    MethodQualifier getInjectionPointMethodQualifier(PatchContext context);
+    MethodQualifier getInjectionPointMethodQualifier();
 
-    List<AbstractInsnNode> findInjectionTargetInsns(ClassNode classNode, ClassNode targetClass, MethodNode methodNode, MethodNode targetMethod, PatchContext context);
+    List<AbstractInsnNode> findInjectionTargetInsns(TargetPair target);
 
-    void updateDescription(ClassNode classNode, MethodNode methodNode, List<Type> parameters);
+    void updateDescription(List<Type> parameters);
 
-    boolean isStatic(MethodNode methodNode);
-
-    @Nullable
-    List<LocalVariable> getTargetMethodLocals(ClassNode classNode, MethodNode methodNode, ClassNode targetClass, MethodNode targetMethod);
+    boolean isStatic();
 
     @Nullable
-    List<LocalVariable> getTargetMethodLocals(ClassNode classNode, MethodNode methodNode, ClassNode targetClass, MethodNode targetMethod, int startPos);
-    
+    List<LocalVariable> getTargetMethodLocals(TargetPair target);
+
+    @Nullable
+    default List<LocalVariable> getTargetMethodLocals(TargetPair target, int startPos) {
+        return getTargetMethodLocals(target, startPos, patchContext().environment().fabricLVTCompatibility());
+    }
+
+    @Nullable
+    List<LocalVariable> getTargetMethodLocals(TargetPair target, int startPos, int lvtCompatLevel);
+
+    List<Integer> getLvtCompatLevelsOrdered();
+
     record LocalVariable(int index, Type type) {}
 
-    record TargetPair(ClassNode classNode, MethodNode methodNode) {};
+    record TargetPair(ClassNode classNode, MethodNode methodNode) {}
 }
