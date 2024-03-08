@@ -116,14 +116,6 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
                 handle.set(newIndex);
                 return Patch.Result.APPLY;
             }
-            // Find inserted indexes
-            OptionalInt offset = this.lvtOffsets.get().findOffset(targetClass.name, targetMethod.name, targetMethod.desc, index);
-            if (offset.isPresent()) {
-                int newIndex = index + offset.getAsInt();
-                LOGGER.info(PatchInstance.MIXINPATCH, "Offsetting {} index in {}.{} from {} to {}", annotation.getDesc(), classNode.name, methodNode.name, index, newIndex);
-                handle.set(newIndex);
-                return Patch.Result.APPLY;
-            }
         }
         return Patch.Result.PASS;
     }

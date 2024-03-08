@@ -10,9 +10,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 
-public record LVTOffsets(Map<String, Map<MethodQualifier, List<Offset>>> offsets, Map<String, Map<MethodQualifier, List<Swap>>> reorders) {
+public record LVTOffsets(Map<String, Map<MethodQualifier, List<Swap>>> reorders) {
     public static final Codec<LVTOffsets> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        Codec.unboundedMap(Codec.STRING, Codec.unboundedMap(MethodQualifier.CODEC, Offset.CODEC.listOf())).fieldOf("offsets").forGetter(LVTOffsets::offsets),
         Codec.unboundedMap(Codec.STRING, Codec.unboundedMap(MethodQualifier.CODEC, Swap.CODEC.listOf())).fieldOf("reorders").forGetter(LVTOffsets::reorders)
     ).apply(instance, LVTOffsets::new));
 
@@ -41,19 +40,6 @@ public record LVTOffsets(Map<String, Map<MethodQualifier, List<Offset>>> offsets
                         return OptionalInt.of(swap.modified());
                     }
                 }
-            }
-        }
-        return OptionalInt.empty();
-    }
-
-    public OptionalInt findOffset(String cls, String methodName, String methodDesc, int index) {
-        Map<MethodQualifier, List<Offset>> map = this.offsets.get(cls);
-        if (map != null) {
-            MethodQualifier qualifier = new MethodQualifier(methodName, methodDesc);
-            List<Offset> methodOffsets = map.get(qualifier);
-            if (methodOffsets != null) {
-                int indexOffset = methodOffsets.stream().filter(offset -> offset.index <= index).mapToInt(Offset::amount).sum();
-                return OptionalInt.of(indexOffset);
             }
         }
         return OptionalInt.empty();
