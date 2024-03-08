@@ -15,13 +15,6 @@ public record LVTOffsets(Map<String, Map<MethodQualifier, List<Swap>>> reorders)
         Codec.unboundedMap(Codec.STRING, Codec.unboundedMap(MethodQualifier.CODEC, Swap.CODEC.listOf())).fieldOf("reorders").forGetter(LVTOffsets::reorders)
     ).apply(instance, LVTOffsets::new));
 
-    public record Offset(int index, int amount) {
-        public static final Codec<Offset> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Codec.INT.fieldOf("index").forGetter(Offset::index),
-            Codec.INT.fieldOf("amount").forGetter(Offset::amount)
-        ).apply(instance, Offset::new));
-    }
-
     public record Swap(int original, int modified) {
         public static final Codec<Swap> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.INT.fieldOf("original").forGetter(Swap::original),

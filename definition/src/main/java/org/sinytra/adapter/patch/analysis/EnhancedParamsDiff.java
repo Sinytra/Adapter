@@ -113,7 +113,7 @@ public class EnhancedParamsDiff {
     }
 
     private static boolean isPossiblyInjected(int index, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
-        for (int i = index; i < cleanQueue.size(); i++) {
+        for (int i = index; i < cleanQueue.size() && i < dirtyQueue.size(); i++) {
             if (!cleanQueue.get(i).equals(dirtyQueue.get(i))) {
                 return true;
             }
