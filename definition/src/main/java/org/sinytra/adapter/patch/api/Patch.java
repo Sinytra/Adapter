@@ -115,6 +115,8 @@ public interface Patch {
 
         ClassPatchBuilder modifyInjectionPoint(String value, String target, boolean resetValues);
 
+        ClassPatchBuilder modifyInjectionPoint(String value, String target, boolean resetValues, boolean dontUpgrade);
+
         default ClassPatchBuilder modifyInjectionPoint(String target) {
             return modifyInjectionPoint(null, target);
         }

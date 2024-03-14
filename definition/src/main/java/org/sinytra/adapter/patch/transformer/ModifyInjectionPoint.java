@@ -19,16 +19,17 @@ import java.util.Optional;
 
 import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
-public record ModifyInjectionPoint(@Nullable String value, String target, boolean resetValues) implements MethodTransform {
+public record ModifyInjectionPoint(@Nullable String value, String target, boolean resetValues, boolean dontUpgrade) implements MethodTransform {
     private static final Logger LOGGER = LogUtils.getLogger();
     public static final Codec<ModifyInjectionPoint> CODEC = RecordCodecBuilder.create(instance -> instance.group(
         Codec.STRING.optionalFieldOf("value").forGetter(i -> Optional.ofNullable(i.value())),
         Codec.STRING.fieldOf("target").forGetter(ModifyInjectionPoint::target),
-        Codec.BOOL.optionalFieldOf("resetValues", false).forGetter(ModifyInjectionPoint::resetValues)
+        Codec.BOOL.optionalFieldOf("resetValues", false).forGetter(ModifyInjectionPoint::resetValues),
+        Codec.BOOL.optionalFieldOf("dontUpgrade", false).forGetter(ModifyInjectionPoint::dontUpgrade)
     ).apply(instance, ModifyInjectionPoint::new));
 
-    public ModifyInjectionPoint(Optional<String> value, String target, boolean resetValues) {
-        this(value.orElse(null), target, resetValues);
+    public ModifyInjectionPoint(Optional<String> value, String target, boolean resetValues, boolean dontUpgrade) {
+        this(value.orElse(null), target, resetValues, dontUpgrade);
     }
 
     @Override
@@ -48,7 +49,9 @@ public record ModifyInjectionPoint(@Nullable String value, String target, boolea
         if (handle != null) {
             String original = handle.get();
             handle.set(this.target);
-            MethodUpgrader.upgradeMethod(classNode, methodNode, methodContext, original, this.target);
+            if (!this.dontUpgrade) {
+                MethodUpgrader.upgradeMethod(classNode, methodNode, methodContext, original, this.target);
+            }
         } else {
             annotation.appendValue("target", this.target);
         }

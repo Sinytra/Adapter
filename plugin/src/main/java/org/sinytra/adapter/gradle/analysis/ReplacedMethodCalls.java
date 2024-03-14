@@ -156,7 +156,8 @@ public class ReplacedMethodCalls {
                     .targetClass(context.getDirtyNode().name)
                     .targetMethod(dirtyMethod.name + dirtyMethod.desc)
                     .targetInjectionPoint(cleanCall)
-                    .modifyInjectionPoint(qualifier)
+                    // Avoid automatic method upgrades when a parameter transformation is being applied
+                    .modifyInjectionPoint(null, qualifier, false, true)
                     .transformMethods(diff.createTransforms(ModifyMethodParams.TargetType.INJECTION_POINT))
                     .build();
                 context.addPatch(patch);

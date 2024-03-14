@@ -274,7 +274,8 @@ public class ClassAnalyzer {
                                     .targetClass(this.dirtyNode.name)
                                     .targetMethod(dirtyMethod.name + dirtyMethod.desc)
                                     .targetInjectionPoint(oldQualifier)
-                                    .modifyInjectionPoint(callQualifier)
+                                    // Avoid automatic method upgrades when a parameter transformation is being applied
+                                    .modifyInjectionPoint(null, callQualifier, false, true)
                                     .transformMethods(diff.createTransforms(ModifyMethodParams.TargetType.INJECTION_POINT))
                                     .build();
                                 patches.add(patch);
