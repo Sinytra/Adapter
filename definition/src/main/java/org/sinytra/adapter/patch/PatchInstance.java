@@ -19,7 +19,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 public abstract sealed class PatchInstance implements Patch permits ClassPatchInstance, InterfacePatchInstance {
-    public static final Collection<String> KNOWN_MIXIN_TYPES = Set.of(MixinConstants.INJECT, MixinConstants.REDIRECT, MixinConstants.MODIFY_ARG, MixinConstants.MODIFY_ARGS, MixinConstants.MODIFY_VAR, MixinConstants.MODIFY_CONST, MixinConstants.MODIFY_EXPR_VAL, MixinConstants.WRAP_OPERATION);
+    public static final Collection<String> KNOWN_MIXIN_TYPES = Set.of(MixinConstants.INJECT, MixinConstants.REDIRECT, MixinConstants.MODIFY_ARG, MixinConstants.MODIFY_ARGS, MixinConstants.MODIFY_VAR, MixinConstants.MODIFY_CONST, MixinConstants.MODIFY_EXPR_VAL, MixinConstants.WRAP_OPERATION, MixinConstants.WRAP_WITH_CONDITION);
 
     public static final Marker MIXINPATCH = MarkerFactory.getMarker("MIXINPATCH");
 
