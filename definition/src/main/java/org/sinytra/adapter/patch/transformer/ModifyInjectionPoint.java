@@ -39,7 +39,11 @@ public record ModifyInjectionPoint(@Nullable String value, String target, boolea
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
-        AnnotationHandle annotation = methodContext.injectionPointAnnotationOrThrow();
+        AnnotationHandle annotation = methodContext.injectionPointAnnotation();
+        if (annotation == null) {
+            // Likely an @Overwrite
+            return Patch.Result.PASS;
+        }
         if (this.value != null) {
             AnnotationValueHandle<String> handle = annotation.<String>getValue("value").orElseThrow(() -> new IllegalArgumentException("Missing value handle"));
             handle.set(this.value);
