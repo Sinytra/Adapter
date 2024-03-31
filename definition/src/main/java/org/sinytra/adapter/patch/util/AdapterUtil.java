@@ -12,10 +12,7 @@ import org.objectweb.asm.tree.*;
 import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceMethodVisitor;
 import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
-import org.sinytra.adapter.patch.api.GlobalReferenceMapper;
-import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.PatchEnvironment;
+import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import org.slf4j.Logger;
@@ -200,6 +197,14 @@ public final class AdapterUtil {
             }
         }
         return list;
+    }
+
+    public static Patch.Result applyTransforms(List<MethodTransform> transforms, ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
+        Patch.Result result = Patch.Result.PASS;
+        for (MethodTransform transform : transforms) {
+            result = result.or(transform.apply(classNode, methodNode, methodContext, context));
+        }
+        return result;
     }
 
     @Nullable

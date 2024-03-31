@@ -9,9 +9,16 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
+import org.sinytra.adapter.patch.api.MethodTransform;
+import org.sinytra.adapter.patch.transformer.ModifyMethodParams;
+import org.sinytra.adapter.patch.transformer.param.InjectParameterTransform;
+import org.sinytra.adapter.patch.transformer.param.ParamTransformTarget;
+import org.sinytra.adapter.patch.transformer.param.ParameterTransformer;
+import org.sinytra.adapter.patch.transformer.param.TransformParameters;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.slf4j.Logger;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.Consumer;
@@ -73,6 +80,20 @@ public record ParametersDiffSnapshot(
         );
     }
 
+    public List<MethodTransform> asMethodTransforms(ParamTransformTarget type) {
+        List<MethodTransform> list = new ArrayList<>();
+        ParametersDiffSnapshot light = new ParametersDiffSnapshot(List.of(), this.replacements, this.swaps, this.substitutes, this.removals, this.moves, this.inlines);
+        if (!light.isEmpty()) {
+            list.add(new ModifyMethodParams(light, type, false, null));
+        }
+        if (!this.insertions.isEmpty()) {
+            list.add(new TransformParameters(this.insertions.stream()
+                .<ParameterTransformer>map(p -> new InjectParameterTransform(p.getFirst(), p.getSecond()))
+                .toList(), true, type));
+        }
+        return list;
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -82,12 +103,12 @@ public record ParametersDiffSnapshot(
         private static final boolean DEBUG = Boolean.getBoolean("adapter.definition.paramdiff.debug");
         private static final Logger LOGGER = LogUtils.getLogger();
 
-        private final ImmutableList.Builder<Pair<Integer, Type>> insertions = ImmutableList.builder();
+        private final List<Pair<Integer, Type>> insertions = new ArrayList<>();
         private final ImmutableList.Builder<Pair<Integer, Type>> replacements = ImmutableList.builder();
         private final ImmutableList.Builder<Pair<Integer, Integer>> swaps = ImmutableList.builder();
         private final ImmutableList.Builder<Pair<Integer, Integer>> substitutes = ImmutableList.builder();
         private final ImmutableList.Builder<Integer> removals = ImmutableList.builder();
-        private final ImmutableList.Builder<Pair<Integer, Integer>> moves = ImmutableList.builder();
+        private List<Pair<Integer, Integer>> moves = new ArrayList<>();
         private final ImmutableList.Builder<Pair<Integer, Consumer<InstructionAdapter>>> inlines = ImmutableList.builder();
 
         public Builder insert(int index, Type type) {
@@ -149,6 +170,20 @@ public record ParametersDiffSnapshot(
             return this;
         }
 
+        /**
+         * Offset moved parameters' destination indexes to account for prior insertions
+         */
+        public Builder normalizeMoves() {
+            this.moves = this.moves.stream()
+                .map(p -> {
+                    int index = p.getFirst();
+                    int inserted = (int) this.insertions.stream().filter(i -> i.getFirst() <= index).count();
+                    return inserted > 0 ? p.mapSecond(i -> i - inserted) : p;
+                })
+                .toList();
+            return this;
+        }
+
         @CheckReturnValue
         public List<Integer> getRemovals() {
             return this.removals.build();
@@ -156,14 +191,14 @@ public record ParametersDiffSnapshot(
 
         @CheckReturnValue
         public ParametersDiffSnapshot build() {
-            List<Pair<Integer, Type>> sortedInsertions = this.insertions.build().stream().sorted(Comparator.comparingInt(Pair::getFirst)).toList();
+            List<Pair<Integer, Type>> sortedInsertions = this.insertions.stream().sorted(Comparator.comparingInt(Pair::getFirst)).toList();
             return new ParametersDiffSnapshot(
                 sortedInsertions,
                 this.replacements.build(),
                 this.swaps.build(),
                 this.substitutes.build(),
                 this.removals.build(),
-                this.moves.build(),
+                this.moves,
                 this.inlines.build()
             );
         }

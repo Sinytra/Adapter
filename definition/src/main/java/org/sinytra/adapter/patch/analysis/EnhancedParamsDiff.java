@@ -40,8 +40,8 @@ public class EnhancedParamsDiff {
             // Check for swapped / reordered types. Also handles unique-type insertions
             SwapResult swapResult = checkForSwaps(builder, cleanQueue, dirtyQueue);
             if (swapResult != null) {
-                dirtyQueue.removeAll(swapResult.removeDirty);
-                builder.merge(swapResult.parametersDiff);
+                dirtyQueue.removeAll(swapResult.removeDirty());
+                builder.merge(swapResult.parametersDiff());
                 cleanQueue.clear();
                 dirtyQueue.clear();
                 break;
@@ -78,7 +78,7 @@ public class EnhancedParamsDiff {
             }
         }
 
-        return builder.build();
+        return builder.normalizeMoves().build();
     }
 
     private static int findClosestMatch(List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {

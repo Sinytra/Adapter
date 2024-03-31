@@ -16,14 +16,13 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.LVTOffsets;
 import org.sinytra.adapter.patch.PatchInstance;
 import org.sinytra.adapter.patch.analysis.EnhancedParamsDiff;
+import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
 import org.sinytra.adapter.patch.analysis.ParametersDiffSnapshot;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
-import org.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import org.sinytra.adapter.patch.transformer.param.ParamTransformTarget;
 import org.sinytra.adapter.patch.util.AdapterUtil;
-import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
 import org.slf4j.Logger;
 
 import java.util.*;
@@ -87,8 +86,8 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             ParametersDiffSnapshot diff = compareParameters(classNode, methodNode, methodContext);
             if (diff != null) {
                 // Apply parameter patch
-                ModifyMethodParams paramTransform = ModifyMethodParams.create(diff, ParamTransformTarget.METHOD);
-                return paramTransform.apply(classNode, methodNode, methodContext, context);
+                List<MethodTransform> transforms = diff.asMethodTransforms(ParamTransformTarget.METHOD);
+                return AdapterUtil.applyTransforms(transforms, classNode, methodNode, methodContext, context);
             }
         }
         return Patch.Result.PASS;
