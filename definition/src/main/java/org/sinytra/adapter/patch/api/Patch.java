@@ -60,6 +60,7 @@ public interface Patch {
 
         T modifyTargetClasses(Consumer<List<Type>> consumer);
 
+        @Deprecated
         T modifyParams(Consumer<ModifyMethodParams.Builder> consumer);
 
         @ApiStatus.Experimental

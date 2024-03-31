@@ -8,7 +8,7 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.util.AdapterUtil;
-import org.sinytra.adapter.patch.util.LocalVariableLookup;
+import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.OpcodeUtil;
 

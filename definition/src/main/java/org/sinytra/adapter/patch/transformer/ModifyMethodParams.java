@@ -11,13 +11,15 @@ import org.objectweb.asm.TypeReference;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.PatchInstance;
-import org.sinytra.adapter.patch.analysis.ParametersDiff;
+import org.sinytra.adapter.patch.analysis.ParametersDiffSnapshot;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
 import org.sinytra.adapter.patch.fixes.TypeAdapter;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
+import org.sinytra.adapter.patch.transformer.param.ParamTransformTarget;
+import org.sinytra.adapter.patch.transformer.param.SwapParametersTransformer;
 import org.sinytra.adapter.patch.util.AdapterUtil;
-import org.sinytra.adapter.patch.util.LocalVariableLookup;
+import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.SingleValueHandle;
 import org.slf4j.Logger;
@@ -28,22 +30,17 @@ import java.util.function.Consumer;
 import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
 // TODO Refactor
-public record ModifyMethodParams(ParamsContext context, TargetType targetType, boolean ignoreOffset, @Nullable LVTFixer lvtFixer) implements MethodTransform {
+public record ModifyMethodParams(ParametersDiffSnapshot context, ParamTransformTarget targetType, boolean ignoreOffset, @Nullable LVTFixer lvtFixer) implements MethodTransform {
     public static final Codec<ModifyMethodParams> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        ParamsContext.CODEC.fieldOf("context").forGetter(ModifyMethodParams::context),
-        TargetType.CODEC.optionalFieldOf("targetInjectionPoint", TargetType.ALL).forGetter(ModifyMethodParams::targetType)
+        ParametersDiffSnapshot.CODEC.fieldOf("context").forGetter(ModifyMethodParams::context),
+        ParamTransformTarget.CODEC.optionalFieldOf("targetInjectionPoint", ParamTransformTarget.ALL).forGetter(ModifyMethodParams::targetType)
     ).apply(instance, (context, targetInjectionPoint) -> new ModifyMethodParams(context, targetInjectionPoint, false, null)));
 
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final MethodQualifier WO_ORIGINAL_CALL = new MethodQualifier("Lcom/llamalad7/mixinextras/injector/wrapoperation/Operation;", "call", "([Ljava/lang/Object;)Ljava/lang/Object;");
-
-    public static ModifyMethodParams create(String cleanMethodDesc, String dirtyMethodDesc, TargetType targetType) {
-        ParametersDiff diff = ParametersDiff.compareTypeParameters(Type.getArgumentTypes(cleanMethodDesc), Type.getArgumentTypes(dirtyMethodDesc));
-        return create(diff, targetType);
-    }
-
-    public static ModifyMethodParams create(ParametersDiff diff, TargetType targetType) {
-        return new ModifyMethodParams(ParamsContext.create(diff), targetType, false, null);
+    
+    public static ModifyMethodParams create(ParametersDiffSnapshot diff, ParamTransformTarget targetType) {
+        return new ModifyMethodParams(diff, targetType, false, null);
     }
 
     public static Builder builder() {
@@ -80,7 +77,7 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
             : 0;
 
         if (annotation.matchesDesc(MixinConstants.MODIFY_VAR)) {
-            annotation.<Integer>getValue("index").ifPresent(indexHandle -> this.context.insertions.forEach(pair -> {
+            annotation.<Integer>getValue("index").ifPresent(indexHandle -> this.context.insertions().forEach(pair -> {
                 int localIndex = offset + pair.getFirst();
                 int indexValue = indexHandle.get();
                 if (indexValue >= localIndex) {
@@ -90,14 +87,14 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
             return Patch.Result.APPLY;
         }
         if (annotation.matchesDesc(MixinConstants.MODIFY_ARGS)) {
-            ModifyArgsOffsetTransformer.modify(methodNode, this.context.insertions);
+            ModifyArgsOffsetTransformer.modify(methodNode, this.context.insertions());
             return Patch.Result.APPLY;
         }
 
-        List<Pair<Integer, Integer>> offsetSwaps = new ArrayList<>(this.context.swaps);
-        List<Pair<Integer, Integer>> offsetMoves = new ArrayList<>(this.context.moves);
+        List<Pair<Integer, Integer>> offsetSwaps = new ArrayList<>(this.context.swaps());
+        List<Pair<Integer, Integer>> offsetMoves = new ArrayList<>(this.context.moves());
         LocalVariableNode self = methodNode.localVariables.stream().filter(lvn -> lvn.index == 0).findFirst().orElseThrow();
-        Deque<Pair<Integer, Type>> insertionQueue = new ArrayDeque<>(this.context.insertions);
+        Deque<Pair<Integer, Type>> insertionQueue = new ArrayDeque<>(this.context.insertions());
         while (!insertionQueue.isEmpty()) {
             Pair<Integer, Type> pair = insertionQueue.pop();
             int index = pair.getFirst();
@@ -124,7 +121,7 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
         }
         LocalVariableLookup lvtLookup = new LocalVariableLookup(methodNode);
         BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
-        this.context.replacements.forEach(pair -> {
+        this.context.replacements().forEach(pair -> {
             int index = pair.getFirst();
             Type type = pair.getSecond();
             newParameterTypes.set(index, type);
@@ -172,7 +169,7 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
                 }
             }
         });
-        this.context.substitutes.forEach(pair -> {
+        this.context.substitutes().forEach(pair -> {
             int paramIndex = pair.getFirst();
             int substituteParamIndex = pair.getSecond();
             if (methodNode.parameters.size() > paramIndex) {
@@ -216,15 +213,15 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
 
             // Account for "big" LVT variables (like longs and doubles)
             // Uses of the old parameter need to be the new parameter and vice versa
-            swapLVT(methodNode, fromOldLVT, toNewLVT)
-                .andThen(swapLVT(methodNode, toOldLVT, fromNewLVT))
+            SwapParametersTransformer.swapLVT(methodNode, fromOldLVT, toNewLVT)
+                .andThen(SwapParametersTransformer.swapLVT(methodNode, toOldLVT, fromNewLVT))
                 .accept(null);
         }
 
-        if (!this.context.removals.isEmpty()) {
-            LOGGER.info(MIXINPATCH, "Removing parameters {} from method {}.{}", this.context.removals, classNode.name, methodNode.name);
+        if (!this.context.removals().isEmpty()) {
+            LOGGER.info(MIXINPATCH, "Removing parameters {} from method {}.{}", this.context.removals(), classNode.name, methodNode.name);
         }
-        this.context.removals.stream()
+        this.context.removals().stream()
             .sorted(Comparator.<Integer>comparingInt(i -> i).reversed())
             .forEach(removal -> removeLocalVariable(methodNode, removal, offset, -1, newParameterTypes));
         offsetMoves.forEach(move -> {
@@ -255,7 +252,7 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
                 newParameterTypes.add(to, type);
             }
         });
-        this.context.inlines.stream()
+        this.context.inlines().stream()
             .sorted(Comparator.<Pair<Integer, Consumer<InstructionAdapter>>>comparingInt(Pair::getFirst).reversed())
             .forEach(inline -> {
                 int index = inline.getFirst();
@@ -282,27 +279,6 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
             lvt += parameters.get(i).getSize();
         }
         return lvt;
-    }
-
-    public static Consumer<Void> swapLVT(MethodNode methodNode, int from, int to) {
-        Consumer<Void> r = v -> {};
-        for (LocalVariableNode lvn : methodNode.localVariables) {
-            if (lvn.index == from) {
-                r = r.andThen(v -> lvn.index = to);
-            }
-        }
-
-        for (AbstractInsnNode insn : methodNode.instructions) {
-            SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);
-            if (handle != null) {
-                if (handle.get() == from) {
-                    LOGGER.info("Swapping in LVT: {} to {}", from, to);
-                    r = r.andThen(v -> handle.set(to));
-                }
-            }
-        }
-
-        return r;
     }
 
     private static Pair<@Nullable ParameterNode, @Nullable LocalVariableNode> removeLocalVariable(MethodNode methodNode, int paramIndex, int lvtOffset, int replaceIndex, List<Type> newParameterTypes) {
@@ -396,75 +372,8 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
         return List.of();
     }
 
-    public enum TargetType {
-        ALL,
-        METHOD(MixinConstants.INJECT, MixinConstants.OVERWRITE, MixinConstants.MODIFY_VAR),
-        INJECTION_POINT(MixinConstants.REDIRECT, MixinConstants.MODIFY_ARG, MixinConstants.MODIFY_ARGS, MixinConstants.WRAP_OPERATION);
-
-        public static final Codec<TargetType> CODEC = Codec.STRING.xmap(TargetType::from, TargetType::name);
-
-        private final Set<String> targetMixinTypes;
-
-        TargetType(String... targetMixinTypes) {
-            this.targetMixinTypes = new HashSet<>(Arrays.asList(targetMixinTypes));
-        }
-
-        public static TargetType from(String name) {
-            return valueOf(name.toUpperCase(Locale.ROOT));
-        }
-
-        public Set<String> getTargetMixinTypes() {
-            return this.targetMixinTypes;
-        }
-
-        public boolean test(AnnotationHandle methodAnnotation) {
-            return this.targetMixinTypes.contains(methodAnnotation.getDesc());
-        }
-    }
-
     public interface LVTFixer {
         void accept(int index, AbstractInsnNode insn, InsnList list);
-    }
-
-    public record ParamsContext(
-        List<Pair<Integer, Type>> insertions,
-        List<Pair<Integer, Type>> replacements,
-        List<Pair<Integer, Integer>> swaps,
-        List<Pair<Integer, Integer>> substitutes,
-        List<Integer> removals,
-        List<Pair<Integer, Integer>> moves,
-        List<Pair<Integer, Consumer<InstructionAdapter>>> inlines
-    ) {
-        public static final Codec<Pair<Integer, Type>> MODIFICATION_CODEC = Codec.pair(
-            Codec.INT.fieldOf("index").codec(),
-            AdapterUtil.TYPE_CODEC.fieldOf("type").codec()
-        );
-        public static final Codec<Pair<Integer, Integer>> SWAP_CODEC = Codec.pair(
-            Codec.INT.fieldOf("original").codec(),
-            Codec.INT.fieldOf("replacement").codec()
-        );
-        public static final Codec<ParamsContext> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            MODIFICATION_CODEC.listOf().optionalFieldOf("insertions", List.of()).forGetter(ParamsContext::insertions),
-            MODIFICATION_CODEC.listOf().optionalFieldOf("replacements", List.of()).forGetter(ParamsContext::replacements),
-            SWAP_CODEC.listOf().optionalFieldOf("swaps", List.of()).forGetter(ParamsContext::swaps)
-        ).apply(instance, (insertions, replacements, swaps) ->
-            new ParamsContext(insertions, replacements, swaps, List.of(), List.of(), List.of(), List.of())));
-
-        public static ParamsContext create(ParametersDiff diff) {
-            return new ParamsContext(diff.insertions(), diff.replacements(), diff.swaps(), List.of(), diff.removals(), diff.moves(), List.of());
-        }
-
-        public static ParamsContext createLight(ParametersDiff diff) {
-            return new ParamsContext(List.of(), diff.replacements(), diff.swaps(), List.of(), diff.removals(), diff.moves(), List.of());
-        }
-
-        public boolean isEmpty() {
-            return this.insertions.isEmpty() && this.replacements.isEmpty() && this.swaps.isEmpty() && this.substitutes.isEmpty() && this.removals.isEmpty() && this.moves.isEmpty() && this.inlines.isEmpty();
-        }
-
-        public boolean shouldComputeFrames() {
-            return !this.swaps.isEmpty() || !this.replacements.isEmpty() || !this.substitutes.isEmpty() || !this.removals.isEmpty();
-        }
     }
 
     public static class Builder {
@@ -474,7 +383,7 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
         private final List<Integer> removals = new ArrayList<>();
         private final List<Pair<Integer, Integer>> swap = new ArrayList<>();
         private final List<Pair<Integer, Consumer<InstructionAdapter>>> inlines = new ArrayList<>();
-        private TargetType targetType = TargetType.ALL;
+        private ParamTransformTarget targetType = ParamTransformTarget.ALL;
         private boolean ignoreOffset = false;
         @Nullable
         private LVTFixer lvtFixer;
@@ -519,7 +428,7 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
             return this;
         }
 
-        public Builder targetType(TargetType targetType) {
+        public Builder targetType(ParamTransformTarget targetType) {
             this.targetType = targetType;
             return this;
         }
@@ -540,7 +449,7 @@ public record ModifyMethodParams(ParamsContext context, TargetType targetType, b
         }
 
         public ModifyMethodParams build() {
-            ParamsContext context = new ParamsContext(this.insertions, this.replacements, this.swap, this.substitutes, this.removals, List.of(), this.inlines);
+            ParametersDiffSnapshot context = new ParametersDiffSnapshot(this.insertions, this.replacements, this.swap, this.substitutes, this.removals, List.of(), this.inlines);
             return new ModifyMethodParams(context, this.targetType, this.ignoreOffset, this.lvtFixer);
         }
     }

@@ -8,9 +8,12 @@ import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchContext;
+import org.sinytra.adapter.patch.transformer.LVTSnapshot;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 
 import java.util.List;
+
+import static org.sinytra.adapter.patch.transformer.param.ParamTransformationUtil.extractWrapOperation;
 
 public record RemoveParameterTransformer(int index) implements ParameterTransformer {
     public static final Codec<RemoveParameterTransformer> CODEC = Codec.intRange(0, 255)
@@ -20,12 +23,12 @@ public record RemoveParameterTransformer(int index) implements ParameterTransfor
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, List<Type> parameters, int offset) {
         final int target = this.index() + offset;
-        final int lvtIndex = ParameterTransformer.calculateLVTIndex(parameters, !methodContext.isStatic(), target);
+        final int lvtIndex = ParamTransformationUtil.calculateLVTIndex(parameters, !methodContext.isStatic(), target);
 
         // Remove the use of the param in a wrapop first to avoid the new LVT messing with the outcome of that
         extractWrapOperation(methodContext, methodNode, parameters, op -> op.removeParameter(target));
 
-        withLVTSnapshot(methodNode, () -> {
+        LVTSnapshot.with(methodNode, () -> {
             LocalVariableNode lvn = methodNode.localVariables.stream()
                     .filter(v -> v.index == lvtIndex)
                     .findFirst()

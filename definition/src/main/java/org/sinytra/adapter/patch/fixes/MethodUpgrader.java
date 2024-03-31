@@ -5,11 +5,12 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.analysis.EnhancedParamsDiff;
-import org.sinytra.adapter.patch.analysis.ParametersDiff;
+import org.sinytra.adapter.patch.analysis.ParametersDiffSnapshot;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.transformer.ModifyArgsOffsetTransformer;
 import org.sinytra.adapter.patch.transformer.ModifyMethodParams;
+import org.sinytra.adapter.patch.transformer.param.ParamTransformTarget;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.List;
@@ -48,9 +49,9 @@ public final class MethodUpgrader {
             .addAll(originalDesc.subList(1 + originalTargetDesc.size(), originalDesc.size()))
             .build();
         // Create diff
-        ParametersDiff diff = EnhancedParamsDiff.create(originalDesc, modifiedDesc);
+        ParametersDiffSnapshot diff = EnhancedParamsDiff.create(originalDesc, modifiedDesc);
         if (!diff.isEmpty()) {
-            ModifyMethodParams patch = ModifyMethodParams.create(diff, ModifyMethodParams.TargetType.ALL);
+            ModifyMethodParams patch = ModifyMethodParams.create(diff, ParamTransformTarget.ALL);
             patch.apply(classNode, methodNode, methodContext, methodContext.patchContext());
         }
     }

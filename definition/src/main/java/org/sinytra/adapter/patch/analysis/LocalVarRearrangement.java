@@ -65,6 +65,5 @@ public final class LocalVarRearrangement {
         return swaps.isEmpty() ? null : swaps;
     }
 
-    private LocalVarRearrangement() {
-    }
+    private LocalVarRearrangement() {}
 }

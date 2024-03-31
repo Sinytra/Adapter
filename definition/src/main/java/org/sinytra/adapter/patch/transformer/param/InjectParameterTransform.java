@@ -11,11 +11,14 @@ import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchContext;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
+import org.sinytra.adapter.patch.transformer.LVTSnapshot;
 import org.sinytra.adapter.patch.transformer.ModifyArgsOffsetTransformer;
 import org.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 
 import java.util.List;
+
+import static org.sinytra.adapter.patch.transformer.param.ParamTransformationUtil.extractWrapOperation;
 
 public record InjectParameterTransform(int index, Type type) implements ParameterTransformer {
     static final Codec<InjectParameterTransform> CODEC = RecordCodecBuilder.create(in -> in.group(
@@ -50,9 +53,9 @@ public record InjectParameterTransform(int index, Type type) implements Paramete
 
         LocalVariableNode self = methodNode.localVariables.stream().filter(lvn -> lvn.index == 0).findFirst().orElseThrow();
 
-        int lvtIndex = ParameterTransformer.calculateLVTIndex(parameters, isNonStatic, index);
+        int lvtIndex = ParamTransformationUtil.calculateLVTIndex(parameters, isNonStatic, index);
 
-        withLVTSnapshot(methodNode, () -> {
+        LVTSnapshot.with(methodNode, () -> {
             ParameterNode newParameter = new ParameterNode("adapter_injected_" + index, Opcodes.ACC_SYNTHETIC);
             parameters.add(index, type);
             methodNode.parameters.add(index, newParameter);

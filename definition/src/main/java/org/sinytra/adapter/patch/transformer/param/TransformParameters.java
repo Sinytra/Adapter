@@ -12,7 +12,6 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.transformer.ModifyMethodParams;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,7 +19,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
 
-public record TransformParameters(List<ParameterTransformer> transformers, boolean withOffset, ModifyMethodParams.TargetType targetType) implements MethodTransform {
+public record TransformParameters(List<ParameterTransformer> transformers, boolean withOffset, ParamTransformTarget targetType) implements MethodTransform {
     private static final BiMap<String, Codec<? extends ParameterTransformer>> TRANSFORMER_CODECS = ImmutableBiMap.<String, Codec<? extends ParameterTransformer>>builder()
         .put("inject_parameter", InjectParameterTransform.CODEC)
         .put("swap_parameters", SwapParametersTransformer.CODEC)
@@ -35,7 +34,7 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
             .fieldOf("transformers")
             .forGetter(TransformParameters::transformers),
         Codec.BOOL.optionalFieldOf("withOffset", false).forGetter(TransformParameters::withOffset),
-        ModifyMethodParams.TargetType.CODEC.optionalFieldOf("targetType", ModifyMethodParams.TargetType.ALL).forGetter(TransformParameters::targetType)
+        ParamTransformTarget.CODEC.optionalFieldOf("targetType", ParamTransformTarget.ALL).forGetter(TransformParameters::targetType)
     ).apply(in, TransformParameters::new));
 
     @Override
@@ -53,7 +52,7 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
         AnnotationHandle annotation = methodContext.methodAnnotation();
         boolean needsLocalOffset = annotation.matchesDesc(MixinConstants.REDIRECT) || annotation.matchesDesc(MixinConstants.WRAP_OPERATION);
         // If it's a redirect, the first local variable (index 1) is the object instance
-        int offset = !isStatic && withOffset && needsLocalOffset ? 1 : 0;
+        int offset = !isStatic && this.withOffset && needsLocalOffset ? 1 : 0;
 
         for (ParameterTransformer transform : transformers) {
             result = result.or(transform.apply(classNode, methodNode, methodContext, context, newParameterTypes, offset));
@@ -73,7 +72,7 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
     public static class Builder {
         private final List<ParameterTransformer> transformers = new ArrayList<>();
         private boolean offset = false;
-        private ModifyMethodParams.TargetType targetType = ModifyMethodParams.TargetType.ALL;
+        private ParamTransformTarget targetType = ParamTransformTarget.ALL;
 
         public Builder transform(ParameterTransformer transformer) {
             this.transformers.add(transformer);
@@ -105,7 +104,7 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
             return this;
         }
 
-        public Builder targetType(ModifyMethodParams.TargetType targetType) {
+        public Builder targetType(ParamTransformTarget targetType) {
             this.targetType = targetType;
             return this;
         }

@@ -7,7 +7,7 @@ import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.analysis.ParametersDiff;
-import org.sinytra.adapter.patch.transformer.ModifyMethodParams;
+import org.sinytra.adapter.patch.transformer.param.ParamTransformTarget;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.apache.commons.lang3.ArrayUtils;
 import org.objectweb.asm.Type;
@@ -158,7 +158,7 @@ public class ReplacedMethodCalls {
                     .targetInjectionPoint(cleanCall)
                     // Avoid automatic method upgrades when a parameter transformation is being applied
                     .modifyInjectionPoint(null, qualifier, false, true)
-                    .transformMethods(diff.createTransforms(ModifyMethodParams.TargetType.INJECTION_POINT))
+                    .transformMethods(diff.createTransforms(ParamTransformTarget.INJECTION_POINT))
                     .build();
                 context.addPatch(patch);
                 return true;

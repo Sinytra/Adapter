@@ -1,9 +1,7 @@
 package org.sinytra.adapter.patch.analysis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
-import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
@@ -15,8 +13,12 @@ public class EnhancedParamsDiff {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final boolean DEBUG = Boolean.getBoolean("adapter.definition.paramdiff.debug");
 
-    public static ParametersDiff create(List<Type> clean, List<Type> dirty) {
-        ParamDiffBuilder builder = new ParamDiffBuilder();
+    public static ParametersDiffSnapshot create(Type[] clean, Type[] dirty) {
+        return create(List.of(clean), List.of(dirty));
+    }
+
+    public static ParametersDiffSnapshot create(List<Type> clean, List<Type> dirty) {
+        ParametersDiffSnapshot.Builder builder = ParametersDiffSnapshot.builder();
         List<TypeWithContext> cleanQueue = createPositionedList(clean);
         List<TypeWithContext> dirtyQueue = createPositionedList(dirty);
         if (DEBUG) {
@@ -76,7 +78,7 @@ public class EnhancedParamsDiff {
             }
         }
 
-        return builder.build(clean.size());
+        return builder.build();
     }
 
     private static int findClosestMatch(List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
@@ -89,7 +91,7 @@ public class EnhancedParamsDiff {
         return -1;
     }
 
-    private static boolean replaceType(ParamDiffBuilder builder, int index, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
+    private static boolean replaceType(ParametersDiffSnapshot.Builder builder, int index, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
         if (index >= cleanQueue.size() || index >= dirtyQueue.size()) {
             return false;
         }
@@ -121,11 +123,10 @@ public class EnhancedParamsDiff {
         return false;
     }
 
-    private record SwapResult(List<TypeWithContext> removeDirty, ParametersDiff parametersDiff) {
-    }
+    private record SwapResult(List<TypeWithContext> removeDirty, ParametersDiffSnapshot parametersDiff) {}
 
     @Nullable
-    private static SwapResult checkForSwaps(ParamDiffBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
+    private static SwapResult checkForSwaps(ParametersDiffSnapshot.Builder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
         Map<Type, Integer> cleanGroup = groupTypes(clean);
         Map<Type, Integer> dirtyGroup = groupTypes(dirty);
         MapDifference<Type, Integer> diff = Maps.difference(cleanGroup, dirtyGroup);
@@ -133,7 +134,7 @@ public class EnhancedParamsDiff {
         List<TypeWithContext> rearrangeClean = new ArrayList<>(clean);
         List<TypeWithContext> rearrangeDirty = new ArrayList<>(dirty);
         List<TypeWithContext> removeDirty = new ArrayList<>();
-        ParamDiffBuilder tempDiff = new ParamDiffBuilder();
+        ParametersDiffSnapshot.Builder tempDiff = ParametersDiffSnapshot.builder();
         // Remove inserted parameters
         if (diff.entriesOnlyOnLeft().isEmpty() && !diff.entriesOnlyOnRight().isEmpty()) {
             for (Map.Entry<Type, Integer> entry : diff.entriesOnlyOnRight().entrySet()) {
@@ -144,7 +145,7 @@ public class EnhancedParamsDiff {
                     dirtyGroup.remove(type);
                     rearrangeDirty.remove(inserted);
                     removeDirty.add(inserted);
-                    int offset = inserted.pos() + (int) builder.getRemoved().stream().filter(i -> i < inserted.pos()).count();
+                    int offset = inserted.pos() + (int) builder.getRemovals().stream().filter(i -> i < inserted.pos()).count();
                     tempDiff.insert(offset, inserted.type());
                 }
             }
@@ -188,7 +189,7 @@ public class EnhancedParamsDiff {
         return null;
     }
 
-    private static void rearrange(ParamDiffBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
+    private static void rearrange(ParametersDiffSnapshot.Builder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
         record Rearrangement(TypeWithContext cleanType, TypeWithContext dirtyType, int fromRelative, int toRelative) {
         }
 
@@ -231,7 +232,7 @@ public class EnhancedParamsDiff {
         }
     }
 
-    private static void compare(ParamDiffBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
+    private static void compare(ParametersDiffSnapshot.Builder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
         if (DEBUG) {
             LOGGER.info("Running comparison for:\n{}", printTable(clean, dirty));
         }
@@ -243,7 +244,7 @@ public class EnhancedParamsDiff {
             LOGGER.info("Comparison results:\n\tInserted: {}\n\tReplaced: {}\n\tSwapped:  {}\n\tRemoved:  {}", diff.insertions(), diff.removals(), diff.swaps(), diff.removals());
         }
         int indexOffset = !dirty.isEmpty() ? dirty.get(0).pos() : 0;
-        builder.merge(diff, indexOffset);
+        builder.merge(ParametersDiffSnapshot.create(diff), indexOffset);
     }
 
     private static List<TypeWithContext> createPositionedList(List<Type> list) {
@@ -310,70 +311,6 @@ public class EnhancedParamsDiff {
     private record TypeWithContext(Type type, int pos) {
         public boolean sameType(TypeWithContext other) {
             return type().equals(other.type());
-        }
-    }
-
-    private static class ParamDiffBuilder {
-        private final ImmutableList.Builder<Pair<Integer, Type>> inserted = ImmutableList.builder();
-        private final ImmutableList.Builder<Pair<Integer, Type>> replaced = ImmutableList.builder();
-        private final ImmutableList.Builder<Pair<Integer, Integer>> swapped = ImmutableList.builder();
-        private final ImmutableList.Builder<Pair<Integer, Integer>> moved = ImmutableList.builder();
-        private final ImmutableList.Builder<Integer> removed = ImmutableList.builder();
-
-        public ParamDiffBuilder insert(int index, Type type) {
-            if (DEBUG) {
-                LOGGER.info("Inserting {} at {}", type, index);
-            }
-            this.inserted.add(Pair.of(index, type));
-            return this;
-        }
-
-        public ParamDiffBuilder replace(int index, Type type) {
-            this.replaced.add(Pair.of(index, type));
-            return this;
-        }
-
-        public ParamDiffBuilder swap(int from, int to) {
-            this.swapped.add(Pair.of(from, to));
-            return this;
-        }
-
-        public ParamDiffBuilder move(int from, int to) {
-            this.moved.add(Pair.of(from, to));
-            return this;
-        }
-
-        public ParamDiffBuilder remove(int index) {
-            if (DEBUG) {
-                LOGGER.info("Removing param at {}", index);
-            }
-            this.removed.add(index);
-            return this;
-        }
-
-        public ParamDiffBuilder merge(ParametersDiff diff) {
-            return merge(diff, 0);
-        }
-
-        public ParamDiffBuilder merge(ParametersDiff diff, int indexOffset) {
-            this.inserted.addAll(diff.insertions().stream().map(p -> p.mapFirst(i -> i + indexOffset)).toList());
-            this.replaced.addAll(diff.replacements().stream().map(p -> p.mapFirst(i -> i + indexOffset)).toList());
-            this.swapped.addAll(diff.swaps().stream().map(p -> p.mapFirst(i -> i + indexOffset).mapSecond(i -> i + indexOffset)).toList());
-            this.removed.addAll(diff.removals().stream().map(i -> i + indexOffset).toList());
-            return this;
-        }
-
-        public List<Integer> getRemoved() {
-            return this.removed.build();
-        }
-
-        public ParametersDiff build() {
-            return build(-1);
-        }
-
-        public ParametersDiff build(int originalCount) {
-            List<Pair<Integer, Type>> sortedInsertions = this.inserted.build().stream().sorted(Comparator.comparingInt(Pair::getFirst)).toList();
-            return new ParametersDiff(originalCount, sortedInsertions, this.replaced.build(), this.swapped.build(), this.removed.build(), this.moved.build());
         }
     }
 }

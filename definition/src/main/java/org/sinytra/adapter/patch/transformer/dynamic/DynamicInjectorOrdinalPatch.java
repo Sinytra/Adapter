@@ -14,8 +14,8 @@ import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.util.GeneratedVariables;
-import org.sinytra.adapter.patch.util.InsnComparator;
-import org.sinytra.adapter.patch.util.LocalVariableLookup;
+import org.sinytra.adapter.patch.analysis.InsnComparator;
+import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
 import org.slf4j.Logger;
 
 import java.util.*;

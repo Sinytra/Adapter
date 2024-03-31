@@ -23,7 +23,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.sinytra.adapter.patch.util;
+package org.sinytra.adapter.patch.analysis;
 
 import org.objectweb.asm.tree.*;
 

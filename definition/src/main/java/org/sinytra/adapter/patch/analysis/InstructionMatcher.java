@@ -4,7 +4,6 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.MethodInsnNode;
-import org.sinytra.adapter.patch.util.InsnComparator;
 
 import java.util.List;
 

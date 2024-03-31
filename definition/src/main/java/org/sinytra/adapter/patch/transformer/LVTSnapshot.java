@@ -89,6 +89,12 @@ public class LVTSnapshot {
         return new LVTSnapshot(locals, varsArray);
     }
 
+    public static void with(final MethodNode methodNode, final Runnable action) {
+        final LVTSnapshot snapshot = take(methodNode);
+        action.run();
+        snapshot.applyDifference(methodNode);
+    }
+
     public record LocalVar(String name, Type desc, int index) implements Comparable<LocalVar> {
         @Override
         public int compareTo(@NotNull LVTSnapshot.LocalVar o) {

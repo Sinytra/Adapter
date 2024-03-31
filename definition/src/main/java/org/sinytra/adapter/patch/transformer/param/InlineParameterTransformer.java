@@ -7,6 +7,7 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchContext;
+import org.sinytra.adapter.patch.transformer.LVTSnapshot;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.slf4j.Logger;
 
@@ -25,7 +26,7 @@ public record InlineParameterTransformer(int target, Consumer<InstructionAdapter
         LOGGER.info(MIXINPATCH, "Inlining parameter {} of method {}.{}", index, classNode.name, methodNode.name);
         final int replaceIndex = -999 + index;
 
-        withLVTSnapshot(methodNode, () -> {
+        LVTSnapshot.with(methodNode, () -> {
             if (index < methodNode.parameters.size()) {
                 methodNode.parameters.remove(index);
             }

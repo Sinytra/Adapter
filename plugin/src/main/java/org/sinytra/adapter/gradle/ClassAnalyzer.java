@@ -24,8 +24,8 @@ import org.sinytra.adapter.patch.analysis.ParametersDiff;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.transformer.ModifyInjectionTarget;
 import org.sinytra.adapter.patch.transformer.ModifyMethodAccess;
-import org.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import org.sinytra.adapter.patch.transformer.SoftMethodParamsPatch;
+import org.sinytra.adapter.patch.transformer.param.ParamTransformTarget;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 import org.slf4j.Logger;
@@ -276,7 +276,7 @@ public class ClassAnalyzer {
                                     .targetInjectionPoint(oldQualifier)
                                     // Avoid automatic method upgrades when a parameter transformation is being applied
                                     .modifyInjectionPoint(null, callQualifier, false, true)
-                                    .transformMethods(diff.createTransforms(ModifyMethodParams.TargetType.INJECTION_POINT))
+                                    .transformMethods(diff.createTransforms(ParamTransformTarget.INJECTION_POINT))
                                     .build();
                                 patches.add(patch);
                                 seen.add(oldQualifier);
@@ -309,7 +309,7 @@ public class ClassAnalyzer {
                             .targetClass(this.dirtyNode.name)
                             .targetMethod(overloaderQualifier)
                             .chain(b -> overloader.applyPatchTargetModifier(b, method))
-                            .transformMethods(diff.createTransforms(ModifyMethodParams.TargetType.METHOD))
+                            .transformMethods(diff.createTransforms(ParamTransformTarget.METHOD))
                             .build();
                         context.addPatch(patch);
                         replacementCalls.put(Type.getObjectType(this.dirtyNode.name).getDescriptor() + dirtyQualifier, Type.getObjectType(this.cleanNode.name).getDescriptor() + overloaderQualifier);
@@ -503,7 +503,7 @@ public class ClassAnalyzer {
                 .targetClass(this.dirtyNode.name)
                 .targetMethod(cleanQualifier)
                 .modifyTarget(dirtyQualifier)
-                .transformMethods(diff.createTransforms(ModifyMethodParams.TargetType.METHOD))
+                .transformMethods(diff.createTransforms(ParamTransformTarget.METHOD))
                 .build();
             patches.add(patch);
         }

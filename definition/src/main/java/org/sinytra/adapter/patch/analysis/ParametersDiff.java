@@ -1,12 +1,6 @@
 package org.sinytra.adapter.patch.analysis;
 
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ListMultimap;
 import com.mojang.datafixers.util.Pair;
-import it.unimi.dsi.fastutil.ints.Int2IntLinkedOpenHashMap;
-import it.unimi.dsi.fastutil.ints.Int2IntMap;
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -15,6 +9,7 @@ import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.api.MethodTransform;
 import org.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import org.sinytra.adapter.patch.transformer.param.InjectParameterTransform;
+import org.sinytra.adapter.patch.transformer.param.ParamTransformTarget;
 import org.sinytra.adapter.patch.transformer.param.ParameterTransformer;
 import org.sinytra.adapter.patch.transformer.param.TransformParameters;
 import org.sinytra.adapter.patch.util.AdapterUtil;
@@ -25,23 +20,24 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
+/**
+ * @deprecated Use {@link EnhancedParamsDiff} where possible
+ */
+@Deprecated
 public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements, List<Pair<Integer, Integer>> swaps,
                              List<Integer> removals, List<Pair<Integer, Integer>> moves) {
     public static final ParametersDiff EMPTY = new ParametersDiff(-1, List.of(), List.of(), List.of(), List.of(), List.of());
 
-    public List<MethodTransform> createTransforms(ModifyMethodParams.TargetType type) {
+    public List<MethodTransform> createTransforms(ParamTransformTarget type) {
         List<MethodTransform> list = new ArrayList<>();
-        ModifyMethodParams.ParamsContext light = ModifyMethodParams.ParamsContext.createLight(this);
+        ParametersDiffSnapshot light = ParametersDiffSnapshot.createLight(this);
         if (!light.isEmpty()) {
-            list.add(new ModifyMethodParams(
-                    light,
-                    type, false, null
-            ));
+            list.add(new ModifyMethodParams(light, type, false, null));
         }
-        if (!insertions.isEmpty()) {
-            list.add(new TransformParameters(insertions.stream()
-                    .<ParameterTransformer>map(p -> new InjectParameterTransform(p.getFirst(), p.getSecond()))
-                    .toList(), true, type));
+        if (!this.insertions.isEmpty()) {
+            list.add(new TransformParameters(this.insertions.stream()
+                .<ParameterTransformer>map(p -> new InjectParameterTransform(p.getFirst(), p.getSecond()))
+                .toList(), true, type));
         }
         return list;
     }
@@ -181,66 +177,6 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
             throw new IllegalStateException("Unexpected difference in params size");
         }
         return new ParametersDiff(i, insertions, replacements, swaps, removals, List.of());
-    }
-
-    public static ParametersDiff rearrangeParameters(List<Type> parameterTypes, List<Type> newParameterTypes) {
-        Object2IntMap<Type> typeCount = new Object2IntOpenHashMap<>();
-        ListMultimap<Type, Integer> typeIndices = ArrayListMultimap.create();
-        for (int i = 0; i < parameterTypes.size(); i++) {
-            Type type = parameterTypes.get(i);
-            typeCount.put(type, typeCount.getInt(type) + 1);
-            typeIndices.put(type, i);
-        }
-        Object2IntMap<Type> newTypeCount = new Object2IntOpenHashMap<>();
-        for (Type type : newParameterTypes) {
-            newTypeCount.put(type, newTypeCount.getInt(type) + 1);
-        }
-
-        for (Object2IntMap.Entry<Type> entry : typeCount.object2IntEntrySet()) {
-            if (newTypeCount.getInt(entry.getKey()) != entry.getIntValue()) {
-                return null;
-            }
-        }
-
-        List<Pair<Integer, Type>> insertions = new ArrayList<>();
-        for (int i = 0; i < newParameterTypes.size(); i++) {
-            Type type = newParameterTypes.get(i);
-            if (!typeCount.containsKey(type)) {
-                insertions.add(Pair.of(i, type));
-            }
-        }
-
-        Object2IntMap<Type> seenTypes = new Object2IntOpenHashMap<>();
-        Int2IntMap swaps = new Int2IntLinkedOpenHashMap();
-        for (int i = 0; i < newParameterTypes.size(); i++) {
-            Type type = newParameterTypes.get(i);
-            if (typeIndices.containsKey(type)) {
-                List<Integer> indices = typeIndices.get(type);
-                int seen = seenTypes.getInt(type);
-                int oldIndex = indices.get(seen);
-                seenTypes.put(type, seen + 1);
-                if (oldIndex != i && !swaps.containsKey(i)) {
-                    swaps.put(oldIndex, i);
-                }
-            }
-        }
-
-        if (swaps.isEmpty()) {
-            return null;
-        }
-
-        List<Pair<Integer, Integer>> swapsList = new ArrayList<>();
-        swaps.forEach((from, to) -> swapsList.add(Pair.of(from, to)));
-        return new ParametersDiff(parameterTypes.size(), insertions, List.of(), swapsList, List.of(), List.of());
-    }
-
-    public ParametersDiff offset(int offset, int limit) {
-        List<Pair<Integer, Type>> offsetInsertions = this.insertions.stream().filter(pair -> pair.getFirst() < limit).map(pair -> pair.mapFirst(i -> i + offset)).toList();
-        List<Pair<Integer, Type>> offsetReplacements = this.replacements.stream().filter(pair -> pair.getFirst() < limit).map(pair -> pair.mapFirst(i -> i + offset)).toList();
-        List<Pair<Integer, Integer>> offsetSwaps = this.swaps.stream().filter(pair -> pair.getFirst() < limit).map(pair -> pair.mapFirst(i -> i + offset).mapSecond(i -> i + offset)).toList();
-        List<Pair<Integer, Integer>> offsetMoves = this.moves.stream().filter(pair -> pair.getFirst() < limit).map(pair -> pair.mapFirst(i -> i + offset).mapSecond(i -> i + offset)).toList();
-        List<Integer> offsetRemovals = this.removals.stream().filter(i -> i < limit).map(i -> i + offset).toList();
-        return new ParametersDiff(this.originalCount, offsetInsertions, offsetReplacements, offsetSwaps, offsetRemovals, offsetMoves);
     }
 
     public boolean isEmpty() {
