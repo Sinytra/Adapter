@@ -1,4 +1,4 @@
-package org.sinytra.adapter.patch.analysis;
+package org.sinytra.adapter.patch.analysis.params;
 
 import com.mojang.datafixers.util.Pair;
 import org.jetbrains.annotations.Nullable;
@@ -30,7 +30,7 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
 
     public List<MethodTransform> createTransforms(ParamTransformTarget type) {
         List<MethodTransform> list = new ArrayList<>();
-        ParametersDiffSnapshot light = ParametersDiffSnapshot.createLight(this);
+        SimpleParamsDiffSnapshot light = SimpleParamsDiffSnapshot.createLight(this);
         if (!light.isEmpty()) {
             list.add(new ModifyMethodParams(light, type, false, null));
         }

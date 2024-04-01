@@ -18,6 +18,7 @@ import org.sinytra.adapter.patch.util.AdapterUtil;
 
 import java.util.List;
 
+import static org.sinytra.adapter.patch.transformer.param.ParamTransformationUtil.calculateLVTIndex;
 import static org.sinytra.adapter.patch.transformer.param.ParamTransformationUtil.extractWrapOperation;
 
 public record InjectParameterTransform(int index, Type type) implements ParameterTransformer {
@@ -53,7 +54,7 @@ public record InjectParameterTransform(int index, Type type) implements Paramete
 
         LocalVariableNode self = methodNode.localVariables.stream().filter(lvn -> lvn.index == 0).findFirst().orElseThrow();
 
-        int lvtIndex = ParamTransformationUtil.calculateLVTIndex(parameters, isNonStatic, index);
+        int lvtIndex = calculateLVTIndex(parameters, isNonStatic, index);
 
         LVTSnapshot.with(methodNode, () -> {
             ParameterNode newParameter = new ParameterNode("adapter_injected_" + index, Opcodes.ACC_SYNTHETIC);

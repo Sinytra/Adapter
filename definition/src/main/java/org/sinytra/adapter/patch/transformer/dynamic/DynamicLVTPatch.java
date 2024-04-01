@@ -15,9 +15,10 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.LVTOffsets;
 import org.sinytra.adapter.patch.PatchInstance;
-import org.sinytra.adapter.patch.analysis.EnhancedParamsDiff;
 import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
-import org.sinytra.adapter.patch.analysis.ParametersDiffSnapshot;
+import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
+import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
+import org.sinytra.adapter.patch.analysis.params.ParamsDiffSnapshot;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
@@ -83,10 +84,10 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         }
         // Check if the mixin captures LVT
         if (annotation.matchesDesc(MixinConstants.INJECT) && annotation.getValue("locals").isPresent()) {
-            ParametersDiffSnapshot diff = compareParameters(classNode, methodNode, methodContext);
+            ParamsDiffSnapshot diff = compareParameters(classNode, methodNode, methodContext);
             if (diff != null) {
                 // Apply parameter patch
-                List<MethodTransform> transforms = diff.asMethodTransforms(ParamTransformTarget.METHOD);
+                List<MethodTransform> transforms = diff.asParameterTransformer(ParamTransformTarget.METHOD, true);
                 return AdapterUtil.applyTransforms(transforms, classNode, methodNode, methodContext, context);
             }
         }
@@ -125,7 +126,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
     }
 
     @Nullable
-    private ParametersDiffSnapshot compareParameters(ClassNode classNode, MethodNode methodNode, MethodContext methodContext) {
+    private ParamsDiffSnapshot compareParameters(ClassNode classNode, MethodNode methodNode, MethodContext methodContext) {
         AdapterUtil.CapturedLocals capturedLocals = AdapterUtil.getCapturedLocals(methodNode, methodContext);
         if (capturedLocals == null) {
             return null;
@@ -138,7 +139,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         }
         List<Type> availableTypes = available.stream().map(MethodContext.LocalVariable::type).toList();
         // Compare expected and available params
-        ParametersDiffSnapshot diff = EnhancedParamsDiff.create(capturedLocals.expected(), availableTypes);
+        ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(capturedLocals.expected(), availableTypes);
         if (diff.isEmpty()) {
             // No changes required
             return null;
@@ -146,7 +147,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         // Replacements are only partially supported, as most would require LVT fixups and converters
         if (!diff.replacements().isEmpty() && areReplacedParamsUsed(diff.replacements(), methodNode)) {
             // Check if we can rearrange parameters
-            ParametersDiffSnapshot rearrange = rearrangeParameters(capturedLocals.expected(), availableTypes);
+            SimpleParamsDiffSnapshot rearrange = rearrangeParameters(capturedLocals.expected(), availableTypes);
             if (rearrange == null) {
                 LOGGER.debug("Tried to replace local variables in mixin method {}.{} using {}", classNode.name, methodNode.name + methodNode.desc, diff.replacements());
                 return null;
@@ -174,7 +175,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         // Offset the insertion to the correct parameter indices
         // Also remove any appended variables
         int maxInsert = getMaxLocalIndex(capturedLocals.expected(), diff.insertions());
-        ParametersDiffSnapshot offsetDiff = diff.offset(paramLocalStart, maxInsert);
+        ParamsDiffSnapshot offsetDiff = diff.offset(paramLocalStart, maxInsert);
         if (offsetDiff.isEmpty()) {
             // No changes required
             return null;
@@ -209,7 +210,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
     // TODO Replace by LocalVarRearrangement#getRearrangedParameters ?
     @VisibleForTesting
     @Nullable
-    public static ParametersDiffSnapshot rearrangeParameters(List<Type> parameterTypes, List<Type> newParameterTypes) {
+    public static SimpleParamsDiffSnapshot rearrangeParameters(List<Type> parameterTypes, List<Type> newParameterTypes) {
         Object2IntMap<Type> typeCount = new Object2IntOpenHashMap<>();
         ListMultimap<Type, Integer> typeIndices = ArrayListMultimap.create();
         for (int i = 0; i < parameterTypes.size(); i++) {
@@ -258,7 +259,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         List<Pair<Integer, Integer>> swapsList = new ArrayList<>();
         swaps.forEach((from, to) -> swapsList.add(Pair.of(from, to)));
 
-        return ParametersDiffSnapshot.builder()
+        return SimpleParamsDiffSnapshot.builder()
             .insertions(insertions)
             .swaps(swapsList)
             .build();

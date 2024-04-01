@@ -28,6 +28,27 @@ public final class ParamTransformationUtil {
         return lvt;
     }
 
+    public static List<AbstractInsnNode> findWrapOperationOriginalCall(MethodNode methodNode, MethodContext methodContext) {
+        if (methodContext.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
+            List<AbstractInsnNode> list = new ArrayList<>();
+            outer:
+            for (AbstractInsnNode insn : methodNode.instructions) {
+                if (insn instanceof MethodInsnNode minsn && WO_ORIGINAL_CALL.matches(minsn)) {
+                    for (AbstractInsnNode prev = insn.getPrevious(); prev != null; prev = prev.getPrevious()) {
+                        if (prev instanceof LabelNode) {
+                            continue outer;
+                        }
+                        if (AdapterUtil.canHandleLocalVarInsnValue(prev)) {
+                            list.add(prev);
+                        }
+                    }
+                }
+            }
+            return List.copyOf(list);
+        }
+        return List.of();
+    }
+
     @SuppressWarnings("DuplicatedCode") // The duplication is small
     public static void extractWrapOperation(final MethodContext methodContext, final MethodNode methodNode, final List<Type> params, final Consumer<WrapOpModification> modification) {
         AnnotationHandle annotation = methodContext.methodAnnotation();

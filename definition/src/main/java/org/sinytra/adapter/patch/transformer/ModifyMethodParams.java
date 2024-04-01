@@ -11,7 +11,8 @@ import org.objectweb.asm.TypeReference;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.PatchInstance;
-import org.sinytra.adapter.patch.analysis.ParametersDiffSnapshot;
+import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
+import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
 import org.sinytra.adapter.patch.fixes.TypeAdapter;
@@ -19,8 +20,6 @@ import org.sinytra.adapter.patch.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.transformer.param.ParamTransformTarget;
 import org.sinytra.adapter.patch.transformer.param.SwapParametersTransformer;
 import org.sinytra.adapter.patch.util.AdapterUtil;
-import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
-import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.SingleValueHandle;
 import org.slf4j.Logger;
 
@@ -28,18 +27,18 @@ import java.util.*;
 import java.util.function.Consumer;
 
 import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
+import static org.sinytra.adapter.patch.transformer.param.ParamTransformationUtil.findWrapOperationOriginalCall;
 
 // TODO Refactor
-public record ModifyMethodParams(ParametersDiffSnapshot context, ParamTransformTarget targetType, boolean ignoreOffset, @Nullable LVTFixer lvtFixer) implements MethodTransform {
+public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransformTarget targetType, boolean ignoreOffset, @Nullable LVTFixer lvtFixer) implements MethodTransform {
     public static final Codec<ModifyMethodParams> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        ParametersDiffSnapshot.CODEC.fieldOf("context").forGetter(ModifyMethodParams::context),
+        SimpleParamsDiffSnapshot.CODEC.fieldOf("context").forGetter(ModifyMethodParams::context),
         ParamTransformTarget.CODEC.optionalFieldOf("targetInjectionPoint", ParamTransformTarget.ALL).forGetter(ModifyMethodParams::targetType)
     ).apply(instance, (context, targetInjectionPoint) -> new ModifyMethodParams(context, targetInjectionPoint, false, null)));
 
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final MethodQualifier WO_ORIGINAL_CALL = new MethodQualifier("Lcom/llamalad7/mixinextras/injector/wrapoperation/Operation;", "call", "([Ljava/lang/Object;)Ljava/lang/Object;");
     
-    public static ModifyMethodParams create(ParametersDiffSnapshot diff, ParamTransformTarget targetType) {
+    public static ModifyMethodParams create(SimpleParamsDiffSnapshot diff, ParamTransformTarget targetType) {
         return new ModifyMethodParams(diff, targetType, false, null);
     }
 
@@ -351,27 +350,6 @@ public record ModifyMethodParams(ParametersDiffSnapshot context, ParamTransformT
         }
     }
 
-    private static List<AbstractInsnNode> findWrapOperationOriginalCall(MethodNode methodNode, MethodContext methodContext) {
-        if (methodContext.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
-            List<AbstractInsnNode> list = new ArrayList<>();
-            outer:
-            for (AbstractInsnNode insn : methodNode.instructions) {
-                if (insn instanceof MethodInsnNode minsn && WO_ORIGINAL_CALL.matches(minsn)) {
-                    for (AbstractInsnNode prev = insn.getPrevious(); prev != null; prev = prev.getPrevious()) {
-                        if (prev instanceof LabelNode) {
-                            continue outer;
-                        }
-                        if (AdapterUtil.canHandleLocalVarInsnValue(prev)) {
-                            list.add(prev);
-                        }
-                    }
-                }
-            }
-            return List.copyOf(list);
-        }
-        return List.of();
-    }
-
     public interface LVTFixer {
         void accept(int index, AbstractInsnNode insn, InsnList list);
     }
@@ -449,7 +427,7 @@ public record ModifyMethodParams(ParametersDiffSnapshot context, ParamTransformT
         }
 
         public ModifyMethodParams build() {
-            ParametersDiffSnapshot context = new ParametersDiffSnapshot(this.insertions, this.replacements, this.swap, this.substitutes, this.removals, List.of(), this.inlines);
+            SimpleParamsDiffSnapshot context = new SimpleParamsDiffSnapshot(this.insertions, this.replacements, this.swap, this.substitutes, this.removals, List.of(), this.inlines);
             return new ModifyMethodParams(context, this.targetType, this.ignoreOffset, this.lvtFixer);
         }
     }

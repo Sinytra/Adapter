@@ -25,6 +25,8 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
         .put("swap_parameters", SwapParametersTransformer.CODEC)
         .put("substitute_parameters", SubstituteParameterTransformer.CODEC)
         .put("remove_parameter", RemoveParameterTransformer.CODEC)
+        .put("replace_parameter", ReplaceParametersTransformer.CODEC)
+        .put("move_parameter", MoveParametersTransformer.CODEC)
         .build();
 
     public static final Codec<TransformParameters> CODEC = RecordCodecBuilder.create(in -> in.group(
@@ -111,7 +113,7 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
 
         @CheckReturnValue
         public TransformParameters build() {
-            return new TransformParameters(transformers, offset, targetType);
+            return new TransformParameters(this.transformers, this.offset, this.targetType);
         }
     }
 }

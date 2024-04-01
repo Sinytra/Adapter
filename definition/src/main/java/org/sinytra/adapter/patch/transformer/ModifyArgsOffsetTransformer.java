@@ -6,9 +6,9 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.InsnNode;
 import org.objectweb.asm.tree.IntInsnNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.patch.analysis.EnhancedParamsDiff;
+import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
-import org.sinytra.adapter.patch.analysis.ParametersDiffSnapshot;
+import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
@@ -21,7 +21,7 @@ public class ModifyArgsOffsetTransformer {
     public static void handleModifiedDesc(MethodNode methodNode, String cleanDesc, String dirtyDesc) {
         Type[] cleanArgs = Type.getArgumentTypes(cleanDesc);
         Type[] dirtyArgs = Type.getArgumentTypes(dirtyDesc);
-        ParametersDiffSnapshot diff = EnhancedParamsDiff.create(cleanArgs, dirtyArgs);
+        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(cleanArgs, dirtyArgs);
         if (!diff.insertions().isEmpty()) {
             modify(methodNode, diff.insertions());
         }

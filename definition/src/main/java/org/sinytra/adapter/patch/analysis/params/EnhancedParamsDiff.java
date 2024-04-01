@@ -1,4 +1,4 @@
-package org.sinytra.adapter.patch.analysis;
+package org.sinytra.adapter.patch.analysis.params;
 
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
@@ -13,12 +13,23 @@ public class EnhancedParamsDiff {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final boolean DEBUG = Boolean.getBoolean("adapter.definition.paramdiff.debug");
 
-    public static ParametersDiffSnapshot create(Type[] clean, Type[] dirty) {
+    public static SimpleParamsDiffSnapshot create(Type[] clean, Type[] dirty) {
         return create(List.of(clean), List.of(dirty));
     }
 
-    public static ParametersDiffSnapshot create(List<Type> clean, List<Type> dirty) {
-        ParametersDiffSnapshot.Builder builder = ParametersDiffSnapshot.builder();
+    public static SimpleParamsDiffSnapshot create(List<Type> clean, List<Type> dirty) {
+        SimpleParamsDiffSnapshot.Builder builder = SimpleParamsDiffSnapshot.builder();
+        buildDiff(builder, clean, dirty);
+        return builder.build();
+    }
+
+    public static LayeredParamsDiffSnapshot createLayered(List<Type> clean, List<Type> dirty) {
+        LayeredParamsDiffSnapshot.Builder builder = LayeredParamsDiffSnapshot.builder();
+        buildDiff(builder, clean, dirty);
+        return builder.build();
+    }
+
+    private static void buildDiff(ParamsDiffSnapshotBuilder builder, List<Type> clean, List<Type> dirty) {
         List<TypeWithContext> cleanQueue = createPositionedList(clean);
         List<TypeWithContext> dirtyQueue = createPositionedList(dirty);
         if (DEBUG) {
@@ -41,7 +52,6 @@ public class EnhancedParamsDiff {
             SwapResult swapResult = checkForSwaps(builder, cleanQueue, dirtyQueue);
             if (swapResult != null) {
                 dirtyQueue.removeAll(swapResult.removeDirty());
-                builder.merge(swapResult.parametersDiff());
                 cleanQueue.clear();
                 dirtyQueue.clear();
                 break;
@@ -77,8 +87,6 @@ public class EnhancedParamsDiff {
                 builder.insert(type.pos(), type.type());
             }
         }
-
-        return builder.normalizeMoves().build();
     }
 
     private static int findClosestMatch(List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
@@ -91,7 +99,7 @@ public class EnhancedParamsDiff {
         return -1;
     }
 
-    private static boolean replaceType(ParametersDiffSnapshot.Builder builder, int index, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
+    private static boolean replaceType(ParamsDiffSnapshotBuilder builder, int index, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
         if (index >= cleanQueue.size() || index >= dirtyQueue.size()) {
             return false;
         }
@@ -123,10 +131,10 @@ public class EnhancedParamsDiff {
         return false;
     }
 
-    private record SwapResult(List<TypeWithContext> removeDirty, ParametersDiffSnapshot parametersDiff) {}
+    private record SwapResult(List<TypeWithContext> removeDirty) {}
 
     @Nullable
-    private static SwapResult checkForSwaps(ParametersDiffSnapshot.Builder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
+    private static SwapResult checkForSwaps(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
         Map<Type, Integer> cleanGroup = groupTypes(clean);
         Map<Type, Integer> dirtyGroup = groupTypes(dirty);
         MapDifference<Type, Integer> diff = Maps.difference(cleanGroup, dirtyGroup);
@@ -134,7 +142,7 @@ public class EnhancedParamsDiff {
         List<TypeWithContext> rearrangeClean = new ArrayList<>(clean);
         List<TypeWithContext> rearrangeDirty = new ArrayList<>(dirty);
         List<TypeWithContext> removeDirty = new ArrayList<>();
-        ParametersDiffSnapshot.Builder tempDiff = ParametersDiffSnapshot.builder();
+        SimpleParamsDiffSnapshot.Builder tempDiff = SimpleParamsDiffSnapshot.builder();
         // Remove inserted parameters
         if (diff.entriesOnlyOnLeft().isEmpty() && !diff.entriesOnlyOnRight().isEmpty()) {
             for (Map.Entry<Type, Integer> entry : diff.entriesOnlyOnRight().entrySet()) {
@@ -180,16 +188,18 @@ public class EnhancedParamsDiff {
             rearrangeDirty.remove(rearrangeDirty.size() - 1);
         }
         if (!rearrangeClean.isEmpty() && !rearrangeDirty.isEmpty()) {
+            builder.merge(tempDiff.build());
             // Run rearrangement
             rearrange(builder, rearrangeClean, rearrangeDirty);
-            return new SwapResult(removeDirty, tempDiff.build());
+            return new SwapResult(removeDirty);
         } else if (rearrangeClean.isEmpty() && rearrangeDirty.isEmpty()) {
-            return new SwapResult(removeDirty, tempDiff.build());
+            builder.merge(tempDiff.build());
+            return new SwapResult(removeDirty);
         }
         return null;
     }
 
-    private static void rearrange(ParametersDiffSnapshot.Builder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
+    private static void rearrange(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
         record Rearrangement(TypeWithContext cleanType, TypeWithContext dirtyType, int fromRelative, int toRelative) {
         }
 
@@ -227,12 +237,14 @@ public class EnhancedParamsDiff {
             if (DEBUG) {
                 LOGGER.info("Moving param {} to index {}", rearrangement.cleanType(), rearrangement.dirtyType().pos());
             }
-            builder.move(rearrangement.cleanType().pos(), rearrangement.dirtyType().pos());
+            // The original pos in the dirty list might differ due to prior insertions
+            int offsetOriginalPos = rearrangeDirty.get(rearrangement.fromRelative()).pos();
+            builder.move(offsetOriginalPos, rearrangement.dirtyType().pos());
             rearrangeClean.add(rearrangement.toRelative(), rearrangeClean.remove(rearrangement.fromRelative()));
         }
     }
 
-    private static void compare(ParametersDiffSnapshot.Builder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
+    private static void compare(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
         if (DEBUG) {
             LOGGER.info("Running comparison for:\n{}", printTable(clean, dirty));
         }
@@ -244,7 +256,7 @@ public class EnhancedParamsDiff {
             LOGGER.info("Comparison results:\n\tInserted: {}\n\tReplaced: {}\n\tSwapped:  {}\n\tRemoved:  {}", diff.insertions(), diff.removals(), diff.swaps(), diff.removals());
         }
         int indexOffset = !dirty.isEmpty() ? dirty.get(0).pos() : 0;
-        builder.merge(ParametersDiffSnapshot.create(diff), indexOffset);
+        builder.merge(SimpleParamsDiffSnapshot.create(diff), indexOffset);
     }
 
     private static List<TypeWithContext> createPositionedList(List<Type> list) {

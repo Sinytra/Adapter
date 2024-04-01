@@ -1,7 +1,6 @@
-package org.sinytra.adapter.patch.analysis;
+package org.sinytra.adapter.patch.analysis.params;
 
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
@@ -25,7 +24,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
-public record ParametersDiffSnapshot(
+public record SimpleParamsDiffSnapshot(
     List<Pair<Integer, Type>> insertions,
     List<Pair<Integer, Type>> replacements,
     List<Pair<Integer, Integer>> swaps,
@@ -33,7 +32,7 @@ public record ParametersDiffSnapshot(
     List<Integer> removals,
     List<Pair<Integer, Integer>> moves,
     List<Pair<Integer, Consumer<InstructionAdapter>>> inlines
-) {
+) implements ParamsDiffSnapshot {
     public static final Codec<Pair<Integer, Type>> MODIFICATION_CODEC = Codec.pair(
         Codec.INT.fieldOf("index").codec(),
         AdapterUtil.TYPE_CODEC.fieldOf("type").codec()
@@ -42,34 +41,41 @@ public record ParametersDiffSnapshot(
         Codec.INT.fieldOf("original").codec(),
         Codec.INT.fieldOf("replacement").codec()
     );
-    public static final Codec<ParametersDiffSnapshot> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        MODIFICATION_CODEC.listOf().optionalFieldOf("insertions", List.of()).forGetter(ParametersDiffSnapshot::insertions),
-        MODIFICATION_CODEC.listOf().optionalFieldOf("replacements", List.of()).forGetter(ParametersDiffSnapshot::replacements),
-        SWAP_CODEC.listOf().optionalFieldOf("swaps", List.of()).forGetter(ParametersDiffSnapshot::swaps)
+    public static final Codec<SimpleParamsDiffSnapshot> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+        MODIFICATION_CODEC.listOf().optionalFieldOf("insertions", List.of()).forGetter(SimpleParamsDiffSnapshot::insertions),
+        MODIFICATION_CODEC.listOf().optionalFieldOf("replacements", List.of()).forGetter(SimpleParamsDiffSnapshot::replacements),
+        SWAP_CODEC.listOf().optionalFieldOf("swaps", List.of()).forGetter(SimpleParamsDiffSnapshot::swaps)
     ).apply(instance, (insertions, replacements, swaps) ->
-        new ParametersDiffSnapshot(insertions, replacements, swaps, List.of(), List.of(), List.of(), List.of())));
+        new SimpleParamsDiffSnapshot(insertions, replacements, swaps, List.of(), List.of(), List.of(), List.of())));
 
-    public static ParametersDiffSnapshot create(ParametersDiff diff) {
-        return new ParametersDiffSnapshot(diff.insertions(), diff.replacements(), diff.swaps(), List.of(), diff.removals(), diff.moves(), List.of());
+    public static SimpleParamsDiffSnapshot create(ParametersDiff diff) {
+        return new SimpleParamsDiffSnapshot(diff.insertions(), diff.replacements(), diff.swaps(), List.of(), diff.removals(), diff.moves(), List.of());
     }
 
-    public static ParametersDiffSnapshot createLight(ParametersDiff diff) {
-        return new ParametersDiffSnapshot(List.of(), diff.replacements(), diff.swaps(), List.of(), diff.removals(), diff.moves(), List.of());
+    public static SimpleParamsDiffSnapshot createLight(ParametersDiff diff) {
+        return new SimpleParamsDiffSnapshot(List.of(), diff.replacements(), diff.swaps(), List.of(), diff.removals(), diff.moves(), List.of());
     }
 
     public boolean isEmpty() {
-        return this.insertions.isEmpty() && this.replacements.isEmpty() && this.swaps.isEmpty() && this.substitutes.isEmpty() && this.removals.isEmpty() && this.moves.isEmpty() && this.inlines.isEmpty();
+        return this.insertions.isEmpty()
+            && this.replacements.isEmpty()
+            && this.swaps.isEmpty()
+            && this.substitutes.isEmpty()
+            && this.removals.isEmpty()
+            && this.moves.isEmpty()
+            && this.inlines.isEmpty();
     }
 
     public boolean shouldComputeFrames() {
         return !this.swaps.isEmpty() || !this.replacements.isEmpty() || !this.substitutes.isEmpty() || !this.removals.isEmpty();
     }
 
-    public ParametersDiffSnapshot offset(int offset, int limit) {
+    @Override
+    public SimpleParamsDiffSnapshot offset(int offset, int limit) {
         UnaryOperator<Integer> offsetter = i -> i + offset;
         Predicate<Pair<Integer, ?>> limiter = p -> p.getFirst() < limit;
 
-        return new ParametersDiffSnapshot(
+        return new SimpleParamsDiffSnapshot(
             this.insertions.stream().filter(limiter).map(p -> p.mapFirst(offsetter)).toList(),
             this.replacements.stream().filter(limiter).map(p -> p.mapFirst(offsetter)).toList(),
             this.swaps.stream().filter(limiter).map(p -> p.mapFirst(offsetter).mapSecond(offsetter)).toList(),
@@ -80,9 +86,10 @@ public record ParametersDiffSnapshot(
         );
     }
 
-    public List<MethodTransform> asMethodTransforms(ParamTransformTarget type) {
+    @Override
+    public List<MethodTransform> asParameterTransformer(ParamTransformTarget type, boolean withOffset) {
         List<MethodTransform> list = new ArrayList<>();
-        ParametersDiffSnapshot light = new ParametersDiffSnapshot(List.of(), this.replacements, this.swaps, this.substitutes, this.removals, this.moves, this.inlines);
+        SimpleParamsDiffSnapshot light = new SimpleParamsDiffSnapshot(List.of(), this.replacements, this.swaps, this.substitutes, this.removals, this.moves, this.inlines);
         if (!light.isEmpty()) {
             list.add(new ModifyMethodParams(light, type, false, null));
         }
@@ -98,8 +105,7 @@ public record ParametersDiffSnapshot(
         return new Builder();
     }
 
-    @CanIgnoreReturnValue
-    public static class Builder {
+    public static class Builder implements ParamsDiffSnapshotBuilder {
         private static final boolean DEBUG = Boolean.getBoolean("adapter.definition.paramdiff.debug");
         private static final Logger LOGGER = LogUtils.getLogger();
 
@@ -108,9 +114,10 @@ public record ParametersDiffSnapshot(
         private final ImmutableList.Builder<Pair<Integer, Integer>> swaps = ImmutableList.builder();
         private final ImmutableList.Builder<Pair<Integer, Integer>> substitutes = ImmutableList.builder();
         private final ImmutableList.Builder<Integer> removals = ImmutableList.builder();
-        private List<Pair<Integer, Integer>> moves = new ArrayList<>();
+        private final ImmutableList.Builder<Pair<Integer, Integer>> moves = ImmutableList.builder();
         private final ImmutableList.Builder<Pair<Integer, Consumer<InstructionAdapter>>> inlines = ImmutableList.builder();
 
+        @Override
         public Builder insert(int index, Type type) {
             if (DEBUG) {
                 LOGGER.info("Inserting {} at {}", type, index);
@@ -119,31 +126,61 @@ public record ParametersDiffSnapshot(
             return this;
         }
 
+        @Override
         public Builder insertions(List<Pair<Integer, Type>> insertions) {
             this.insertions.addAll(insertions);
             return this;
         }
 
+        @Override
         public Builder replace(int index, Type type) {
             this.replacements.add(Pair.of(index, type));
             return this;
         }
 
+        @Override
+        public ParamsDiffSnapshotBuilder replacements(List<Pair<Integer, Type>> replacements) {
+            this.replacements.addAll(replacements);
+            return this;
+        }
+
+        @Override
         public Builder swap(int from, int to) {
             this.swaps.add(Pair.of(from, to));
             return this;
         }
 
+        @Override
         public Builder swaps(List<Pair<Integer, Integer>> swaps) {
             this.swaps.addAll(swaps);
             return this;
         }
 
+        @Override
+        public ParamsDiffSnapshotBuilder substitute(int target, int substitute) {
+            this.substitutes.add(Pair.of(target, substitute));
+            return this;
+        }
+
+        @Override
+        public ParamsDiffSnapshotBuilder substitutes(List<Pair<Integer, Integer>> substitutes) {
+            this.substitutes.addAll(substitutes);
+            return this;
+        }
+
+        @Override
         public Builder move(int from, int to) {
             this.moves.add(Pair.of(from, to));
             return this;
         }
 
+        @Override
+        public ParamsDiffSnapshotBuilder moves(List<Pair<Integer, Integer>> moves) {
+            this.moves.addAll(moves);
+            return this;
+        }
+
+        @Override
         public Builder remove(int index) {
             if (DEBUG) {
                 LOGGER.info("Removing param at {}", index);
@@ -152,11 +189,31 @@ public record ParametersDiffSnapshot(
             return this;
         }
 
-        public Builder merge(ParametersDiffSnapshot diff) {
+        @Override
+        public ParamsDiffSnapshotBuilder removals(List<Integer> removals) {
+            this.removals.addAll(removals);
+            return this;
+        }
+
+        @Override
+        public ParamsDiffSnapshotBuilder inline(int target, Consumer<InstructionAdapter> adapter) {
+            this.inlines.add(Pair.of(target, adapter));
+            return this;
+        }
+
+        @Override
+        public ParamsDiffSnapshotBuilder inlines(List<Pair<Integer, Consumer<InstructionAdapter>>> inlines) {
+            this.inlines.addAll(inlines);
+            return this;
+        }
+
+        @Override
+        public Builder merge(SimpleParamsDiffSnapshot diff) {
             return merge(diff, 0);
         }
 
-        public Builder merge(ParametersDiffSnapshot diff, int indexOffset) {
+        @Override
+        public Builder merge(SimpleParamsDiffSnapshot diff, int indexOffset) {
             UnaryOperator<Integer> offsetter = i -> i + indexOffset;
 
             this.insertions.addAll(diff.insertions().stream().map(p -> p.mapFirst(offsetter)).toList());
@@ -170,35 +227,21 @@ public record ParametersDiffSnapshot(
             return this;
         }
 
-        /**
-         * Offset moved parameters' destination indexes to account for prior insertions
-         */
-        public Builder normalizeMoves() {
-            this.moves = this.moves.stream()
-                .map(p -> {
-                    int index = p.getFirst();
-                    int inserted = (int) this.insertions.stream().filter(i -> i.getFirst() <= index).count();
-                    return inserted > 0 ? p.mapSecond(i -> i - inserted) : p;
-                })
-                .toList();
-            return this;
-        }
-
-        @CheckReturnValue
+        @Override
         public List<Integer> getRemovals() {
             return this.removals.build();
         }
 
         @CheckReturnValue
-        public ParametersDiffSnapshot build() {
+        public SimpleParamsDiffSnapshot build() {
             List<Pair<Integer, Type>> sortedInsertions = this.insertions.stream().sorted(Comparator.comparingInt(Pair::getFirst)).toList();
-            return new ParametersDiffSnapshot(
+            return new SimpleParamsDiffSnapshot(
                 sortedInsertions,
                 this.replacements.build(),
                 this.swaps.build(),
                 this.substitutes.build(),
                 this.removals.build(),
-                this.moves,
+                this.moves.build(),
                 this.inlines.build()
             );
         }

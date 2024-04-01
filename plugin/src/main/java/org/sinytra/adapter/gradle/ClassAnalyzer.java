@@ -20,7 +20,7 @@ import org.sinytra.adapter.patch.PatchInstance;
 import org.sinytra.adapter.patch.analysis.InheritanceHandler;
 import org.sinytra.adapter.patch.analysis.LocalVarRearrangement;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
-import org.sinytra.adapter.patch.analysis.ParametersDiff;
+import org.sinytra.adapter.patch.analysis.params.ParametersDiff;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.transformer.ModifyInjectionTarget;
 import org.sinytra.adapter.patch.transformer.ModifyMethodAccess;
