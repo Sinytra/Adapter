@@ -18,6 +18,7 @@ public class MixinConstants {
     public static final String INVOKER = "Lorg/spongepowered/asm/mixin/gen/Invoker;";
     // Mixinextras annotations
     public static final String MODIFY_EXPR_VAL = "Lcom/llamalad7/mixinextras/injector/ModifyExpressionValue;";
+    public static final String MODIFY_RETURN_VAL = "Lcom/llamalad7/mixinextras/injector/ModifyReturnValue;";
     public static final String WRAP_OPERATION = "Lcom/llamalad7/mixinextras/injector/wrapoperation/WrapOperation;";
     public static final String WRAP_WITH_CONDITION = "Lcom/llamalad7/mixinextras/injector/WrapWithCondition;";
     public static final String OPERATION_INTERNAL_NAME = "com/llamalad7/mixinextras/injector/wrapoperation/Operation";

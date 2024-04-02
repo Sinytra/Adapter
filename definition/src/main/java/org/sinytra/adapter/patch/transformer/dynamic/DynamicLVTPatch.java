@@ -1,6 +1,5 @@
 package org.sinytra.adapter.patch.transformer.dynamic;
 
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.mojang.datafixers.util.Pair;
@@ -17,8 +16,8 @@ import org.sinytra.adapter.patch.LVTOffsets;
 import org.sinytra.adapter.patch.PatchInstance;
 import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
-import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
 import org.sinytra.adapter.patch.analysis.params.ParamsDiffSnapshot;
+import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
@@ -43,9 +42,8 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             List<AnnotationNode> localAnnotations = AdapterUtil.getAnnotatedParameters(methodNode, paramTypes, MixinConstants.LOCAL, (node, type) -> node);
             if (!localAnnotations.isEmpty()) {
                 Patch.Result result = Patch.Result.PASS;
-                Supplier<MethodContext.TargetPair> targetPairSupplier = Suppliers.memoize(methodContext::findDirtyInjectionTarget);
                 for (AnnotationNode localAnn : localAnnotations) {
-                    result = result.or(offsetVariableIndex(classNode, methodNode, new AnnotationHandle(localAnn), targetPairSupplier));
+                    result = result.or(offsetVariableIndex(classNode, methodNode, new AnnotationHandle(localAnn), methodContext));
                 }
                 return result;
             }
@@ -95,10 +93,6 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
     }
 
     private Patch.Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationHandle annotation, MethodContext methodContext) {
-        return offsetVariableIndex(classNode, methodNode, annotation, methodContext::findDirtyInjectionTarget);
-    }
-
-    private Patch.Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationHandle annotation, Supplier<MethodContext.TargetPair> targetPairSupplier) {
         AnnotationValueHandle<Integer> handle = annotation.<Integer>getValue("index").orElse(null);
         if (handle != null) {
             // Find variable index
@@ -107,7 +101,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
                 return Patch.Result.PASS;
             }
             // Get target class and method
-            MethodContext.TargetPair targetPair = targetPairSupplier.get();
+            MethodContext.TargetPair targetPair = methodContext.findDirtyInjectionTarget();
             if (targetPair == null) {
                 return Patch.Result.PASS;
             }
