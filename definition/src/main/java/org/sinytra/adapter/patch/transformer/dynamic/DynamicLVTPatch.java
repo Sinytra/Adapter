@@ -85,8 +85,8 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             ParamsDiffSnapshot diff = compareParameters(classNode, methodNode, methodContext);
             if (diff != null) {
                 // Apply parameter patch
-                List<MethodTransform> transforms = diff.asParameterTransformer(ParamTransformTarget.METHOD, true);
-                return AdapterUtil.applyTransforms(transforms, classNode, methodNode, methodContext, context);
+                MethodTransform transform = diff.asParameterTransformer(ParamTransformTarget.METHOD, true);
+                return transform.apply(classNode, methodNode, methodContext, methodContext.patchContext());
             }
         }
         return Patch.Result.PASS;

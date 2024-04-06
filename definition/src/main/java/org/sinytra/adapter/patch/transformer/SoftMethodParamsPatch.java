@@ -9,6 +9,7 @@ import org.sinytra.adapter.patch.analysis.InheritanceHandler;
 import org.sinytra.adapter.patch.analysis.params.ParametersDiff;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
+import org.sinytra.adapter.patch.transformer.param.TransformParameters;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
@@ -37,7 +38,7 @@ public record SoftMethodParamsPatch(String replacementTarget) implements MethodT
         if (targetQualifier != null) {
             List<Pair<Integer, Type>> replacements = determineAutomaticReplacements(targetQualifier, methodNode, context, this.replacementTarget);
             if (!replacements.isEmpty()) {
-                ModifyMethodParams patch = ModifyMethodParams.builder()
+                TransformParameters patch = TransformParameters.builder()
                     .replacements(replacements)
                     .build();
                 return Patch.Result.APPLY.or(patch.apply(classNode, methodNode, methodContext, context));

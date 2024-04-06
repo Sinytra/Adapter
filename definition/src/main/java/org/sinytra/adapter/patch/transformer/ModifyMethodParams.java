@@ -7,7 +7,6 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.TypeReference;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.PatchInstance;
@@ -17,6 +16,7 @@ import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
 import org.sinytra.adapter.patch.fixes.TypeAdapter;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
+import org.sinytra.adapter.patch.transformer.param.InjectParameterTransform;
 import org.sinytra.adapter.patch.transformer.param.ParamTransformTarget;
 import org.sinytra.adapter.patch.transformer.param.SwapParametersTransformer;
 import org.sinytra.adapter.patch.util.AdapterUtil;
@@ -110,7 +110,7 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
             newParameterTypes.add(paramOrdinal, type);
             methodNode.parameters.add(paramOrdinal, newParameter);
 
-            offsetParameters(methodNode, paramOrdinal);
+            InjectParameterTransform.offsetParameters(methodNode, paramOrdinal);
 
             offsetSwaps.replaceAll(integerIntegerPair -> integerIntegerPair.mapFirst(j -> j >= paramOrdinal ? j + 1 : j));
             offsetMoves.replaceAll(integerIntegerPair -> integerIntegerPair.mapFirst(j -> j >= paramOrdinal ? j + 1 : j).mapSecond(j -> j >= paramOrdinal ? j + 1 : j));
@@ -323,28 +323,6 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
                     if (annoIndex >= lvtIndex) {
                         annotationIndices.set(j, annoIndex + 1);
                     }
-                }
-            }
-        }
-    }
-
-    public static void offsetParameters(MethodNode methodNode, int paramIndex) {
-        if (methodNode.invisibleParameterAnnotations != null) {
-            List<List<AnnotationNode>> annotations = new ArrayList<>(Arrays.asList(methodNode.invisibleParameterAnnotations));
-            if (paramIndex < annotations.size()) {
-                annotations.add(paramIndex, null);
-                methodNode.invisibleParameterAnnotations = (List<AnnotationNode>[]) annotations.toArray(List[]::new);
-                methodNode.invisibleAnnotableParameterCount = annotations.size();
-            }
-        }
-        if (methodNode.invisibleTypeAnnotations != null) {
-            List<TypeAnnotationNode> invisibleTypeAnnotations = methodNode.invisibleTypeAnnotations;
-            for (int j = 0; j < invisibleTypeAnnotations.size(); j++) {
-                TypeAnnotationNode typeAnnotation = invisibleTypeAnnotations.get(j);
-                TypeReference ref = new TypeReference(typeAnnotation.typeRef);
-                int typeIndex = ref.getFormalParameterIndex();
-                if (ref.getSort() == TypeReference.METHOD_FORMAL_PARAMETER && typeIndex >= paramIndex) {
-                    invisibleTypeAnnotations.set(j, new TypeAnnotationNode(TypeReference.newFormalParameterReference(typeIndex + 1).getValue(), typeAnnotation.typePath, typeAnnotation.desc));
                 }
             }
         }

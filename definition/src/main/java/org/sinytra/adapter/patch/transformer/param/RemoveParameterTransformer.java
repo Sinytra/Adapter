@@ -17,8 +17,8 @@ import static org.sinytra.adapter.patch.transformer.param.ParamTransformationUti
 
 public record RemoveParameterTransformer(int index) implements ParameterTransformer {
     public static final Codec<RemoveParameterTransformer> CODEC = Codec.intRange(0, 255)
-            .fieldOf("index").xmap(RemoveParameterTransformer::new, RemoveParameterTransformer::index)
-            .codec();
+        .fieldOf("index").xmap(RemoveParameterTransformer::new, RemoveParameterTransformer::index)
+        .codec();
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, List<Type> parameters, int offset) {
@@ -30,9 +30,9 @@ public record RemoveParameterTransformer(int index) implements ParameterTransfor
 
         LVTSnapshot.with(methodNode, () -> {
             LocalVariableNode lvn = methodNode.localVariables.stream()
-                    .filter(v -> v.index == lvtIndex)
-                    .findFirst()
-                    .orElse(null);
+                .filter(v -> v.index == lvtIndex)
+                .findFirst()
+                .orElse(null);
             if (lvn != null) {
                 methodNode.localVariables.remove(lvn);
                 AdapterUtil.replaceLVT(methodNode, idx -> idx == lvtIndex ? -1 : idx);
@@ -43,5 +43,10 @@ public record RemoveParameterTransformer(int index) implements ParameterTransfor
         parameters.remove(target);
 
         return Patch.Result.COMPUTE_FRAMES;
+    }
+
+    @Override
+    public Codec<? extends ParameterTransformer> codec() {
+        return CODEC;
     }
 }

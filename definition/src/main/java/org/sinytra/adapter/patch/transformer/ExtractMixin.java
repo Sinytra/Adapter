@@ -9,6 +9,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.api.*;
+import org.sinytra.adapter.patch.transformer.param.TransformParameters;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
 import org.sinytra.adapter.patch.util.MethodQualifier;
@@ -259,7 +260,7 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
             findVariableInitializerInsns(capturedLocals.target().methodNode(), capturedLocals.isStatic(), index, varInsnLists, usageCount);
         });
         // Remove unused captured locals
-        ModifyMethodParams patch = ModifyMethodParams.builder()
+        TransformParameters patch = TransformParameters.builder()
             .chain(b -> IntStream.range(paramLocalStart, capturedLocals.paramLocalEnd())
                 .filter(i -> !used.contains(i))
                 .forEach(b::remove))
@@ -276,9 +277,9 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
         copy.invisibleAnnotations = null;
         methodNode.instructions = new InsnList();
         // Remove used locals from the original method, as we'll be providing them ourselves
-        ModifyMethodParams.Builder cleanupBuilder = ModifyMethodParams.builder();
+        TransformParameters.Builder cleanupBuilder = TransformParameters.builder();
         IntStream.range(paramLocalStart, paramLocalStart + used.size()).forEach(cleanupBuilder::remove);
-        ModifyMethodParams cleanupPatch = cleanupBuilder.build();
+        TransformParameters cleanupPatch = cleanupBuilder.build();
         Patch.Result cleanupResult = cleanupPatch.apply(classNode, methodNode, methodContext, context);
         if (cleanupResult == Patch.Result.PASS) {
             return Patch.Result.PASS;

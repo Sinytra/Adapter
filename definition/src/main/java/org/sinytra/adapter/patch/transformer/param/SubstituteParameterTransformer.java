@@ -19,8 +19,8 @@ import static org.sinytra.adapter.patch.transformer.param.ParamTransformationUti
 
 public record SubstituteParameterTransformer(int target, int substitute) implements ParameterTransformer {
     static final Codec<SubstituteParameterTransformer> CODEC = RecordCodecBuilder.create(in -> in.group(
-            Codec.intRange(0, 255).fieldOf("target").forGetter(SubstituteParameterTransformer::target),
-            Codec.intRange(0, 255).fieldOf("substitute").forGetter(SubstituteParameterTransformer::substitute)
+        Codec.intRange(0, 255).fieldOf("target").forGetter(SubstituteParameterTransformer::target),
+        Codec.intRange(0, 255).fieldOf("substitute").forGetter(SubstituteParameterTransformer::substitute)
     ).apply(in, SubstituteParameterTransformer::new));
 
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -47,5 +47,10 @@ public record SubstituteParameterTransformer(int target, int substitute) impleme
         });
 
         return Patch.Result.COMPUTE_FRAMES;
+    }
+
+    @Override
+    public Codec<? extends ParameterTransformer> codec() {
+        return CODEC;
     }
 }

@@ -4,7 +4,11 @@ import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.LocalVariableNode;
+import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.patch.util.GeneratedVariables;
 import org.slf4j.Logger;
 
 import java.util.*;
@@ -29,9 +33,42 @@ public class EnhancedParamsDiff {
         return builder.build();
     }
 
+    public static LayeredParamsDiffSnapshot compareMethodParameters(MethodNode clean, MethodNode dirty) {
+        if (clean.localVariables == null || dirty.localVariables == null) {
+            return LayeredParamsDiffSnapshot.EMPTY;
+        }
+
+        int cleanParamCount = Type.getArgumentTypes(clean.desc).length;
+        int dirtyParamCount = Type.getArgumentTypes(dirty.desc).length;
+        boolean isCleanStatic = (clean.access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC;
+        boolean isDirtyStatic = (dirty.access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC;
+        // Get params as local variables, which include their names as well
+        List<LocalVariable> cleanParams = clean.localVariables.stream()
+            .sorted(Comparator.comparingInt(lv -> lv.index))
+            .filter(lv -> isCleanStatic || lv.index != 0)
+            .limit(cleanParamCount)
+            .map(LocalVariable::new)
+            .toList();
+        List<LocalVariable> dirtyParams = dirty.localVariables.stream()
+            .sorted(Comparator.comparingInt(lv -> lv.index))
+            .filter(lv -> isDirtyStatic || lv.index != 0)
+            .limit(dirtyParamCount)
+            .map(LocalVariable::new)
+            .toList();
+        boolean compareNames = cleanParams.stream().allMatch(t -> t.name() != null) && dirtyParams.stream().anyMatch(LocalVariable::isGenerated);
+
+        LayeredParamsDiffSnapshot.Builder builder = LayeredParamsDiffSnapshot.builder();
+        buildDiffWithContext(builder, createPositionedVariableList(cleanParams), createPositionedVariableList(dirtyParams), compareNames);
+        return builder.build();
+    }
+
     private static void buildDiff(ParamsDiffSnapshotBuilder builder, List<Type> clean, List<Type> dirty) {
-        List<TypeWithContext> cleanQueue = createPositionedList(clean);
-        List<TypeWithContext> dirtyQueue = createPositionedList(dirty);
+        buildDiffWithContext(builder, createPositionedList(clean), createPositionedList(dirty), false);
+    }
+
+    private static void buildDiffWithContext(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue, boolean compareNames) {
+        int dirtySize = dirtyQueue.size();
+
         if (DEBUG) {
             LOGGER.info("Comparing types:\n{}", printTable(cleanQueue, dirtyQueue));
         }
@@ -39,7 +76,7 @@ public class EnhancedParamsDiff {
         while (!cleanQueue.isEmpty()) {
             // Look ahead for matching types at the beginning of the list
             // If the first two are equal, remove the first ones and repeat
-            if (cleanQueue.size() > 1 && dirtyQueue.size() > 1 && cleanQueue.get(0).sameType(dirtyQueue.get(0)) && cleanQueue.get(1).sameType(dirtyQueue.get(1))) {
+            if (sameParameter(cleanQueue, dirtyQueue, compareNames)) {
                 cleanQueue.remove(0);
                 dirtyQueue.remove(0);
                 continue;
@@ -57,10 +94,11 @@ public class EnhancedParamsDiff {
                 break;
             }
             // Find the smallest set of matching types by locating the position of the next clean type in the dirty list
-            int dirtyTypeIndex = cleanQueue.size() == 1 ? dirty.size() - 1 : lookAhead(dirtyQueue, cleanQueue.get(1));
+            int dirtyTypeIndex = cleanQueue.size() == 1 ? dirtySize - 1 : lookAhead(dirtyQueue, cleanQueue.get(1));
             if (dirtyTypeIndex != -1) {
-                int offset = cleanQueue.get(0).sameType(dirtyQueue.get(0)) ? 1 : 2;
-                List<TypeWithContext> compareClean = extract(cleanQueue, 2);
+                boolean matchesName = !compareNames || cleanQueue.size() < 2 || dirtyQueue.size() < 2 || cleanQueue.get(1).matches(dirtyQueue.get(1));
+                int offset = cleanQueue.get(0).sameType(dirtyQueue.get(0)) && matchesName ? 1 : 2;
+                List<TypeWithContext> compareClean = extract(cleanQueue, matchesName ? 2 : 1);
                 List<TypeWithContext> compareDirty = extract(dirtyQueue, dirtyTypeIndex + offset);
 
                 compare(builder, compareClean, compareDirty);
@@ -87,6 +125,13 @@ public class EnhancedParamsDiff {
                 builder.insert(type.pos(), type.type());
             }
         }
+    }
+
+    private static boolean sameParameter(List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue, boolean compareNames) {
+        return cleanQueue.size() > 1 && dirtyQueue.size() > 1 && (
+            compareNames ? cleanQueue.get(0).matches(dirtyQueue.get(0)) && cleanQueue.get(1).matches(dirtyQueue.get(1))
+                : cleanQueue.get(0).sameType(dirtyQueue.get(0)) && cleanQueue.get(1).sameType(dirtyQueue.get(1))
+        );
     }
 
     private static int findClosestMatch(List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
@@ -131,7 +176,8 @@ public class EnhancedParamsDiff {
         return false;
     }
 
-    private record SwapResult(List<TypeWithContext> removeDirty) {}
+    private record SwapResult(List<TypeWithContext> removeDirty) {
+    }
 
     @Nullable
     private static SwapResult checkForSwaps(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
@@ -249,9 +295,9 @@ public class EnhancedParamsDiff {
             LOGGER.info("Running comparison for:\n{}", printTable(clean, dirty));
         }
 
-        Type[] cleanTypes = clean.stream().map(TypeWithContext::type).toArray(Type[]::new);
-        Type[] dirtyTypes = dirty.stream().map(TypeWithContext::type).toArray(Type[]::new);
-        ParametersDiff diff = ParametersDiff.compareTypeParameters(cleanTypes, dirtyTypes);
+        List<ParametersDiff.MethodParameter> cleanTypes = clean.stream().map(t -> new ParametersDiff.MethodParameter(t.type(), t.isGenerated())).toList();
+        List<ParametersDiff.MethodParameter> dirtyTypes = dirty.stream().map(t -> new ParametersDiff.MethodParameter(t.type(), t.isGenerated())).toList();
+        ParametersDiff diff = ParametersDiff.compareParameters(cleanTypes, dirtyTypes, false);
         if (DEBUG) {
             LOGGER.info("Comparison results:\n\tInserted: {}\n\tReplaced: {}\n\tSwapped:  {}\n\tRemoved:  {}", diff.insertions(), diff.removals(), diff.swaps(), diff.removals());
         }
@@ -263,6 +309,15 @@ public class EnhancedParamsDiff {
         List<TypeWithContext> ret = new ArrayList<>();
         for (int i = 0; i < list.size(); i++) {
             ret.add(new TypeWithContext(list.get(i), i));
+        }
+        return ret;
+    }
+
+    private static List<TypeWithContext> createPositionedVariableList(List<LocalVariable> list) {
+        List<TypeWithContext> ret = new ArrayList<>();
+        for (int i = 0; i < list.size(); i++) {
+            LocalVariable ctx = list.get(i);
+            ret.add(new TypeWithContext(ctx.name(), ctx.type(), i, ctx.isGenerated()));
         }
         return ret;
     }
@@ -320,9 +375,27 @@ public class EnhancedParamsDiff {
         return builder.toString();
     }
 
-    private record TypeWithContext(Type type, int pos) {
+    private record LocalVariable(@Nullable String name, Type type, boolean isGenerated) {
+        public LocalVariable(LocalVariableNode lvn) {
+            this(lvn.name, Type.getType(lvn.desc), lvn.name != null && GeneratedVariables.isGeneratedVariableName(lvn.name, Type.getType(lvn.desc)));
+        }
+    }
+
+    private record TypeWithContext(@Nullable String name, Type type, int pos, boolean isGenerated) {
+        public TypeWithContext(Type type, int pos) {
+            this(null, type, pos, false);
+        }
+
         public boolean sameType(TypeWithContext other) {
             return type().equals(other.type());
+        }
+
+        public boolean sameName(TypeWithContext other) {
+            return this.name == null || other.name() == null || this.isGenerated == other.isGenerated();
+        }
+
+        public boolean matches(TypeWithContext other) {
+            return sameType(other) && sameName(other);
         }
     }
 }

@@ -4,6 +4,7 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
+import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.Type;
@@ -31,7 +32,7 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
 
     public static final Codec<TransformParameters> CODEC = RecordCodecBuilder.create(in -> in.group(
         Codec.STRING
-            .<ParameterTransformer>dispatch(c -> TRANSFORMER_CODECS.inverse().get(c.codec()), TRANSFORMER_CODECS::get)
+            .<ParameterTransformer>dispatch("transformer_type", c -> TRANSFORMER_CODECS.inverse().get(c.codec()), TRANSFORMER_CODECS::get)
             .listOf()
             .fieldOf("transformers")
             .forGetter(TransformParameters::transformers),
@@ -70,6 +71,10 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
         return CODEC;
     }
 
+    public static Builder builder() {
+        return new Builder();
+    }
+
     @CanIgnoreReturnValue
     public static class Builder {
         private final List<ParameterTransformer> transformers = new ArrayList<>();
@@ -85,20 +90,29 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
             return this.transform(new InjectParameterTransform(parameterIndex, type));
         }
 
+        public Builder replace(int index, Type type) {
+            return transform(new ReplaceParametersTransformer(index, type));
+        }
+
+        public Builder replacements(List<Pair<Integer, Type>> replacements) {
+            replacements.forEach(p -> replace(p.getFirst(), p.getSecond()));
+            return this;
+        }
+
         public Builder swap(int from, int to) {
-            return this.transform(new SwapParametersTransformer(from, to));
+            return transform(new SwapParametersTransformer(from, to));
         }
 
         public Builder substitute(int target, int substitute) {
-            return this.transform(new SubstituteParameterTransformer(target, substitute));
+            return transform(new SubstituteParameterTransformer(target, substitute));
         }
 
         public Builder inline(int target, Consumer<InstructionAdapter> adapter) {
-            return this.transform(new InlineParameterTransformer(target, adapter));
+            return transform(new InlineParameterTransformer(target, adapter));
         }
 
         public Builder remove(int index) {
-            return this.transform(new RemoveParameterTransformer(index));
+            return transform(new RemoveParameterTransformer(index));
         }
 
         public Builder withOffset() {
@@ -108,6 +122,11 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
 
         public Builder targetType(ParamTransformTarget targetType) {
             this.targetType = targetType;
+            return this;
+        }
+
+        public Builder chain(Consumer<Builder> consumer) {
+            consumer.accept(this);
             return this;
         }
 

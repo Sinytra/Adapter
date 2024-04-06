@@ -199,10 +199,10 @@ public final class AdapterUtil {
         return list;
     }
 
-    public static Patch.Result applyTransforms(List<MethodTransform> transforms, ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
+    public static Patch.Result applyTransforms(List<MethodTransform> transforms, ClassNode classNode, MethodNode methodNode, MethodContext methodContext) {
         Patch.Result result = Patch.Result.PASS;
         for (MethodTransform transform : transforms) {
-            result = result.or(transform.apply(classNode, methodNode, methodContext, context));
+            result = result.or(transform.apply(classNode, methodNode, methodContext, methodContext.patchContext()));
         }
         return result;
     }

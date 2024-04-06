@@ -44,7 +44,7 @@ public record ReplaceParametersTransformer(int index, Type type) implements Para
         Type originalType = Type.getType(localVar.desc);
         localVar.desc = this.type.getDescriptor();
         localVar.signature = null;
-        
+
         List<AbstractInsnNode> ignoreInsns = findWrapOperationOriginalCall(methodNode, methodContext);
         BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
         if (this.type.getSort() == Type.OBJECT && originalType.getSort() == Type.OBJECT) {
@@ -83,7 +83,12 @@ public record ReplaceParametersTransformer(int index, Type type) implements Para
                 }
             }
         }
-        
+
         return Patch.Result.COMPUTE_FRAMES;
+    }
+
+    @Override
+    public Codec<? extends ParameterTransformer> codec() {
+        return CODEC;
     }
 }

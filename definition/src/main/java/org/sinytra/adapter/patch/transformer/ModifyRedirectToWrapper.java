@@ -7,6 +7,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.api.*;
+import org.sinytra.adapter.patch.transformer.param.TransformParameters;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
 import org.sinytra.adapter.patch.util.MethodQualifier;
@@ -52,13 +53,12 @@ public record ModifyRedirectToWrapper(MethodQualifier originalTarget, MethodQual
             }
         }
 
-        ModifyMethodParams removeOldParamsPatch = ModifyMethodParams.builder()
+        TransformParameters removeOldParamsPatch = TransformParameters.builder()
             .chain(b -> {
                 for (int i = offset; i < Type.getArgumentTypes(methodNode.desc).length; i++) {
                     b.remove(i);
                 }
             })
-            .ignoreOffset()
             .build();
         removeOldParamsPatch.apply(classNode, methodNode, methodContext, context);
 
@@ -66,15 +66,14 @@ public record ModifyRedirectToWrapper(MethodQualifier originalTarget, MethodQual
             .add(sameOwnerType ? new Type[0] : new Type[]{newOwnerType})
             .add(Type.getArgumentTypes(this.newTarget.desc()))
             .build());
-        ModifyMethodParams addNewParamsPatch = ModifyMethodParams.builder()
+        TransformParameters addNewParamsPatch = TransformParameters.builder()
             .chain(b -> {
                 for (int i = 0; i < args.size(); i++) {
                     Type type = args.get(i);
-                    b.insert(i, type);
+                    b.inject(i, type);
                 }
-                b.insert(args.size(), OPERATION_TYPE);
+                b.inject(args.size(), OPERATION_TYPE);
             })
-            .ignoreOffset()
             .build();
         addNewParamsPatch.apply(classNode, methodNode, methodContext, context);
 

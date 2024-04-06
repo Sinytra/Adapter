@@ -20,6 +20,8 @@ import org.sinytra.adapter.patch.PatchInstance;
 import org.sinytra.adapter.patch.analysis.InheritanceHandler;
 import org.sinytra.adapter.patch.analysis.LocalVarRearrangement;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
+import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
+import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.patch.analysis.params.ParametersDiff;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.transformer.ModifyInjectionTarget;
@@ -268,7 +270,7 @@ public class ClassAnalyzer {
 
                                 MethodNode cleanTargetMethod = this.cleanClassProvider.findMethod(cminsn.owner, cminsn.name, cminsn.desc).orElseThrow();
                                 MethodNode dirtyTargetMethod = this.dirtyClassProvider.findMethod(minsn.owner, minsn.name, minsn.desc).orElseThrow();
-                                ParametersDiff diff = ParametersDiff.compareMethodParameters(cleanTargetMethod, dirtyTargetMethod);
+                                LayeredParamsDiffSnapshot snapshot = EnhancedParamsDiff.compareMethodParameters(cleanTargetMethod, dirtyTargetMethod);
 
                                 PatchInstance patch = Patch.builder()
                                     .targetClass(this.dirtyNode.name)
@@ -276,7 +278,7 @@ public class ClassAnalyzer {
                                     .targetInjectionPoint(oldQualifier)
                                     // Avoid automatic method upgrades when a parameter transformation is being applied
                                     .modifyInjectionPoint(null, callQualifier, false, true)
-                                    .transformMethods(diff.createTransforms(ParamTransformTarget.INJECTION_POINT))
+                                    .transform(snapshot.asParameterTransformer(ParamTransformTarget.INJECTION_POINT, true))
                                     .build();
                                 patches.add(patch);
                                 seen.add(oldQualifier);

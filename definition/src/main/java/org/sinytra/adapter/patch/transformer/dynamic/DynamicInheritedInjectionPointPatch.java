@@ -9,7 +9,7 @@ import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
-import org.sinytra.adapter.patch.transformer.ModifyMethodParams;
+import org.sinytra.adapter.patch.transformer.param.TransformParameters;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.MockMixinRuntime;
 import org.slf4j.Logger;
@@ -63,9 +63,8 @@ public class DynamicInheritedInjectionPointPatch implements MethodTransform {
                         target.set(MethodCallAnalyzer.getCallQualifier(minsn));
                         Patch.Result result = Patch.Result.APPLY;
                         if (annotation.matchesDesc(MixinConstants.REDIRECT) && (methodNode.access & Opcodes.ACC_STATIC) != Opcodes.ACC_STATIC) {
-                            ModifyMethodParams patch = ModifyMethodParams.builder()
+                            TransformParameters patch = TransformParameters.builder()
                                 .replace(0, Type.getObjectType(minsn.owner))
-                                .ignoreOffset()
                                 .build();
                             result = result.or(patch.apply(classNode, methodNode, methodContext, context));
                         }

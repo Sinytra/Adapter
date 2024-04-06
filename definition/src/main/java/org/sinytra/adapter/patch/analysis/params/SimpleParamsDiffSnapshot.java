@@ -9,6 +9,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.sinytra.adapter.patch.api.MethodTransform;
+import org.sinytra.adapter.patch.transformer.BundledMethodTransform;
 import org.sinytra.adapter.patch.transformer.ModifyMethodParams;
 import org.sinytra.adapter.patch.transformer.param.InjectParameterTransform;
 import org.sinytra.adapter.patch.transformer.param.ParamTransformTarget;
@@ -87,7 +88,7 @@ public record SimpleParamsDiffSnapshot(
     }
 
     @Override
-    public List<MethodTransform> asParameterTransformer(ParamTransformTarget type, boolean withOffset) {
+    public MethodTransform asParameterTransformer(ParamTransformTarget type, boolean withOffset) {
         List<MethodTransform> list = new ArrayList<>();
         SimpleParamsDiffSnapshot light = new SimpleParamsDiffSnapshot(List.of(), this.replacements, this.swaps, this.substitutes, this.removals, this.moves, this.inlines);
         if (!light.isEmpty()) {
@@ -98,7 +99,7 @@ public record SimpleParamsDiffSnapshot(
                 .<ParameterTransformer>map(p -> new InjectParameterTransform(p.getFirst(), p.getSecond()))
                 .toList(), true, type));
         }
-        return list;
+        return new BundledMethodTransform(list);
     }
 
     public static Builder builder() {

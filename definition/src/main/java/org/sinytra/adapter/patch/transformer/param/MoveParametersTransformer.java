@@ -65,4 +65,9 @@ public record MoveParametersTransformer(int from, int to) implements ParameterTr
 
         return Patch.Result.COMPUTE_FRAMES;
     }
+
+    @Override
+    public Codec<? extends ParameterTransformer> codec() {
+        return CODEC;
+    }
 }

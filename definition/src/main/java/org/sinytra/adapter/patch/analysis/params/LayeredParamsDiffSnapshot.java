@@ -14,6 +14,8 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) implements ParamsDiffSnapshot {
+    public static LayeredParamsDiffSnapshot EMPTY = new LayeredParamsDiffSnapshot(List.of());
+
     interface ParamModification {
         ParamModification offset(int offset);
 
@@ -164,6 +166,22 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
             .toList();
     }
 
+    public List<Pair<Integer, Integer>> swaps() {
+        return this.modifications.stream()
+            .map(p -> p instanceof SwapParam param ? param : null)
+            .filter(Objects::nonNull)
+            .map(p -> Pair.of(p.from(), p.to()))
+            .toList();
+    }
+
+    public List<Pair<Integer, Integer>> moves() {
+        return this.modifications.stream()
+            .map(p -> p instanceof MoveParam param ? param : null)
+            .filter(Objects::nonNull)
+            .map(p -> Pair.of(p.from(), p.to()))
+            .toList();
+    }
+
     @Override
     public List<Integer> removals() {
         return this.modifications.stream()
@@ -178,9 +196,9 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
     }
 
     @Override
-    public List<MethodTransform> asParameterTransformer(ParamTransformTarget type, boolean withOffset) {
+    public MethodTransform asParameterTransformer(ParamTransformTarget type, boolean withOffset) {
         List<ParameterTransformer> transformers = this.modifications.stream().map(ParamModification::asParameterTransformer).toList();
-        return List.of(new TransformParameters(transformers, withOffset, type));
+        return new TransformParameters(transformers, withOffset, type);
     }
 
     public static Builder builder() {
@@ -195,97 +213,97 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder insert(int index, Type type) {
+        public Builder insert(int index, Type type) {
             this.modifications.add(new InsertParam(index, type));
             return this;
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder insertions(List<Pair<Integer, Type>> insertions) {
+        public Builder insertions(List<Pair<Integer, Type>> insertions) {
             insertions.forEach(p -> insert(p.getFirst(), p.getSecond()));
             return this;
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder replace(int index, Type type) {
+        public Builder replace(int index, Type type) {
             this.modifications.add(new ReplaceParam(index, type));
             return this;
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder replacements(List<Pair<Integer, Type>> replacements) {
+        public Builder replacements(List<Pair<Integer, Type>> replacements) {
             replacements.forEach(p -> replace(p.getFirst(), p.getSecond()));
             return this;
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder swap(int from, int to) {
+        public Builder swap(int from, int to) {
             this.modifications.add(new SwapParam(from, to));
             return this;
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder swaps(List<Pair<Integer, Integer>> swaps) {
+        public Builder swaps(List<Pair<Integer, Integer>> swaps) {
             swaps.forEach(p -> swap(p.getFirst(), p.getSecond()));
             return this;
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder substitute(int target, int substitute) {
+        public Builder substitute(int target, int substitute) {
             this.modifications.add(new SubstituteParam(target, substitute));
             return this;
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder substitutes(List<Pair<Integer, Integer>> substitutes) {
+        public Builder substitutes(List<Pair<Integer, Integer>> substitutes) {
             substitutes.forEach(p -> substitute(p.getFirst(), p.getSecond()));
             return this;
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder move(int from, int to) {
+        public Builder move(int from, int to) {
             this.modifications.add(new MoveParam(from, to));
             return this;
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder moves(List<Pair<Integer, Integer>> moves) {
+        public Builder moves(List<Pair<Integer, Integer>> moves) {
             moves.forEach(p -> move(p.getFirst(), p.getSecond()));
             return this;
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder remove(int index) {
+        public Builder remove(int index) {
             this.modifications.add(new RemoveParam(index));
             this.removals.add(index);
             return this;
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder removals(List<Integer> removals) {
+        public Builder removals(List<Integer> removals) {
             removals.forEach(this::remove);
             return this;
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder inline(int target, Consumer<InstructionAdapter> adapter) {
+        public Builder inline(int target, Consumer<InstructionAdapter> adapter) {
             this.modifications.add(new InlineParam(target, adapter));
             return this;
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder inlines(List<Pair<Integer, Consumer<InstructionAdapter>>> inlines) {
+        public Builder inlines(List<Pair<Integer, Consumer<InstructionAdapter>>> inlines) {
             inlines.forEach(p -> inline(p.getFirst(), p.getSecond()));
             return this;
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder merge(SimpleParamsDiffSnapshot diff) {
+        public Builder merge(SimpleParamsDiffSnapshot diff) {
             return merge(diff, 0);
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder merge(SimpleParamsDiffSnapshot diff, int indexOffset) {
+        public Builder merge(SimpleParamsDiffSnapshot diff, int indexOffset) {
             diff.insertions().forEach(p -> insert(p.getFirst() + indexOffset, p.getSecond()));
             diff.replacements().forEach(p -> replace(p.getFirst() + indexOffset, p.getSecond()));
             diff.swaps().forEach(p -> swap(p.getFirst() + indexOffset, p.getSecond() + indexOffset));
