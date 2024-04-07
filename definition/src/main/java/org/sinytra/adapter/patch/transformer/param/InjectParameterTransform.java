@@ -23,11 +23,15 @@ import java.util.List;
 import static org.sinytra.adapter.patch.transformer.param.ParamTransformationUtil.calculateLVTIndex;
 import static org.sinytra.adapter.patch.transformer.param.ParamTransformationUtil.extractWrapOperation;
 
-public record InjectParameterTransform(int index, Type type) implements ParameterTransformer {
+public record InjectParameterTransform(int index, Type type, boolean upgradeWrapOperation) implements ParameterTransformer {
     static final Codec<InjectParameterTransform> CODEC = RecordCodecBuilder.create(in -> in.group(
         Codec.intRange(0, 255).fieldOf("index").forGetter(InjectParameterTransform::index),
         AdapterUtil.TYPE_CODEC.fieldOf("parameterType").forGetter(InjectParameterTransform::type)
     ).apply(in, InjectParameterTransform::new));
+
+    public InjectParameterTransform(int index, Type type) {
+        this(index, type, true);
+    }
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, List<Type> parameters, int offset) {
@@ -68,8 +72,10 @@ public record InjectParameterTransform(int index, Type type) implements Paramete
             methodNode.localVariables.add(index + (isNonStatic ? 1 : 0), new LocalVariableNode(newParameter.name, type.getDescriptor(), null, self.start, self.end, lvtIndex));
         });
 
-        extractWrapOperation(methodContext, methodNode, parameters, wrapOpModification -> wrapOpModification
-            .insertParameter(index, nodes -> nodes.add(new VarInsnNode(Opcodes.ALOAD, lvtIndex))));
+        if (this.upgradeWrapOperation) {
+            extractWrapOperation(methodContext, methodNode, parameters, wrapOpModification -> wrapOpModification
+                .insertParameter(index, nodes -> nodes.add(new VarInsnNode(Opcodes.ALOAD, lvtIndex))));
+        }
 
         return Patch.Result.APPLY;
     }

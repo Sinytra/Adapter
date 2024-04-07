@@ -88,7 +88,7 @@ public record SimpleParamsDiffSnapshot(
     }
 
     @Override
-    public MethodTransform asParameterTransformer(ParamTransformTarget type, boolean withOffset) {
+    public MethodTransform asParameterTransformer(ParamTransformTarget type, boolean withOffset, boolean upgradeWrapOperation) {
         List<MethodTransform> list = new ArrayList<>();
         SimpleParamsDiffSnapshot light = new SimpleParamsDiffSnapshot(List.of(), this.replacements, this.swaps, this.substitutes, this.removals, this.moves, this.inlines);
         if (!light.isEmpty()) {
@@ -96,8 +96,8 @@ public record SimpleParamsDiffSnapshot(
         }
         if (!this.insertions.isEmpty()) {
             list.add(new TransformParameters(this.insertions.stream()
-                .<ParameterTransformer>map(p -> new InjectParameterTransform(p.getFirst(), p.getSecond()))
-                .toList(), true, type));
+                .<ParameterTransformer>map(p -> new InjectParameterTransform(p.getFirst(), p.getSecond(), upgradeWrapOperation))
+                .toList(), withOffset, type));
         }
         return new BundledMethodTransform(list);
     }

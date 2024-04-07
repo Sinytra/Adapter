@@ -68,6 +68,7 @@ public class EnhancedParamsDiff {
 
     private static void buildDiffWithContext(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue, boolean compareNames) {
         int dirtySize = dirtyQueue.size();
+        boolean sameSize = cleanQueue.size() == dirtyQueue.size();
 
         if (DEBUG) {
             LOGGER.info("Comparing types:\n{}", printTable(cleanQueue, dirtyQueue));
@@ -76,7 +77,7 @@ public class EnhancedParamsDiff {
         while (!cleanQueue.isEmpty()) {
             // Look ahead for matching types at the beginning of the list
             // If the first two are equal, remove the first ones and repeat
-            if (sameParameter(cleanQueue, dirtyQueue, compareNames)) {
+            if (predictParameterMatch(builder, cleanQueue, dirtyQueue, compareNames, sameSize)) {
                 cleanQueue.remove(0);
                 dirtyQueue.remove(0);
                 continue;
@@ -127,11 +128,60 @@ public class EnhancedParamsDiff {
         }
     }
 
-    private static boolean sameParameter(List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue, boolean compareNames) {
-        return cleanQueue.size() > 1 && dirtyQueue.size() > 1 && (
-            compareNames ? cleanQueue.get(0).matches(dirtyQueue.get(0)) && cleanQueue.get(1).matches(dirtyQueue.get(1))
-                : cleanQueue.get(0).sameType(dirtyQueue.get(0)) && cleanQueue.get(1).sameType(dirtyQueue.get(1))
-        );
+    private static boolean predictParameterMatch(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue, boolean compareNames, boolean sameSize) {
+        // For same-sized comparisons, we can be certain there have been no insertions
+        if (sameSize && !cleanQueue.isEmpty() && !dirtyQueue.isEmpty()) {
+            if (!cleanQueue.get(0).sameType(dirtyQueue.get(0))) {
+                // If the first parameters differ, it's possible one of them has been removed
+                // == Clean ==
+                // 0 Foo
+                // 1 Bar
+                // 2 World
+                // == Dirty ==
+                // 0 Bar
+                // 1 World
+                // 2 Sheep
+                if (cleanQueue.size() > 2 && dirtyQueue.size() > 2 && cleanQueue.get(1).matches(dirtyQueue.get(0)) && cleanQueue.get(2).matches(dirtyQueue.get(1))) {
+                    builder.remove(cleanQueue.get(0).pos());
+                    cleanQueue.remove(0);
+                    return true;
+                }
+                return false;
+            }
+            return true;
+        }
+        else if (cleanQueue.size() > 1 && dirtyQueue.size() > 1) {
+            // Comparing names can be useful in cases where a parameter is inserted in between multiple ones of the same type
+            if (compareNames) {
+                if (cleanQueue.get(0).matches(dirtyQueue.get(0))) {
+                    if (cleanQueue.get(1).matches(dirtyQueue.get(1))) {
+                        // If the first two parameters match, we can be sure the first ones are identical without any insertions
+                        return true;
+                    }
+                    // Check for inserted parameters
+                    // == Clean ==
+                    // 0 F one
+                    // 1 F two
+                    // 2 F three
+                    // == Dirty ==
+                    // 0 F one
+                    // 1 F <inserted>
+                    // 2 F two
+                    else if (dirtyQueue.size() > 2 && cleanQueue.get(1).matches(dirtyQueue.get(2))) {
+                        builder.insert(dirtyQueue.get(1).pos(), dirtyQueue.get(1).type());
+                        cleanQueue.remove(0);
+                        dirtyQueue.remove(0);
+                        dirtyQueue.remove(0);
+                        return true;
+                    }
+                }
+            }
+            else {
+                // If the first two parameters match, we can be sure the first ones are identical without any insertions
+                return cleanQueue.get(0).sameType(dirtyQueue.get(0)) && cleanQueue.get(1).sameType(dirtyQueue.get(1));
+            }
+        }
+        return false;
     }
 
     private static int findClosestMatch(List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {

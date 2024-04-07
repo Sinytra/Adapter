@@ -332,6 +332,27 @@ public class EnhancedParamsDiffTest {
     }
 
     @Test
+    void testCompareReplacedParameters3() {
+        List<Type> original = List.of(
+            Type.getObjectType("net/minecraft/world/item/ItemStack"),
+            Type.getObjectType("net/minecraft/item/Item"),
+            Type.getObjectType("com/llamalad7/mixinextras/injector/wrapoperation/Operation")
+        );
+        List<Type> modified = List.of(
+            Type.getObjectType("net/minecraft/world/item/ItemStack"),
+            Type.getObjectType("net/minecraft/world/entity/LivingEntity"),
+            Type.getObjectType("com/llamalad7/mixinextras/injector/wrapoperation/Operation")
+        );
+
+        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(original, modified);
+        assertTrue(diff.insertions().isEmpty());
+        assertEquals(1, diff.replacements().size());
+        assertTrue(diff.removals().isEmpty());
+        assertTrue(diff.swaps().isEmpty());
+        assertTrue(diff.moves().isEmpty());
+    }
+
+    @Test
     void testCompareCombinedParameters() {
         List<Type> original = List.of(
             Type.getType(String.class),
@@ -398,7 +419,7 @@ public class EnhancedParamsDiffTest {
 
         SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(original, modified);
         assertEquals(1, diff.insertions().size());
-        assertEquals(Pair.of(4, Type.DOUBLE_TYPE), diff.insertions().get(0));
+        assertEquals(Pair.of(3, Type.DOUBLE_TYPE), diff.insertions().get(0));
         assertTrue(diff.replacements().isEmpty());
         assertEquals(1, diff.removals().size());
         assertTrue(diff.swaps().isEmpty());

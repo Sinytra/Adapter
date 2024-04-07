@@ -51,7 +51,7 @@ public final class MethodUpgrader {
         // Create diff
         SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(originalDesc, modifiedDesc);
         if (!diff.isEmpty()) {
-            MethodTransform patch = diff.asParameterTransformer(ParamTransformTarget.ALL, true);
+            MethodTransform patch = diff.asParameterTransformer(ParamTransformTarget.ALL, false, false);
             patch.apply(classNode, methodNode, methodContext, methodContext.patchContext());
         }
     }

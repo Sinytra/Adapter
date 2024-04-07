@@ -196,7 +196,7 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
     }
 
     @Override
-    public MethodTransform asParameterTransformer(ParamTransformTarget type, boolean withOffset) {
+    public MethodTransform asParameterTransformer(ParamTransformTarget type, boolean withOffset, boolean upgradeWrapOperation) {
         List<ParameterTransformer> transformers = this.modifications.stream().map(ParamModification::asParameterTransformer).toList();
         return new TransformParameters(transformers, withOffset, type);
     }

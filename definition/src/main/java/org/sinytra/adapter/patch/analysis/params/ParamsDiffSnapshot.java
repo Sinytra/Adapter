@@ -18,5 +18,9 @@ public interface ParamsDiffSnapshot {
     
     ParamsDiffSnapshot offset(int offset, int limit);
 
-    MethodTransform asParameterTransformer(ParamTransformTarget type, boolean withOffset);
+    default MethodTransform asParameterTransformer(ParamTransformTarget type, boolean withOffset) {
+        return asParameterTransformer(type, withOffset, true);
+    }
+
+    MethodTransform asParameterTransformer(ParamTransformTarget type, boolean withOffset, boolean upgradeWrapOperation);
 }
