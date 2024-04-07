@@ -55,7 +55,7 @@ public record ModifyRedirectToWrapper(MethodQualifier originalTarget, MethodQual
 
         TransformParameters removeOldParamsPatch = TransformParameters.builder()
             .chain(b -> {
-                for (int i = offset; i < Type.getArgumentTypes(methodNode.desc).length; i++) {
+                for (int i = Type.getArgumentTypes(methodNode.desc).length - 1; i >= offset; i--) {
                     b.remove(i);
                 }
             })
