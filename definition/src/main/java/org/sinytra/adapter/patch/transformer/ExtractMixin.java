@@ -263,6 +263,7 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
         TransformParameters patch = TransformParameters.builder()
             .chain(b -> IntStream.range(paramLocalStart, capturedLocals.paramLocalEnd())
                 .filter(i -> !used.contains(i))
+                .boxed().sorted(Collections.reverseOrder())
                 .forEach(b::remove))
             .build();
         Patch.Result result = patch.apply(classNode, methodNode, methodContext, context);
@@ -277,9 +278,11 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
         copy.invisibleAnnotations = null;
         methodNode.instructions = new InsnList();
         // Remove used locals from the original method, as we'll be providing them ourselves
-        TransformParameters.Builder cleanupBuilder = TransformParameters.builder();
-        IntStream.range(paramLocalStart, paramLocalStart + used.size()).forEach(cleanupBuilder::remove);
-        TransformParameters cleanupPatch = cleanupBuilder.build();
+        TransformParameters cleanupPatch = TransformParameters.builder()
+            .chain(b -> IntStream.range(paramLocalStart, paramLocalStart + used.size()).boxed()
+                .sorted(Collections.reverseOrder())
+                .forEach(b::remove))
+            .build();
         Patch.Result cleanupResult = cleanupPatch.apply(classNode, methodNode, methodContext, context);
         if (cleanupResult == Patch.Result.PASS) {
             return Patch.Result.PASS;
