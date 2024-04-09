@@ -55,6 +55,8 @@ public interface MethodContext {
 
     List<Integer> getLvtCompatLevelsOrdered();
 
+    boolean capturesLocals();
+
     record LocalVariable(int index, Type type) {}
 
     record TargetPair(ClassNode classNode, MethodNode methodNode) {}

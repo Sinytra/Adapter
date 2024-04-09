@@ -149,15 +149,14 @@ public class EnhancedParamsDiff {
                 return false;
             }
             return true;
-        }
-        else if (cleanQueue.size() > 1 && dirtyQueue.size() > 1) {
-            // Comparing names can be useful in cases where a parameter is inserted in between multiple ones of the same type
-            if (compareNames) {
-                if (cleanQueue.get(0).matches(dirtyQueue.get(0))) {
-                    if (cleanQueue.get(1).matches(dirtyQueue.get(1))) {
-                        // If the first two parameters match, we can be sure the first ones are identical without any insertions
-                        return true;
-                    }
+        } else if (cleanQueue.size() > 1 && dirtyQueue.size() > 1) {
+            if (cleanQueue.get(0).sameType(dirtyQueue.get(0))) {
+                if (cleanQueue.get(1).matches(dirtyQueue.get(1))) {
+                    // If the first two parameters match, we can be sure the first ones are identical without any insertions
+                    return true;
+                }
+                // Comparing names can be useful in cases where a parameter is inserted in between multiple ones of the same type
+                else if (compareNames) {
                     // Check for inserted parameters
                     // == Clean ==
                     // 0 F one
@@ -167,19 +166,33 @@ public class EnhancedParamsDiff {
                     // 0 F one
                     // 1 F <inserted>
                     // 2 F two
-                    else if (dirtyQueue.size() > 2 && cleanQueue.get(1).matches(dirtyQueue.get(2))) {
+                    if (dirtyQueue.size() > 2 && cleanQueue.get(1).matches(dirtyQueue.get(2))) {
                         builder.insert(dirtyQueue.get(1).pos(), dirtyQueue.get(1).type());
                         cleanQueue.remove(0);
                         dirtyQueue.remove(0);
                         dirtyQueue.remove(0);
                         return true;
                     }
+                } else {
+                    // Check for moved parameters
+                    TypeWithContext param = cleanQueue.get(1);
+                    TypeWithContext dirtyParam = dirtyQueue.get(1);
+                    Map<Type, Integer> cleanGroup = groupTypes(cleanQueue);
+                    Map<Type, Integer> dirtyGroup = groupTypes(dirtyQueue);
+                    if (cleanGroup.get(param.type()) == 1 && dirtyGroup.getOrDefault(param.type(), 0) == 1
+                        // Make sure the next param isn't injected
+                        && Objects.equals(cleanGroup.getOrDefault(dirtyParam.type(), 0), dirtyGroup.get(dirtyParam.type()))
+                    ) {
+                        // The parameter has been moved
+                        TypeWithContext newParam = dirtyQueue.stream().filter(t -> t.type().equals(param.type())).findFirst().orElseThrow();
+                        builder.move(param.pos(), newParam.pos());
+                        cleanQueue.remove(param);
+                        dirtyQueue.remove(newParam);
+                        return true;
+                    }
                 }
             }
-            else {
-                // If the first two parameters match, we can be sure the first ones are identical without any insertions
-                return cleanQueue.get(0).sameType(dirtyQueue.get(0)) && cleanQueue.get(1).sameType(dirtyQueue.get(1));
-            }
+            return false;
         }
         return false;
     }

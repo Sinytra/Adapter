@@ -32,8 +32,8 @@ public final class AdapterUtil {
     public static final Codec<Type> TYPE_CODEC = Codec.STRING.xmap(Type::getType, Type::getDescriptor);
     public static final String LAMBDA_PREFIX = "lambda$";
     private static final Pattern FIELD_REF_PATTERN = Pattern.compile("^(?<owner>L.+?;)?(?<name>[^:]+)?:(?<desc>.+)?$");
-    private static final Type CI_TYPE = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfo");
-    private static final Type CIR_TYPE = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable");
+    public static final Type CI_TYPE = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfo");
+    public static final Type CIR_TYPE = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable");
     private static final Logger LOGGER = LogUtils.getLogger();
 
     public static int getLVTOffsetForType(Type type) {
@@ -211,8 +211,9 @@ public final class AdapterUtil {
     public static CapturedLocals getCapturedLocals(MethodNode methodNode, MethodContext methodContext) {
         AnnotationHandle annotation = methodContext.methodAnnotation();
         Type[] params = Type.getArgumentTypes(methodNode.desc);
+        OptionalInt paramLocalPos = getCapturedLocalStartingIndex(params);
         // Sanity check to make sure the injector method takes in a CI or CIR argument
-        if (Stream.of(params).noneMatch(p -> p.equals(CI_TYPE) || p.equals(CIR_TYPE))) {
+        if (paramLocalPos.isEmpty()) {
             LOGGER.debug("Missing CI or CIR argument in injector of type {}", annotation.getDesc());
             return null;
         }
@@ -223,14 +224,23 @@ public final class AdapterUtil {
         List<Type> ignored = getAnnotatedParameters(methodNode, params, MixinConstants.SHARE, (node, type) -> type);
         Type[] availableParams = Stream.of(params).filter(t -> !ignored.contains(t)).toArray(Type[]::new);
 
-        Type[] targetParams = Type.getArgumentTypes(target.methodNode().desc);
         boolean isStatic = (methodNode.access & Opcodes.ACC_STATIC) != 0;
         int lvtOffset = isStatic ? 0 : 1;
         // The first local var in the method's params comes after the target's params plus the CI/CIR parameter
-        int paramLocalPos = targetParams.length + 1;
+        int paramLocalPosVal = paramLocalPos.getAsInt();
         // Get expected local variables from method parameters
-        List<Type> expected = AdapterUtil.summariseLocals(availableParams, paramLocalPos);
-        return new CapturedLocals(target, isStatic, paramLocalPos, paramLocalPos + expected.size(), lvtOffset, expected, new LocalVariableLookup(methodNode));
+        List<Type> expected = AdapterUtil.summariseLocals(availableParams, paramLocalPosVal);
+        return new CapturedLocals(target, isStatic, paramLocalPosVal, paramLocalPosVal + expected.size(), lvtOffset, expected, new LocalVariableLookup(methodNode));
+    }
+
+    private static OptionalInt getCapturedLocalStartingIndex(Type[] params) {
+        for (int i = 0; i < params.length; i++) {
+            Type param = params[i];
+            if ((param.equals(CI_TYPE) || param.equals(CIR_TYPE)) && i + 1 < params.length) {
+                return OptionalInt.of(i + 1);
+            }
+        }
+        return OptionalInt.empty();
     }
 
     public record CapturedLocals(MethodContext.TargetPair target, boolean isStatic, int paramLocalStart, int paramLocalEnd, int lvtOffset,
@@ -250,6 +260,10 @@ public final class AdapterUtil {
         text.print(pw);
         pw.flush();
         return sw.toString();
+    }
+
+    public static Type getMixinCallableReturnType(MethodNode method) {
+        return Type.getReturnType(method.desc) == Type.VOID_TYPE ? CI_TYPE : CIR_TYPE;
     }
 
     private AdapterUtil() {

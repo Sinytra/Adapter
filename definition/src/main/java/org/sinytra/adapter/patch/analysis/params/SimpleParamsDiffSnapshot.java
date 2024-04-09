@@ -95,9 +95,13 @@ public record SimpleParamsDiffSnapshot(
             list.add(new ModifyMethodParams(light, type, false, null));
         }
         if (!this.insertions.isEmpty()) {
-            list.add(new TransformParameters(this.insertions.stream()
-                .<ParameterTransformer>map(p -> new InjectParameterTransform(p.getFirst(), p.getSecond(), upgradeWrapOperation))
-                .toList(), withOffset, type));
+            list.add(TransformParameters.builder()
+                .transform(this.insertions.stream()
+                    .<ParameterTransformer>map(p -> new InjectParameterTransform(p.getFirst(), p.getSecond(), upgradeWrapOperation))
+                    .toList())
+                .withOffset(withOffset)
+                .targetType(type)
+                .build());
         }
         return new BundledMethodTransform(list);
     }

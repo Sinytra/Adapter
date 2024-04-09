@@ -16,7 +16,7 @@ import java.util.function.Consumer;
 public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) implements ParamsDiffSnapshot {
     public static LayeredParamsDiffSnapshot EMPTY = new LayeredParamsDiffSnapshot(List.of());
 
-    interface ParamModification {
+    public interface ParamModification {
         ParamModification offset(int offset);
 
         boolean satisfiesIndexLimit(int index);
@@ -198,7 +198,7 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
     @Override
     public MethodTransform asParameterTransformer(ParamTransformTarget type, boolean withOffset, boolean upgradeWrapOperation) {
         List<ParameterTransformer> transformers = this.modifications.stream().map(ParamModification::asParameterTransformer).toList();
-        return new TransformParameters(transformers, withOffset, type);
+        return TransformParameters.builder().transform(transformers).withOffset(withOffset).targetType(type).build();
     }
 
     public static Builder builder() {

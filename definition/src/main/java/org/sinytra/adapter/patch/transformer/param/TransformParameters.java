@@ -86,6 +86,11 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
             return this;
         }
 
+        public Builder transform(List<ParameterTransformer> transformers) {
+            this.transformers.addAll(transformers);
+            return this;
+        }
+
         public Builder inject(int parameterIndex, Type type) {
             return this.transform(new InjectParameterTransform(parameterIndex, type));
         }
@@ -117,6 +122,11 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
 
         public Builder withOffset() {
             this.offset = true;
+            return this;
+        }
+
+        public Builder withOffset(boolean offset) {
+            this.offset = offset;
             return this;
         }
 

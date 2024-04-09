@@ -37,31 +37,25 @@ public record MoveParametersTransformer(int from, int to) implements ParameterTr
         LocalVariableLookup lookup = new LocalVariableLookup(methodNode);
         LocalVariableNode localVar = lookup.getByParameterOrdinal(paramIndex);
 
-        LVTSnapshot.with(methodNode, () -> {
-            if (paramIndex < methodNode.parameters.size()) {
-                ParameterNode parameter = methodNode.parameters.remove(paramIndex);
-                methodNode.parameters.add(this.to, parameter);
-            }
+        if (paramIndex < methodNode.parameters.size()) {
+            ParameterNode parameter = methodNode.parameters.remove(paramIndex);
+            methodNode.parameters.add(this.to > paramIndex ? this.to - 1 : this.to, parameter);
+        }
 
-            methodNode.localVariables.remove(localVar);
-            parameters.remove(paramIndex);
+        int tempIndex = -999;
+        AdapterUtil.replaceLVT(methodNode, idx -> idx == localVar.index ? tempIndex : idx);
 
-            int tempIndex = -999;
-            AdapterUtil.replaceLVT(methodNode, idx -> idx == localVar.index ? tempIndex : idx);
+        LVTSnapshot.with(methodNode, () -> methodNode.localVariables.remove(localVar));
+        parameters.remove(paramIndex);
 
-            Type type = Type.getType(localVar.desc);
-            int varOffset = AdapterUtil.getLVTOffsetForType(type);
-            int destination = this.to;
-            if (destination > this.from) {
-                destination -= varOffset;
-            }
-            localVar.index = lookup.getByParameterOrdinal(destination).index + offset;
-            methodNode.localVariables.add(localVar.index, localVar);
+        Type type = Type.getType(localVar.desc);
+        int destination = this.to;
+        localVar.index = lookup.getByParameterOrdinal(destination).index + offset;
 
-            AdapterUtil.replaceLVT(methodNode, idx -> idx == tempIndex ? localVar.index : idx);
+        LVTSnapshot.with(methodNode, () -> methodNode.localVariables.add(localVar.index, localVar));
+        AdapterUtil.replaceLVT(methodNode, idx -> idx == tempIndex ? localVar.index : idx);
 
-            parameters.add(destination, type);
-        });
+        parameters.add(this.to > paramIndex ? this.to - 1 : this.to, type);
 
         return Patch.Result.COMPUTE_FRAMES;
     }

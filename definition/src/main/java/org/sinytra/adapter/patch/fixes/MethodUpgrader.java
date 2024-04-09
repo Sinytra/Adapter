@@ -4,13 +4,18 @@ import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.patch.analysis.LocalVarAnalyzer;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
+import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MethodTransform;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.transformer.ModifyArgsOffsetTransformer;
 import org.sinytra.adapter.patch.transformer.param.ParamTransformTarget;
+import org.sinytra.adapter.patch.transformer.param.ParameterTransformer;
+import org.sinytra.adapter.patch.transformer.param.TransformParameters;
+import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.List;
@@ -30,6 +35,36 @@ public final class MethodUpgrader {
             ModifyArgsOffsetTransformer.handleModifiedDesc(methodNode, cleanQualifier.desc(), dirtyQualifier.desc());
         } else if (methodContext.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
             upgradeWrapOperation(classNode, methodNode, methodContext, cleanQualifier, dirtyQualifier);
+        }
+    }
+
+    public static void upgradeCapturedLocals(ClassNode classNode, MethodNode methodNode, MethodContext methodContext) {
+        AdapterUtil.CapturedLocals capturedLocals = AdapterUtil.getCapturedLocals(methodNode, methodContext);
+        if (capturedLocals == null) {
+            return;
+        }
+
+        List<MethodContext.LocalVariable> availableLocals = methodContext.getTargetMethodLocals(capturedLocals.target());
+        // For now, only handle cases where all locals are part of the method's params, convenient when switching the target to a lambda
+        if (availableLocals == null || !availableLocals.isEmpty()) {
+            return;
+        }
+
+        LocalVarAnalyzer.CapturedLocalsTransform transform = LocalVarAnalyzer.analyzeCapturedLocals(capturedLocals, methodNode);
+        transform.remover().apply(classNode, methodNode, methodContext, methodContext.patchContext());
+
+        List<Type> expected = List.of(Type.getArgumentTypes(methodNode.desc));
+        List<Type> required = ImmutableList.<Type>builder()
+            .add(Type.getArgumentTypes(capturedLocals.target().methodNode().desc))
+            .add(AdapterUtil.getMixinCallableReturnType(capturedLocals.target().methodNode()))
+            .build();
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(expected, required);
+        if (!diff.isEmpty()) {
+            List<ParameterTransformer> transformers = diff.modifications().stream()
+                .map(LayeredParamsDiffSnapshot.ParamModification::asParameterTransformer)
+                .toList();
+            MethodTransform patch = TransformParameters.builder().transform(transformers).withOffset().targetType(ParamTransformTarget.METHOD).build();
+            patch.apply(classNode, methodNode, methodContext, methodContext.patchContext());
         }
     }
 

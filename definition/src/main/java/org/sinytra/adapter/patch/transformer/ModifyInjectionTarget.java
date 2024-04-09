@@ -6,6 +6,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.api.*;
+import org.sinytra.adapter.patch.fixes.MethodUpgrader;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.util.MethodQualifier;
@@ -35,6 +36,7 @@ public record ModifyInjectionTarget(List<String> replacementMethods, Action acti
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
         LOGGER.info(MIXINPATCH, "Redirecting mixin {}.{} to {}", classNode.name, methodNode.name, this.replacementMethods);
         AnnotationHandle annotation = methodContext.methodAnnotation();
+
         if (annotation.matchesDesc(MixinConstants.OVERWRITE)) {
             if (this.replacementMethods.size() > 1) {
                 throw new IllegalStateException("Cannot determine replacement @Overwrite method name, multiple specified: " + this.replacementMethods);
@@ -49,6 +51,11 @@ public record ModifyInjectionTarget(List<String> replacementMethods, Action acti
                 () -> annotation.appendValue("method", this.replacementMethods)
             );
         }
+
+        if (methodContext.capturesLocals()) {
+            MethodUpgrader.upgradeCapturedLocals(classNode, methodNode, methodContext);
+        }
+
         return Patch.Result.APPLY;
     }
 

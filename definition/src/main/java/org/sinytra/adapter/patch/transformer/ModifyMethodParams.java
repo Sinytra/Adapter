@@ -27,6 +27,7 @@ import java.util.*;
 import java.util.function.Consumer;
 
 import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
+import static org.sinytra.adapter.patch.transformer.param.ParamTransformationUtil.calculateLVTIndex;
 import static org.sinytra.adapter.patch.transformer.param.ParamTransformationUtil.findWrapOperationOriginalCall;
 
 // TODO Refactor
@@ -270,14 +271,6 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
         methodContext.updateDescription(newParameterTypes);
 
         return this.context.shouldComputeFrames() ? Patch.Result.COMPUTE_FRAMES : Patch.Result.APPLY;
-    }
-
-    private int calculateLVTIndex(List<Type> parameters, boolean nonStatic, int index) {
-        int lvt = nonStatic ? 1 : 0;
-        for (int i = 0; i < index; i++) {
-            lvt += parameters.get(i).getSize();
-        }
-        return lvt;
     }
 
     private static Pair<@Nullable ParameterNode, @Nullable LocalVariableNode> removeLocalVariable(MethodNode methodNode, int paramIndex, int lvtOffset, int replaceIndex, List<Type> newParameterTypes) {

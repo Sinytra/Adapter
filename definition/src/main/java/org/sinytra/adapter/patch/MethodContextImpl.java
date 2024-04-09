@@ -187,6 +187,11 @@ public final class MethodContextImpl implements MethodContext {
             .toList();
     }
 
+    @Override
+    public boolean capturesLocals() {
+        return methodAnnotation().getValue("locals").isPresent();
+    }
+
     private InsnList getSlicedInsns(AnnotationHandle parentAnnotation, ClassNode classNode, MethodNode injectorMethod, ClassNode targetClass, MethodNode targetMethod, PatchContext context) {
         return parentAnnotation.<AnnotationNode>getValue("slice")
             .map(handle -> {

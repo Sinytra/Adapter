@@ -2,6 +2,7 @@ package org.sinytra.adapter.patch.analysis;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.LocalVariableNode;
@@ -33,6 +34,11 @@ public class LocalVariableLookup {
 
     public LocalVariableNode getByIndex(int index) {
         return Objects.requireNonNull(this.byIndex.get(index), "Missing local variable at index " + index);
+    }
+
+    @Nullable
+    public LocalVariableNode getByIndexOrNull(int index) {
+        return this.byIndex.get(index);
     }
 
     public int getOrdinal(LocalVariableNode node) {

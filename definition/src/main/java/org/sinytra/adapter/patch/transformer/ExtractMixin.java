@@ -1,17 +1,16 @@
 package org.sinytra.adapter.patch.transformer;
 
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
-import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.patch.analysis.LocalVarAnalyzer;
+import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.transformer.param.TransformParameters;
 import org.sinytra.adapter.patch.util.AdapterUtil;
-import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.OpcodeUtil;
 
@@ -236,37 +235,17 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
         if (capturedLocals == null) {
             return Patch.Result.PASS;
         }
+        LocalVariableLookup table = capturedLocals.lvt();
         int paramLocalStart = capturedLocals.paramLocalStart();
 
         // Mixin requires capturing locals in their original order, so we must filter out unused ones 
-        // Find used captured locals
-        LocalVariableLookup table = capturedLocals.lvt();
-        List<Integer> used = new ArrayList<>();
-        for (AbstractInsnNode insn : methodNode.instructions) {
-            if (insn instanceof VarInsnNode varInsn) {
-                LocalVariableNode node = table.getByIndex(varInsn.var);
-                int ordinal = table.getOrdinal(node);
-                if (ordinal >= paramLocalStart && ordinal <= capturedLocals.paramLocalEnd()) {
-                    used.add(ordinal - 1); // Subtract 1, which represents the CI param
-                }
-            }
-        }
-        // Find instructions used to initialize each used variable in the target method
-        LocalVariableLookup targetTable = new LocalVariableLookup(capturedLocals.target().methodNode());
-        Int2ObjectMap<InsnList> varInsnLists = new Int2ObjectOpenHashMap<>();
-        Int2IntMap usageCount = new Int2IntOpenHashMap();
-        used.forEach(ordinal -> {
-            int index = targetTable.getByOrdinal(ordinal).index;
-            findVariableInitializerInsns(capturedLocals.target().methodNode(), capturedLocals.isStatic(), index, varInsnLists, usageCount);
-        });
-        // Remove unused captured locals
-        TransformParameters patch = TransformParameters.builder()
-            .chain(b -> IntStream.range(paramLocalStart, capturedLocals.paramLocalEnd())
-                .filter(i -> !used.contains(i))
-                .boxed().sorted(Collections.reverseOrder())
-                .forEach(b::remove))
-            .build();
-        Patch.Result result = patch.apply(classNode, methodNode, methodContext, context);
+        LocalVarAnalyzer.CapturedLocalsTransform transform = LocalVarAnalyzer.analyzeCapturedLocals(capturedLocals, methodNode);
+        LocalVarAnalyzer.CapturedLocalsUsage usage = transform.getUsage(capturedLocals);
+        List<Integer> used = transform.used();
+        LocalVariableLookup targetTable = usage.targetTable();
+        Int2ObjectMap<InsnList> varInsnLists = usage.varInsnLists();
+        Int2IntMap usageCount = usage.usageCount();
+        Patch.Result result = transform.remover().apply(classNode, methodNode, methodContext, context);
         if (result == Patch.Result.PASS) {
             return Patch.Result.PASS;
         }
@@ -366,31 +345,5 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
 
         extractClass.methods.add(copy);
         return Patch.Result.COMPUTE_FRAMES;
-    }
-
-    private static void findVariableInitializerInsns(MethodNode methodNode, boolean isStatic, int index, Int2ObjectMap<InsnList> varInsnLists, Int2IntMap usageCount) {
-        InsnList insns = new InsnList();
-        outer:
-        for (AbstractInsnNode insn : methodNode.instructions) {
-            if (insn instanceof VarInsnNode varInsn && varInsn.var == index && OpcodeUtil.isStoreOpcode(varInsn.getOpcode())) {
-                for (AbstractInsnNode prev = insn.getPrevious(); prev != null; prev = prev.getPrevious()) {
-                    if (prev instanceof LabelNode) {
-                        break outer;
-                    }
-                    if (prev instanceof FrameNode || prev instanceof LineNumberNode) {
-                        continue;
-                    }
-                    if (prev instanceof VarInsnNode vInsn && (isStatic || vInsn.var != 0) && OpcodeUtil.isLoadOpcode(vInsn.getOpcode())) {
-                        // TODO Handle method params
-                        if (!varInsnLists.containsKey(vInsn.var)) {
-                            findVariableInitializerInsns(methodNode, isStatic, vInsn.var, varInsnLists, usageCount);
-                        }
-                        usageCount.compute(vInsn.var, (key, existing) -> existing == null ? 1 : existing + 1);
-                    }
-                    insns.insert(prev.clone(Map.of()));
-                }
-            }
-        }
-        varInsnLists.put(index, insns);
     }
 }
