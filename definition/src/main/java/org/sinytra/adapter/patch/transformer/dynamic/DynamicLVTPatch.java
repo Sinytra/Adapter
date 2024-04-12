@@ -24,6 +24,7 @@ import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.transformer.param.ParamTransformTarget;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.slf4j.Logger;
+import org.spongepowered.asm.mixin.FabricUtil;
 
 import java.util.*;
 import java.util.function.Supplier;
@@ -39,11 +40,11 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         if (methodNode.invisibleParameterAnnotations != null) {
             // Find @Local annotations on method parameters
             Type[] paramTypes = Type.getArgumentTypes(methodNode.desc);
-            List<AnnotationNode> localAnnotations = AdapterUtil.getAnnotatedParameters(methodNode, paramTypes, MixinConstants.LOCAL, (node, type) -> node);
+            List<Pair<AnnotationNode, Type>> localAnnotations = AdapterUtil.getAnnotatedParameters(methodNode, paramTypes, MixinConstants.LOCAL, Pair::of);
             if (!localAnnotations.isEmpty()) {
                 Patch.Result result = Patch.Result.PASS;
-                for (AnnotationNode localAnn : localAnnotations) {
-                    result = result.or(offsetVariableIndex(classNode, methodNode, new AnnotationHandle(localAnn), methodContext));
+                for (Pair<AnnotationNode, Type> pair : localAnnotations) {
+                    result = result.or(offsetParameterIndex(classNode, methodNode, new AnnotationHandle(pair.getFirst()), pair.getSecond(), methodContext));
                 }
                 return result;
             }
@@ -90,6 +91,30 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             }
         }
         return Patch.Result.PASS;
+    }
+
+    private Patch.Result offsetParameterIndex(ClassNode classNode, MethodNode methodNode, AnnotationHandle annotation, Type paramType, MethodContext methodContext) {
+        Patch.Result result = offsetVariableIndex(classNode, methodNode, annotation, methodContext);
+        // Validate implicit targets for @Local parameters
+        if (result == Patch.Result.PASS && annotation.getAllValues().isEmpty()) {
+            int compatLevel = methodContext.patchContext().environment().fabricLVTCompatibility();
+            if (compatLevel == FabricUtil.COMPATIBILITY_0_10_0) {
+                List<MethodContext.LocalVariable> locals = methodContext.getTargetMethodLocals(methodContext.findDirtyInjectionTarget(), 0, compatLevel);
+                if (locals.stream().filter(var -> var.type() == paramType).count() > 1) {
+                    // Mixin found more locals than required, let's try to fix this
+                    // The old method might still get us the expected results
+                    List<MethodContext.LocalVariable> oldCompatLocals = methodContext.getTargetMethodLocals(methodContext.findDirtyInjectionTarget(), 0, FabricUtil.COMPATIBILITY_0_9_2);
+                    List<MethodContext.LocalVariable> sameType = oldCompatLocals.stream().filter(var -> var.type() == paramType).toList();
+                    if (sameType.size() == 1) {
+                        int index = sameType.get(0).index();
+                        annotation.appendValue("index",  index);
+                        LOGGER.info(PatchInstance.MIXINPATCH, "Fixing @Local annotation target on {}.{} using index {}", classNode.name, methodNode.name, index);
+                        return Patch.Result.APPLY;
+                    }
+                }
+            }
+        }
+        return result;
     }
 
     private Patch.Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationHandle annotation, MethodContext methodContext) {
