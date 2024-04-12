@@ -6,6 +6,7 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.PatchContext;
@@ -41,6 +42,7 @@ public final class MethodContextImpl implements MethodContext {
 
     private final Supplier<TargetPair> cleanInjectionPairCache;
     private final Supplier<TargetPair> dirtyInjectionPairCache;
+    private final Supplier<LocalVariableLookup> cleanLocalsTableCache;
     private final Map<TargetPair, List<AbstractInsnNode>> targetInstructionsCache;
 
     public MethodContextImpl(ClassNode classNode, AnnotationValueHandle<?> classAnnotation, MethodNode methodNode, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation, List<Type> targetTypes, List<String> matchingTargets, PatchContext patchContext) {
@@ -59,6 +61,7 @@ public final class MethodContextImpl implements MethodContext {
         });
         this.dirtyInjectionPairCache = Suppliers.memoize(() -> findInjectionTarget(AdapterUtil::getClassNode));
         this.targetInstructionsCache = new HashMap<>();
+        this.cleanLocalsTableCache = Suppliers.memoize(() -> Optional.ofNullable(findCleanInjectionTarget()).map(pair -> new LocalVariableLookup(pair.methodNode())).orElse(null));
     }
 
     @Override
@@ -74,6 +77,11 @@ public final class MethodContextImpl implements MethodContext {
     @Override
     public TargetPair findDirtyInjectionTarget() {
         return this.dirtyInjectionPairCache.get();
+    }
+
+    @Override
+    public LocalVariableLookup cleanLocalsTable() {
+        return this.cleanLocalsTableCache.get();
     }
 
     @Nullable

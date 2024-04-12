@@ -5,6 +5,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.util.MethodQualifier;
@@ -29,6 +30,8 @@ public interface MethodContext {
     TargetPair findCleanInjectionTarget();
 
     TargetPair findDirtyInjectionTarget();
+
+    LocalVariableLookup cleanLocalsTable();
 
     @Nullable
     MethodQualifier getTargetMethodQualifier();

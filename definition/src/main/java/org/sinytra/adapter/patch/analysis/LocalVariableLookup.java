@@ -59,8 +59,13 @@ public class LocalVariableLookup {
             .toList());
     }
 
-    public OptionalInt getTypedOrdinal(LocalVariableNode node) {
+    public Optional<LocalVariableNode> getByTypedOrdinal(Type type, int ordinal) {
+        List<LocalVariableNode> available = getForType(type);
+        return available.size() > ordinal ? Optional.of(available.get(ordinal)) : Optional.empty();
+    }
+
+    public Optional<Integer> getTypedOrdinal(LocalVariableNode node) {
         int ordinal = getForType(node).indexOf(node);
-        return ordinal == -1 ? OptionalInt.empty() : OptionalInt.of(ordinal);
+        return ordinal == -1 ? Optional.empty() : Optional.of(ordinal);
     }
 }

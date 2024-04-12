@@ -3,6 +3,7 @@ package org.sinytra.adapter.patch.transformer.dynamic;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.mojang.logging.LogUtils;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -17,10 +18,11 @@ import org.sinytra.adapter.patch.util.SingleValueHandle;
 import org.slf4j.Logger;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 public class DynamicInjectorOrdinalPatch implements MethodTransform {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final Map<String, OffsetHandler> OFFSET_HANDLERS = Map.of(
+    private static final Map<String, OffsetUpdateHandler> OFFSET_HANDLERS = Map.of(
         "INVOKE", InvokeOffsetHandler.INSTANCE,
         "RETURN", ReturnOffsetHandler.INSTANCE
     );
@@ -32,7 +34,8 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
-        List<HandlerInstance> offsetHandlers = getOffsetHandlers(methodContext);
+        Type returnType = Type.getReturnType(methodNode.desc);
+        List<HandlerInstance<?, ?>> offsetHandlers = getOffsetHandlers(methodContext, returnType);
         if (offsetHandlers.isEmpty()) {
             return Patch.Result.PASS;
         }
@@ -46,21 +49,14 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
         }
 
         boolean applied = false;
-        for (HandlerInstance instance : offsetHandlers) {
-            AnnotationValueHandle<Integer> ordinal = instance.ordinal();
-            OptionalInt updatedOrdinal = instance.handler().getUpdatedOrdinal(methodContext, methodNode, instance.target(), cleanTarget, dirtyTarget, ordinal.get());
-            if (updatedOrdinal.isPresent()) {
-                int index = updatedOrdinal.getAsInt();
-                LOGGER.info(PatchInstance.MIXINPATCH, "Updating injection point ordinal of {}.{} from {} to {}", classNode.name, methodNode.name, ordinal.get(), index);
-                ordinal.set(index);
-                applied = true;
-            }
+        for (HandlerInstance<?, ?> instance : offsetHandlers) {
+            applied |= instance.apply(methodContext, classNode, methodNode, cleanTarget, dirtyTarget);
         }
         return applied ? Patch.Result.APPLY : Patch.Result.PASS;
     }
 
-    private static List<HandlerInstance> getOffsetHandlers(MethodContext methodContext) {
-        List<HandlerInstance> handlers = new ArrayList<>();
+    private static List<HandlerInstance<?, ?>> getOffsetHandlers(MethodContext methodContext, Type returnType) {
+        List<HandlerInstance<?, ?>> handlers = new ArrayList<>();
         AnnotationHandle annotation = methodContext.injectionPointAnnotationOrThrow();
 
         annotation.<Integer>getValue("ordinal").ifPresent(atOrdinal -> {
@@ -69,28 +65,60 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                 .map(AnnotationValueHandle::get)
                 .map(OFFSET_HANDLERS::get)
                 .filter(handler -> !handler.requiresTarget() || target != null)
-                .ifPresent(h -> handlers.add(new HandlerInstance(h, target, atOrdinal)));
+                .ifPresent(h -> handlers.add(new HandlerInstance<>(h, new OffsetUpdateHandler.Context(target, atOrdinal.get()), atOrdinal::set)));
         });
         if (methodContext.methodAnnotation().matchesDesc(MixinConstants.MODIFY_VAR)) {
-            methodContext.methodAnnotation().<Integer>getValue("ordinal")
-                .ifPresent(varOrdinal -> handlers.add(new HandlerInstance(ModifyVariableOffsetHandler.INSTANCE, null, varOrdinal)));
+            LocalVariableLookup cleanTable = methodContext.cleanLocalsTable();
+            if (cleanTable != null) {
+                // Handle modified ordinals
+                methodContext.methodAnnotation().<Integer>getValue("ordinal")
+                    .flatMap(ordinal -> cleanTable.getByTypedOrdinal(returnType, ordinal.get())
+                        .flatMap(lvn -> cleanTable.getTypedOrdinal(lvn).map(o -> new LocalVar(lvn, o, true)))
+                        .map(local -> new HandlerInstance<>(ModifyVariableOffsetHandler.INSTANCE, local, var -> ordinal.set(var.ordinal()))))
+                    // Handle modified indexes
+                    .or(() -> methodContext.methodAnnotation().<Integer>getValue("index")
+                        .flatMap(index -> Optional.ofNullable(cleanTable.getByIndexOrNull(index.get()))
+                            .flatMap(lvn -> cleanTable.getTypedOrdinal(lvn).map(o -> new LocalVar(lvn, o, false)))
+                            .map(local -> new HandlerInstance<>(ModifyVariableOffsetHandler.INSTANCE, local, var -> index.set(var.lvn().index)))))
+                    .ifPresent(handlers::add);
+            }
         }
         return handlers;
     }
 
-    private record HandlerInstance(OffsetHandler handler, String target, AnnotationValueHandle<Integer> ordinal) {
+    private interface UpdateHandler<T, U> {
+        Optional<U> apply(MethodContext methodContext, ClassNode classNode, MethodNode methodNode, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget, T context);
     }
 
-    private interface OffsetHandler {
+    private interface OffsetUpdateHandler extends UpdateHandler<OffsetUpdateHandler.Context, Integer> {
+        record Context(@Nullable String target, int ordinal) {}
+
         default boolean requiresTarget() {
             return false;
         }
-
-        OptionalInt getUpdatedOrdinal(MethodContext methodContext, MethodNode methodNode, String target, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget, int ordinal);
     }
 
-    private static class InvokeOffsetHandler implements OffsetHandler {
-        public static final OffsetHandler INSTANCE = new InvokeOffsetHandler();
+    private record LocalVar(LocalVariableNode lvn, int ordinal, boolean relative) {
+        public LocalVar(LocalVariableNode lvn, int ordinal) {
+            this(lvn, ordinal, false);
+        }
+    }
+
+    private record HandlerInstance<T, U>(UpdateHandler<T, U> handler, T context, Consumer<U> applicator) {
+        public boolean apply(MethodContext methodContext, ClassNode classNode, MethodNode methodNode, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget) {
+            Optional<U> updatedValue = this.handler.apply(methodContext, classNode, methodNode, cleanTarget, dirtyTarget, this.context);
+            if (updatedValue.isPresent()) {
+                U value = updatedValue.get();
+                LOGGER.info(PatchInstance.MIXINPATCH, "Updating injection point ordinal of {}.{} from {} to {}", classNode.name, methodNode.name, this.context, value);
+                this.applicator.accept(value);
+                return true;
+            }
+            return false;
+        }
+    }
+
+    private static class InvokeOffsetHandler implements OffsetUpdateHandler {
+        public static final InvokeOffsetHandler INSTANCE = new InvokeOffsetHandler();
 
         @Override
         public boolean requiresTarget() {
@@ -98,14 +126,17 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
         }
 
         @Override
-        public OptionalInt getUpdatedOrdinal(MethodContext methodContext, MethodNode methodNode, String target, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget, int ordinal) {
+        public Optional<Integer> apply(MethodContext methodContext, ClassNode classNode, MethodNode methodNode, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget, Context context) {
+            String target = context.target();
+            int ordinal = context.ordinal();
+
             Multimap<String, MethodInsnNode> cleanCallsMap = MethodCallAnalyzer.getMethodCalls(cleanTarget.methodNode(), new ArrayList<>());
             Multimap<String, MethodInsnNode> dirtyCallsMap = MethodCallAnalyzer.getMethodCalls(dirtyTarget.methodNode(), new ArrayList<>());
 
-            PatchContext context = methodContext.patchContext();
-            String cleanValue = context.remap(target);
+            PatchContext patchContext = methodContext.patchContext();
+            String cleanValue = patchContext.remap(target);
             Collection<? extends AbstractInsnNode> cleanCalls = cleanCallsMap.get(cleanValue);
-            String dirtyValue = context.remap(target);
+            String dirtyValue = patchContext.remap(target);
             Collection<? extends AbstractInsnNode> dirtyCalls = dirtyCallsMap.get(dirtyValue);
 
             if (cleanCalls.size() != dirtyCalls.size()) {
@@ -119,22 +150,23 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                         .filter(original::test)
                         .toList();
                     if (matches.size() == 1) {
-                        return OptionalInt.of(dirtyMatchers.indexOf(matches.get(0)));
+                        return Optional.of(dirtyMatchers.indexOf(matches.get(0)));
                     }
                 }
             }
 
-
-            return OptionalInt.empty();
+            return Optional.empty();
         }
     }
 
-    private static class ReturnOffsetHandler implements OffsetHandler {
-        public static final OffsetHandler INSTANCE = new ReturnOffsetHandler();
+    private static class ReturnOffsetHandler implements OffsetUpdateHandler {
+        public static final OffsetUpdateHandler INSTANCE = new ReturnOffsetHandler();
         private static final Set<Integer> RETURN_OPCODES = Set.of(Opcodes.RETURN, Opcodes.ARETURN, Opcodes.IRETURN, Opcodes.FRETURN, Opcodes.DRETURN, Opcodes.LRETURN);
 
         @Override
-        public OptionalInt getUpdatedOrdinal(MethodContext methodContext, MethodNode methodNode, String target, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget, int ordinal) {
+        public Optional<Integer> apply(MethodContext methodContext, ClassNode classNode, MethodNode methodNode, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget, Context context) {
+            int ordinal = context.ordinal();
+
             List<AbstractInsnNode> cleanReturnInsns = findReturnInsns(cleanTarget.methodNode());
             List<AbstractInsnNode> dirtyReturnInsns = findReturnInsns(dirtyTarget.methodNode());
 
@@ -148,10 +180,10 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                     .filter(m -> original.test(m, InsnComparator.IGNORE_VAR_INDEX))
                     .toList();
                 if (matches.size() == 1) {
-                    return OptionalInt.of(dirtyMatchers.indexOf(matches.get(0)));
+                    return Optional.of(dirtyMatchers.indexOf(matches.get(0)));
                 }
             }
-            return OptionalInt.empty();
+            return Optional.empty();
         }
 
         private static List<AbstractInsnNode> findReturnPrecedingInsns(AbstractInsnNode insn) {
@@ -183,32 +215,23 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
         }
     }
 
-    private static class ModifyVariableOffsetHandler implements OffsetHandler {
-        private static final OffsetHandler INSTANCE = new ModifyVariableOffsetHandler();
+    private static class ModifyVariableOffsetHandler implements UpdateHandler<LocalVar, LocalVar> {
+        private static final ModifyVariableOffsetHandler INSTANCE = new ModifyVariableOffsetHandler();
 
         @Override
-        public OptionalInt getUpdatedOrdinal(MethodContext methodContext, MethodNode methodNode, String target, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget, int ordinal) {
+        public Optional<LocalVar> apply(MethodContext methodContext, ClassNode classNode, MethodNode methodNode, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget, LocalVar local) {
             Type[] args = Type.getArgumentTypes(methodNode.desc);
             if (args.length < 1) {
-                return OptionalInt.empty();
+                return Optional.empty();
             }
             Type targetType = args[0];
             // Gradually expand supported types over time as necessary
             if (targetType != Type.BOOLEAN_TYPE && targetType != Type.INT_TYPE && targetType != Type.FLOAT_TYPE) {
-                return OptionalInt.empty();
+                return Optional.empty();
             }
 
-            OptionalInt updatedIndex = tryFindUpdatedIndex(targetType, cleanTarget, dirtyTarget, ordinal);
-            if (updatedIndex.isPresent()) {
-                return updatedIndex;
-            }
-
-            OptionalInt synthVarIndex = tryFindSyntheticVariableIndex(methodContext, methodNode, cleanTarget, dirtyTarget, ordinal);
-            if (synthVarIndex.isPresent()) {
-                return synthVarIndex;
-            }
-
-            return OptionalInt.empty();
+            return tryFindUpdatedIndex(targetType, cleanTarget, dirtyTarget, local)
+                .or(() -> tryFindSyntheticVariableIndex(methodContext, methodNode, cleanTarget, dirtyTarget, local));
         }
 
         /**
@@ -217,7 +240,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
          * In these cases, we'll find the new variable and update the mixin's index
          * <p>
          * As an example, let's have a look at LivingEntity#actuallyHurt
-         * <pre>{@code 
+         * <pre>{@code
          * == Original code ==
          *    INVOKEVIRTUAL net/minecraft/world/entity/player/Player.getHealth ()F
          *    FLOAD 2
@@ -239,7 +262,8 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
          *    INVOKEVIRTUAL net/minecraft/world/entity/player/Player.setHealth (F)V
          * }</pre>
          */
-        private static OptionalInt tryFindSyntheticVariableIndex(MethodContext methodContext, MethodNode methodNode, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget, int ordinal) {
+        private static Optional<LocalVar> tryFindSyntheticVariableIndex(MethodContext methodContext, MethodNode methodNode, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget, LocalVar local) {
+            int ordinal = local.ordinal();
             Type variableType = Type.getReturnType(methodNode.desc);
             LocalVariableLookup cleanTable = new LocalVariableLookup(cleanTarget.methodNode());
             LocalVariableLookup dirtyTable = new LocalVariableLookup(dirtyTarget.methodNode());
@@ -265,7 +289,9 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                                         methodContext.methodAnnotation().<Boolean>getValue("argsOnly")
                                             .ifPresent(h -> h.set(false));
                                         // Find new ordinal by index
-                                        return dirtyTable.getTypedOrdinal(dirtyTable.getByIndex(dirtyIndex));
+                                        LocalVariableNode lvn = dirtyTable.getByIndex(dirtyIndex);
+                                        return dirtyTable.getTypedOrdinal(lvn)
+                                            .map(o -> new LocalVar(lvn, o));
                                     }
                                 }
                                 break;
@@ -274,7 +300,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                     }
                 }
             }
-            return OptionalInt.empty();
+            return Optional.empty();
         }
 
         private static List<SingleValueHandle<Integer>> getUsedVariablesInLabel(AbstractInsnNode start, int opcode) {
@@ -293,39 +319,40 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
             return list;
         }
 
-        private static OptionalInt tryFindUpdatedIndex(Type targetType, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget, int ordinal) {
+        private static Optional<LocalVar> tryFindUpdatedIndex(Type targetType, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget, LocalVar local) {
+            int ordinal = local.ordinal();
             List<LocalVariableNode> cleanLocals = cleanTarget.methodNode().localVariables.stream()
                 .filter(l -> Type.getType(l.desc) == targetType)
                 .sorted(Comparator.comparingInt(l -> l.index))
                 .toList();
             if (cleanLocals.size() <= ordinal) {
-                return OptionalInt.empty();
+                return Optional.empty();
             }
             LocalVariableNode cleanLocal = cleanLocals.get(ordinal);
             if (!GeneratedVariables.isGeneratedVariableName(cleanLocal.name, Type.getType(cleanLocal.desc))) {
-                return OptionalInt.empty();
+                return Optional.empty();
             }
 
             LocalVariableLookup dirtyVarLookup = new LocalVariableLookup(dirtyTarget.methodNode());
             List<LocalVariableNode> dirtyLocals = dirtyVarLookup.getForType(targetType);
             if (cleanLocals.size() != dirtyLocals.size() || dirtyLocals.size() <= ordinal) {
                 return findReplacementLocal(cleanTarget.methodNode(), dirtyTarget.methodNode(), cleanLocal)
-                    .map(dirtyVarLookup::getTypedOrdinal)
-                    .orElseGet(OptionalInt::empty);
+                    .flatMap(var -> dirtyVarLookup.getTypedOrdinal(var).map(o -> new LocalVar(var, o)));
             }
             LocalVariableNode dirtyLocal = dirtyLocals.get(ordinal);
             OptionalInt dirtyNameOrdinal = GeneratedVariables.getGeneratedVariableOrdinal(dirtyLocal.name, Type.getType(dirtyLocal.desc));
-            if (dirtyNameOrdinal.isEmpty() || ordinal == dirtyNameOrdinal.getAsInt()) {
-                return OptionalInt.empty();
+            if (dirtyNameOrdinal.isEmpty() || local.relative() && ordinal == dirtyNameOrdinal.getAsInt()) {
+                return Optional.empty();
             }
             List<LocalVariableNode> actual = dirtyLocals.stream()
                 .filter(lvn -> GeneratedVariables.getGeneratedVariableOrdinal(lvn.name, Type.getType(lvn.desc)).orElse(-1) == ordinal)
                 .toList();
             if (actual.size() == 1) {
-                return OptionalInt.of(dirtyLocals.indexOf(actual.get(0)));
+                LocalVariableNode lvn = actual.get(0);
+                return Optional.of(new LocalVar(lvn, dirtyLocals.indexOf(lvn)));
             }
 
-            return OptionalInt.empty();
+            return Optional.empty();
         }
 
         private static Optional<LocalVariableNode> findReplacementLocal(MethodNode cleanMethod, MethodNode dirtyMethod, LocalVariableNode desired) {
