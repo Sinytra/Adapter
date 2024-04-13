@@ -4,7 +4,6 @@ import com.mojang.datafixers.util.Pair;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
-import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
 
 import java.util.*;
@@ -92,30 +91,24 @@ public class EnhancedParamsDiffTest {
     @Test
     void testCompareSwappedParameters() {
         List<Type> original = List.of(
-            Type.getObjectType("net/minecraft/core/BlockPos"),
-            Type.getObjectType("net/minecraft/world/level/block/state/BlockState"),
             Type.BOOLEAN_TYPE,
-            Type.BOOLEAN_TYPE,
+            Type.getObjectType("net/minecraft/world/level/block/entity/BlockEntity"),
             Type.getObjectType("net/minecraft/world/item/ItemStack"),
-            Type.getObjectType("net/minecraft/world/item/context/UseOnContext")
+            Type.getObjectType("net/minecraft/world/phys/HitResult$Type")
         );
         List<Type> modified = List.of(
-            Type.getObjectType("net/minecraft/core/BlockPos"),
-            Type.getObjectType("net/minecraft/world/level/block/state/BlockState"),
-            Type.getObjectType("net/minecraftforge/event/entity/player/PlayerInteractEvent$RightClickBlock"),
-            Type.getObjectType("net/minecraft/world/item/context/UseOnContext"),
             Type.BOOLEAN_TYPE,
-            Type.BOOLEAN_TYPE,
-            Type.getObjectType("net/minecraft/world/item/ItemStack"),
-            Type.getObjectType("net/minecraft/world/InteractionResult")
+            Type.getObjectType("net/minecraft/world/level/block/entity/BlockEntity"),
+            Type.getObjectType("net/minecraft/world/phys/HitResult$Type"),
+            Type.getObjectType("net/minecraft/world/item/ItemStack")
         );
 
-        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
-        //        assertEquals(2, diff.insertions().size());
-        //        assertTrue(diff.replacements().isEmpty());
-        //        assertTrue(diff.removals().isEmpty());
-        //        assertTrue(diff.swaps().isEmpty());
-        //        assertTrue(diff.moves().isEmpty());
+        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(original, modified);
+        assertTrue(diff.insertions().isEmpty());
+        assertTrue(diff.replacements().isEmpty());
+        assertTrue(diff.removals().isEmpty());
+        assertEquals(1, diff.swaps().size());
+        assertTrue(diff.moves().isEmpty());
     }
 
     @Test

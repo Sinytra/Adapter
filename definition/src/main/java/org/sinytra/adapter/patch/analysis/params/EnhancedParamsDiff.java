@@ -83,7 +83,7 @@ public class EnhancedParamsDiff {
                 continue;
             }
             // Handle replaced types, needs improving
-            if (replaceType(builder, 0, cleanQueue, dirtyQueue) || cleanQueue.size() == 2 && dirtyQueue.size() == 2 && replaceType(builder, 1, cleanQueue, dirtyQueue)) {
+            if (tryReplacingParams(builder, cleanQueue, dirtyQueue)) {
                 continue;
             }
             // Check for swapped / reordered types. Also handles unique-type insertions
@@ -185,7 +185,11 @@ public class EnhancedParamsDiff {
                     ) {
                         // The parameter has been moved
                         TypeWithContext newParam = dirtyQueue.stream().filter(t -> t.type().equals(param.type())).findFirst().orElseThrow();
-                        builder.move(param.pos(), newParam.pos());
+                        if (Math.abs(param.pos() - newParam.pos()) == 1) {
+                            builder.swap(param.pos(), newParam.pos());
+                        } else {
+                            builder.move(param.pos(), newParam.pos());
+                        }
                         cleanQueue.remove(param);
                         dirtyQueue.remove(newParam);
                         return true;
@@ -205,6 +209,22 @@ public class EnhancedParamsDiff {
             }
         }
         return -1;
+    }
+
+    private static boolean tryReplacingParams(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
+        if (replaceType(builder, 0, cleanQueue, dirtyQueue)) {
+            return true;
+        } else if (cleanQueue.size() == 2 && dirtyQueue.size() == 2) {
+            // Handle swapped parameters in simple cases
+            if (cleanQueue.get(0).sameType(dirtyQueue.get(1)) && cleanQueue.get(1).sameType(dirtyQueue.get(0))) {
+                builder.swap(dirtyQueue.get(0).pos(), dirtyQueue.get(1).pos());
+                cleanQueue.clear();
+                dirtyQueue.clear();
+                return true;
+            }
+            return replaceType(builder, 1, cleanQueue, dirtyQueue);
+        }
+        return false;
     }
 
     private static boolean replaceType(ParamsDiffSnapshotBuilder builder, int index, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
@@ -239,8 +259,7 @@ public class EnhancedParamsDiff {
         return false;
     }
 
-    private record SwapResult(List<TypeWithContext> removeDirty) {
-    }
+    private record SwapResult(List<TypeWithContext> removeDirty) {}
 
     @Nullable
     private static SwapResult checkForSwaps(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
@@ -309,8 +328,7 @@ public class EnhancedParamsDiff {
     }
 
     private static void rearrange(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
-        record Rearrangement(TypeWithContext cleanType, TypeWithContext dirtyType, int fromRelative, int toRelative) {
-        }
+        record Rearrangement(TypeWithContext cleanType, TypeWithContext dirtyType, int fromRelative, int toRelative) {}
 
         Map<Type, Integer> cleanGroup = groupTypes(clean);
         Map<Type, Integer> dirtyGroup = groupTypes(dirty);
@@ -348,7 +366,12 @@ public class EnhancedParamsDiff {
             }
             // The original pos in the dirty list might differ due to prior insertions
             int offsetOriginalPos = rearrangeDirty.get(rearrangement.fromRelative()).pos();
-            builder.move(offsetOriginalPos, rearrangement.dirtyType().pos());
+            int destPos = rearrangement.dirtyType().pos();
+            if (Math.abs(offsetOriginalPos - destPos) == 1) {
+                builder.swap(offsetOriginalPos, destPos);
+            } else {
+                builder.move(offsetOriginalPos, destPos);
+            }
             rearrangeClean.add(rearrangement.toRelative(), rearrangeClean.remove(rearrangement.fromRelative()));
         }
     }
