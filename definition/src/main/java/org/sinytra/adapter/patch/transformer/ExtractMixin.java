@@ -22,7 +22,7 @@ import java.util.stream.IntStream;
 public record ExtractMixin(String targetClass) implements MethodTransform {
     @Override
     public Collection<String> getAcceptedAnnotations() {
-        return Set.of(MixinConstants.WRAP_OPERATION, MixinConstants.MODIFY_CONST, MixinConstants.MODIFY_ARG, MixinConstants.INJECT, MixinConstants.REDIRECT, MixinConstants.MODIFY_VAR, MixinConstants.MODIFY_EXPR_VAL);
+        return Set.of(MixinConstants.WRAP_WITH_CONDITION, MixinConstants.WRAP_OPERATION, MixinConstants.MODIFY_CONST, MixinConstants.MODIFY_ARG, MixinConstants.INJECT, MixinConstants.REDIRECT, MixinConstants.MODIFY_VAR, MixinConstants.MODIFY_EXPR_VAL);
     }
 
     @Override
