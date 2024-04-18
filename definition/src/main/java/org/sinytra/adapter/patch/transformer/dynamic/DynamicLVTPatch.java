@@ -98,19 +98,24 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         // Validate implicit targets for @Local parameters
         if (result == Patch.Result.PASS && annotation.getAllValues().isEmpty()) {
             int compatLevel = methodContext.patchContext().environment().fabricLVTCompatibility();
-            if (compatLevel == FabricUtil.COMPATIBILITY_0_10_0) {
-                List<MethodContext.LocalVariable> locals = methodContext.getTargetMethodLocals(methodContext.findDirtyInjectionTarget(), 0, compatLevel);
-                if (locals.stream().filter(var -> var.type() == paramType).count() > 1) {
-                    // Mixin found more locals than required, let's try to fix this
-                    // The old method might still get us the expected results
-                    List<MethodContext.LocalVariable> oldCompatLocals = methodContext.getTargetMethodLocals(methodContext.findDirtyInjectionTarget(), 0, FabricUtil.COMPATIBILITY_0_9_2);
-                    List<MethodContext.LocalVariable> sameType = oldCompatLocals.stream().filter(var -> var.type() == paramType).toList();
-                    if (sameType.size() == 1) {
-                        int index = sameType.get(0).index();
-                        annotation.appendValue("index",  index);
-                        LOGGER.info(PatchInstance.MIXINPATCH, "Fixing @Local annotation target on {}.{} using index {}", classNode.name, methodNode.name, index);
-                        return Patch.Result.APPLY;
-                    }
+            if (compatLevel != FabricUtil.COMPATIBILITY_0_10_0) {
+                return Patch.Result.PASS;
+            }
+            MethodContext.TargetPair targetPair = methodContext.findDirtyInjectionTarget();
+            if (targetPair == null) {
+                return Patch.Result.PASS;
+            }
+            List<MethodContext.LocalVariable> locals = methodContext.getTargetMethodLocals(targetPair, 0, compatLevel);
+            if (locals != null && locals.stream().filter(var -> var.type() == paramType).count() > 1) {
+                // Mixin found more locals than required, let's try to fix this
+                // The old method might still get us the expected results
+                List<MethodContext.LocalVariable> oldCompatLocals = methodContext.getTargetMethodLocals(targetPair, 0, FabricUtil.COMPATIBILITY_0_9_2);
+                List<MethodContext.LocalVariable> sameType = oldCompatLocals.stream().filter(var -> var.type() == paramType).toList();
+                if (sameType.size() == 1) {
+                    int index = sameType.get(0).index();
+                    annotation.appendValue("index", index);
+                    LOGGER.info(PatchInstance.MIXINPATCH, "Fixing @Local annotation target on {}.{} using index {}", classNode.name, methodNode.name, index);
+                    return Patch.Result.APPLY;
                 }
             }
         }
