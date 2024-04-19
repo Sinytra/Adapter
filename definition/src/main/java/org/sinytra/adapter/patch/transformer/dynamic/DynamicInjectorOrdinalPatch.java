@@ -352,6 +352,10 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                 return Optional.of(new LocalVar(lvn, dirtyLocals.indexOf(lvn)));
             }
 
+            if (cleanLocal.index != dirtyLocal.index) {
+                return Optional.of(new LocalVar(dirtyLocal, dirtyLocals.indexOf(dirtyLocal)));
+            }
+
             return Optional.empty();
         }
 
