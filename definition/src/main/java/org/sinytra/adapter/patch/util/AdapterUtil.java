@@ -17,7 +17,6 @@ import org.sinytra.adapter.patch.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.gen.AccessorInfo;
-import org.spongepowered.asm.service.MixinService;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -38,22 +37,6 @@ public final class AdapterUtil {
 
     public static int getLVTOffsetForType(Type type) {
         return type.equals(Type.DOUBLE_TYPE) || type.equals(Type.LONG_TYPE) ? 2 : 1;
-    }
-
-    public static ClassNode getClassNode(String internalName) {
-        return maybeGetClassNode(internalName).orElse(null);
-    }
-
-    public static Optional<ClassNode> maybeGetClassNode(String internalName) {
-        try {
-            return Optional.of(MixinService.getService().getBytecodeProvider().getClassNode(internalName));
-        } catch (ClassNotFoundException e) {
-            LOGGER.debug("Target class not found: {}", internalName);
-            return Optional.empty();
-        } catch (Throwable t) {
-            LOGGER.debug("Error getting class", t);
-            return Optional.empty();
-        }
     }
 
     public static int getLVTIndexForParam(MethodNode method, int paramIndex, Type type) {

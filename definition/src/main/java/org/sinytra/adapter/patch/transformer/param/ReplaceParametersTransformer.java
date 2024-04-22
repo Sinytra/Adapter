@@ -36,8 +36,8 @@ public record ReplaceParametersTransformer(int index, Type type) implements Para
             return Patch.Result.PASS;
         }
 
-        LOGGER.info(MIXINPATCH, "Replacing parameter {} with type {} in {}.{}", this.index, this.type, classNode.name, methodNode.name);
-        parameters.set(this.index, this.type);
+        LOGGER.info(MIXINPATCH, "Replacing parameter {} with type {} in {}.{}", paramIndex, this.type, classNode.name, methodNode.name);
+        parameters.set(paramIndex, this.type);
 
         LocalVariableLookup lvtLookup = new LocalVariableLookup(methodNode);
         LocalVariableNode localVar = lvtLookup.getByParameterOrdinal(paramIndex);

@@ -132,6 +132,9 @@ public class EnhancedParamsDiff {
         // For same-sized comparisons, we can be certain there have been no insertions
         if (sameSize && !cleanQueue.isEmpty() && !dirtyQueue.isEmpty()) {
             if (!cleanQueue.get(0).sameType(dirtyQueue.get(0))) {
+                if (checkMovedParam(builder, cleanQueue, dirtyQueue, 0)) {
+                    return true;
+                }
                 // If the first parameters differ, it's possible one of them has been removed
                 // == Clean ==
                 // 0 Foo
@@ -174,29 +177,33 @@ public class EnhancedParamsDiff {
                         return true;
                     }
                 } else {
-                    // Check for moved parameters
-                    TypeWithContext param = cleanQueue.get(1);
-                    TypeWithContext dirtyParam = dirtyQueue.get(1);
-                    Map<Type, Integer> cleanGroup = groupTypes(cleanQueue);
-                    Map<Type, Integer> dirtyGroup = groupTypes(dirtyQueue);
-                    if (cleanGroup.get(param.type()) == 1 && dirtyGroup.getOrDefault(param.type(), 0) == 1
-                        // Make sure the next param isn't injected
-                        && Objects.equals(cleanGroup.getOrDefault(dirtyParam.type(), 0), dirtyGroup.get(dirtyParam.type()))
-                    ) {
-                        // The parameter has been moved
-                        TypeWithContext newParam = dirtyQueue.stream().filter(t -> t.type().equals(param.type())).findFirst().orElseThrow();
-                        if (Math.abs(param.pos() - newParam.pos()) == 1) {
-                            builder.swap(param.pos(), newParam.pos());
-                        } else {
-                            builder.move(param.pos(), newParam.pos());
-                        }
-                        cleanQueue.remove(param);
-                        dirtyQueue.remove(newParam);
-                        return true;
-                    }
+                    return checkMovedParam(builder, cleanQueue, dirtyQueue, 1);
                 }
             }
             return false;
+        }
+        return false;
+    }
+
+    private static boolean checkMovedParam(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue, int index) {
+        TypeWithContext param = cleanQueue.get(index);
+        TypeWithContext dirtyParam = dirtyQueue.get(index);
+        Map<Type, Integer> cleanGroup = groupTypes(cleanQueue);
+        Map<Type, Integer> dirtyGroup = groupTypes(dirtyQueue);
+        if (cleanGroup.get(param.type()) == 1 && dirtyGroup.getOrDefault(param.type(), 0) == 1
+            // Make sure the next param isn't injected
+            && Objects.equals(cleanGroup.getOrDefault(dirtyParam.type(), 0), dirtyGroup.get(dirtyParam.type()))
+        ) {
+            // The parameter has been moved
+            TypeWithContext newParam = dirtyQueue.stream().filter(t -> t.type().equals(param.type())).findFirst().orElseThrow();
+            if (Math.abs(param.pos() - newParam.pos()) == 1) {
+                builder.swap(param.pos(), newParam.pos());
+            } else {
+                builder.move(param.pos(), newParam.pos());
+            }
+            cleanQueue.remove(param);
+            dirtyQueue.remove(newParam);
+            return true;
         }
         return false;
     }
@@ -252,14 +259,15 @@ public class EnhancedParamsDiff {
 
     private static boolean isPossiblyInjected(int index, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
         for (int i = index; i < cleanQueue.size() && i < dirtyQueue.size(); i++) {
-            if (!cleanQueue.get(i).equals(dirtyQueue.get(i))) {
+            if (!cleanQueue.get(i).sameType(dirtyQueue.get(i))) {
                 return true;
             }
         }
         return false;
     }
 
-    private record SwapResult(List<TypeWithContext> removeDirty) {}
+    private record SwapResult(List<TypeWithContext> removeDirty) {
+    }
 
     @Nullable
     private static SwapResult checkForSwaps(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
@@ -328,7 +336,8 @@ public class EnhancedParamsDiff {
     }
 
     private static void rearrange(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
-        record Rearrangement(TypeWithContext cleanType, TypeWithContext dirtyType, int fromRelative, int toRelative) {}
+        record Rearrangement(TypeWithContext cleanType, TypeWithContext dirtyType, int fromRelative, int toRelative) {
+        }
 
         Map<Type, Integer> cleanGroup = groupTypes(clean);
         Map<Type, Integer> dirtyGroup = groupTypes(dirty);

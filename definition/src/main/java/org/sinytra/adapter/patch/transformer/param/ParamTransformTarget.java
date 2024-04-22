@@ -12,7 +12,8 @@ import java.util.Set;
 public enum ParamTransformTarget {
     ALL,
     METHOD(MixinConstants.INJECT, MixinConstants.OVERWRITE, MixinConstants.MODIFY_VAR),
-    INJECTION_POINT(MixinConstants.REDIRECT, MixinConstants.MODIFY_ARG, MixinConstants.MODIFY_ARGS, MixinConstants.WRAP_OPERATION);
+    INJECTION_POINT(MixinConstants.REDIRECT, MixinConstants.MODIFY_ARG, MixinConstants.MODIFY_ARGS, MixinConstants.WRAP_OPERATION),
+    METHOD_EXT(MixinConstants.INJECT, MixinConstants.REDIRECT, MixinConstants.OVERWRITE, MixinConstants.MODIFY_VAR);
 
     public static final Codec<ParamTransformTarget> CODEC = Codec.STRING.xmap(ParamTransformTarget::from, ParamTransformTarget::name);
 

@@ -450,45 +450,13 @@ public class ClassAnalyzer {
         }
 
         Type[] parameterTypes = Type.getArgumentTypes(clean.desc);
-        ParametersDiff diff = ParametersDiff.compareMethodParameters(clean, dirty);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.compareMethodParameters(clean, dirty);
         if (!diff.isEmpty()) {
-            if (!diff.replacements().isEmpty()) {
-                List<Pair<Integer, Type>> newReplacements = new ArrayList<>(diff.replacements());
-                List<Pair<Integer, Integer>> swaps = new ArrayList<>();
-                boolean valid = false;
-                // Detect swapped parameters
-                if (newReplacements.size() == 2) {
-                    Pair<Integer, Type> first = newReplacements.get(0);
-                    Pair<Integer, Type> second = newReplacements.get(1);
-                    int distance = Math.abs(second.getFirst() - first.getFirst());
-                    if (distance == 1 && parameterTypes[first.getFirst()].equals(second.getSecond()) && parameterTypes[second.getFirst()].equals(first.getSecond())) {
-                        this.trace.logHeader();
-                        LOGGER.info("Found swapped parameter types {} <-> {} in method {}", first.getSecond(), second.getSecond(), dirty.name);
-                        newReplacements.clear();
-                        swaps.add(Pair.of(first.getFirst(), second.getFirst()));
-                        valid = true;
-                    }
-                }
-                if (!valid) {
-                    for (Pair<Integer, Type> replacement : diff.replacements()) {
-                        Type original = parameterTypes[replacement.getFirst()];
-                        Type substitute = replacement.getSecond();
-                        if (original.getSort() == Type.OBJECT && substitute.getSort() == Type.OBJECT && this.inheritanceHandler.isClassInherited(substitute.getInternalName(), original.getInternalName())) {
-                            this.trace.logHeader();
-                            LOGGER.info("Found valid replacement {} -> {} in method {}", original.getInternalName(), substitute.getInternalName(), clean.name);
-                            valid = true;
-                            continue;
-                        }
-                        newReplacements.remove(replacement);
-                        LOGGER.debug("Ignoring replacement {} -> {} in method {}", replacement.getFirst(), replacement.getSecond(), dirty.name);
-                    }
-                }
-                if (valid) {
-                    diff = new ParametersDiff(diff.originalCount(), diff.insertions(), newReplacements, swaps, List.of(), List.of());
-                } else {
-                    return;
-                }
+            LayeredParamsDiffSnapshot valid = valiadateSnapshot(diff, parameterTypes, clean, dirty);
+            if (valid == null) {
+                return;
             }
+
             String cleanQualifier = clean.name + clean.desc;
             String dirtyQualifier = dirty.name + dirty.desc;
             this.trace.logHeader();
@@ -505,10 +473,55 @@ public class ClassAnalyzer {
                 .targetClass(this.dirtyNode.name)
                 .targetMethod(cleanQualifier)
                 .modifyTarget(dirtyQualifier)
-                .transformMethods(diff.createTransforms(ParamTransformTarget.METHOD))
+                .transform(valid.asParameterTransformer(ParamTransformTarget.METHOD_EXT, true))
                 .build();
             patches.add(patch);
         }
+    }
+
+    private LayeredParamsDiffSnapshot valiadateSnapshot(LayeredParamsDiffSnapshot snapshot, Type[] parameterTypes, MethodNode clean, MethodNode dirty) {
+        if (!snapshot.replacements().isEmpty()) {
+            List<Pair<Integer, Type>> newReplacements = new ArrayList<>(snapshot.replacements());
+            List<Pair<Integer, Integer>> swaps = new ArrayList<>();
+            boolean valid = false;
+            // Detect swapped parameters
+            if (newReplacements.size() == 2) {
+                Pair<Integer, Type> first = newReplacements.get(0);
+                Pair<Integer, Type> second = newReplacements.get(1);
+                int distance = Math.abs(second.getFirst() - first.getFirst());
+                if (distance == 1 && parameterTypes[first.getFirst()].equals(second.getSecond()) && parameterTypes[second.getFirst()].equals(first.getSecond())) {
+                    this.trace.logHeader();
+                    LOGGER.info("Found swapped parameter types {} <-> {} in method {}", first.getSecond(), second.getSecond(), dirty.name);
+                    newReplacements.clear();
+                    swaps.add(Pair.of(first.getFirst(), second.getFirst()));
+                    valid = true;
+                }
+            }
+            if (!valid) {
+                for (Pair<Integer, Type> replacement : snapshot.replacements()) {
+                    Type original = parameterTypes[replacement.getFirst()];
+                    Type substitute = replacement.getSecond();
+                    if (original.getSort() == Type.OBJECT && substitute.getSort() == Type.OBJECT && this.inheritanceHandler.isClassInherited(substitute.getInternalName(), original.getInternalName())) {
+                        this.trace.logHeader();
+                        LOGGER.info("Found valid replacement {} -> {} in method {}", original.getInternalName(), substitute.getInternalName(), clean.name);
+                        valid = true;
+                        continue;
+                    }
+                    newReplacements.remove(replacement);
+                    LOGGER.debug("Ignoring replacement {} -> {} in method {}", replacement.getFirst(), replacement.getSecond(), dirty.name);
+                }
+            }
+            if (valid) {
+                return LayeredParamsDiffSnapshot.builder()
+                    .insertions(snapshot.insertions())
+                    .replacements(newReplacements)
+                    .swaps(swaps)
+                    .build();
+            } else {
+                return null;
+            }
+        }
+        return snapshot;
     }
 
     private List<String> findLambdasInMethod(ClassNode cls, MethodNode method, @Nullable Multimap<String, MethodNode> methods) {

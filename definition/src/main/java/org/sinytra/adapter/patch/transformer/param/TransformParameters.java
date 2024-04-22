@@ -7,6 +7,7 @@ import com.google.errorprone.annotations.CheckReturnValue;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.ClassNode;
@@ -14,10 +15,7 @@ import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 import java.util.function.Consumer;
 
 public record TransformParameters(List<ParameterTransformer> transformers, boolean withOffset, ParamTransformTarget targetType) implements MethodTransform {
@@ -47,16 +45,11 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
-        boolean isStatic = methodContext.isStatic();
         Type[] params = Type.getArgumentTypes(methodNode.desc);
         List<Type> newParameterTypes = new ArrayList<>(Arrays.asList(params));
         Patch.Result result = Patch.Result.PASS;
 
-        AnnotationHandle annotation = methodContext.methodAnnotation();
-        boolean needsLocalOffset = annotation.matchesDesc(MixinConstants.REDIRECT) || annotation.matchesDesc(MixinConstants.WRAP_OPERATION);
-        // If it's a redirect, the first local variable (index 1) is the object instance
-        int offset = !isStatic && this.withOffset && needsLocalOffset ? 1 : 0;
-
+        int offset = calculateOffset(methodContext);
         for (ParameterTransformer transform : transformers) {
             result = result.or(transform.apply(classNode, methodNode, methodContext, context, newParameterTypes, offset));
         }
@@ -69,6 +62,21 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
     @Override
     public Codec<? extends MethodTransform> codec() {
         return CODEC;
+    }
+
+    private int calculateOffset(MethodContext methodContext) {
+        AnnotationHandle annotation = methodContext.methodAnnotation();
+        if (this.targetType == ParamTransformTarget.METHOD_EXT && annotation.matchesDesc(MixinConstants.REDIRECT)) {
+            MethodNode targetMethod = Optional.ofNullable(methodContext.getInjectionPointMethodQualifier())
+                .flatMap(q -> methodContext.patchContext().environment().dirtyClassLookup().findMethod(q.internalOwnerName(), q.name(), q.desc()))
+                .orElse(null);
+            if (targetMethod != null) {
+                return ((targetMethod.access & Opcodes.ACC_STATIC) == 0 ? 1 : 0) + Type.getArgumentTypes(targetMethod.desc).length; 
+            }
+        }
+        // If it's a redirect, the first local variable (index 1) is the object instance
+        boolean needsLocalOffset = annotation.matchesDesc(MixinConstants.REDIRECT) || annotation.matchesDesc(MixinConstants.WRAP_OPERATION);
+        return !methodContext.isStatic() && this.withOffset && needsLocalOffset ? 1 : 0;
     }
 
     public static Builder builder() {

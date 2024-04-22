@@ -15,6 +15,8 @@ public interface PatchEnvironment {
 
     ClassLookup cleanClassLookup();
 
+    ClassLookup dirtyClassLookup();
+
     @Nullable
     BytecodeFixerUpper bytecodeFixerUpper();
 

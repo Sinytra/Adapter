@@ -59,7 +59,7 @@ public final class MethodContextImpl implements MethodContext {
             ClassLookup cleanClassLookup = this.patchContext.environment().cleanClassLookup();
             return findInjectionTarget(s -> cleanClassLookup.getClass(s).orElse(null));
         });
-        this.dirtyInjectionPairCache = Suppliers.memoize(() -> findInjectionTarget(AdapterUtil::getClassNode));
+        this.dirtyInjectionPairCache = Suppliers.memoize(() -> findInjectionTarget(name -> this.patchContext.environment().dirtyClassLookup().getClass(name).orElse(null)));
         this.targetInstructionsCache = new HashMap<>();
         this.cleanLocalsTableCache = Suppliers.memoize(() -> Optional.ofNullable(findCleanInjectionTarget()).map(pair -> new LocalVariableLookup(pair.methodNode())).orElse(null));
     }

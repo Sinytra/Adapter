@@ -144,7 +144,7 @@ public record SimpleParamsDiffSnapshot(
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder replacements(List<Pair<Integer, Type>> replacements) {
+        public Builder replacements(List<Pair<Integer, Type>> replacements) {
             this.replacements.addAll(replacements);
             return this;
         }
@@ -162,13 +162,13 @@ public record SimpleParamsDiffSnapshot(
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder substitute(int target, int substitute) {
+        public Builder substitute(int target, int substitute) {
             this.substitutes.add(Pair.of(target, substitute));
             return this;
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder substitutes(List<Pair<Integer, Integer>> substitutes) {
+        public Builder substitutes(List<Pair<Integer, Integer>> substitutes) {
             this.substitutes.addAll(substitutes);
             return this;
         }
@@ -180,7 +180,7 @@ public record SimpleParamsDiffSnapshot(
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder moves(List<Pair<Integer, Integer>> moves) {
+        public Builder moves(List<Pair<Integer, Integer>> moves) {
             this.moves.addAll(moves);
             return this;
         }
@@ -195,19 +195,19 @@ public record SimpleParamsDiffSnapshot(
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder removals(List<Integer> removals) {
+        public Builder removals(List<Integer> removals) {
             this.removals.addAll(removals);
             return this;
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder inline(int target, Consumer<InstructionAdapter> adapter) {
+        public Builder inline(int target, Consumer<InstructionAdapter> adapter) {
             this.inlines.add(Pair.of(target, adapter));
             return this;
         }
 
         @Override
-        public ParamsDiffSnapshotBuilder inlines(List<Pair<Integer, Consumer<InstructionAdapter>>> inlines) {
+        public Builder inlines(List<Pair<Integer, Consumer<InstructionAdapter>>> inlines) {
             this.inlines.addAll(inlines);
             return this;
         }

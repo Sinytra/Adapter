@@ -41,7 +41,7 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
             return Patch.Result.PASS;
         }
 
-        ClassNode targetClass = AdapterUtil.getClassNode(this.targetClass);
+        ClassNode targetClass = context.environment().dirtyClassLookup().getClass(this.targetClass).orElse(null);
         // Get or generate new mixin class
         ClassNode generatedTarget = context.environment().classGenerator().getOrGenerateMixinClass(classNode, this.targetClass, targetClass != null ? targetClass.superName : null);
         context.environment().refmapHolder().copyEntries(classNode.name, generatedTarget.name);
