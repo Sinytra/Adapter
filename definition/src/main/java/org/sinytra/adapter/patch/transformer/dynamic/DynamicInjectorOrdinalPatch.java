@@ -229,7 +229,9 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
             if (targetType != Type.BOOLEAN_TYPE && targetType != Type.INT_TYPE && targetType != Type.FLOAT_TYPE) {
                 return Optional.empty();
             }
-
+            if (methodContext.methodAnnotation().getValue("slice").isPresent() && local.relative()) {
+                return Optional.empty();
+            }
             return tryFindUpdatedIndex(targetType, cleanTarget, dirtyTarget, local)
                 .or(() -> tryFindSyntheticVariableIndex(methodContext, methodNode, cleanTarget, dirtyTarget, local));
         }
