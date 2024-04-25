@@ -24,7 +24,7 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
         ParameterTransformer asParameterTransformer();
     }
 
-    record InsertParam(int index, Type type) implements ParamModification {
+    public record InsertParam(int index, Type type) implements ParamModification {
         @Override
         public ParamModification offset(int offset) {
             return new InsertParam(this.index + offset, this.type);

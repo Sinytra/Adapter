@@ -429,12 +429,19 @@ public class ClassAnalyzer {
                 }
             }
             if (!redirectInjectionPoints.isEmpty()) {
-                // TODO handle method desc changes or filter injectors
+                LOGGER.info("MOVED INSNS TO LAMBDA");
+                LOGGER.info("   {}", dirtyMethod.name + dirtyMethod.desc);
+                LOGGER.info("\\> {}", lambdaMethod.name + lambdaMethod.desc);
+                LOGGER.info("===");
                 Patch.ClassPatchBuilder patch = Patch.builder()
                     .targetClass(this.dirtyNode.name)
                     .targetMethod(dirtyMethod.name + dirtyMethod.desc)
                     .modifyTarget(lambdaMethod.name + lambdaMethod.desc);
                 redirectInjectionPoints.forEach(patch::targetInjectionPoint);
+                LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.compareMethodParameters(dirtyMethod, lambdaMethod);
+                if (!diff.isEmpty() && diff.modifications().stream().allMatch(m -> m instanceof LayeredParamsDiffSnapshot.InsertParam)) {
+                    patch.transform(diff.asParameterTransformer(ParamTransformTarget.METHOD, true));
+                }
                 patches.add(patch.build());
             }
         }
