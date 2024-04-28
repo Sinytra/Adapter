@@ -3,7 +3,7 @@ package org.sinytra.adapter.gradle.analysis;
 import com.mojang.datafixers.util.Pair;
 import org.sinytra.adapter.gradle.util.MatchResult;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
-import org.sinytra.adapter.patch.api.Patch;
+import org.sinytra.adapter.patch.api.MethodTransform;
 import org.sinytra.adapter.patch.transformer.ModifyInjectionTarget;
 import org.sinytra.adapter.patch.transformer.filter.InjectionPointTransformerFilter;
 import org.jetbrains.annotations.Nullable;
@@ -140,12 +140,10 @@ public class OverloadedMethods {
     }
 
     public record MethodOverload(boolean isFullMatch, MethodNode methodNode, List<String> excludedInjectionPoints) {
-        public void applyPatchTargetModifier(Patch.ClassPatchBuilder builder, MethodNode method) {
-            if (this.excludedInjectionPoints.isEmpty()) {
-                builder.modifyTarget(method.name + method.desc);
-            } else {
-                builder.transform(InjectionPointTransformerFilter.create(new ModifyInjectionTarget(List.of(method.name + method.desc)), this.excludedInjectionPoints));
-            }
+        public MethodTransform getPatchTargetTransform(MethodNode method) {
+            return this.excludedInjectionPoints.isEmpty()
+                ? new ModifyInjectionTarget(List.of(method.name + method.desc))
+                : InjectionPointTransformerFilter.create(new ModifyInjectionTarget(List.of(method.name + method.desc)), this.excludedInjectionPoints);
         }
     }
 }

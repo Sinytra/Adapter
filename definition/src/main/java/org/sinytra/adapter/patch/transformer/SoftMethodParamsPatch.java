@@ -9,6 +9,7 @@ import org.sinytra.adapter.patch.analysis.InheritanceHandler;
 import org.sinytra.adapter.patch.analysis.params.ParametersDiff;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
+import org.sinytra.adapter.patch.serialization.MethodTransformSerialization;
 import org.sinytra.adapter.patch.transformer.param.TransformParameters;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
@@ -17,9 +18,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
-public record SoftMethodParamsPatch(String replacementTarget) implements MethodTransform {
+public record SoftMethodParamsPatch(String replacementTarget, MethodTransform targetTransform) implements MethodTransform {
     public static final Codec<SoftMethodParamsPatch> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        Codec.STRING.fieldOf("replacementTarget").forGetter(SoftMethodParamsPatch::replacementTarget)
+        Codec.STRING.fieldOf("replacementTarget").forGetter(SoftMethodParamsPatch::replacementTarget),
+        MethodTransformSerialization.METHOD_TRANSFORM_CODEC.fieldOf("targetTransform").forGetter(SoftMethodParamsPatch::targetTransform)
     ).apply(instance, SoftMethodParamsPatch::new));
 
     @Override
@@ -34,17 +36,24 @@ public record SoftMethodParamsPatch(String replacementTarget) implements MethodT
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
+        Patch.Result result = Patch.Result.PASS;
         MethodQualifier targetQualifier = methodContext.getTargetMethodQualifier();
         if (targetQualifier != null) {
+            // In the case of constructor TAIL injection, it's safer to keep working with the original values
+            if (targetQualifier.name().equals("<init>") && !methodContext.capturesLocals() && methodContext.injectionPointAnnotation().<String>getValue("value").map(s -> s.get().equals("TAIL")).orElse(false)) {
+                return Patch.Result.PASS;
+            }
+
             List<Pair<Integer, Type>> replacements = determineAutomaticReplacements(targetQualifier, methodNode, context, this.replacementTarget);
             if (!replacements.isEmpty()) {
                 TransformParameters patch = TransformParameters.builder()
                     .replacements(replacements)
                     .build();
-                return Patch.Result.APPLY.or(patch.apply(classNode, methodNode, methodContext, context));
+                result = Patch.Result.APPLY.or(patch.apply(classNode, methodNode, methodContext, context));
             }
         }
-        return Patch.Result.PASS;
+        // Modify the method target
+        return result.or(this.targetTransform.apply(classNode, methodNode, methodContext, context));
     }
 
     private List<Pair<Integer, Type>> determineAutomaticReplacements(MethodQualifier targetQualifier, MethodNode methodNode, PatchContext context, String replacement) {

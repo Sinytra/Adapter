@@ -304,13 +304,13 @@ public class ClassAnalyzer {
                     if (overloader.isFullMatch()) {
                         this.trace.logHeader();
                         LOGGER.info("OVERLOAD");
-                        LOGGER.info("   " + overloaderQualifier);
-                        LOGGER.info("=> " + dirtyQualifier);
+                        LOGGER.info("   {}", overloaderQualifier);
+                        LOGGER.info("=> {}", dirtyQualifier);
                         LOGGER.info("===");
                         PatchInstance patch = Patch.builder()
                             .targetClass(this.dirtyNode.name)
                             .targetMethod(overloaderQualifier)
-                            .chain(b -> overloader.applyPatchTargetModifier(b, method))
+                            .transform(overloader.getPatchTargetTransform(method))
                             .transformMethods(diff.createTransforms(ParamTransformTarget.METHOD))
                             .build();
                         context.addPatch(patch);
@@ -320,15 +320,14 @@ public class ClassAnalyzer {
                     } else if (diff.insertions().isEmpty()) {
                         this.trace.logHeader();
                         LOGGER.info("SOFT OVERLOAD");
-                        LOGGER.info("   " + overloaderQualifier);
-                        LOGGER.info("=> " + dirtyQualifier);
+                        LOGGER.info("   {}", overloaderQualifier);
+                        LOGGER.info("=> {}", dirtyQualifier);
                         LOGGER.info("===");
                         PatchInstance patch = Patch.builder()
                             .targetClass(this.dirtyNode.name)
                             .targetMethod(overloaderQualifier)
-                            .transform(new SoftMethodParamsPatch(method.name + method.desc))
-                            // IMPORTANT: Target modification must come AFTER soft params patch
-                            .chain(b -> overloader.applyPatchTargetModifier(b, method))
+                            // IMPORTANT: Target modification must be applied AFTER soft params patch
+                            .transform(new SoftMethodParamsPatch(method.name + method.desc, overloader.getPatchTargetTransform(method)))
                             .build();
                         context.addPatch(patch);
                     }
