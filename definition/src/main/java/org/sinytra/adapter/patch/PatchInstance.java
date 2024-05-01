@@ -213,6 +213,11 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         }
 
         @Override
+        public T splitMixin(String targetClass) {
+            return transform(new SplitMixinTransform(targetClass));
+        }
+
+        @Override
         public T improveModifyVar() {
             return transform(ModifyVarUpgradeToModifyExprVal.INSTANCE);
         }

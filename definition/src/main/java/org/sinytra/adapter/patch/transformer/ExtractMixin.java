@@ -19,7 +19,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
-public record ExtractMixin(String targetClass) implements MethodTransform {
+public record ExtractMixin(String targetClass, boolean remove) implements MethodTransform {
+    public ExtractMixin(String targetClass) {
+        this(targetClass, true);
+    }
+
     @Override
     public Collection<String> getAcceptedAnnotations() {
         return Set.of(MixinConstants.WRAP_WITH_CONDITION, MixinConstants.WRAP_OPERATION, MixinConstants.MODIFY_CONST, MixinConstants.MODIFY_ARG, MixinConstants.INJECT, MixinConstants.REDIRECT, MixinConstants.MODIFY_VAR, MixinConstants.MODIFY_EXPR_VAL);
@@ -45,10 +49,19 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
         // Get or generate new mixin class
         ClassNode generatedTarget = context.environment().classGenerator().getOrGenerateMixinClass(classNode, this.targetClass, targetClass != null ? targetClass.superName : null);
         context.environment().refmapHolder().copyEntries(classNode.name, generatedTarget.name);
+
         // Add mixin methods from original to generated class
-        generatedTarget.methods.addAll(candidates.methods);
+        for (MethodNode method : candidates.methods()) {
+            MethodNode copy = new MethodNode(method.access, method.name, method.desc, method.signature, method.exceptions == null ? null : method.exceptions.toArray(new String[0]));
+            method.accept(copy);
+            generatedTarget.methods.add(copy);
+            updateOwnerRefereces(copy, classNode, this.targetClass);
+            if (!isStatic && copy.localVariables != null) {
+                copy.localVariables.stream().filter(l -> l.index == 0).findFirst().ifPresent(lvn -> lvn.desc = Type.getObjectType(generatedTarget.name).getDescriptor());
+            }
+        }
+
         candidates.handleUpdates().forEach(c -> c.accept(generatedTarget));
-        candidates.methods().forEach(method -> updateOwnerRefereces(method, classNode, this.targetClass));
 
         // Take care of captured locals
         Patch.Result result = Patch.Result.PASS;
@@ -57,9 +70,8 @@ public record ExtractMixin(String targetClass) implements MethodTransform {
         }
 
         // Remove original method
-        context.postApply(() -> classNode.methods.removeAll(candidates.methods));
-        if (!isStatic && methodNode.localVariables != null) {
-            methodNode.localVariables.stream().filter(l -> l.index == 0).findFirst().ifPresent(lvn -> lvn.desc = Type.getObjectType(generatedTarget.name).getDescriptor());
+        if (this.remove) {
+            context.postApply(() -> classNode.methods.removeAll(candidates.methods));
         }
         return result.or(Patch.Result.APPLY);
     }

@@ -76,6 +76,8 @@ public interface Patch {
 
         T extractMixin(String targetClass);
 
+        T splitMixin(String targetClass);
+
         T improveModifyVar();
 
         T modifyMixinType(String newType, Consumer<ModifyMixinType.Builder> consumer);
