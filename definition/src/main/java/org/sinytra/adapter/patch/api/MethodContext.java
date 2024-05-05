@@ -39,7 +39,7 @@ public interface MethodContext {
     @Nullable
     MethodQualifier getInjectionPointMethodQualifier();
 
-    List<AbstractInsnNode> findInjectionTargetInsns(TargetPair target);
+    List<AbstractInsnNode> findInjectionTargetInsns(@Nullable TargetPair target);
 
     void updateDescription(List<Type> parameters);
 
@@ -59,6 +59,8 @@ public interface MethodContext {
     List<Integer> getLvtCompatLevelsOrdered();
 
     boolean capturesLocals();
+
+    boolean failsDirtyInjectionCheck();
 
     record LocalVariable(int index, Type type) {}
 

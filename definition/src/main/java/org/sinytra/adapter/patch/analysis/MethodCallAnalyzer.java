@@ -45,6 +45,13 @@ public class MethodCallAnalyzer {
         return new InstructionMatcher(insn, previousInsns, nextInsns);
     }
 
+    public static InstructionMatcher findForwardInstructions(AbstractInsnNode insn, int range, boolean remapCalls) {
+        LabelNode nextLabel = findFirstInsn(insn, LabelNode.class, FORWARD);
+        List<AbstractInsnNode> nextInsns = getInsns(nextLabel, range, remapCalls, FORWARD);
+
+        return new InstructionMatcher(insn, List.of(), nextInsns);
+    }
+
     private static List<AbstractInsnNode> getInsns(AbstractInsnNode root, int range, boolean remapCalls, UnaryOperator<AbstractInsnNode> operator) {
         return Stream.iterate(root, Objects::nonNull, operator)
             .filter(insn -> !(insn instanceof FrameNode) && !(insn instanceof LineNumberNode))

@@ -114,7 +114,7 @@ public final class MethodContextImpl implements MethodContext {
     }
 
     @Override
-    public List<AbstractInsnNode> findInjectionTargetInsns(TargetPair target) {
+    public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable TargetPair target) {
         return this.targetInstructionsCache.computeIfAbsent(target, this::computeInjectionTargetInsns);
     }
 
@@ -164,7 +164,10 @@ public final class MethodContextImpl implements MethodContext {
         return AdapterUtil.summariseLocals(locals, startPos);
     }
 
-    private List<AbstractInsnNode> computeInjectionTargetInsns(TargetPair target) {
+    private List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable TargetPair target) {
+        if (target == null) {
+            return List.of();
+        }
         AnnotationHandle atNode = injectionPointAnnotation();
         if (atNode == null) {
             LOGGER.debug("Target @At annotation not found in method {}.{}{}", this.classNode.name, this.methodNode.name, this.methodNode.desc);
@@ -198,6 +201,12 @@ public final class MethodContextImpl implements MethodContext {
     @Override
     public boolean capturesLocals() {
         return methodAnnotation().getValue("locals").isPresent();
+    }
+
+    @Override
+    public boolean failsDirtyInjectionCheck() {
+        TargetPair dirtyPair = findDirtyInjectionTarget();
+        return dirtyPair != null && findInjectionTargetInsns(dirtyPair).isEmpty();
     }
 
     private InsnList getSlicedInsns(AnnotationHandle parentAnnotation, ClassNode classNode, MethodNode injectorMethod, ClassNode targetClass, MethodNode targetMethod, PatchContext context) {
