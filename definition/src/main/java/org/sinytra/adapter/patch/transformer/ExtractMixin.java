@@ -52,12 +52,18 @@ public record ExtractMixin(String targetClass, boolean remove) implements Method
 
         // Add mixin methods from original to generated class
         for (MethodNode method : candidates.methods()) {
-            MethodNode copy = new MethodNode(method.access, method.name, method.desc, method.signature, method.exceptions == null ? null : method.exceptions.toArray(new String[0]));
-            method.accept(copy);
-            generatedTarget.methods.add(copy);
-            updateOwnerRefereces(copy, classNode, this.targetClass);
-            if (!isStatic && copy.localVariables != null) {
-                copy.localVariables.stream().filter(l -> l.index == 0).findFirst().ifPresent(lvn -> lvn.desc = Type.getObjectType(generatedTarget.name).getDescriptor());
+            MethodNode transfer;
+            if (this.remove) {
+                transfer = method;
+            } else {
+                transfer = new MethodNode(method.access, method.name, method.desc, method.signature, method.exceptions == null ? null : method.exceptions.toArray(new String[0]));
+                method.accept(transfer);
+            }
+
+            generatedTarget.methods.add(transfer);
+            updateOwnerRefereces(transfer, classNode, this.targetClass);
+            if (!isStatic && transfer.localVariables != null) {
+                transfer.localVariables.stream().filter(l -> l.index == 0).findFirst().ifPresent(lvn -> lvn.desc = Type.getObjectType(generatedTarget.name).getDescriptor());
             }
         }
 
@@ -155,7 +161,7 @@ public record ExtractMixin(String targetClass, boolean remove) implements Method
                 return true;
             }
             if (isTargetInherited) {
-                accessUpdates.add(() ->  method.access = fixAccess(method.access));
+                accessUpdates.add(() -> method.access = fixAccess(method.access));
                 return true;
             }
         }
