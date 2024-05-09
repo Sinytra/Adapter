@@ -342,6 +342,9 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                     .flatMap(var -> dirtyVarLookup.getTypedOrdinal(var).map(o -> new LocalVar(var, o)));
             }
             LocalVariableNode dirtyLocal = dirtyLocals.get(ordinal);
+            if (!local.relative() && dirtyLocal.index == local.lvn().index) {
+                return Optional.empty();
+            }
             OptionalInt dirtyNameOrdinal = GeneratedVariables.getGeneratedVariableOrdinal(dirtyLocal.name, Type.getType(dirtyLocal.desc));
             if (dirtyNameOrdinal.isEmpty() || local.relative() && ordinal == dirtyNameOrdinal.getAsInt()) {
                 return Optional.empty();
