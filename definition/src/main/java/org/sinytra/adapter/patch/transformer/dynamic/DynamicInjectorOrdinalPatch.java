@@ -170,7 +170,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
             List<AbstractInsnNode> cleanReturnInsns = findReturnInsns(cleanTarget.methodNode());
             List<AbstractInsnNode> dirtyReturnInsns = findReturnInsns(dirtyTarget.methodNode());
 
-            if (ordinal < cleanReturnInsns.size()) {
+            if (ordinal < cleanReturnInsns.size() && cleanReturnInsns.size() != dirtyReturnInsns.size()) {
                 AbstractInsnNode cleanInsn = cleanReturnInsns.get(ordinal);
                 InstructionMatcher original = new InstructionMatcher(cleanInsn, findReturnPrecedingInsns(cleanInsn), List.of());
                 List<InstructionMatcher> dirtyMatchers = dirtyReturnInsns.stream()

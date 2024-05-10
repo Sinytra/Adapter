@@ -145,7 +145,11 @@ public class DynamicModifyVarAtReturnPatch implements MethodTransform {
         if (targetInsns.isEmpty()) {
             return null;
         }
-        AbstractInsnNode targetInsn = targetInsns.get(ordinal == -1 ? targetInsns.size() - 1 : ordinal);
+        int index = ordinal == -1 ? targetInsns.size() - 1 : ordinal;
+        if (index >= targetInsns.size()) {
+            return null;
+        }
+        AbstractInsnNode targetInsn = targetInsns.get(index);
         // Find modified variable
         LocalVariableDiscriminator discriminator = LocalVariableDiscriminator.parse(methodContext.methodAnnotation().unwrap());
         InjectionInfo injectionInfo = MockMixinRuntime.forInjectionInfo(classNode.name, injectionTarget.classNode().name, context.environment());
