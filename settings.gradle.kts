@@ -19,3 +19,4 @@ pluginManagement {
 rootProject.name = "Adapter"
 
 includeBuild("plugin")
+include("runtime")

@@ -24,6 +24,8 @@ public class MixinConstants {
     public static final String OPERATION_INTERNAL_NAME = "com/llamalad7/mixinextras/injector/wrapoperation/Operation";
     public static final String LOCAL = "Lcom/llamalad7/mixinextras/sugar/Local;";
     public static final String SHARE = "Lcom/llamalad7/mixinextras/sugar/Share;";
+    // Adapter custom mixin injectors
+    public static final String MODIFY_INSTANCEOF_VAL = "Lorg/sinytra/adapter/runtime/inject/ModifyInstanceofValue;";
     // Misc
     public static final String MIXIN = "Lorg/spongepowered/asm/mixin/Mixin;";
     public static final String AT = "Lorg/spongepowered/asm/mixin/injection/At;";

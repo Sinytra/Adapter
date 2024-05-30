@@ -1,11 +1,13 @@
 package org.sinytra.adapter.patch.transformer.dynamic;
 
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.InsnComparator;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.transformer.DisableMixin;
+import org.sinytra.adapter.patch.transformer.ModifyMixinType;
 
 import java.util.*;
 
@@ -19,9 +21,11 @@ import java.util.*;
  * Reference: <code>stack.isOf(Items.CROSSBOW)</code> -> <code>stack.getItem() instanceof CrossbowItem</code> in <code>HeldItemRenderer#renderFirstPersonItem</code>
  */
 public class DynamicSyntheticInstanceofPatch implements MethodTransform {
+    private static final int RANGE = 4;
+    
     @Override
     public Collection<String> getAcceptedAnnotations() {
-        return Set.of(MixinConstants.REDIRECT);
+        return Set.of(MixinConstants.REDIRECT, MixinConstants.MODIFY_EXPR_VAL);
     }
 
     @Override
@@ -43,14 +47,28 @@ public class DynamicSyntheticInstanceofPatch implements MethodTransform {
         if (!(jumpInsn instanceof JumpInsnNode)) {
             return Patch.Result.PASS;
         }
-        InstructionMatcher cleanMatcher = MethodCallAnalyzer.findForwardInstructions(targetInsn, 5, true);
+        InstructionMatcher cleanMatcher = MethodCallAnalyzer.findForwardInstructions(targetInsn, RANGE, true);
         int firstOp = cleanMatcher.after().get(0).getOpcode();
         // Find equivalent dirty code point
-        for (AbstractInsnNode insn : methodContext.findDirtyInjectionTarget().methodNode().instructions) {
+        InsnList dirtyInsns = methodContext.findDirtyInjectionTarget().methodNode().instructions;
+        for (AbstractInsnNode insn : dirtyInsns) {
             if (insn.getOpcode() == firstOp) {
                 AbstractInsnNode nextLabel = findInsnAfterLabel(insn);
-                InstructionMatcher dirtyMatcher = MethodCallAnalyzer.findForwardInstructions(nextLabel, 5, true);
+                InstructionMatcher dirtyMatcher = MethodCallAnalyzer.findForwardInstructions(nextLabel, RANGE, true);
                 if (cleanMatcher.test(dirtyMatcher)) {
+                    // ModifyExpressionValue doesn't include the original instanceof call, so we can skip comparing instructions
+                    if (methodContext.methodAnnotation().matchesDesc(MixinConstants.MODIFY_EXPR_VAL)) {
+                        TypeInsnNode instanceOfInsn = (TypeInsnNode) findLabelInsns(insn).stream().filter(i -> i.getOpcode() == Opcodes.INSTANCEOF).findFirst().orElseThrow();
+                        MethodTransform transform = new ModifyMixinType(MixinConstants.MODIFY_INSTANCEOF_VAL, b -> {
+                            b.sameTarget().injectionPoint("sinytra:INSTANCEOF", instanceOfInsn.desc);
+                            int ordinal = getInstanceofOrdinal(dirtyInsns, instanceOfInsn);
+                            if (ordinal != 0) {
+                                b.putValue("ordinal", ordinal);
+                            }
+                        });
+                        return transform.apply(classNode, methodNode, methodContext, context);
+                    }
+
                     // Found the code point, now determine the contents of the updated if statement
                     List<AbstractInsnNode> dirtyLabelInsns = findLabelInsns(insn);
 
@@ -119,5 +137,15 @@ public class DynamicSyntheticInstanceofPatch implements MethodTransform {
             list.add(next);
         }
         return list;
+    }
+
+    private static int getInstanceofOrdinal(InsnList insns, AbstractInsnNode insn) {
+        List<AbstractInsnNode> instanceOfInsns = new ArrayList<>();
+        for (AbstractInsnNode node : insns) {
+            if (node.getOpcode() == Opcodes.INSTANCEOF) {
+                instanceOfInsns.add(insn);
+            }
+        }
+        return instanceOfInsns.indexOf(insn);
     }
 }
