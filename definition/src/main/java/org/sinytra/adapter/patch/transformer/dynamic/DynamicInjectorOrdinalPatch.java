@@ -349,15 +349,8 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
             if (dirtyNameOrdinal.isEmpty() || local.relative() && ordinal == dirtyNameOrdinal.getAsInt()) {
                 return Optional.empty();
             }
-            List<LocalVariableNode> actual = dirtyLocals.stream()
-                .filter(lvn -> GeneratedVariables.getGeneratedVariableOrdinal(lvn.name, Type.getType(lvn.desc)).orElse(-1) == ordinal)
-                .toList();
-            if (actual.size() == 1) {
-                LocalVariableNode lvn = actual.get(0);
-                return Optional.of(new LocalVar(lvn, dirtyLocals.indexOf(lvn)));
-            }
 
-            if (cleanLocal.index != dirtyLocal.index) {
+            if (cleanLocal.index != dirtyLocal.index && !local.relative()) {
                 return Optional.of(new LocalVar(dirtyLocal, dirtyLocals.indexOf(dirtyLocal)));
             }
 
