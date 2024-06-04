@@ -11,6 +11,7 @@ import org.sinytra.adapter.patch.ClassPatchInstance;
 import org.sinytra.adapter.patch.InterfacePatchInstance;
 import org.sinytra.adapter.patch.PatchInstance;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
+import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.transformer.ModifyInjectionTarget;
 import org.sinytra.adapter.patch.transformer.ModifyMethodAccess;
 import org.sinytra.adapter.patch.transformer.ModifyMethodParams;
@@ -18,6 +19,7 @@ import org.sinytra.adapter.patch.transformer.ModifyMixinType;
 import org.sinytra.adapter.patch.transformer.param.TransformParameters;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -105,11 +107,17 @@ public interface Patch {
         ClassPatchBuilder targetInjectionPoint(String value, String target);
 
         default ClassPatchBuilder targetConstant(double doubleValue) {
-            return targetMixinType(MixinConstants.MODIFY_CONST)
+            return targetMixinType(MixinConstants.MODIFY_CONST, MixinConstants.MODIFY_EXPR_VAL)
                 .targetAnnotationValues(handle -> handle.getNested("constant")
                     .flatMap(cst -> cst.<Double>getValue("doubleValue")
                         .map(val -> val.get() == doubleValue))
-                    .orElse(false));
+                    .orElseGet(() -> handle.getNested("at")
+                        .flatMap(at -> {
+                            Optional<String> value = at.<String>getValue("value").map(AnnotationValueHandle::get);
+                            Optional<List<String>> target = at.<List<String>>getValue("args").map(AnnotationValueHandle::get);
+                            return value.map(s -> s.equals("CONSTANT") && target.map(t -> t.size() == 1 && t.get(0).equals("doubleValue=" + doubleValue + "D")).orElse(false));
+                        })
+                        .orElse(false)));
         }
 
         default ClassPatchBuilder modifyInjectionPoint(String value, String target) {
