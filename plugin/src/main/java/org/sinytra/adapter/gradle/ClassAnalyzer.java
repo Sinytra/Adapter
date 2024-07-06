@@ -3,7 +3,6 @@ package org.sinytra.adapter.gradle;
 import com.google.common.collect.*;
 import com.mojang.datafixers.util.Pair;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
-import net.minecraftforge.srgutils.IMappingFile;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Handle;
@@ -43,7 +42,6 @@ public class ClassAnalyzer {
 
     private final ClassNode cleanNode;
     private final ClassNode dirtyNode;
-    private final IMappingFile mappings;
     private final ClassLookup cleanClassProvider;
     private final ClassLookup dirtyClassProvider;
     private final InheritanceHandler inheritanceHandler;
@@ -64,8 +62,8 @@ public class ClassAnalyzer {
     private final Map<String, FieldNode> cleanFields;
     private final Map<String, FieldNode> dirtyFields;
 
-    public static ClassAnalyzer create(byte[] cleanData, byte[] dirtyData, IMappingFile mappings, ClassLookup cleanClassProvider, ClassLookup dirtyClassProvider) {
-        return new ClassAnalyzer(readClassNode(cleanData), readClassNode(dirtyData), mappings, cleanClassProvider, dirtyClassProvider);
+    public static ClassAnalyzer create(byte[] cleanData, byte[] dirtyData, ClassLookup cleanClassProvider, ClassLookup dirtyClassProvider) {
+        return new ClassAnalyzer(readClassNode(cleanData), readClassNode(dirtyData), cleanClassProvider, dirtyClassProvider);
     }
 
     private static ClassNode readClassNode(byte[] data) {
@@ -75,10 +73,9 @@ public class ClassAnalyzer {
         return classNode;
     }
 
-    public ClassAnalyzer(ClassNode cleanNode, ClassNode dirtyNode, IMappingFile mappings, ClassLookup cleanClassProvider, ClassLookup dirtyClassProvider) {
+    public ClassAnalyzer(ClassNode cleanNode, ClassNode dirtyNode, ClassLookup cleanClassProvider, ClassLookup dirtyClassProvider) {
         this.cleanNode = cleanNode;
         this.dirtyNode = dirtyNode;
-        this.mappings = mappings;
         this.cleanClassProvider = cleanClassProvider;
         this.dirtyClassProvider = dirtyClassProvider;
         ClassLookup joinedClassProvider = name -> dirtyClassProvider.getClass(name).or(() -> cleanClassProvider.getClass(name));
@@ -132,7 +129,7 @@ public class ClassAnalyzer {
     public void analyze(List<? super Patch> patches, Multimap<ChangeCategory, String> info, Map<? super String, String> replacementCalls,
                         Map<String, Map<MethodQualifier, List<LVTOffsets.Swap>>> reorders
     ) {
-        AnalysisContext context = new AnalysisContext(patches, this.dirtyNode, this.mappings, this.cleanToDirty, this.trace);
+        AnalysisContext context = new AnalysisContext(patches, this.dirtyNode, this.cleanToDirty, this.trace);
         // Try to find added dirtyMethod patches
         findOverloadedMethods(context, replacementCalls);
         if (!isAnonymousClass(this.cleanNode.name)) {
@@ -187,8 +184,7 @@ public class ClassAnalyzer {
 
     private void findUpdatedLambdaNames(List<? super PatchInstance> patches) {
         this.cleanToDirty.forEach((clean, dirty) -> {
-            String dirtyMappedName = remapMethodName(this.dirtyNode, dirty.name, dirty.desc);
-            if (!dirtyMappedName.startsWith(LAMBDA_PREFIX)) {
+            if (!dirty.name.startsWith(LAMBDA_PREFIX)) {
                 List<String> cleanLambdas = findLambdasInMethod(this.cleanNode, clean, this.cleanMethods);
                 List<MethodNode> dirtyLambdas = findLambdasInMethod(this.dirtyNode, dirty, this.dirtyMethods).stream()
                     .map(str -> findUniqueMethod(this.dirtyMethods, str))
@@ -212,7 +208,7 @@ public class ClassAnalyzer {
                         this.trace.logHeader();
                         LOGGER.info("LAMBDA UPDATE");
                         LOGGER.info(" << {} {}", original.name, original.desc);
-                        LOGGER.info(" >> {} {}", remapMethodName(this.dirtyNode, replacement.name, replacement.desc), replacement.desc);
+                        LOGGER.info(" >> {} {}", replacement.name, replacement.desc);
 
                         PatchInstance patch = Patch.builder()
                             .targetClass(this.dirtyNode.name)
@@ -361,8 +357,7 @@ public class ClassAnalyzer {
         // Find "expanded" methods where forge replaces a dirtyMethod with one that takes in additional parameters
         this.cleanOnlyMethods.forEach((name, method) -> {
             // Skip lambdas for now
-            String mappedClean = remapMethodName(this.cleanNode, method.name, method.desc);
-            if (mappedClean.startsWith(LAMBDA_PREFIX)) {
+            if (method.name.startsWith(LAMBDA_PREFIX)) {
                 return;
             }
 
@@ -450,7 +445,7 @@ public class ClassAnalyzer {
         // Skip methods with different return types
         if (!Type.getReturnType(clean.desc).equals(Type.getReturnType(dirty.desc))
             // Make an educated guess and assume all dirtyMethod replacements keep the same name.
-            || !dirty.name.equals(remapMethodName(this.cleanNode, clean.name, clean.desc))
+            || !dirty.name.equals(clean.name)
         ) {
             return;
         }
@@ -536,8 +531,7 @@ public class ClassAnalyzer {
             if (insn instanceof InvokeDynamicInsnNode indy && indy.bsmArgs.length >= 3) {
                 for (Object bsmArg : indy.bsmArgs) {
                     if (bsmArg instanceof Handle handle && handle.getOwner().equals(cls.name)) {
-                        String lambdaName = remapMethodName(cls, handle.getName(), handle.getDesc());
-                        if (lambdaName.startsWith(LAMBDA_PREFIX)) {
+                        if (handle.getName().startsWith(LAMBDA_PREFIX)) {
                             String name = handle.getName();
                             list.add(name);
                             if (methods != null) {
@@ -551,13 +545,6 @@ public class ClassAnalyzer {
             }
         }
         return list;
-    }
-
-    private String remapMethodName(ClassNode cls, String name, String desc) {
-        return Optional.ofNullable(this.mappings.getClass(cls.name))
-            .map(c -> c.getMethod(name, desc))
-            .map(IMappingFile.INode::getMapped)
-            .orElse(name);
     }
 
     public static boolean containsMethodCall(MethodNode methodNode, MethodInsnNode targetMinsn) {

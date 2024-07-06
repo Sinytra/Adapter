@@ -7,7 +7,7 @@ version = "1.0-SNAPSHOT"
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(17))
+        languageVersion.set(JavaLanguageVersion.of(21))
     }
 }
 
@@ -37,11 +37,8 @@ repositories {
 }
 
 dependencies {
-    implementation(group = "net.neoforged", name = "NeoGradle", version = "6.0.+")
-    implementation(group = "net.minecraftforge", name = "srgutils", version = "0.5.3")
-    compileOnly(group = "net.neoforged", "artifactural", version = "3.0.17")
-
     implementation(group = "org.sinytra.adapter", name = "definition")
+    implementation(group = "org.sinytra.adapter", name = "userdev")
     implementation(group = "org.apache.commons", name = "commons-lang3", version = "3.13.0")
 
     testImplementation(platform("org.junit:junit-bom:5.9.1"))

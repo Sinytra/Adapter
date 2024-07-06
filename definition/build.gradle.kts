@@ -1,13 +1,14 @@
 plugins {
     `java-library`
     `maven-publish`
-    id("net.neoforged.gradleutils").version("3.0.0-alpha.10")
+    id("net.neoforged.gradleutils").version("3.0.0")
 }
 
 group = "org.sinytra.adapter"
 gradleutils.version {
     branches {
         suffixBranch()
+        suffixExemptedBranches("1.21.x")
     }
 }
 
@@ -16,12 +17,12 @@ println("Definition version: $version")
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(17))
+        languageVersion.set(JavaLanguageVersion.of(21))
     }
     withSourcesJar()
 }
 
-val testClasses = sourceSets.create("testClasses")
+val testClasses: SourceSet by sourceSets.creating
 
 repositories {
     mavenCentral()

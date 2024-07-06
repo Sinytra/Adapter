@@ -1,26 +1,22 @@
 package org.sinytra.adapter.gradle.analysis;
 
 import com.google.common.collect.BiMap;
-import org.sinytra.adapter.gradle.util.TraceCallback;
-import org.sinytra.adapter.patch.api.Patch;
-import net.minecraftforge.srgutils.IMappingFile;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.gradle.util.TraceCallback;
+import org.sinytra.adapter.patch.api.Patch;
 
 import java.util.List;
-import java.util.Optional;
 
 public class AnalysisContext {
     private final List<? super Patch> patches;
     private final ClassNode dirtyNode;
-    private final IMappingFile mappings;
     private final BiMap<MethodNode, MethodNode> cleanToDirty;
     private final TraceCallback trace;
 
-    public AnalysisContext(List<? super Patch> patches, ClassNode dirtyNode, IMappingFile mappings, BiMap<MethodNode, MethodNode> cleanToDirty, TraceCallback trace) {
+    public AnalysisContext(List<? super Patch> patches, ClassNode dirtyNode, BiMap<MethodNode, MethodNode> cleanToDirty, TraceCallback trace) {
         this.patches = patches;
         this.dirtyNode = dirtyNode;
-        this.mappings = mappings;
         this.cleanToDirty = cleanToDirty;
         this.trace = trace;
     }
@@ -35,13 +31,6 @@ public class AnalysisContext {
 
     public void addPatch(Patch patch) {
         this.patches.add(patch);
-    }
-
-    public String remapMethod(String owner, String name, String desc) {
-        return Optional.ofNullable(this.mappings.getClass(owner))
-            .map(c -> c.getMethod(name, desc))
-            .map(IMappingFile.INode::getMapped)
-            .orElse(name);
     }
 
     public MethodNode getCleanMethod(MethodNode dirty) {

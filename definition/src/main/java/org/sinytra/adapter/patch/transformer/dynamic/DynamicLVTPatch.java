@@ -138,6 +138,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             ClassNode targetClass = targetPair.classNode();
             MethodNode targetMethod = targetPair.methodNode();
             // Find reordered indices
+            // TODO Remove static LVT offsets
             OptionalInt reorder = this.lvtOffsets.get().findReorder(targetClass.name, targetMethod.name, targetMethod.desc, index);
             if (reorder.isPresent()) {
                 int newIndex = reorder.getAsInt();

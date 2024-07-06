@@ -3,13 +3,14 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 plugins {
-    id("net.neoforged.gradle") version "[6.0,6.2)"
+    id("net.neoforged.moddev") version "0.1.124"
+    id("org.sinytra.adapter.userdev")
     id("org.sinytra.adapter.gradle")
     `maven-publish`
 }
 
 val versionMc: String by project
-val versionForge: String by project
+val versionNeoForge: String by project
 val timestamp: String = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd.HHmmss"))
 
 version = "${AdapterPlugin.getDefinitionVersion()?.let { "$it-" } ?: ""}$versionMc-$timestamp"
@@ -17,7 +18,7 @@ version = "${AdapterPlugin.getDefinitionVersion()?.let { "$it-" } ?: ""}$version
 println("Data version: $version")
 
 allprojects {
-    apply(plugin = "net.neoforged.gradle")
+    apply(plugin = "net.neoforged.moddev")
     apply(plugin = "maven-publish")
 
     group = "org.sinytra.adapter"
@@ -28,32 +29,24 @@ allprojects {
 
     java {
         toolchain {
-            languageVersion.set(JavaLanguageVersion.of(17))
+            languageVersion.set(JavaLanguageVersion.of(21))
         }
         withSourcesJar()
     }
 
-    minecraft {
-        mappings("official", versionMc)
+    neoForge {
+        version = versionNeoForge
     }
 
     repositories {
         mavenCentral()
-        maven {
-            name = "MinecraftForge"
-            url = uri("https://maven.minecraftforge.net/")
-        }
-    }
-
-    dependencies {
-        minecraft(group = "net.minecraftforge", name = "forge", version = "$versionMc-$versionForge")
+        maven("https://maven.su5ed.dev/releases")
     }
 
     publishing {
         publications {
             create<MavenPublication>("mavenJava") {
                 from(components["java"])
-                fg.component(this)
                 artifactId = project.base.archivesName.get()
             }
         }
@@ -74,4 +67,9 @@ tasks {
     jar {
         from(generateAdapterData)
     }
+}
+
+// TODO TEMP
+neoForge {
+    neoFormRuntime.version.set("0.1.70-step-output")
 }

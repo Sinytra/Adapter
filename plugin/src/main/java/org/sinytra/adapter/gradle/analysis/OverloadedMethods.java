@@ -48,7 +48,7 @@ public class OverloadedMethods {
     }
 
     private static Optional<List<String>> isOverloadedMethod(AnalysisContext context, MethodNode other, String owner, MethodNode method) {
-        if (context.remapMethod(owner, other.name, other.desc).startsWith(LAMBDA_PREFIX) || method.name.startsWith(LAMBDA_PREFIX)) {
+        if (other.name.startsWith(LAMBDA_PREFIX) || method.name.startsWith(LAMBDA_PREFIX)) {
             return Optional.empty();
         }
         if (method.name.equals("<init>") && !other.name.equals("<init>")) {

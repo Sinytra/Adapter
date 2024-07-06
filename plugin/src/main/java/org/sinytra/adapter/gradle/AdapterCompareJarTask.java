@@ -7,19 +7,18 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.mojang.serialization.JsonOps;
-import org.sinytra.adapter.patch.util.provider.ClassLookup;
-import org.sinytra.adapter.patch.util.provider.ZipClassLookup;
-import org.sinytra.adapter.patch.LVTOffsets;
-import org.sinytra.adapter.patch.api.Patch;
-import org.sinytra.adapter.patch.PatchInstance;
-import org.sinytra.adapter.patch.serialization.PatchSerialization;
-import org.sinytra.adapter.patch.util.MethodQualifier;
-import net.minecraftforge.srgutils.IMappingFile;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.Directory;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.*;
+import org.sinytra.adapter.patch.LVTOffsets;
+import org.sinytra.adapter.patch.PatchInstance;
+import org.sinytra.adapter.patch.api.Patch;
+import org.sinytra.adapter.patch.serialization.PatchSerialization;
+import org.sinytra.adapter.patch.util.MethodQualifier;
+import org.sinytra.adapter.patch.util.provider.ClassLookup;
+import org.sinytra.adapter.patch.util.provider.ZipClassLookup;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -41,10 +40,6 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
     @PathSensitive(PathSensitivity.RELATIVE)
     public abstract RegularFileProperty getDirtyJar();
 
-    @InputFile
-    @PathSensitive(PathSensitivity.RELATIVE)
-    public abstract RegularFileProperty getSrgToMcpMappings();
-
     @OutputFile
     public abstract RegularFileProperty getPatchDataOutput();
 
@@ -59,19 +54,16 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
 
     @TaskAction
     public void execute() throws IOException {
-        final Logger logger = getProject().getLogger();
+        final Logger logger = getLogger();
 
         logger.info("Generating Adapter patch data");
         logger.info("Clean jar: " + getCleanJar().get().getAsFile().getAbsolutePath());
         logger.info("Dirty jar: " + getDirtyJar().get().getAsFile().getAbsolutePath());
-        logger.info("Mappings : " + getSrgToMcpMappings().get().getAsFile().getAbsolutePath());
 
         List<Patch> patches = new ArrayList<>();
         Multimap<ChangeCategory, String> info = HashMultimap.create();
         Map<String, String> replacementCalls = new HashMap<>();
         Map<String, Map<MethodQualifier, List<LVTOffsets.Swap>>> reorders = new HashMap<>();
-
-        IMappingFile mappings = IMappingFile.load(getSrgToMcpMappings().get().getAsFile());
 
         try (final ZipFile cleanJar = new ZipFile(getCleanJar().get().getAsFile());
              final ZipFile dirtyJar = new ZipFile(getDirtyJar().get().getAsFile())
@@ -95,7 +87,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
                     byte[] cleanData = cleanJar.getInputStream(cleanEntry).readAllBytes();
                     byte[] dirtyData = dirtyJar.getInputStream(entry).readAllBytes();
 
-                    ClassAnalyzer analyzer = ClassAnalyzer.create(cleanData, dirtyData, mappings, cleanClassProvider, dirtyClassProvider);
+                    ClassAnalyzer analyzer = ClassAnalyzer.create(cleanData, dirtyData, cleanClassProvider, dirtyClassProvider);
                     analyzers.add(analyzer);
                     analyzer.analyze(patches, info, replacementCalls, reorders);
 
