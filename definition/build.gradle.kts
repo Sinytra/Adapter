@@ -4,6 +4,8 @@ plugins {
     id("net.neoforged.gradleutils").version("3.0.0")
 }
 
+val versionMc: String by project
+
 group = "org.sinytra.adapter"
 gradleutils.version {
     branches {
@@ -12,7 +14,7 @@ gradleutils.version {
     }
 }
 
-version = gradleutils.version
+version = gradleutils.version.toString() + "+$versionMc"
 println("Definition version: $version")
 
 java {

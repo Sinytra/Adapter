@@ -13,7 +13,7 @@ val versionMc: String by project
 val versionNeoForge: String by project
 val timestamp: String = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd.HHmmss"))
 
-version = "${AdapterPlugin.getDefinitionVersion()?.let { "$it-" } ?: ""}$versionMc-$timestamp"
+version = "${AdapterPlugin.getDefinitionVersion()?.let { "$it-" } ?: "$versionMc-"}$timestamp"
 
 println("Data version: $version")
 
