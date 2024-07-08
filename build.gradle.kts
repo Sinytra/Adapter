@@ -69,7 +69,6 @@ tasks {
     }
 }
 
-// TODO TEMP
 neoForge {
-    neoFormRuntime.version.set("0.1.70-step-output")
+    neoFormRuntime.version.set("0.1.70")
 }

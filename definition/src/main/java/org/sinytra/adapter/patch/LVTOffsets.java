@@ -39,13 +39,13 @@ public record LVTOffsets(Map<String, Map<MethodQualifier, List<Swap>>> reorders)
     }
 
     public static LVTOffsets fromJson(JsonElement json) {
-        return CODEC.decode(JsonOps.INSTANCE, json).getOrThrow(false, s -> {
+        return CODEC.decode(JsonOps.INSTANCE, json).getOrThrow(s -> {
             throw new RuntimeException("Error deserializing lvt offsets: " + s);
         }).getFirst();
     }
 
     public JsonElement toJson() {
-        return CODEC.encodeStart(JsonOps.INSTANCE, this).getOrThrow(false, s -> {
+        return CODEC.encodeStart(JsonOps.INSTANCE, this).getOrThrow(s -> {
             throw new RuntimeException("Error serializing lvt offsets: " + s);
         });
     }

@@ -16,7 +16,7 @@ public class MethodTransformSerialization {
         Codec.STRING.partialDispatch("type", transform -> DataResult.success(getTransformName(transform)), name -> {
             Codec<? extends MethodTransform> entryCodec = MethodTransformSerialization.TRANSFORMER_CODECS.get(name);
             if (entryCodec != null) {
-                return DataResult.success(entryCodec);
+                return DataResult.success(entryCodec.fieldOf("transform"));
             }
             return DataResult.error(() -> "Missing codec for transformer " + name);
         });

@@ -30,7 +30,7 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
 
     public static final Codec<TransformParameters> CODEC = RecordCodecBuilder.create(in -> in.group(
         Codec.STRING
-            .<ParameterTransformer>dispatch("transformer_type", c -> TRANSFORMER_CODECS.inverse().get(c.codec()), TRANSFORMER_CODECS::get)
+            .<ParameterTransformer>dispatch("type", c -> TRANSFORMER_CODECS.inverse().get(c.codec()), s -> TRANSFORMER_CODECS.get(s).fieldOf("transformer"))
             .listOf()
             .fieldOf("transformers")
             .forGetter(TransformParameters::transformers),

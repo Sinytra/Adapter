@@ -52,7 +52,7 @@ public abstract class CreateCleanArtifactTask extends DefaultTask {
             spec.executable(getNeoFormRuntimeLauncher().get().getExecutablePath().getAsFile());
             spec.classpath(getNeoForgeRuntime());
             spec.args("run", "--dist=joined", "--neoforge", getNeoForgeArtifact().get() + ":userdev");
-            spec.args("--write-result=renamed:" + getOutputFile().get().getAsFile().getAbsolutePath());
+            spec.args("--write-result=vanillaDeobfuscated:" + getOutputFile().get().getAsFile().getAbsolutePath());
             spec.args("--work-dir", getWorkDir().get().getAsFile().getAbsolutePath());
             if (IdeDetection.isIntelliJ() || IdeDetection.isEclipse()) {
                 spec.args("--emojis");

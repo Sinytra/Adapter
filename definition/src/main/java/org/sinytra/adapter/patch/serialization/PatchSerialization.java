@@ -22,7 +22,7 @@ public class PatchSerialization {
         Codec.STRING.partialDispatch("type", transform -> DataResult.success(getPatchInstanceName(transform)), name -> {
             Codec<? extends Patch> entryCodec = PATCH_INSTANCE_CODECS.get(name);
             if (entryCodec != null) {
-                return DataResult.success(entryCodec);
+                return DataResult.success(entryCodec.fieldOf("patch"));
             }
             return DataResult.error(() -> "Missing codec for patch instance " + name);
         });
@@ -33,13 +33,13 @@ public class PatchSerialization {
 
     public static <T> T serialize(List<Patch> patches, DynamicOps<T> dynamicOps) {
         DataResult<T> result = PATCH_INSTANCE_CODEC.listOf().encodeStart(dynamicOps, patches);
-        return result.getOrThrow(false, s -> {
+        return result.getOrThrow(s -> {
             throw new RuntimeException("Error serializing patches: " + s);
         });
     }
 
     public static <T> List<Patch> deserialize(T patches, DynamicOps<T> dynamicOps) {
-        return PATCH_INSTANCE_CODEC.listOf().decode(dynamicOps, patches).getOrThrow(false, s -> {
+        return PATCH_INSTANCE_CODEC.listOf().decode(dynamicOps, patches).getOrThrow(s -> {
             throw new RuntimeException("Error deserializing patches: " + s);
         }).getFirst();
     }

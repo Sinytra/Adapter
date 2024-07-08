@@ -39,7 +39,7 @@ repositories {
 }
 
 dependencies {
-    api(group = "com.mojang", name = "datafixerupper", version = "6.0.8")
+    api(group = "com.mojang", name = "datafixerupper", version = "8.0.16")
     implementation(group = "com.mojang", name = "logging", version = "1.1.1")
     implementation(group = "com.google.guava", "guava", version = "32.1.2-jre")
     implementation(group = "org.slf4j", "slf4j-api", "2.0.0")
