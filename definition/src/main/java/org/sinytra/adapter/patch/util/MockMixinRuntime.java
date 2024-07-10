@@ -3,23 +3,29 @@ package org.sinytra.adapter.patch.util;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.PatchEnvironment;
 import org.spongepowered.asm.mixin.MixinEnvironment;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfig;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
+import org.spongepowered.asm.mixin.extensibility.IMixinConfigSource;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 import org.spongepowered.asm.mixin.injection.code.ISliceContext;
 import org.spongepowered.asm.mixin.injection.code.MethodSlice;
 import org.spongepowered.asm.mixin.injection.selectors.ISelectorContext;
 import org.spongepowered.asm.mixin.injection.struct.CallbackInjectionInfo;
 import org.spongepowered.asm.mixin.injection.struct.InjectionInfo;
+import org.spongepowered.asm.mixin.injection.struct.Target;
 import org.spongepowered.asm.mixin.refmap.IMixinContext;
 import org.spongepowered.asm.mixin.refmap.IReferenceMapper;
+import org.spongepowered.asm.mixin.transformer.ClassInfo;
 import org.spongepowered.asm.mixin.transformer.ext.Extensions;
 import org.spongepowered.asm.util.asm.IAnnotationHandle;
 import sun.misc.Unsafe;
 
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 import java.util.List;
@@ -28,6 +34,7 @@ import java.util.Set;
 public class MockMixinRuntime {
     private static final MethodHandles.Lookup TRUSTED_LOOKUP;
     private static final Unsafe UNSAFE;
+    private static final MethodHandle TARGET_CTR;
 
     static {
         try {
@@ -36,6 +43,17 @@ public class MockMixinRuntime {
             UNSAFE = (Unsafe) theUnsafe.get(null);
             Field hackfield = MethodHandles.Lookup.class.getDeclaredField("IMPL_LOOKUP");
             TRUSTED_LOOKUP = (MethodHandles.Lookup) UNSAFE.getObject(UNSAFE.staticFieldBase(hackfield), UNSAFE.staticFieldOffset(hackfield));
+
+            TARGET_CTR = MethodHandles.privateLookupIn(Target.class, MethodHandles.lookup()).findConstructor(Target.class, MethodType.methodType(void.class, ClassInfo.class, ClassNode.class, MethodNode.class));
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+    }
+
+    public static Target createMixinTarget(MethodContext.TargetPair pair) {
+        ClassInfo info = ClassInfo.forName(pair.classNode().name);
+        try {
+            return (Target) TARGET_CTR.invoke(info, pair.classNode(), pair.methodNode());
         } catch (Throwable t) {
             throw new RuntimeException(t);
         }
@@ -73,6 +91,7 @@ public class MockMixinRuntime {
         }
 
         //@formatter:off
+        @Override public String getElementDescription() {return "dummy";}
         @Override public MethodSlice getSlice(String id) {throw new UnsupportedOperationException();}
         @Override public MethodNode getMethod() {return this.methodNode;}
         @Override public AnnotationNode getAnnotationNode() {throw new UnsupportedOperationException();}
@@ -107,6 +126,8 @@ public class MockMixinRuntime {
         }
 
         //@formatter:off
+        @Override public IMixinConfigSource getSource() {throw new UnsupportedOperationException();}
+        @Override public String getCleanSourceId() {return "dummy";}
         @Override public String getName() {throw new UnsupportedOperationException();}
         @Override public String getMixinPackage() {throw new UnsupportedOperationException();}
         @Override public int getPriority() {return 0;}
@@ -169,6 +190,11 @@ public class MockMixinRuntime {
         @Override
         public String getClassRef() {
             return this.className;
+        }
+
+        @Override
+        public String getTargetClassName() {
+            return this.targetClass.replace('/', '.');
         }
 
         @Override

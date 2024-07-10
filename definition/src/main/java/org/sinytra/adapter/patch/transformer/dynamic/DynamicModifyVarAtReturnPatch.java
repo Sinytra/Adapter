@@ -154,7 +154,7 @@ public class DynamicModifyVarAtReturnPatch implements MethodTransform {
         LocalVariableDiscriminator discriminator = LocalVariableDiscriminator.parse(methodContext.methodAnnotation().unwrap());
         InjectionInfo injectionInfo = MockMixinRuntime.forInjectionInfo(classNode.name, injectionTarget.classNode().name, context.environment());
         Type returnType = Type.getReturnType(methodNode.desc);
-        Target target = new Target(injectionTarget.classNode(), injectionTarget.methodNode());
+        Target target = MockMixinRuntime.createMixinTarget(injectionTarget);
         LocalVariableDiscriminator.Context ctx = new LocalVariableDiscriminator.Context(injectionInfo, returnType, discriminator.isArgsOnly(), target, targetInsn);
         int local = discriminator.findLocal(ctx);
         return Pair.of(targetInsn, local);

@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.injection.InjectionPoint;
 import org.spongepowered.asm.mixin.injection.code.ISliceContext;
 import org.spongepowered.asm.mixin.injection.code.MethodSlice;
+import org.spongepowered.asm.mixin.injection.struct.Target;
 import org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionException;
 import org.spongepowered.asm.mixin.refmap.IMixinContext;
 import org.spongepowered.asm.util.Locals;
@@ -94,7 +95,7 @@ public final class MethodContextImpl implements MethodContext {
             return null;
         }
         // Resolve method reference
-        String reference = patchContext().remap(methodRefs.get(0));
+        String reference = patchContext().remap(methodRefs.getFirst());
         // Extract owner, name and desc using regex
         return MethodQualifier.create(reference, false).orElse(null);
     }
@@ -155,7 +156,7 @@ public final class MethodContextImpl implements MethodContext {
         LocalVariableNode[] localVariables;
         // Synchronize to avoid issues in mixin. This is necessary.
         synchronized (this) {
-            localVariables = Locals.getLocalsAt(target.classNode(), target.methodNode(), targetInsns.get(0), lvtCompatLevel);
+            localVariables = Locals.getLocalsAt(target.classNode(), target.methodNode(), targetInsns.getFirst(), lvtCompatLevel);
         }
         LocalVariable[] locals = Stream.of(localVariables)
             .filter(Objects::nonNull)
@@ -178,8 +179,9 @@ public final class MethodContextImpl implements MethodContext {
         IMixinContext mixinContext = MockMixinRuntime.forClass(this.classNode.name, target.classNode().name, patchContext().environment());
         // Parse injection point
         InjectionPoint injectionPoint = InjectionPoint.parse(mixinContext, this.methodNode, annotation.unwrap(), atNode.unwrap());
+        Target mixinTarget = MockMixinRuntime.createMixinTarget(target);
         // Find target instructions
-        InsnList instructions = getSlicedInsns(annotation, this.classNode, this.methodNode, target.classNode(), target.methodNode(), patchContext());
+        InsnList instructions = getSlicedInsns(annotation, this.classNode, this.methodNode, target.classNode(), target.methodNode(), patchContext(), mixinTarget);
         List<AbstractInsnNode> targetInsns = new ArrayList<>();
         try {
             injectionPoint.find(target.methodNode().desc, instructions, targetInsns);
@@ -209,23 +211,24 @@ public final class MethodContextImpl implements MethodContext {
         return dirtyPair != null && findInjectionTargetInsns(dirtyPair).isEmpty();
     }
 
-    private InsnList getSlicedInsns(AnnotationHandle parentAnnotation, ClassNode classNode, MethodNode injectorMethod, ClassNode targetClass, MethodNode targetMethod, PatchContext context) {
+    private InsnList getSlicedInsns(AnnotationHandle parentAnnotation, ClassNode classNode, MethodNode injectorMethod, ClassNode targetClass, MethodNode targetMethod, PatchContext context, Target mixinTarget) {
         return parentAnnotation.<AnnotationNode>getValue("slice")
             .map(handle -> {
                 Object value = handle.get();
-                return value instanceof List<?> list ? (AnnotationNode) list.get(0) : (AnnotationNode) value;
+                return value instanceof List<?> list ? (AnnotationNode) list.getFirst() : (AnnotationNode) value;
             })
             .map(sliceAnn -> {
                 IMixinContext mixinContext = MockMixinRuntime.forClass(classNode.name, targetClass.name, context.environment());
                 ISliceContext sliceContext = MockMixinRuntime.forSlice(mixinContext, injectorMethod);
-                return computeSlicedInsns(sliceContext, sliceAnn, targetMethod);
+                return computeSlicedInsns(sliceContext, sliceAnn, mixinTarget);
             })
             .orElse(targetMethod.instructions);
     }
 
-    private InsnList computeSlicedInsns(ISliceContext context, AnnotationNode annotation, MethodNode method) {
+    private InsnList computeSlicedInsns(ISliceContext context, AnnotationNode annotation, Target mixinTarget) {
+        // TODO TEST THIS
         MethodSlice slice = MethodSlice.parse(context, annotation);
-        return slice.getSlice(method);
+        return slice.getSlice(mixinTarget);
     }
 
     @Nullable

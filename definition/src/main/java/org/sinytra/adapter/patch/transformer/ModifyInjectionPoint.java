@@ -60,6 +60,7 @@ public record ModifyInjectionPoint(@Nullable String value, String target, boolea
             annotation.appendValue("target", this.target);
         }
         if (this.resetValues) {
+            methodContext.methodAnnotation().removeValues("slice");
             annotation.removeValues("ordinal", "shift", "by");
         }
         return Patch.Result.APPLY;

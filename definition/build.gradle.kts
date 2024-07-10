@@ -43,7 +43,7 @@ dependencies {
     implementation(group = "com.mojang", name = "logging", version = "1.1.1")
     implementation(group = "com.google.guava", "guava", version = "32.1.2-jre")
     implementation(group = "org.slf4j", "slf4j-api", "2.0.0")
-    "testClassesImplementation"(implementation(group = "net.fabricmc", name = "sponge-mixin", version = "0.12.5+mixin.0.8.5"))
+    "testClassesImplementation"(implementation(group = "net.fabricmc", name = "sponge-mixin", version = "0.14.0+mixin.0.8.6"))
     compileOnly(group = "org.jetbrains", name = "annotations", version = "24.0.1")
     "testClassesImplementation"(implementation(group = "io.github.llamalad7", name = "mixinextras-common", version = "0.3.1"))
 
