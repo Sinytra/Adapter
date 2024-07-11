@@ -1,0 +1,25 @@
+modLoader="javafml"
+loaderVersion="*"
+license="MIT"
+
+[[mods]]
+modId="adapter_test"
+version="1.0"
+displayName="Adapter Test mod"
+authors="Sinytra"
+description='''
+'''
+displayTest = 'IGNORE_ALL_VERSION' # Connector is optional for both sides
+
+[[dependencies.adapter_test]]
+    modId="neoforge"
+    mandatory=true
+    versionRange="*"
+    ordering="NONE"
+    side="BOTH"
+[[dependencies.adapter_test]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="*"
+    ordering="NONE"
+    side="BOTH"

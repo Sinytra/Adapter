@@ -45,6 +45,14 @@ public class MethodCallAnalyzer {
         return new InstructionMatcher(insn, previousInsns, nextInsns);
     }
 
+    public static InstructionMatcher findBackwardsInstructions(AbstractInsnNode insn, int range, boolean remapCalls) {
+        // TODO Remove global remapping
+        LabelNode previousLabel = findFirstInsn(insn, LabelNode.class, BACKWARDS);
+        List<AbstractInsnNode> previousInsns = getInsns(previousLabel, range, remapCalls, BACKWARDS);
+
+        return new InstructionMatcher(insn, previousInsns, List.of());
+    }
+
     public static InstructionMatcher findForwardInstructions(AbstractInsnNode insn, int range, boolean remapCalls) {
         LabelNode nextLabel = findFirstInsn(insn, LabelNode.class, FORWARD);
         List<AbstractInsnNode> nextInsns = getInsns(nextLabel, range, remapCalls, FORWARD);

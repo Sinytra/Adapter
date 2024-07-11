@@ -3,7 +3,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 plugins {
-    id("net.neoforged.moddev") version "0.1.124"
+    id("net.neoforged.moddev") version "0.1.126"
     id("org.sinytra.adapter.userdev")
     id("org.sinytra.adapter.gradle")
     `maven-publish`
@@ -19,7 +19,6 @@ println("Data version: $version")
 
 allprojects {
     apply(plugin = "net.neoforged.moddev")
-    apply(plugin = "maven-publish")
 
     group = "org.sinytra.adapter"
 
@@ -36,6 +35,9 @@ allprojects {
 
     neoForge {
         version = versionNeoForge
+
+        // Temp
+        neoFormRuntime.version.set("0.1.70")
     }
 
     repositories {
@@ -43,20 +45,24 @@ allprojects {
         maven("https://maven.su5ed.dev/releases")
     }
 
-    publishing {
-        publications {
-            create<MavenPublication>("mavenJava") {
-                from(components["java"])
-                artifactId = project.base.archivesName.get()
+    if (name !== "test") {
+        apply(plugin = "maven-publish")
+
+        publishing {
+            publications {
+                create<MavenPublication>("mavenJava") {
+                    from(components["java"])
+                    artifactId = project.base.archivesName.get()
+                }
             }
-        }
-        repositories {
-            maven {
-                name = "Su5eD"
-                url = uri("https://maven.su5ed.dev/releases")
-                credentials {
-                    username = System.getenv("MAVEN_USER") ?: "not"
-                    password = System.getenv("MAVEN_PASSWORD") ?: "set"
+            repositories {
+                maven {
+                    name = "Su5eD"
+                    url = uri("https://maven.su5ed.dev/releases")
+                    credentials {
+                        username = System.getenv("MAVEN_USER") ?: "not"
+                        password = System.getenv("MAVEN_PASSWORD") ?: "set"
+                    }
                 }
             }
         }
@@ -67,8 +73,4 @@ tasks {
     jar {
         from(generateAdapterData)
     }
-}
-
-neoForge {
-    neoFormRuntime.version.set("0.1.70")
 }

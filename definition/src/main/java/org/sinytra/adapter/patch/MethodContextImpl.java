@@ -1,6 +1,7 @@
 package org.sinytra.adapter.patch;
 
 import com.google.common.base.Suppliers;
+import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
@@ -26,7 +27,6 @@ import org.spongepowered.asm.mixin.refmap.IMixinContext;
 import org.spongepowered.asm.util.Locals;
 
 import java.util.*;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -44,6 +44,7 @@ public final class MethodContextImpl implements MethodContext {
     private final Supplier<TargetPair> cleanInjectionPairCache;
     private final Supplier<TargetPair> dirtyInjectionPairCache;
     private final Supplier<LocalVariableLookup> cleanLocalsTableCache;
+    private final Supplier<LocalVariableLookup> dirtyLocalsTableCache;
     private final Map<TargetPair, List<AbstractInsnNode>> targetInstructionsCache;
 
     public MethodContextImpl(ClassNode classNode, AnnotationValueHandle<?> classAnnotation, MethodNode methodNode, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation, List<Type> targetTypes, List<String> matchingTargets, PatchContext patchContext) {
@@ -58,11 +59,12 @@ public final class MethodContextImpl implements MethodContext {
 
         this.cleanInjectionPairCache = Suppliers.memoize(() -> {
             ClassLookup cleanClassLookup = this.patchContext.environment().cleanClassLookup();
-            return findInjectionTarget(s -> cleanClassLookup.getClass(s).orElse(null));
+            return findInjectionTarget(cleanClassLookup);
         });
-        this.dirtyInjectionPairCache = Suppliers.memoize(() -> findInjectionTarget(name -> this.patchContext.environment().dirtyClassLookup().getClass(name).orElse(null)));
+        this.dirtyInjectionPairCache = Suppliers.memoize(() -> findInjectionTarget(this.patchContext.environment().dirtyClassLookup()));
         this.targetInstructionsCache = new HashMap<>();
         this.cleanLocalsTableCache = Suppliers.memoize(() -> Optional.ofNullable(findCleanInjectionTarget()).map(pair -> new LocalVariableLookup(pair.methodNode())).orElse(null));
+        this.dirtyLocalsTableCache = Suppliers.memoize(() -> Optional.ofNullable(findDirtyInjectionTarget()).map(pair -> new LocalVariableLookup(pair.methodNode())).orElse(null));
     }
 
     @Override
@@ -83,6 +85,11 @@ public final class MethodContextImpl implements MethodContext {
     @Override
     public LocalVariableLookup cleanLocalsTable() {
         return this.cleanLocalsTableCache.get();
+    }
+
+    @Override
+    public LocalVariableLookup dirtyLocalsTable() {
+        return this.dirtyLocalsTableCache.get();
     }
 
     @Nullable
@@ -208,7 +215,12 @@ public final class MethodContextImpl implements MethodContext {
     @Override
     public boolean failsDirtyInjectionCheck() {
         TargetPair dirtyPair = findDirtyInjectionTarget();
-        return dirtyPair != null && findInjectionTargetInsns(dirtyPair).isEmpty();
+        return dirtyPair == null || findInjectionTargetInsns(dirtyPair).isEmpty();
+    }
+
+    @Override
+    public boolean hasInjectionPointValue(String value) {
+        return this.injectionPointAnnotation != null && this.injectionPointAnnotation.<String>getValue("value").map(v -> value.equals(v.get())).orElse(false);
     }
 
     private InsnList getSlicedInsns(AnnotationHandle parentAnnotation, ClassNode classNode, MethodNode injectorMethod, ClassNode targetClass, MethodNode targetMethod, PatchContext context, Target mixinTarget) {
@@ -232,10 +244,28 @@ public final class MethodContextImpl implements MethodContext {
     }
 
     @Nullable
-    private TargetPair findInjectionTarget(Function<String, ClassNode> classLookup) {
+    private TargetPair findInjectionTarget(ClassLookup lookup) {
+        Pair<ClassNode, List<MethodNode>> pair = findInjectionTargetCandidates(lookup);
+        if (pair == null) {
+            return null;
+        }
+
+        MethodQualifier qualifier = getTargetMethodQualifier();
+        if (pair.getSecond().isEmpty()) {
+            LOGGER.debug("Target method not found: {}{}{}", qualifier.owner(), qualifier.name(), qualifier.desc());
+            return null;
+        } else if (pair.getSecond().size() > 1) {
+            LOGGER.debug("Multiple candidates found for method: {}{}{}", qualifier.owner(), qualifier.name(), qualifier.desc());
+            return null;
+        }
+        return new TargetPair(pair.getFirst(), pair.getSecond().getFirst());
+    }
+
+    @Nullable
+    public Pair<ClassNode, List<MethodNode>> findInjectionTargetCandidates(ClassLookup lookup) {
         // Find target method qualifier
         MethodQualifier qualifier = getTargetMethodQualifier();
-        if (qualifier == null || qualifier.name() == null || qualifier.desc() == null) {
+        if (qualifier == null || qualifier.name() == null) {
             return null;
         }
         String owner = Optional.ofNullable(qualifier.internalOwnerName())
@@ -250,17 +280,20 @@ public final class MethodContextImpl implements MethodContext {
             return null;
         }
         // Find target class
-        ClassNode targetClass = classLookup.apply(owner);
+        ClassNode targetClass = lookup.getClass(owner).orElse(null);
         if (targetClass == null) {
             return null;
         }
         // Find target method in class
-        MethodNode targetMethod = targetClass.methods.stream().filter(mtd -> mtd.name.equals(qualifier.name()) && mtd.desc.equals(qualifier.desc())).findFirst().orElse(null);
-        if (targetMethod == null) {
-            LOGGER.debug("Target method not found: {}{}{}", qualifier.owner(), qualifier.name(), qualifier.desc());
-            return null;
+        String desc = qualifier.desc();
+        List<MethodNode> candidates = targetClass.methods.stream()
+            .filter(mtd -> mtd.name.equals(qualifier.name()) && (desc == null || mtd.desc.equals(desc)))
+            .toList();
+        // If there's multiple candidates, try removing bouncer methods
+        if (candidates.size() > 1 && desc == null) {
+            candidates = candidates.stream().filter(mtd -> (mtd.access & Opcodes.ACC_SYNTHETIC) == 0 && (mtd.access & Opcodes.ACC_BRIDGE) == 0).toList();
         }
-        return new TargetPair(targetClass, targetMethod);
+        return Pair.of(targetClass, candidates);
     }
 
     public static Builder builder() {

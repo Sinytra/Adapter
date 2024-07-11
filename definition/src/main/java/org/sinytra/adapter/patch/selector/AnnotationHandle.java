@@ -3,6 +3,7 @@ package org.sinytra.adapter.patch.selector;
 import org.objectweb.asm.tree.AnnotationNode;
 
 import java.util.*;
+import java.util.stream.Stream;
 
 public final class AnnotationHandle {
     private AnnotationNode annotationNode;
@@ -18,6 +19,10 @@ public final class AnnotationHandle {
 
     public boolean matchesDesc(String desc) {
         return this.annotationNode.desc.equals(desc);
+    }
+
+    public boolean matchesAny(Collection<String> descs) {
+        return descs.stream().anyMatch(this.annotationNode.desc::equals);
     }
 
     public AnnotationNode unwrap() {

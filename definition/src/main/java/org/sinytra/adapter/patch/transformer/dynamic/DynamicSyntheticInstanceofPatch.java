@@ -22,7 +22,7 @@ import java.util.*;
  */
 public class DynamicSyntheticInstanceofPatch implements MethodTransform {
     private static final int RANGE = 4;
-    
+
     @Override
     public Collection<String> getAcceptedAnnotations() {
         return Set.of(MixinConstants.REDIRECT, MixinConstants.MODIFY_EXPR_VAL);
@@ -40,15 +40,15 @@ public class DynamicSyntheticInstanceofPatch implements MethodTransform {
         if (insns.size() != 1) {
             return Patch.Result.PASS;
         }
-        AbstractInsnNode targetInsn = insns.get(0);
+        AbstractInsnNode targetInsn = insns.getFirst();
         List<AbstractInsnNode> labelInsns = findLabelInsns(targetInsn);
-        AbstractInsnNode jumpInsn = labelInsns.get(labelInsns.size() - 1);
+        AbstractInsnNode jumpInsn = labelInsns.getLast();
         // Ensure label contain an if statement
         if (!(jumpInsn instanceof JumpInsnNode)) {
             return Patch.Result.PASS;
         }
         InstructionMatcher cleanMatcher = MethodCallAnalyzer.findForwardInstructions(targetInsn, RANGE, true);
-        int firstOp = cleanMatcher.after().get(0).getOpcode();
+        int firstOp = cleanMatcher.after().getFirst().getOpcode();
         // Find equivalent dirty code point
         InsnList dirtyInsns = methodContext.findDirtyInjectionTarget().methodNode().instructions;
         for (AbstractInsnNode insn : dirtyInsns) {
@@ -81,12 +81,12 @@ public class DynamicSyntheticInstanceofPatch implements MethodTransform {
                         modLabelInsns.add(ins.clone(Map.of()));
                     }
                     // Remove first and last label insns
-                    modLabelInsns.remove(modLabelInsns.get(0));
-                    modLabelInsns.remove(modLabelInsns.size() - 1);
+                    modLabelInsns.removeFirst();
+                    modLabelInsns.removeLast();
 
                     // Remove consumer insns (jump / return)
-                    dirtyLabelInsns.remove(dirtyLabelInsns.size() - 1);
-                    modLabelInsns.remove(modLabelInsns.size() - 1);
+                    dirtyLabelInsns.removeLast();
+                    modLabelInsns.removeLast();
 
                     // Test whether the mixin method's body is functionally equal to the patched if statement
                     InstructionMatcher finalCleanMatcher = new InstructionMatcher(null, dirtyLabelInsns, List.of());

@@ -16,5 +16,9 @@ public interface MethodTransform {
         return Set.of();
     }
 
+    default Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext) {
+        return apply(classNode, methodNode, methodContext, methodContext.patchContext());
+    }
+
     Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context);
 }

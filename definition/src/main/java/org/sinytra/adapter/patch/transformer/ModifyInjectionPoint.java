@@ -61,7 +61,7 @@ public record ModifyInjectionPoint(@Nullable String value, String target, boolea
         }
         if (this.resetValues) {
             methodContext.methodAnnotation().removeValues("slice");
-            annotation.removeValues("ordinal", "shift", "by");
+            annotation.removeValues("ordinal", "shift", "by", "opcode");
         }
         return Patch.Result.APPLY;
     }

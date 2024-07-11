@@ -150,7 +150,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                         .filter(original::test)
                         .toList();
                     if (matches.size() == 1) {
-                        return Optional.of(dirtyMatchers.indexOf(matches.get(0)));
+                        return Optional.of(dirtyMatchers.indexOf(matches.getFirst()));
                     }
                 }
             }
@@ -180,7 +180,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                     .filter(m -> original.test(m, InsnComparator.IGNORE_VAR_INDEX))
                     .toList();
                 if (matches.size() == 1) {
-                    return Optional.of(dirtyMatchers.indexOf(matches.get(0)));
+                    return Optional.of(dirtyMatchers.indexOf(matches.getFirst()));
                 }
             }
             return Optional.empty();
@@ -199,7 +199,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                 if (prev instanceof FrameNode || prev instanceof LineNumberNode || prev instanceof LabelNode) {
                     continue;
                 }
-                insns.add(0, prev);
+                insns.addFirst(prev);
             }
             return insns;
         }
@@ -276,7 +276,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                     List<AbstractInsnNode> cleanInsns = methodContext.findInjectionTargetInsns(cleanTarget);
                     List<AbstractInsnNode> dirtyInsns = methodContext.findInjectionTargetInsns(dirtyTarget);
                     if (cleanInsns.size() == 1 && dirtyInsns.size() == 1) {
-                        for (AbstractInsnNode insn = cleanInsns.get(0); insn != null; insn = insn.getNext()) {
+                        for (AbstractInsnNode insn = cleanInsns.getFirst(); insn != null; insn = insn.getNext()) {
                             if (insn instanceof LabelNode) {
                                 break;
                             }
@@ -284,9 +284,9 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                             if (handle != null && handle.get() == variableIndex) {
                                 // We found out the variable is used right after our injection point
                                 // Now let's check if it its index remain the same in the dirty target
-                                List<SingleValueHandle<Integer>> dirtyVars = getUsedVariablesInLabel(dirtyInsns.get(0), insn.getOpcode());
+                                List<SingleValueHandle<Integer>> dirtyVars = getUsedVariablesInLabel(dirtyInsns.getFirst(), insn.getOpcode());
                                 if (dirtyVars.size() == 1) {
-                                    int dirtyIndex = dirtyVars.get(0).get();
+                                    int dirtyIndex = dirtyVars.getFirst().get();
                                     if (dirtyIndex != variableIndex) {
                                         methodContext.methodAnnotation().<Boolean>getValue("argsOnly")
                                             .ifPresent(h -> h.set(false));
@@ -369,7 +369,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
                 })
                 .toList();
             // Succeed on one exact match
-            return matches.size() == 1 ? Optional.of(matches.get(0)) : Optional.empty();
+            return matches.size() == 1 ? Optional.of(matches.getFirst()) : Optional.empty();
         }
     }
 }

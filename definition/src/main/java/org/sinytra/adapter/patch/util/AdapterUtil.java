@@ -23,6 +23,8 @@ import java.io.StringWriter;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -224,6 +226,15 @@ public final class AdapterUtil {
             }
         }
         return OptionalInt.empty();
+    }
+
+    public static AbstractInsnNode iterateInsns(AbstractInsnNode insn, UnaryOperator<AbstractInsnNode> flow, Predicate<AbstractInsnNode> filter) {
+        for (AbstractInsnNode i = flow.apply(insn); i != null; i = flow.apply(i)) {
+            if (filter.test(i)) {
+                return i;
+            }
+        }
+        return null;
     }
 
     public record CapturedLocals(MethodContext.TargetPair target, boolean isStatic, int paramLocalStart, int paramLocalEnd, int lvtOffset,

@@ -8,9 +8,13 @@ import org.objectweb.asm.tree.MethodInsnNode;
 import java.util.List;
 
 public record InstructionMatcher(AbstractInsnNode insn, List<AbstractInsnNode> before, List<AbstractInsnNode> after) {
+    public InstructionMatcher inverse() {
+        return new InstructionMatcher(insn, after.reversed(), before.reversed());
+    }
+
     @Nullable
     public String findReplacement(List<String> cleanCallOrder, List<String> dirtyCallOrder) {
-        MethodInsnNode previousMethodCall = MethodCallAnalyzer.findFirstInsn(this.before.get(0), MethodInsnNode.class, MethodCallAnalyzer.BACKWARDS);
+        MethodInsnNode previousMethodCall = MethodCallAnalyzer.findFirstInsn(this.before.getFirst(), MethodInsnNode.class, MethodCallAnalyzer.BACKWARDS);
         if (previousMethodCall == null) {
             return null;
         }
@@ -24,7 +28,7 @@ public record InstructionMatcher(AbstractInsnNode insn, List<AbstractInsnNode> b
             return null;
         }
 
-        MethodInsnNode nextMethodCall = MethodCallAnalyzer.findFirstInsn(this.after.get(0), MethodInsnNode.class, MethodCallAnalyzer.FORWARD);
+        MethodInsnNode nextMethodCall = MethodCallAnalyzer.findFirstInsn(this.after.getFirst(), MethodInsnNode.class, MethodCallAnalyzer.FORWARD);
         if (nextMethodCall == null) {
             return null;
         }

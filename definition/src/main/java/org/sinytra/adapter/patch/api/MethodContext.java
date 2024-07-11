@@ -1,5 +1,6 @@
 package org.sinytra.adapter.patch.api;
 
+import com.mojang.datafixers.util.Pair;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
@@ -9,6 +10,7 @@ import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.util.MethodQualifier;
+import org.sinytra.adapter.patch.util.provider.ClassLookup;
 
 import java.util.List;
 
@@ -33,6 +35,8 @@ public interface MethodContext {
 
     LocalVariableLookup cleanLocalsTable();
 
+    LocalVariableLookup dirtyLocalsTable();
+
     @Nullable
     MethodQualifier getTargetMethodQualifier();
 
@@ -40,6 +44,9 @@ public interface MethodContext {
     MethodQualifier getInjectionPointMethodQualifier();
 
     List<AbstractInsnNode> findInjectionTargetInsns(@Nullable TargetPair target);
+
+    @Nullable
+    Pair<ClassNode, List<MethodNode>> findInjectionTargetCandidates(ClassLookup lookup);
 
     void updateDescription(List<Type> parameters);
 
@@ -61,6 +68,8 @@ public interface MethodContext {
     boolean capturesLocals();
 
     boolean failsDirtyInjectionCheck();
+
+    boolean hasInjectionPointValue(String value);
 
     record LocalVariable(int index, Type type) {}
 
