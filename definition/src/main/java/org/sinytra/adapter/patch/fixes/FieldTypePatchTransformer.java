@@ -28,7 +28,7 @@ public class FieldTypePatchTransformer implements MethodTransform {
             String fieldFqn = AdapterUtil.getAccessorTargetFieldName(classNode.name, methodNode, methodContext.methodAnnotation(), context.environment()).orElse(null);
             if (fieldFqn != null) {
                 String fieldName = new FieldMatcher(fieldFqn).getName();
-                Type owner = methodContext.targetTypes().get(0);
+                Type owner = methodContext.targetTypes().getFirst();
                 Pair<Type, Type> updatedTypes = bfu.getFieldTypeChange(owner.getInternalName(), fieldName);
                 if (updatedTypes != null) {
                     TypeAdapter typeAdapter = bfu.getTypeAdapter(updatedTypes.getSecond(), updatedTypes.getFirst());

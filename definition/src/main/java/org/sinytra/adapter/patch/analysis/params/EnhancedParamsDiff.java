@@ -78,8 +78,8 @@ public class EnhancedParamsDiff {
             // Look ahead for matching types at the beginning of the list
             // If the first two are equal, remove the first ones and repeat
             if (predictParameterMatch(builder, cleanQueue, dirtyQueue, compareNames, sameSize)) {
-                cleanQueue.remove(0);
-                dirtyQueue.remove(0);
+                cleanQueue.removeFirst();
+                dirtyQueue.removeFirst();
                 continue;
             }
             // Handle replaced types, needs improving
@@ -145,8 +145,8 @@ public class EnhancedParamsDiff {
                 // 1 World
                 // 2 Sheep
                 if (cleanQueue.size() > 2 && dirtyQueue.size() > 2 && cleanQueue.get(1).matches(dirtyQueue.get(0)) && cleanQueue.get(2).matches(dirtyQueue.get(1))) {
-                    builder.remove(cleanQueue.get(0).pos());
-                    cleanQueue.remove(0);
+                    builder.remove(cleanQueue.getFirst().pos());
+                    cleanQueue.removeFirst();
                     return true;
                 }
                 return false;
@@ -171,9 +171,9 @@ public class EnhancedParamsDiff {
                     // 2 F two
                     if (dirtyQueue.size() > 2 && cleanQueue.get(1).matches(dirtyQueue.get(2))) {
                         builder.insert(dirtyQueue.get(1).pos(), dirtyQueue.get(1).type());
-                        cleanQueue.remove(0);
-                        dirtyQueue.remove(0);
-                        dirtyQueue.remove(0);
+                        cleanQueue.removeFirst();
+                        dirtyQueue.removeFirst();
+                        dirtyQueue.removeFirst();
                         return true;
                     }
                 } else {
@@ -314,14 +314,14 @@ public class EnhancedParamsDiff {
         }
 
         // Remove leading equal types
-        while (!rearrangeClean.isEmpty() && rearrangeClean.get(0).sameType(rearrangeDirty.get(0))) {
-            rearrangeClean.remove(0);
-            rearrangeDirty.remove(0);
+        while (!rearrangeClean.isEmpty() && rearrangeClean.getFirst().sameType(rearrangeDirty.getFirst())) {
+            rearrangeClean.removeFirst();
+            rearrangeDirty.removeFirst();
         }
         // Remove trailing equal types
-        while (!rearrangeClean.isEmpty() && rearrangeClean.get(rearrangeClean.size() - 1).sameType(rearrangeDirty.get(rearrangeDirty.size() - 1))) {
-            rearrangeClean.remove(rearrangeClean.size() - 1);
-            rearrangeDirty.remove(rearrangeDirty.size() - 1);
+        while (!rearrangeClean.isEmpty() && rearrangeClean.getLast().sameType(rearrangeDirty.getLast())) {
+            rearrangeClean.removeLast();
+            rearrangeDirty.removeLast();
         }
         if (!rearrangeClean.isEmpty() && !rearrangeDirty.isEmpty()) {
             builder.merge(tempDiff.build());
@@ -396,7 +396,7 @@ public class EnhancedParamsDiff {
         if (DEBUG) {
             LOGGER.info("Comparison results:\n\tInserted: {}\n\tReplaced: {}\n\tSwapped:  {}\n\tRemoved:  {}", diff.insertions(), diff.removals(), diff.swaps(), diff.removals());
         }
-        int indexOffset = !dirty.isEmpty() ? dirty.get(0).pos() : 0;
+        int indexOffset = !dirty.isEmpty() ? dirty.getFirst().pos() : 0;
         builder.merge(SimpleParamsDiffSnapshot.create(diff), indexOffset);
     }
 
@@ -433,7 +433,7 @@ public class EnhancedParamsDiff {
     private static <T> List<T> extract(List<T> list, int amount) {
         List<T> res = new ArrayList<>();
         for (int i = 0; i < amount && !list.isEmpty(); i++) {
-            res.add(list.remove(0));
+            res.add(list.removeFirst());
         }
         return res;
     }

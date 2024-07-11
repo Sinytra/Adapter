@@ -64,7 +64,7 @@ public class DynamicInheritedInjectionPointPatch implements MethodTransform {
             }
             if (prev instanceof FieldInsnNode finsn) {
                 BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
-                return bfu.getFieldTypeChange(finsn.owner, GlobalReferenceMapper.remapReference(finsn.name)) != null;
+                return bfu.getFieldTypeChange(finsn.owner, finsn.name) != null;
             }
         }
         return false;

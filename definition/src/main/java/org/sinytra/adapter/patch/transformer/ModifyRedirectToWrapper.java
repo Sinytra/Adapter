@@ -78,7 +78,7 @@ public record ModifyRedirectToWrapper(MethodQualifier originalTarget, MethodQual
         addNewParamsPatch.apply(classNode, methodNode, methodContext, context);
 
         LocalVariableLookup updatedLookup = new LocalVariableLookup(methodNode);
-        LocalVariableNode operationVar = updatedLookup.getForType(OPERATION_TYPE).get(0);
+        LocalVariableNode operationVar = updatedLookup.getForType(OPERATION_TYPE).getFirst();
         int operationParamOrdinal = updatedLookup.getOrdinal(operationVar);
         List<LocalVariableNode> localVars = new ArrayList<>();
         for (int i = 1; i < operationParamOrdinal; i++) {
@@ -101,7 +101,7 @@ public record ModifyRedirectToWrapper(MethodQualifier originalTarget, MethodQual
             OpcodeUtil.castObjectType(Type.getReturnType(this.newTarget.desc()), a);
         });
         for (List<AbstractInsnNode> list : insns) {
-            methodNode.instructions.insertBefore(list.get(0), originalCallInsns);
+            methodNode.instructions.insertBefore(list.getFirst(), originalCallInsns);
             list.forEach(methodNode.instructions::remove);
         }
 

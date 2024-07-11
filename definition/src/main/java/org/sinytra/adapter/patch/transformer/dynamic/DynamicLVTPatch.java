@@ -112,7 +112,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
                 List<MethodContext.LocalVariable> oldCompatLocals = methodContext.getTargetMethodLocals(targetPair, 0, FabricUtil.COMPATIBILITY_0_9_2);
                 List<MethodContext.LocalVariable> sameType = oldCompatLocals.stream().filter(var -> var.type() == paramType).toList();
                 if (sameType.size() == 1) {
-                    int index = sameType.get(0).index();
+                    int index = sameType.getFirst().index();
                     annotation.appendValue("index", index);
                     LOGGER.info(PatchInstance.MIXINPATCH, "Fixing @Local annotation target on {}.{} using index {}", classNode.name, methodNode.name, index);
                     return Patch.Result.APPLY;

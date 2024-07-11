@@ -104,7 +104,7 @@ public final class MethodContextImpl implements MethodContext {
         // Resolve method reference
         String reference = patchContext().remap(methodRefs.getFirst());
         // Extract owner, name and desc using regex
-        return MethodQualifier.create(reference, false).orElse(null);
+        return MethodQualifier.create(reference).orElse(null);
     }
 
     @Nullable
@@ -118,7 +118,7 @@ public final class MethodContextImpl implements MethodContext {
         // Resolve method reference
         String reference = patchContext().remap(target);
         // Extract owner, name and desc using regex
-        return MethodQualifier.create(reference, false).orElse(null);
+        return MethodQualifier.create(reference).orElse(null);
     }
 
     @Override
@@ -272,7 +272,7 @@ public final class MethodContextImpl implements MethodContext {
             .orElseGet(() -> {
                 List<Type> targetTypes = targetTypes();
                 if (targetTypes.size() == 1) {
-                    return targetTypes.get(0).getInternalName();
+                    return targetTypes.getFirst().getInternalName();
                 }
                 return null;
             });

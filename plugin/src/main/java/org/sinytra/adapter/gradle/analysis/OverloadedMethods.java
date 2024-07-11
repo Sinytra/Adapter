@@ -36,7 +36,7 @@ public class OverloadedMethods {
         }
         if (!found.isEmpty()) {
             if (found.size() == 1) {
-                return new MethodOverload(true, found.get(0).getFirst(), found.get(0).getSecond());
+                return new MethodOverload(true, found.getFirst().getFirst(), found.getFirst().getSecond());
             }
             return null;
         }
@@ -44,7 +44,7 @@ public class OverloadedMethods {
             isOverloadedMethod(context, other, owner, method)
                 .ifPresent(exclusions -> found.add(Pair.of(other, exclusions)));
         }
-        return found.size() == 1 ? new MethodOverload(false, found.get(0).getFirst(), found.get(0).getSecond()) : null;
+        return found.size() == 1 ? new MethodOverload(false, found.getFirst().getFirst(), found.getFirst().getSecond()) : null;
     }
 
     private static Optional<List<String>> isOverloadedMethod(AnalysisContext context, MethodNode other, String owner, MethodNode method) {
@@ -65,8 +65,8 @@ public class OverloadedMethods {
         if (insns.isEmpty()) {
             return Optional.empty();
         }
-        Pair<AbstractInsnNode, MethodInsnNode> last = insns.get(insns.size() - 1);
-        if (insns.size() > 1 && other.instructions.indexOf(insns.get(0).getFirst()) < other.instructions.indexOf(last.getFirst())) {
+        Pair<AbstractInsnNode, MethodInsnNode> last = insns.getLast();
+        if (insns.size() > 1 && other.instructions.indexOf(insns.getFirst().getFirst()) < other.instructions.indexOf(last.getFirst())) {
             return Optional.empty();
         }
         AbstractInsnNode start = last.getFirst();

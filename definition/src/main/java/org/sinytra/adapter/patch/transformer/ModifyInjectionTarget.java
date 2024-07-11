@@ -41,7 +41,7 @@ public record ModifyInjectionTarget(List<String> replacementMethods, Action acti
             if (this.replacementMethods.size() > 1) {
                 throw new IllegalStateException("Cannot determine replacement @Overwrite method name, multiple specified: " + this.replacementMethods);
             }
-            String replacement = this.replacementMethods.get(0);
+            String replacement = this.replacementMethods.getFirst();
             MethodQualifier.create(replacement)
                 .map(MethodQualifier::name)
                 .ifPresent(str -> methodNode.name = str);

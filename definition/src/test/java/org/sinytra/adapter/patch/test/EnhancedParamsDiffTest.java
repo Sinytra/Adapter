@@ -83,7 +83,7 @@ public class EnhancedParamsDiffTest {
         assertTrue(diff.insertions().isEmpty());
         assertTrue(diff.replacements().isEmpty());
         assertEquals(1, diff.removals().size());
-        assertEquals(0, diff.removals().get(0));
+        assertEquals(0, diff.removals().getFirst());
         assertTrue(diff.swaps().isEmpty());
         assertTrue(diff.moves().isEmpty());
     }
@@ -152,7 +152,7 @@ public class EnhancedParamsDiffTest {
 
         SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(original, modified);
         assertEquals(1, diff.insertions().size());
-        assertEquals(2, diff.insertions().get(0).getFirst());
+        assertEquals(2, diff.insertions().getFirst().getFirst());
         assertTrue(diff.replacements().isEmpty());
         assertTrue(diff.removals().isEmpty());
         assertTrue(diff.swaps().isEmpty());
@@ -412,7 +412,7 @@ public class EnhancedParamsDiffTest {
 
         SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(original, modified);
         assertEquals(1, diff.insertions().size());
-        assertEquals(Pair.of(3, Type.DOUBLE_TYPE), diff.insertions().get(0));
+        assertEquals(Pair.of(3, Type.DOUBLE_TYPE), diff.insertions().getFirst());
         assertTrue(diff.replacements().isEmpty());
         assertEquals(1, diff.removals().size());
         assertTrue(diff.swaps().isEmpty());
@@ -441,7 +441,7 @@ public class EnhancedParamsDiffTest {
 
         SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(original, modified);
         assertEquals(1, diff.insertions().size());
-        assertEquals(Pair.of(2, Type.getType(Deque.class)), diff.insertions().get(0));
+        assertEquals(Pair.of(2, Type.getType(Deque.class)), diff.insertions().getFirst());
         assertTrue(diff.replacements().isEmpty());
         assertTrue(diff.removals().isEmpty());
         assertEquals(1, diff.moves().size());

@@ -7,7 +7,6 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.*;
-import org.sinytra.adapter.patch.api.GlobalReferenceMapper;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.*;
@@ -32,54 +31,34 @@ public class MethodCallAnalyzer {
     }
 
     public static InstructionMatcher findSurroundingInstructions(AbstractInsnNode insn, int range) {
-        return findSurroundingInstructions(insn, range, false);
-    }
-
-    public static InstructionMatcher findSurroundingInstructions(AbstractInsnNode insn, int range, boolean remapCalls) {
         LabelNode previousLabel = findFirstInsn(insn, LabelNode.class, BACKWARDS);
         LabelNode nextLabel = findFirstInsn(insn, LabelNode.class, FORWARD);
 
-        List<AbstractInsnNode> previousInsns = getInsns(previousLabel, range, remapCalls, BACKWARDS);
-        List<AbstractInsnNode> nextInsns = getInsns(nextLabel, range, remapCalls, FORWARD);
+        List<AbstractInsnNode> previousInsns = getInsns(previousLabel, range, BACKWARDS);
+        List<AbstractInsnNode> nextInsns = getInsns(nextLabel, range, FORWARD);
 
         return new InstructionMatcher(insn, previousInsns, nextInsns);
     }
 
-    public static InstructionMatcher findBackwardsInstructions(AbstractInsnNode insn, int range, boolean remapCalls) {
-        // TODO Remove global remapping
+    public static InstructionMatcher findBackwardsInstructions(AbstractInsnNode insn, int range) {
         LabelNode previousLabel = findFirstInsn(insn, LabelNode.class, BACKWARDS);
-        List<AbstractInsnNode> previousInsns = getInsns(previousLabel, range, remapCalls, BACKWARDS);
+        List<AbstractInsnNode> previousInsns = getInsns(previousLabel, range, BACKWARDS);
 
         return new InstructionMatcher(insn, previousInsns, List.of());
     }
 
-    public static InstructionMatcher findForwardInstructions(AbstractInsnNode insn, int range, boolean remapCalls) {
+    public static InstructionMatcher findForwardInstructions(AbstractInsnNode insn, int range) {
         LabelNode nextLabel = findFirstInsn(insn, LabelNode.class, FORWARD);
-        List<AbstractInsnNode> nextInsns = getInsns(nextLabel, range, remapCalls, FORWARD);
+        List<AbstractInsnNode> nextInsns = getInsns(nextLabel, range, FORWARD);
 
         return new InstructionMatcher(insn, List.of(), nextInsns);
     }
 
-    private static List<AbstractInsnNode> getInsns(AbstractInsnNode root, int range, boolean remapCalls, UnaryOperator<AbstractInsnNode> operator) {
+    private static List<AbstractInsnNode> getInsns(AbstractInsnNode root, int range, UnaryOperator<AbstractInsnNode> operator) {
         return Stream.iterate(root, Objects::nonNull, operator)
             .filter(insn -> !(insn instanceof FrameNode) && !(insn instanceof LineNumberNode))
             .limit(range)
-            .map(insn -> remapCalls ? remapInsn(insn) : insn)
             .toList();
-    }
-
-    private static AbstractInsnNode remapInsn(AbstractInsnNode insn) {
-        if (insn instanceof MethodInsnNode minsn) {
-            MethodInsnNode clone = (MethodInsnNode) minsn.clone(Map.of());
-            clone.name = GlobalReferenceMapper.remapReference(clone.name);
-            return clone;
-        }
-        if (insn instanceof FieldInsnNode finsn) {
-            FieldInsnNode clone = (FieldInsnNode) finsn.clone(Map.of());
-            clone.name = GlobalReferenceMapper.remapReference(clone.name);
-            return clone;
-        }
-        return insn;
     }
 
     @SuppressWarnings("unchecked")

@@ -32,7 +32,7 @@ public interface Patch {
         return new InterfacePatchInstance.InterfaceClassPatchBuilderImpl();
     }
 
-    Result apply(ClassNode classNode, PatchEnvironment remaper);
+    Result apply(ClassNode classNode, PatchEnvironment environment);
 
     Codec<? extends Patch> codec();
 
@@ -112,7 +112,7 @@ public interface Patch {
                 .orElseGet(() -> handle.getNested("at")
                     .flatMap(at -> at.<String>getValue("value").map(s -> s.get().equals("CONSTANT") &&
                         at.<List<String>>getValue("args").map(AnnotationValueHandle::get).map(t -> t.size() == 1
-                            && (t.get(0).equals("doubleValue=" + doubleValue + "D") || t.get(0).equals("doubleValue=" + doubleValue)))
+                            && (t.getFirst().equals("doubleValue=" + doubleValue + "D") || t.getFirst().equals("doubleValue=" + doubleValue)))
                             .orElse(false)))
                     .orElse(false)));
         }

@@ -47,14 +47,14 @@ public class DynamicSyntheticInstanceofPatch implements MethodTransform {
         if (!(jumpInsn instanceof JumpInsnNode)) {
             return Patch.Result.PASS;
         }
-        InstructionMatcher cleanMatcher = MethodCallAnalyzer.findForwardInstructions(targetInsn, RANGE, true);
+        InstructionMatcher cleanMatcher = MethodCallAnalyzer.findForwardInstructions(targetInsn, RANGE);
         int firstOp = cleanMatcher.after().getFirst().getOpcode();
         // Find equivalent dirty code point
         InsnList dirtyInsns = methodContext.findDirtyInjectionTarget().methodNode().instructions;
         for (AbstractInsnNode insn : dirtyInsns) {
             if (insn.getOpcode() == firstOp) {
                 AbstractInsnNode nextLabel = findInsnAfterLabel(insn);
-                InstructionMatcher dirtyMatcher = MethodCallAnalyzer.findForwardInstructions(nextLabel, RANGE, true);
+                InstructionMatcher dirtyMatcher = MethodCallAnalyzer.findForwardInstructions(nextLabel, RANGE);
                 if (cleanMatcher.test(dirtyMatcher)) {
                     // ModifyExpressionValue doesn't include the original instanceof call, so we can skip comparing instructions
                     if (methodContext.methodAnnotation().matchesDesc(MixinConstants.MODIFY_EXPR_VAL)) {

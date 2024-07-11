@@ -1,10 +1,8 @@
 package org.sinytra.adapter.patch.fixes;
 
-import com.google.common.collect.ImmutableMap;
 import com.mojang.datafixers.util.Pair;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
-import org.sinytra.adapter.patch.api.GlobalReferenceMapper;
 
 import java.util.List;
 import java.util.Map;
@@ -24,14 +22,7 @@ public final class BytecodeFixerUpper {
     }
 
     public BytecodeFixerUpper(Map<String, Map<String, Pair<Type, Type>>> newFieldTypes, List<TypeAdapter> fieldTypeAdapters, List<TypeAdapterProvider> dynamicTypeAdapters) {
-        // Remap field names
-        ImmutableMap.Builder<String, Map<String, Pair<Type, Type>>> builder = ImmutableMap.builder();
-        newFieldTypes.forEach((owner, fields) -> {
-            ImmutableMap.Builder<String, Pair<Type, Type>> fieldsBuilder = ImmutableMap.builder();
-            fields.forEach((k, v) -> fieldsBuilder.put(GlobalReferenceMapper.remapReference(k), v));
-            builder.put(owner, fieldsBuilder.build());
-        });
-        this.newFieldTypes = builder.build();
+        this.newFieldTypes = newFieldTypes;
         this.fieldTypeAdapters = fieldTypeAdapters;
         this.dynamicTypeAdapters = dynamicTypeAdapters;
         this.generator = new BytecodeFixerJarGenerator();

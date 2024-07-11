@@ -78,7 +78,7 @@ public final class AdapterUtil {
             String name = matcher.group("name");
             String desc = matcher.group("desc");
             if (name != null && desc != null) {
-                return Objects.requireNonNullElse(matcher.group("owner"), "") + GlobalReferenceMapper.remapReference(name) + ":" + desc;
+                return Objects.requireNonNullElse(matcher.group("owner"), "") + name + ":" + desc;
             }
         }
         return reference;

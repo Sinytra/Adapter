@@ -47,7 +47,7 @@ public record ModifyMethodAccess(List<AccessChange> changes) implements MethodTr
                         if (types.size() == 1) {
                             Type[] params = Type.getArgumentTypes(methodNode.desc);
                             List<Type> newParams = new ArrayList<>(Arrays.asList(params));
-                            newParams.add(0, types.get(0));
+                            newParams.addFirst(types.getFirst());
 
                             methodContext.updateDescription(newParams);
                         } else {

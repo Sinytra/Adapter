@@ -46,7 +46,7 @@ public class LocalVariableLookup {
     }
 
     public LocalVariableNode getLast() {
-        return this.sortedLocals.get(this.sortedLocals.size() - 1);
+        return this.sortedLocals.getLast();
     }
 
     public List<LocalVariableNode> getForType(LocalVariableNode node) {

@@ -41,7 +41,7 @@ public class DynFixArbitraryInjectionPoint implements DynamicFixer<DynFixArbitra
         AbstractInsnNode cleanInjectionInsn = data.cleanInjectionInsn();
 
         // Find an common instruction in the clean and dirty target methods
-        InstructionMatcher cleanMatcher = MethodCallAnalyzer.findBackwardsInstructions(cleanInjectionInsn, 5, false).inverse();
+        InstructionMatcher cleanMatcher = MethodCallAnalyzer.findBackwardsInstructions(cleanInjectionInsn, 5).inverse();
         if (cleanMatcher.after().isEmpty()) {
             return Patch.Result.PASS;
         }
@@ -53,7 +53,7 @@ public class DynFixArbitraryInjectionPoint implements DynamicFixer<DynFixArbitra
                 continue;
             }
 
-            InstructionMatcher dirtyMatcher = MethodCallAnalyzer.findForwardInstructions(insn, 5, false);
+            InstructionMatcher dirtyMatcher = MethodCallAnalyzer.findForwardInstructions(insn, 5);
             if (cleanMatcher.test(dirtyMatcher, InsnComparator.IGNORE_VAR_INDEX)) {
                 // Find first method call past matched instruction
                 AbstractInsnNode lastInsn = dirtyMatcher.after().getLast();

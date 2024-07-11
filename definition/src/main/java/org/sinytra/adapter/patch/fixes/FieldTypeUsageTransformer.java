@@ -8,7 +8,6 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.api.ClassTransform;
-import org.sinytra.adapter.patch.api.GlobalReferenceMapper;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchContext;
 import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
@@ -30,10 +29,10 @@ public class FieldTypeUsageTransformer implements ClassTransform {
             Map<String, Pair<Type, Type>> classUpdatedTypes = new HashMap<>();
             // Update class field types
             if (context.targetTypes().size() == 1) {
-                Type targetType = context.targetTypes().get(0);
+                Type targetType = context.targetTypes().getFirst();
                 for (FieldNode field : classNode.fields) {
                     if (AdapterUtil.isShadowField(field)) {
-                        Pair<Type, Type> updatedTypes = bfu.getFieldTypeChange(targetType.getInternalName(), GlobalReferenceMapper.remapReference(field.name));
+                        Pair<Type, Type> updatedTypes = bfu.getFieldTypeChange(targetType.getInternalName(), field.name);
                         if (updatedTypes != null) {
                             field.desc = updatedTypes.getSecond().getDescriptor();
                             // Update shadow field usages
@@ -56,7 +55,7 @@ public class FieldTypeUsageTransformer implements ClassTransform {
                         }
 
                         // Update used fields of other classes
-                        Pair<Type, Type> updatedTypes = bfu.getFieldTypeChange(finsn.owner, GlobalReferenceMapper.remapReference(finsn.name));
+                        Pair<Type, Type> updatedTypes = bfu.getFieldTypeChange(finsn.owner, finsn.name);
                         if (updatedTypes != null) {
                             applied |= runFieldFix(bfu, updatedTypes, method, finsn);
                         }

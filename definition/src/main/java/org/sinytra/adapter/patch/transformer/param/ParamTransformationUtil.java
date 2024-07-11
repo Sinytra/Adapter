@@ -152,7 +152,7 @@ public final class ParamTransformationUtil {
                 int finalLoadInsnIndex = loadInsnIndex;
                 insertions.forEach((position, target) -> {
                     if (position > 0) {
-                        final var lastOfPrevious = methodNode.instructions.indexOf(objects[position - 1].get(objects[position - 1].size() - 1));
+                        final var lastOfPrevious = methodNode.instructions.indexOf(objects[position - 1].getLast());
                         if (methodNode.instructions.get(lastOfPrevious + 2).getOpcode() != Opcodes.DUP) {
                             methodNode.instructions.insert(methodNode.instructions.get(lastOfPrevious + 1), new InsnNode(Opcodes.DUP));
                         }
@@ -163,7 +163,7 @@ public final class ParamTransformationUtil {
                             objects[j] = objects[j - 1];
                             objects[j - 1] = new ArrayList<>();
                             if (!objects[j].isEmpty()) {
-                                methodNode.instructions.set(methodNode.instructions.get(methodNode.instructions.indexOf(objects[j].get(0)) - 1), AdapterUtil.getIntConstInsn(j));
+                                methodNode.instructions.set(methodNode.instructions.get(methodNode.instructions.indexOf(objects[j].getFirst()) - 1), AdapterUtil.getIntConstInsn(j));
                             }
                         }
                     }
@@ -183,7 +183,7 @@ public final class ParamTransformationUtil {
                         // Inject after the DUP of the array
                         insertionTarget = finalLoadInsnIndex + 3;
                     } else {
-                        insertionTarget = methodNode.instructions.indexOf(objects[position - 1].get(objects[position - 1].size() - 1)) + 2;
+                        insertionTarget = methodNode.instructions.indexOf(objects[position - 1].getLast()) + 2;
                     }
 
                     methodNode.instructions.insert(methodNode.instructions.get(insertionTarget), actualInstructions);
@@ -203,7 +203,7 @@ public final class ParamTransformationUtil {
                     actualInstructions.add(sub);
                     actualInstructions.add(new InsnNode(Opcodes.ASTORE));
                     actualInstructions.add(new InsnNode(Opcodes.DUP));
-                    final var target = methodNode.instructions.get(methodNode.instructions.indexOf(objects[position].get(0)) - 1);
+                    final var target = methodNode.instructions.get(methodNode.instructions.indexOf(objects[position].getFirst()) - 1);
                     objects[position].forEach(methodNode.instructions::remove);
                     objects[position].clear();
                     methodNode.instructions.insert(target, actualInstructions);
@@ -217,14 +217,14 @@ public final class ParamTransformationUtil {
                     for (int j = position + 1; j < newArrayLength; j++) {
                         objects[j - 1] = objects[j];
                         if (!objects[j - 1].isEmpty()) {
-                            methodNode.instructions.set(methodNode.instructions.get(methodNode.instructions.indexOf(objects[j - 1].get(0)) - 1), AdapterUtil.getIntConstInsn(j - 1));
+                            methodNode.instructions.set(methodNode.instructions.get(methodNode.instructions.indexOf(objects[j - 1].getFirst()) - 1), AdapterUtil.getIntConstInsn(j - 1));
                         }
                     }
 
-                    final AbstractInsnNode dup = methodNode.instructions.get(methodNode.instructions.indexOf(toRemove.get(toRemove.size() - 1)) + 2);
+                    final AbstractInsnNode dup = methodNode.instructions.get(methodNode.instructions.indexOf(toRemove.getLast()) + 2);
                     List.of(
-                        methodNode.instructions.get(methodNode.instructions.indexOf(toRemove.get(0)) - 1),
-                        methodNode.instructions.get(methodNode.instructions.indexOf(toRemove.get(toRemove.size() - 1)) + 1)
+                        methodNode.instructions.get(methodNode.instructions.indexOf(toRemove.getFirst()) - 1),
+                        methodNode.instructions.get(methodNode.instructions.indexOf(toRemove.getLast()) + 1)
                     ).forEach(methodNode.instructions::remove);
                     toRemove.forEach(methodNode.instructions::remove);
                     if (dup.getOpcode() == Opcodes.DUP) {
@@ -233,7 +233,7 @@ public final class ParamTransformationUtil {
 
                     if (position > 0 && !objects[position - 1].isEmpty()) {
                         // Make sure that the last one doesn't have a DUP
-                        final int lastOfPrevious = methodNode.instructions.indexOf(objects[position - 1].get(objects[position - 1].size() - 1));
+                        final int lastOfPrevious = methodNode.instructions.indexOf(objects[position - 1].getLast());
                         if (methodNode.instructions.get(lastOfPrevious + 2).getOpcode() == Opcodes.DUP) {
                             methodNode.instructions.remove(methodNode.instructions.get(lastOfPrevious + 2));
                         }

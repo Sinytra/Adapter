@@ -45,7 +45,7 @@ public class AnnotationValueHandle<T> {
         Object value = get();
         if (value instanceof List<?> list) {
             if (!list.isEmpty()) {
-                return Optional.of((U) list.get(0));
+                return Optional.of((U) list.getFirst());
             }
             return Optional.empty();
         }

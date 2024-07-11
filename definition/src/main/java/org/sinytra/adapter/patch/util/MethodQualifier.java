@@ -5,7 +5,6 @@ import com.mojang.serialization.DataResult;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.MethodInsnNode;
-import org.sinytra.adapter.patch.api.GlobalReferenceMapper;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -21,20 +20,14 @@ public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nu
     public MethodQualifier(@Nullable String name, @Nullable String desc) {
         this(null, name, desc);
     }
-
     @Nullable
     public static Optional<MethodQualifier> create(String qualifier) {
-        return create(qualifier, true);
-    }
-
-    @Nullable
-    public static Optional<MethodQualifier> create(String qualifier, boolean remap) {
         Matcher matcher = METHOD_QUALIFIER_PATTERN.matcher(qualifier);
         if (matcher.matches()) {
             String name = matcher.group("name");
             String desc = matcher.group("desc");
             if (name != null || desc != null) {
-                return Optional.of(new MethodQualifier(matcher.group("owner"), remap ? GlobalReferenceMapper.remapReference(name) : name, desc));
+                return Optional.of(new MethodQualifier(matcher.group("owner"), name, desc));
             }
         }
         return Optional.empty();

@@ -31,7 +31,7 @@ public class DynamicAnonymousShadowFieldTypePatch implements ClassTransform {
             return Patch.Result.PASS;
         }
 
-        String targetReference = context.remap(targets.get(0));
+        String targetReference = context.remap(targets.getFirst());
         if (!AdapterUtil.isAnonymousClass(targetReference)) {
             return Patch.Result.PASS;
         }
