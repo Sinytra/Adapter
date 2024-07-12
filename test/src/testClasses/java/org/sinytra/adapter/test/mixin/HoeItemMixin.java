@@ -26,7 +26,7 @@ public class HoeItemMixin {
     }
 
     @Inject(
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/state/BlockState;getToolModifiedState(Lnet/minecraft/world/item/context/UseOnContext;Lnet/minecraftforge/common/ToolAction;Z)Lnet/minecraft/world/level/block/state/BlockState;"),
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;getBlockState(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;"),
         method = "useOn",
         cancellable = true,
         locals = LocalCapture.CAPTURE_FAILSOFT

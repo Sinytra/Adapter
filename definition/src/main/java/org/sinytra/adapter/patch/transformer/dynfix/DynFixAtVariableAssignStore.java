@@ -14,8 +14,6 @@ import org.sinytra.adapter.patch.util.OpcodeUtil;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Predicate;
-import java.util.function.UnaryOperator;
 
 /**
  * Find our new injection point with relation to variable assignments

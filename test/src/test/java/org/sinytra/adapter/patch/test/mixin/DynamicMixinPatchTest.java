@@ -58,7 +58,26 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     void testUpdatedInjectionPointFieldToMethod() throws Exception {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/HoeItemMixin",
-            "injectUseOn"
+            "injectUseOn",
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
+    void testUpdatedInjectionPoint2() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/MilkBucketItemMixin",
+            "onClearStatusEffect",
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
+    void testUpdatedInjectionPointModifyExprVal() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/FarmLandBlockMixin",
+            "isFarmlandNearWater",
+            assertInjectionPoint()
         );
     }
 

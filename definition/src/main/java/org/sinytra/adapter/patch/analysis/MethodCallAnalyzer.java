@@ -54,6 +54,12 @@ public class MethodCallAnalyzer {
         return new InstructionMatcher(insn, List.of(), nextInsns);
     }
 
+    public static InstructionMatcher findForwardInstructionsDirect(AbstractInsnNode insn, int range) {
+        List<AbstractInsnNode> nextInsns = getInsns(insn, range, FORWARD);
+
+        return new InstructionMatcher(insn, List.of(), nextInsns);
+    }
+
     private static List<AbstractInsnNode> getInsns(AbstractInsnNode root, int range, UnaryOperator<AbstractInsnNode> operator) {
         return Stream.iterate(root, Objects::nonNull, operator)
             .filter(insn -> !(insn instanceof FrameNode) && !(insn instanceof LineNumberNode))
