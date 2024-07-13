@@ -29,7 +29,7 @@ public class DynFixAtVariableAssignStore implements DynamicFixer<DynFixAtVariabl
         if (methodContext.methodAnnotation().matchesAny(ACCEPTED_ANNOTATIONS) && methodContext.hasInjectionPointValue("INVOKE")) {
             MethodContext.TargetPair cleanInjectionTarget = methodContext.findCleanInjectionTarget();
             List<AbstractInsnNode> cleanInsns = methodContext.findInjectionTargetInsns(cleanInjectionTarget);
-            if (cleanInsns.size() == 1 && methodContext.failsDirtyInjectionCheck()) {
+            if (cleanInsns.size() == 1) {
                 MethodContext.TargetPair dirtyInjectionTarget = methodContext.findDirtyInjectionTarget();
                 return new Data(cleanInjectionTarget.methodNode(), dirtyInjectionTarget, cleanInsns.getFirst());
             }

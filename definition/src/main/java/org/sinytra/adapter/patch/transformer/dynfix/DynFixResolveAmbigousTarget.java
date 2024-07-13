@@ -41,7 +41,7 @@ public class DynFixResolveAmbigousTarget implements DynamicFixer<DynFixResolveAm
             if (!insns.isEmpty()) {
                 String newTarget = target.name + target.desc;
                 LOGGER.debug(MIXINPATCH, "Resolving ambigous method selector of {}.{} to {}", classNode.name, methodNode.name, newTarget);
-                return new ModifyInjectionTarget(List.of(newTarget)).apply(classNode, methodNode, methodContext, methodContext.patchContext());
+                return new ModifyInjectionTarget(List.of(newTarget)).apply(classNode, methodNode, methodContext);
             }
         }
         return Patch.Result.PASS;

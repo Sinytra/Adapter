@@ -81,6 +81,28 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    @Test
+    void testSplitMethodInjectionTarget() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/GuiMixin",
+            "modifyTextureStatusBar",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/GuiMixin",
+            "modifyTextureStatusBarsArmor",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/GuiMixin",
+            "modifyTextureStatusBarsFood",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
     @Override
     protected LoadResult load(String className) throws Exception {
         final ClassNode patched = loadClass(className);

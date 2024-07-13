@@ -51,7 +51,7 @@ public final class MethodUpgrader {
         }
 
         LocalVarAnalyzer.CapturedLocalsTransform transform = LocalVarAnalyzer.analyzeCapturedLocals(capturedLocals, methodNode);
-        transform.remover().apply(classNode, methodNode, methodContext, methodContext.patchContext());
+        transform.remover().apply(classNode, methodNode, methodContext);
 
         List<Type> expected = List.of(Type.getArgumentTypes(methodNode.desc));
         List<Type> required = ImmutableList.<Type>builder()
@@ -64,7 +64,7 @@ public final class MethodUpgrader {
                 .map(LayeredParamsDiffSnapshot.ParamModification::asParameterTransformer)
                 .toList();
             MethodTransform patch = TransformParameters.builder().transform(transformers).withOffset().targetType(ParamTransformTarget.METHOD).build();
-            patch.apply(classNode, methodNode, methodContext, methodContext.patchContext());
+            patch.apply(classNode, methodNode, methodContext);
         }
     }
 
@@ -87,7 +87,7 @@ public final class MethodUpgrader {
         SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(originalDesc, modifiedDesc);
         if (!diff.isEmpty()) {
             MethodTransform patch = diff.asParameterTransformer(ParamTransformTarget.ALL, false, false);
-            patch.apply(classNode, methodNode, methodContext, methodContext.patchContext());
+            patch.apply(classNode, methodNode, methodContext);
         }
     }
 }

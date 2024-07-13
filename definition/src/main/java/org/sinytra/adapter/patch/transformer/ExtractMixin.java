@@ -321,7 +321,7 @@ public record ExtractMixin(String targetClass, boolean remove) implements Method
                 replacementInsns.add(new VarInsnNode(OpcodeUtil.getStoreOpcode(type.getSort()), newIndex));
                 replacementInsns.add(start);
                 // Update initializers to point to the new index instead
-                varInsnLists.remove(index);
+                varInsnLists.remove((int) index);
                 varInsnLists.forEach((varIndex, varInsns) -> {
                     for (AbstractInsnNode insn : varInsns) {
                         if (insn instanceof VarInsnNode varInsn && varInsn.var == index) {

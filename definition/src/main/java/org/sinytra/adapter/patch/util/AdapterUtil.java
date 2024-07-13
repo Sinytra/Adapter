@@ -145,8 +145,7 @@ public final class AdapterUtil {
     }
 
     public static boolean isShadowField(FieldNode field) {
-        List<AnnotationNode> annotations = field.visibleAnnotations != null ? field.visibleAnnotations : List.of();
-        return AdapterUtil.hasAnnotation(annotations, MixinConstants.SHADOW);
+        return AdapterUtil.hasAnnotation(field.visibleAnnotations, MixinConstants.SHADOW);
     }
 
     public static boolean hasAnnotation(List<AnnotationNode> annotations, String desc) {
@@ -182,14 +181,6 @@ public final class AdapterUtil {
             }
         }
         return list;
-    }
-
-    public static Patch.Result applyTransforms(List<MethodTransform> transforms, ClassNode classNode, MethodNode methodNode, MethodContext methodContext) {
-        Patch.Result result = Patch.Result.PASS;
-        for (MethodTransform transform : transforms) {
-            result = result.or(transform.apply(classNode, methodNode, methodContext, methodContext.patchContext()));
-        }
-        return result;
     }
 
     @Nullable
