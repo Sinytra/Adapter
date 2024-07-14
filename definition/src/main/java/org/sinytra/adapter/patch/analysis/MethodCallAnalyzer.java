@@ -3,6 +3,7 @@ package org.sinytra.adapter.patch.analysis;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import org.jetbrains.annotations.Nullable;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -17,6 +18,37 @@ import java.util.stream.Stream;
 public class MethodCallAnalyzer {
     public static final UnaryOperator<AbstractInsnNode> FORWARD = AbstractInsnNode::getNext;
     public static final UnaryOperator<AbstractInsnNode> BACKWARDS = AbstractInsnNode::getPrevious;
+    public static final String LAMBDA_PREFIX = "lambda$";
+
+    public static List<String> findLambdasInMethod(ClassNode cls, MethodNode method, @Nullable Multimap<String, MethodNode> methods) {
+        List<String> list = new ArrayList<>();
+        for (AbstractInsnNode insn : method.instructions) {
+            if (insn instanceof InvokeDynamicInsnNode indy && indy.bsmArgs.length >= 3) {
+                for (Object bsmArg : indy.bsmArgs) {
+                    if (bsmArg instanceof Handle handle && handle.getOwner().equals(cls.name)) {
+                        if (handle.getName().startsWith(LAMBDA_PREFIX)) {
+                            String name = handle.getName();
+                            list.add(name);
+                            if (methods != null) {
+                                MethodNode lambda = findUniqueMethod(methods, name);
+                                list.addAll(findLambdasInMethod(cls, lambda, methods));
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        return list;
+    }
+
+    public static MethodNode findMethodByUniqueName(ClassNode cls, String name) {
+        List<MethodNode> methods = cls.methods.stream().filter(m -> m.name.equals(name)).toList();
+        if (methods.size() != 1) {
+            throw new IllegalStateException("Multiple candidates found for method " + name + " in class " + cls.name);
+        }
+        return methods.getFirst();
+    }
 
     public static Multimap<String, MethodInsnNode> getMethodCalls(MethodNode node, List<String> callOrder) {
         ImmutableMultimap.Builder<String, MethodInsnNode> calls = ImmutableMultimap.builder();
@@ -126,6 +158,17 @@ public class MethodCallAnalyzer {
     public static AbstractInsnNode getSingleInsn(List<? extends SourceValue> values, int index) {
         SourceValue value = values.get(index);
         return value.insns.size() == 1 ? value.insns.iterator().next() : null;
+    }
+
+    public static MethodNode findUniqueMethod(Multimap<String, MethodNode> methods, String name) {
+        Collection<MethodNode> values = methods.get(name);
+        if (values != null && !values.isEmpty()) {
+            if (values.size() > 1) {
+                throw new IllegalStateException("Found multiple candidates for method " + name);
+            }
+            return values.iterator().next();
+        }
+        throw new NullPointerException("Method " + name + " not found");
     }
 
     private static class AnalysingSourceInterpreter<T> extends SourceInterpreter {

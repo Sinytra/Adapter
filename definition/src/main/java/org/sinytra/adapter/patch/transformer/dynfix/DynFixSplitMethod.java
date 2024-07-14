@@ -3,10 +3,12 @@ package org.sinytra.adapter.patch.transformer.dynfix;
 import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.transformer.ModifyInjectionTarget;
 import org.sinytra.adapter.patch.util.AdapterUtil;
+import org.sinytra.adapter.patch.util.OpcodeUtil;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
@@ -51,16 +53,27 @@ public class DynFixSplitMethod implements DynamicFixer<DynFixSplitMethod.Data> {
         for (int i = 1; i < dirtyTargetMethod.instructions.size() - 1; i++) {
             AbstractInsnNode insn = dirtyTargetMethod.instructions.get(i);
             if (insn instanceof LabelNode) {
-                if (insn.getPrevious() instanceof MethodInsnNode methodInsn && methodInsn.owner.equals(dirtyTargetClass.name)) {
+                AbstractInsnNode previous = insn.getPrevious(); 
+                if (previous instanceof MethodInsnNode methodInsn && methodInsn.owner.equals(dirtyTargetClass.name)) {
                     MethodNode method = dirtyTargetClass.methods.stream().filter(m -> m.name.equals(methodInsn.name) && m.desc.equals(methodInsn.desc)).findFirst().orElseThrow();
                     invocations.add(method);
-                } else {
+                } else if (previous == null || !OpcodeUtil.isReturnOpcode(previous.getOpcode())) {
                     return Patch.Result.PASS;
                 }
             }
         }
 
-        List<MethodNode> candidates = invocations.stream().filter(method -> !methodContext.findInjectionTargetInsns(new MethodContext.TargetPair(dirtyTargetClass, method)).isEmpty()).toList();
+        List<MethodNode> candidates = findInsnsCalls(invocations, methodContext);
+
+        // Attempt to find matching insns in lambdas
+        if (candidates.isEmpty()) {
+            List<MethodNode> nestedLambdas = invocations.stream()
+                .flatMap(m -> MethodCallAnalyzer.findLambdasInMethod(dirtyTargetClass, m, null).stream())
+                .map(s -> MethodCallAnalyzer.findMethodByUniqueName(dirtyTargetClass, s))
+                .toList();
+            candidates = findInsnsCalls(nestedLambdas, methodContext);
+        }
+
         if (candidates.size() == 1) {
             MethodNode method = candidates.getFirst();
             String newTarget = method.name + method.desc;
@@ -69,5 +82,10 @@ public class DynFixSplitMethod implements DynamicFixer<DynFixSplitMethod.Data> {
         }
 
         return Patch.Result.PASS;
+    }
+
+    private static List<MethodNode> findInsnsCalls(List<MethodNode> methods, MethodContext methodContext) {
+        ClassNode dirtyTargetClass = methodContext.findDirtyInjectionTarget().classNode();
+        return methods.stream().filter(method -> !methodContext.findInjectionTargetInsns(new MethodContext.TargetPair(dirtyTargetClass, method)).isEmpty()).toList();
     }
 }

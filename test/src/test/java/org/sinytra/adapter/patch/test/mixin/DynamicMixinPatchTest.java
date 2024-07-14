@@ -13,21 +13,12 @@ import java.util.List;
 public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     private static final List<Patch> DYNAMIC_PATCHES = List.of(
         Patch.builder()
-//            .transform(new DynamicInjectorOrdinalPatch())
-//            .transform(new DynamicLVTPatch(() -> lvtOffsets))
-//            .transform(new DynamicAnonymousShadowFieldTypePatch())
-//            .transform(new DynamicModifyVarAtReturnPatch())
-//            .transform(new DynamicInheritedInjectionPointPatch())
-//            .transform(new DynamicSyntheticInstanceofPatch())
             .transform(new DynamicInjectionPointPatch())
             .build()
-//        Patch.interfaceBuilder()
-//            .transform(new FieldTypePatchTransformer())
-//            .build()
     );
 
     @Test
-    void testUpdatedInjectionPoint() throws Exception {
+    void testUpdatedInjectionPointAtAssignment() throws Exception {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/EffectRenderingInventoryScreenMixin",
             "onCollect",
@@ -36,7 +27,7 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     }
 
     @Test
-    void testAddedSameNameMethod() throws Exception {
+    void testResolveAmbigousMethodName() throws Exception {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/HumanoidArmorLayerMixin",
             "getArmorEntityGlint",
@@ -45,10 +36,30 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     }
 
     @Test
-    void testUpdatedInjectionTargetSamePoint() throws Exception {
+    void testMovedInjectionPointToMethod() throws Exception {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/BoatRendererMixin",
             "getBoatTextureAndModel",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
+    void testMovedInjectionPointToMethod2() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/EntityMixin",
+            "bypassMovementInFluidCalls",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
+    void testMovedInjectionPointToMethod3() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/EntityMixin",
+            "preventPushFromFluids",
             assertTargetMethod(),
             assertInjectionPoint()
         );
@@ -64,7 +75,16 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     }
 
     @Test
-    void testUpdatedInjectionPoint2() throws Exception {
+    void testUpdatedInjectionPointFieldToMethod2() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/NaturalSpawnerMixin",
+            "getSpawnEntriesMixin",
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
+    void testUpdatedArbitraryInjectionPoint() throws Exception {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/MilkBucketItemMixin",
             "onClearStatusEffect",

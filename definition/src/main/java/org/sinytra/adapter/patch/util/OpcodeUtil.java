@@ -32,6 +32,10 @@ public class OpcodeUtil {
         return opcode >= Opcodes.ILOAD && opcode <= Opcodes.ALOAD;
     }
 
+    public static boolean isReturnOpcode(int opcode) {
+        return opcode >= Opcodes.IRETURN && opcode <= Opcodes.RETURN;
+    }
+
     public static int getLoadOpcode(int sort) {
         return Opcodes.ILOAD + INSN_TYPE_OFFSETS.indexOf(sort) + 1;
     }

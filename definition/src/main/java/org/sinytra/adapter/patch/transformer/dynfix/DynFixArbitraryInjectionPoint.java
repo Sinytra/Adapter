@@ -69,8 +69,10 @@ public class DynFixArbitraryInjectionPoint implements DynamicFixer<DynFixArbitra
         if (candidates.size() == 1) {
             AbstractInsnNode lastInsn = candidates.getFirst();
             MethodInsnNode nextMethodCall = findReplacementInjectionPoint(lastInsn, methodContext);
-            String newInjectionPoint = Type.getObjectType(nextMethodCall.owner).getDescriptor() + nextMethodCall.name + nextMethodCall.desc;
-            return new ModifyInjectionPoint("INVOKE", newInjectionPoint, true, false).apply(classNode, methodNode, methodContext);
+            if (nextMethodCall != null) {
+                String newInjectionPoint = Type.getObjectType(nextMethodCall.owner).getDescriptor() + nextMethodCall.name + nextMethodCall.desc;
+                return new ModifyInjectionPoint("INVOKE", newInjectionPoint, true, false).apply(classNode, methodNode, methodContext);   
+            }
         }
 
         return Patch.Result.PASS;

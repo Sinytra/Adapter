@@ -3,9 +3,7 @@ package org.sinytra.adapter.gradle;
 import com.google.common.collect.*;
 import com.mojang.datafixers.util.Pair;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
-import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -34,6 +32,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
+import static org.sinytra.adapter.patch.analysis.MethodCallAnalyzer.findLambdasInMethod;
+import static org.sinytra.adapter.patch.analysis.MethodCallAnalyzer.findUniqueMethod;
 import static org.sinytra.adapter.patch.util.AdapterUtil.isAnonymousClass;
 
 public class ClassAnalyzer {
@@ -525,28 +525,6 @@ public class ClassAnalyzer {
         return snapshot;
     }
 
-    private List<String> findLambdasInMethod(ClassNode cls, MethodNode method, @Nullable Multimap<String, MethodNode> methods) {
-        List<String> list = new ArrayList<>();
-        for (AbstractInsnNode insn : method.instructions) {
-            if (insn instanceof InvokeDynamicInsnNode indy && indy.bsmArgs.length >= 3) {
-                for (Object bsmArg : indy.bsmArgs) {
-                    if (bsmArg instanceof Handle handle && handle.getOwner().equals(cls.name)) {
-                        if (handle.getName().startsWith(LAMBDA_PREFIX)) {
-                            String name = handle.getName();
-                            list.add(name);
-                            if (methods != null) {
-                                MethodNode lambda = findUniqueMethod(methods, name);
-                                list.addAll(findLambdasInMethod(cls, lambda, methods));
-                            }
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        return list;
-    }
-
     public static boolean containsMethodCall(MethodNode methodNode, MethodInsnNode targetMinsn) {
         for (AbstractInsnNode insn : methodNode.instructions) {
             if (insn instanceof MethodInsnNode minsn && minsn.owner.equals(targetMinsn.owner) && minsn.name.equals(targetMinsn.name) && minsn.desc.equals(targetMinsn.desc)) {
@@ -554,17 +532,6 @@ public class ClassAnalyzer {
             }
         }
         return false;
-    }
-
-    private static MethodNode findUniqueMethod(Multimap<String, MethodNode> methods, String name) {
-        Collection<MethodNode> values = methods.get(name);
-        if (values != null && !values.isEmpty()) {
-            if (values.size() > 1) {
-                throw new IllegalStateException("Found multiple candidates for method " + name);
-            }
-            return values.iterator().next();
-        }
-        throw new NullPointerException("Method " + name + " not found");
     }
 
     private static Multimap<String, MethodNode> indexClassMethods(ClassNode classNode) {
