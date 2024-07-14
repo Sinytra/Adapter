@@ -10,17 +10,19 @@ import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.transformer.ModifyInjectionPoint;
+import org.sinytra.adapter.patch.transformer.ModifyInjectionTarget;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 public class DynFixArbitraryInjectionPoint implements DynamicFixer<DynFixArbitraryInjectionPoint.Data> {
-    private static final Set<String> ACCEPTED_ANNOTATIONS = Set.of(MixinConstants.INJECT, MixinConstants.MODIFY_EXPR_VAL);
+    private static final Set<String> ACCEPTED_ANNOTATIONS = Set.of(MixinConstants.INJECT, MixinConstants.MODIFY_ARG, MixinConstants.MODIFY_EXPR_VAL);
 
-    public record Data(MethodContext.TargetPair dirtyTarget, AbstractInsnNode cleanInjectionInsn) {
-    }
+    public record Data(MethodContext.TargetPair dirtyTarget, AbstractInsnNode cleanInjectionInsn) {}
 
     @Nullable
     @Override
@@ -30,7 +32,8 @@ public class DynFixArbitraryInjectionPoint implements DynamicFixer<DynFixArbitra
             List<AbstractInsnNode> cleanInsns = methodContext.findInjectionTargetInsns(cleanInjectionTarget);
             if (cleanInsns.size() == 1 && methodContext.failsDirtyInjectionCheck()) {
                 MethodContext.TargetPair dirtyInjectionTarget = methodContext.findDirtyInjectionTarget();
-                return new Data(dirtyInjectionTarget, cleanInsns.getFirst());
+                AbstractInsnNode cleanInjectionInsn = cleanInsns.getFirst();
+                return new Data(dirtyInjectionTarget, cleanInjectionInsn);
             }
         }
         return null;
@@ -41,10 +44,41 @@ public class DynFixArbitraryInjectionPoint implements DynamicFixer<DynFixArbitra
         MethodNode dirtyTargetMethod = data.dirtyTarget().methodNode();
         AbstractInsnNode cleanInjectionInsn = data.cleanInjectionInsn();
 
+        AbstractInsnNode nextCallCandidate = findCandidates(MethodCallAnalyzer.findBackwardsInstructions(cleanInjectionInsn, 5).inverse(), dirtyTargetMethod, List::getLast);
+        MethodInsnNode targetMethodCall;
+        if (nextCallCandidate != null) {
+            targetMethodCall = findReplacementInjectionPoint(nextCallCandidate, AbstractInsnNode::getNext, methodContext);
+        } else {
+            AbstractInsnNode previousCallCandidate = findCandidates(MethodCallAnalyzer.findForwardInstructions(cleanInjectionInsn, 5), dirtyTargetMethod, List::getFirst);
+            if (previousCallCandidate != null) {
+                targetMethodCall = findReplacementInjectionPoint(previousCallCandidate, AbstractInsnNode::getPrevious, methodContext);
+            } else {
+                return Patch.Result.PASS;
+            }
+        }
+
+        if (targetMethodCall != null) {
+            // New method is in the same class? It's possible our target injection point was moved there
+            if (targetMethodCall.owner.equals(data.dirtyTarget().classNode().name) && !methodContext.methodAnnotation().matchesDesc(MixinConstants.INJECT)) {
+                return tryMoveTargetMethod(classNode, methodNode, targetMethodCall, methodContext);
+            }
+
+            String newInjectionPoint = Type.getObjectType(targetMethodCall.owner).getDescriptor() + targetMethodCall.name + targetMethodCall.desc;
+            return new ModifyInjectionPoint("INVOKE", newInjectionPoint, true, false).apply(classNode, methodNode, methodContext);
+        }
+
+        return Patch.Result.PASS;
+    }
+
+    private static Patch.Result tryMoveTargetMethod(ClassNode classNode, MethodNode methodNode, MethodInsnNode insn, MethodContext methodContext) {
+        String newTarget = insn.name + insn.desc;
+        return new ModifyInjectionTarget(List.of(newTarget)).apply(classNode, methodNode, methodContext);
+    }
+
+    private static AbstractInsnNode findCandidates(InstructionMatcher cleanMatcher, MethodNode dirtyTargetMethod, Function<List<AbstractInsnNode>, AbstractInsnNode> selector) {
         // Find an common instruction in the clean and dirty target methods
-        InstructionMatcher cleanMatcher = MethodCallAnalyzer.findBackwardsInstructions(cleanInjectionInsn, 5).inverse();
         if (cleanMatcher.after().isEmpty()) {
-            return Patch.Result.PASS;
+            return null;
         }
         int firstOpcode = cleanMatcher.after().getFirst().getOpcode();
 
@@ -59,32 +93,23 @@ public class DynFixArbitraryInjectionPoint implements DynamicFixer<DynFixArbitra
             InstructionMatcher dirtyMatcher = MethodCallAnalyzer.findForwardInstructionsDirect(insn, 5);
             if (cleanMatcher.test(dirtyMatcher, InsnComparator.IGNORE_VAR_INDEX)) {
                 // Find first method call past matched instruction
-                AbstractInsnNode lastInsn = dirtyMatcher.after().getLast();
+                AbstractInsnNode lastInsn = selector.apply(dirtyMatcher.after());
                 if (lastInsn != null) {
                     candidates.add(lastInsn);
                 }
             }
         }
 
-        if (candidates.size() == 1) {
-            AbstractInsnNode lastInsn = candidates.getFirst();
-            MethodInsnNode nextMethodCall = findReplacementInjectionPoint(lastInsn, methodContext);
-            if (nextMethodCall != null) {
-                String newInjectionPoint = Type.getObjectType(nextMethodCall.owner).getDescriptor() + nextMethodCall.name + nextMethodCall.desc;
-                return new ModifyInjectionPoint("INVOKE", newInjectionPoint, true, false).apply(classNode, methodNode, methodContext);   
-            }
-        }
-
-        return Patch.Result.PASS;
+        return !candidates.isEmpty() ? candidates.getFirst() : null;
     }
 
-    private static MethodInsnNode findReplacementInjectionPoint(AbstractInsnNode lastInsn, MethodContext methodContext) {
+    private static MethodInsnNode findReplacementInjectionPoint(AbstractInsnNode lastInsn, UnaryOperator<AbstractInsnNode> flow, MethodContext methodContext) {
         // Require matching return types for ModifyExpressionValue mixins
         if (methodContext.methodAnnotation().matchesDesc(MixinConstants.MODIFY_EXPR_VAL)) {
             Type desiredReturnType = Type.getReturnType(methodContext.getInjectionPointMethodQualifier().desc());
-            return (MethodInsnNode) AdapterUtil.iterateInsns(lastInsn, AbstractInsnNode::getNext, v -> v instanceof MethodInsnNode minsn && Type.getReturnType(minsn.desc).equals(desiredReturnType));
+            return (MethodInsnNode) AdapterUtil.iterateInsns(lastInsn, flow, v -> v instanceof MethodInsnNode minsn && Type.getReturnType(minsn.desc).equals(desiredReturnType));
         } else {
-            return (MethodInsnNode) AdapterUtil.iterateInsns(lastInsn, AbstractInsnNode::getNext, v -> v instanceof MethodInsnNode);
+            return (MethodInsnNode) AdapterUtil.iterateInsns(lastInsn, flow, v -> v instanceof MethodInsnNode);
         }
     }
 }
