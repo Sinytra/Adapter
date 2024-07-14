@@ -20,6 +20,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -171,6 +172,30 @@ public abstract class MinecraftMixinPatchTest {
             Assertions.assertThat(injectionPointExtractor.apply(patchedMethodAnn))
                 .as("Injection Point Annotation")
                 .isEqualTo(injectionPointExtractor.apply(expectedMethodAnn));
+        };
+    }
+
+    protected BiConsumer<MethodNode, MethodNode> assertSliceRange() {
+        BiFunction<String, AnnotationNode, Pair<String, String>> sliceExtractor = (name, node) -> new AnnotationHandle(node).getNested("slice")
+            .flatMap(ann -> ann.getNested(name))
+            .map(h -> {
+                String value = h.<String>getValue("value").orElseThrow().get();
+                String target = h.<String>getValue("target").orElseThrow().get();
+                return Pair.of(value, target);
+            })
+            .orElse(null);
+
+        return (patched, expected) -> {
+            AnnotationNode patchedMethodAnn = patched.visibleAnnotations.getFirst();
+            AnnotationNode expectedMethodAnn = expected.visibleAnnotations.getFirst();
+
+            Assertions.assertThat(sliceExtractor.apply("from", patchedMethodAnn))
+                .as("Slice From")
+                .isEqualTo(sliceExtractor.apply("from", expectedMethodAnn));
+
+            Assertions.assertThat(sliceExtractor.apply("to", patchedMethodAnn))
+                .as("Slice To")
+                .isEqualTo(sliceExtractor.apply("to", expectedMethodAnn));
         };
     }
 }

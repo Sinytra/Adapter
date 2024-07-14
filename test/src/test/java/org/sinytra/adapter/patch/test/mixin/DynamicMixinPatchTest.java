@@ -123,6 +123,17 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    @Test
+    void testModifiedSliceTarget() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/LivingEntityMixin",
+            "getSlipperinessForIceSkates",
+            assertTargetMethod(),
+            assertInjectionPoint(),
+            assertSliceRange()
+        );
+    }
+
     @Override
     protected LoadResult load(String className) throws Exception {
         final ClassNode patched = loadClass(className);

@@ -15,6 +15,10 @@ import org.sinytra.adapter.patch.util.provider.ClassLookup;
 import java.util.List;
 
 public interface MethodContext {
+    ClassNode getMixinClass();
+
+    MethodNode getMixinMethod();
+
     AnnotationValueHandle<?> classAnnotation();
 
     AnnotationHandle methodAnnotation();

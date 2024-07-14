@@ -301,6 +301,16 @@ public final class MethodContextImpl implements MethodContext {
     }
 
     @Override
+    public ClassNode getMixinClass() {
+        return this.classNode;
+    }
+
+    @Override
+    public MethodNode getMixinMethod() {
+        return this.methodNode;
+    }
+
+    @Override
     public AnnotationValueHandle<?> classAnnotation() {
         return this.classAnnotation;
     }

@@ -15,6 +15,7 @@ import java.util.List;
 public class DynamicInjectionPointPatch implements MethodTransform {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final List<DynamicFixer<?>> FIXES = List.of(
+        new DynFixSliceBoundary(),
         new DynFixAtVariableAssignStore(),
         new DynFixResolveAmbigousTarget(),
         new DynFixSplitMethod(),
@@ -26,7 +27,7 @@ public class DynamicInjectionPointPatch implements MethodTransform {
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
         if (methodContext.failsDirtyInjectionCheck()) {
             // TODO Only show in tests
-            LOGGER.info("Considering method {}.{}", classNode.name, methodNode.name);
+            LOGGER.debug("Considering method {}.{}", classNode.name, methodNode.name);
 
             for (DynamicFixer fix : FIXES) {
                 Object data = fix.prepare(methodContext);
