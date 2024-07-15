@@ -2,9 +2,12 @@ package org.sinytra.adapter.test.mixin;
 
 import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.Slice;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(LivingEntity.class)
 public class LivingEntityMixin {
@@ -41,5 +44,23 @@ public class LivingEntityMixin {
     )
     private float getSlipperinessForIceSkatesExpected(float slipperiness) {
         return slipperiness;
+    }
+
+    // https://github.com/Earthcomputer/clientcommands/blob/b5ed9155bdab5606498f6dc6538e5a6bdfad3b70/src/main/java/net/earthcomputer/clientcommands/mixin/rngevents/LivingEntityMixin.java#L60
+    @Inject(method = "baseTick",
+        slice = @Slice(from = @At(value = "FIELD", target = "Lnet/minecraft/tags/FluidTags;WATER:Lnet/minecraft/tags/TagKey;", ordinal = 0)),
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;getBlockState(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;", ordinal = 0))
+    public void onUnderwater(CallbackInfo ci) {
+        ourUniqueMethod(); // Prevent extraction
+    }
+
+    @Inject(method = "baseTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;getAirSupply()I"))
+    public void onUnderwaterExpected(CallbackInfo ci) {
+        ourUniqueMethod();
+    }
+
+    @Unique
+    private void ourUniqueMethod() {
+        // Noop
     }
 }

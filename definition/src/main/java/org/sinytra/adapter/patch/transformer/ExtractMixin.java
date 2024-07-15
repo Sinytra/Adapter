@@ -11,7 +11,6 @@ import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.transformer.param.TransformParameters;
 import org.sinytra.adapter.patch.util.AdapterUtil;
-import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.OpcodeUtil;
 
 import java.util.*;
@@ -33,12 +32,8 @@ public record ExtractMixin(String targetClass, boolean remove) implements Method
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
         // Sanity check
         boolean isStatic = (methodNode.access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC;
-        MethodQualifier qualifier = methodContext.getTargetMethodQualifier();
-        if (qualifier == null) {
-            return Patch.Result.PASS;
-        }
 
-        String owner = Objects.requireNonNullElse(qualifier.internalOwnerName(), this.targetClass);
+        String owner = Optional.ofNullable(methodContext.findCleanInjectionTarget()).map(t -> t.classNode().name).orElse(this.targetClass);
         boolean isInherited = context.environment().inheritanceHandler().isClassInherited(this.targetClass, owner);
         Candidates candidates = findCandidates(classNode, methodNode);
         if (!candidates.canMove(classNode, isInherited)) {

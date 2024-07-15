@@ -75,11 +75,15 @@ public record InstructionMatcher(AbstractInsnNode insn, List<AbstractInsnNode> b
     }
 
     public static boolean test(InsnList first, InsnList second) {
+        return test(first, second, 0);
+    }
+
+    public static boolean test(InsnList first, InsnList second, int flags) {
         if (first.size() == second.size()) {
             for (int i = 0; i < first.size(); i++) {
                 AbstractInsnNode insn = first.get(i);
                 AbstractInsnNode otherInsn = second.get(i);
-                if (!InsnComparator.instructionsEqual(insn, otherInsn)) {
+                if (!InsnComparator.instructionsEqual(insn, otherInsn, flags)) {
                     return false;
                 }
             }

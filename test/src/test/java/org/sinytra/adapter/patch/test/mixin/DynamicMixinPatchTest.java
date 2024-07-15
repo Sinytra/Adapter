@@ -144,6 +144,18 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    @Test
+    void testCompareModifiedMethod() throws Exception {
+        // TODO This can correctly determine the injection point in the extracted method now,
+        // but fails to extract because the mixin calls an injected unique method.
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/LivingEntityMixin",
+            "onUnderwater",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
     @Override
     protected LoadResult load(String className) throws Exception {
         final ClassNode patched = loadClass(className);

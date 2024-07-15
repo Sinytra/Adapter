@@ -34,6 +34,7 @@ import java.util.Objects;
 // Source: https://git.sleeping.town/Nil/NilLoader/src/commit/d66d783a5f7ac72a3688594335b3285fcb975b07/src/main/java/nilloader/api/lib/mini/PatchContext.java
 public class InsnComparator {
     public static final int IGNORE_VAR_INDEX = 0x001;
+    public static final int IGNORE_LINE_NUMBERS = 0x010;
 
     public static boolean instructionsEqual(AbstractInsnNode a, AbstractInsnNode b) {
         return instructionsEqual(a, b, 0);
@@ -78,7 +79,7 @@ public class InsnComparator {
         } else if (a instanceof LineNumberNode) {
             LineNumberNode la = (LineNumberNode) a;
             LineNumberNode lb = (LineNumberNode) b;
-            return la.line == lb.line && instructionsEqual(la.start, lb.start);
+            return (flags & IGNORE_LINE_NUMBERS) != 0 || la.line == lb.line && instructionsEqual(la.start, lb.start);
         } else if (a instanceof LookupSwitchInsnNode) {
             LookupSwitchInsnNode la = (LookupSwitchInsnNode) a;
             LookupSwitchInsnNode lb = (LookupSwitchInsnNode) b;

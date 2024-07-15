@@ -20,6 +20,7 @@ public class DynamicInjectionPointPatch implements MethodTransform {
         new DynFixResolveAmbigousTarget(),
         new DynFixSplitMethod(),
         // Have this one always come last
+        new DynFixMethodComparison(),
         new DynFixArbitraryInjectionPoint()
     );
 
