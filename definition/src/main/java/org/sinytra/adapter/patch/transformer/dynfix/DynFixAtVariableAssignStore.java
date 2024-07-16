@@ -77,20 +77,20 @@ public class DynFixAtVariableAssignStore implements DynamicFixer<DynFixAtVariabl
         }
         
         if (methodContext.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
-            return handleWrapAnnotation(classNode, methodNode, methodContext, data, previousMethodCall);
+            return handleWrapAnnotation(methodContext, data, previousMethodCall);
         }
         
         // All checks have passed, proceed to patch method
         String newInjectionPoint = Type.getObjectType(previousMethodCall.owner).getDescriptor() + previousMethodCall.name + previousMethodCall.desc;
         return new ModifyInjectionPoint((String) null, newInjectionPoint, true, true)
-            .apply(classNode, methodNode, methodContext);
+            .apply(methodContext);
     }
 
     // In case the mixin is call-sensitive, we try to keep the orignal injection point if the method was moved
-    private static Patch.Result handleWrapAnnotation(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, Data data, MethodInsnNode previousMethodCall) {
+    private static Patch.Result handleWrapAnnotation(MethodContext methodContext, Data data, MethodInsnNode previousMethodCall) {
         if (previousMethodCall.owner.equals(data.dirtyTarget().classNode().name)) {
             String newTarget = previousMethodCall.name + previousMethodCall.desc;
-            return new ModifyInjectionTarget(List.of(newTarget)).apply(classNode, methodNode, methodContext);
+            return new ModifyInjectionTarget(List.of(newTarget)).apply(methodContext);
         }
         return Patch.Result.PASS;
     }

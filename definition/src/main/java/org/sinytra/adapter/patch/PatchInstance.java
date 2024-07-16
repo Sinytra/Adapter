@@ -9,8 +9,8 @@ import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
-import org.sinytra.adapter.patch.transformer.*;
-import org.sinytra.adapter.patch.transformer.param.TransformParameters;
+import org.sinytra.adapter.patch.transformer.ModifyTargetClasses;
+import org.sinytra.adapter.patch.util.MethodTransformBuilderImpl;
 import org.slf4j.Marker;
 import org.slf4j.MarkerFactory;
 
@@ -143,12 +143,11 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
 
     private record ClassTarget(@Nullable AnnotationValueHandle<?> handle, List<Type> targetTypes) {}
 
-    protected abstract static class BaseBuilder<T extends Builder<T>> implements Builder<T> {
+    protected abstract static class BaseBuilder<T extends Builder<T>> extends MethodTransformBuilderImpl<T> implements Builder<T> {
         protected final Set<String> targetClasses = new HashSet<>();
         protected final Set<String> targetAnnotations = new HashSet<>();
         protected Predicate<AnnotationHandle> targetAnnotationValues;
         protected final List<ClassTransform> classTransforms = new ArrayList<>();
-        protected final List<MethodTransform> transforms = new ArrayList<>();
 
         @Override
         public T targetClass(String... targets) {
@@ -174,60 +173,6 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         }
 
         @Override
-        public T modifyParams(Consumer<ModifyMethodParams.Builder> consumer) {
-            ModifyMethodParams.Builder builder = ModifyMethodParams.builder();
-            consumer.accept(builder);
-            return transform(builder.build());
-        }
-
-        @Override
-        public T transformParams(Consumer<TransformParameters.Builder> consumer) {
-            final var builder = new TransformParameters.Builder();
-            consumer.accept(builder);
-            return transform(builder.build());
-        }
-
-        @Override
-        public T modifyTarget(String... methods) {
-            return transform(new ModifyInjectionTarget(List.of(methods)));
-        }
-
-        @Override
-        public T modifyTarget(ModifyInjectionTarget.Action action, String... methods) {
-            return transform(new ModifyInjectionTarget(List.of(methods), action));
-        }
-
-        @Override
-        public T modifyVariableIndex(int start, int offset) {
-            return transform(new ChangeModifiedVariableIndex(start, offset));
-        }
-
-        @Override
-        public T modifyMethodAccess(ModifyMethodAccess.AccessChange... changes) {
-            return transform(new ModifyMethodAccess(List.of(changes)));
-        }
-
-        @Override
-        public T extractMixin(String targetClass) {
-            return transform(ModifyVarUpgradeToModifyExprVal.INSTANCE).transform(new ExtractMixin(targetClass));
-        }
-
-        @Override
-        public T splitMixin(String targetClass) {
-            return transform(new SplitMixinTransform(targetClass));
-        }
-
-        @Override
-        public T improveModifyVar() {
-            return transform(ModifyVarUpgradeToModifyExprVal.INSTANCE);
-        }
-
-        @Override
-        public T modifyMixinType(String newType, Consumer<ModifyMixinType.Builder> consumer) {
-            return transform(new ModifyMixinType(newType, consumer));
-        }
-
-        @Override
         public T transform(List<ClassTransform> classTransforms) {
             this.classTransforms.addAll(classTransforms);
             return coerce();
@@ -236,24 +181,6 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         @Override
         public T transform(ClassTransform transformer) {
             this.classTransforms.add(transformer);
-            return coerce();
-        }
-
-        @Override
-        public T transform(MethodTransform transformer) {
-            this.transforms.add(transformer);
-            return coerce();
-        }
-
-        @Override
-        public T transformMethods(List<MethodTransform> transformers) {
-            transformers.forEach(this::transform);
-            return coerce();
-        }
-
-        @Override
-        public T chain(Consumer<T> consumer) {
-            consumer.accept(coerce());
             return coerce();
         }
 

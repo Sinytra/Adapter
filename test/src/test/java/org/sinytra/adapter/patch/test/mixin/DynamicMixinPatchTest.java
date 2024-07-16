@@ -146,19 +146,28 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
 
     @Test
     void testCompareModifiedMethod() throws Exception {
-        // TODO This can correctly determine the injection point in the extracted method now,
-        // but fails to extract because the mixin calls an injected unique method.
         assertSameCode(
             "org/sinytra/adapter/test/mixin/LivingEntityMixin",
             "onUnderwater",
-            assertTargetMethod(),
-            assertInjectionPoint()
+            assertUnique(),
+            assertHasGeneratedMethod("org/sinytra/adapter/test/mixin/adapter_generated_CommonHooks")
+        );
+    }
+
+    @Test
+    void testCompareModifiedMethod2() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/LivingEntityMixin",
+            "testFrostWalker",
+            assertUnique(),
+            assertHasGeneratedMethod("org/sinytra/adapter/test/mixin/adapter_generated_CommonHooks")
         );
     }
 
     @Override
-    protected LoadResult load(String className) throws Exception {
+    protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
         final ClassNode patched = loadClass(className);
+        patched.methods.removeIf(m -> !allowedMethods.contains(m.name));
         final PatchEnvironment env = PatchEnvironment.create(
             new RefmapHolder() {
                 @Override
@@ -176,6 +185,6 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
             FabricUtil.COMPATIBILITY_LATEST
         );
         DYNAMIC_PATCHES.forEach(p -> p.apply(patched, env));
-        return new LoadResult(patched, loadClass(className));
+        return new LoadResult(env, patched, loadClass(className));
     }
 }

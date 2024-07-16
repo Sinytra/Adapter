@@ -146,7 +146,6 @@ public class ReplacedMethodCalls {
             return false;
         }
         // Same owner, same name, different desc => expanded method
-        String owner = cleanQualifier.internalOwnerName();
         if (cleanQualifier.owner().equals(dirtyQualifier.owner()) && cleanQualifier.name().equals(dirtyQualifier.name()) && !cleanQualifier.desc().equals(dirtyQualifier.desc())) {
             ParametersDiff diff = ParametersDiff.compareTypeParameters(Type.getArgumentTypes(cleanQualifier.desc()), Type.getArgumentTypes(dirtyQualifier.desc()));
             if (!diff.insertions().isEmpty() && diff.replacements().isEmpty() && diff.removals().isEmpty()) {

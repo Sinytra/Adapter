@@ -53,7 +53,7 @@ public record ModifyInjectionTarget(List<String> replacementMethods, Action acti
         }
 
         if (methodContext.capturesLocals()) {
-            MethodUpgrader.upgradeCapturedLocals(classNode, methodNode, methodContext);
+            MethodUpgrader.upgradeCapturedLocals(methodNode, methodContext);
         }
 
         return Patch.Result.APPLY;

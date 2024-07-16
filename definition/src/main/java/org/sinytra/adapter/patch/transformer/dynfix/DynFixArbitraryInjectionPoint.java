@@ -60,19 +60,19 @@ public class DynFixArbitraryInjectionPoint implements DynamicFixer<DynFixArbitra
         if (targetMethodCall != null) {
             // New method is in the same class? It's possible our target injection point was moved there
             if (targetMethodCall.owner.equals(data.dirtyTarget().classNode().name) && !methodContext.methodAnnotation().matchesDesc(MixinConstants.INJECT)) {
-                return tryMoveTargetMethod(classNode, methodNode, targetMethodCall, methodContext);
+                return tryMoveTargetMethod(targetMethodCall, methodContext);
             }
 
             String newInjectionPoint = Type.getObjectType(targetMethodCall.owner).getDescriptor() + targetMethodCall.name + targetMethodCall.desc;
-            return new ModifyInjectionPoint("INVOKE", newInjectionPoint, true, false).apply(classNode, methodNode, methodContext);
+            return new ModifyInjectionPoint("INVOKE", newInjectionPoint, true, false).apply(methodContext);
         }
 
         return Patch.Result.PASS;
     }
 
-    private static Patch.Result tryMoveTargetMethod(ClassNode classNode, MethodNode methodNode, MethodInsnNode insn, MethodContext methodContext) {
+    private static Patch.Result tryMoveTargetMethod(MethodInsnNode insn, MethodContext methodContext) {
         String newTarget = insn.name + insn.desc;
-        return new ModifyInjectionTarget(List.of(newTarget)).apply(classNode, methodNode, methodContext);
+        return new ModifyInjectionTarget(List.of(newTarget)).apply(methodContext);
     }
 
     private static AbstractInsnNode findCandidates(InstructionMatcher cleanMatcher, MethodNode dirtyTargetMethod, Function<List<AbstractInsnNode>, AbstractInsnNode> selector) {

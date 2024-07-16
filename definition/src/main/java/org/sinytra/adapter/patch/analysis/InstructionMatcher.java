@@ -92,6 +92,20 @@ public record InstructionMatcher(AbstractInsnNode insn, List<AbstractInsnNode> b
         return false;
     }
 
+    public static boolean test(List<AbstractInsnNode> first, List<AbstractInsnNode> second, int flags) {
+        if (first.size() == second.size()) {
+            for (int i = 0; i < first.size(); i++) {
+                AbstractInsnNode insn = first.get(i);
+                AbstractInsnNode otherInsn = second.get(i);
+                if (!InsnComparator.instructionsEqual(insn, otherInsn, flags)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
     public static <T> int count(List<T> list, T item) {
         return (int) list.stream().filter(item::equals).count();
     }

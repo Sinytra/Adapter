@@ -1,7 +1,6 @@
 package org.sinytra.adapter.patch.api;
 
 import com.mojang.serialization.Codec;
-import org.jetbrains.annotations.ApiStatus;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.ClassNode;
@@ -12,11 +11,6 @@ import org.sinytra.adapter.patch.InterfacePatchInstance;
 import org.sinytra.adapter.patch.PatchInstance;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
-import org.sinytra.adapter.patch.transformer.ModifyInjectionTarget;
-import org.sinytra.adapter.patch.transformer.ModifyMethodAccess;
-import org.sinytra.adapter.patch.transformer.ModifyMethodParams;
-import org.sinytra.adapter.patch.transformer.ModifyMixinType;
-import org.sinytra.adapter.patch.transformer.param.TransformParameters;
 
 import java.util.List;
 import java.util.function.BiConsumer;
@@ -52,7 +46,7 @@ public interface Patch {
         }
     }
 
-    interface Builder<T extends Builder<T>> {
+    interface Builder<T extends Builder<T>> extends MethodTransformBuilder<T> {
         T targetClass(String... targets);
 
         T targetMixinType(String... annotationDescs);
@@ -61,37 +55,9 @@ public interface Patch {
 
         T modifyTargetClasses(Consumer<List<Type>> consumer);
 
-        @Deprecated
-        T modifyParams(Consumer<ModifyMethodParams.Builder> consumer);
-
-        @ApiStatus.Experimental
-        T transformParams(Consumer<TransformParameters.Builder> consumer);
-
-        T modifyTarget(String... methods);
-
-        T modifyTarget(ModifyInjectionTarget.Action action, String... methods);
-
-        T modifyVariableIndex(int start, int offset);
-
-        T modifyMethodAccess(ModifyMethodAccess.AccessChange... changes);
-
-        T extractMixin(String targetClass);
-
-        T splitMixin(String targetClass);
-
-        T improveModifyVar();
-
-        T modifyMixinType(String newType, Consumer<ModifyMixinType.Builder> consumer);
-
         T transform(List<ClassTransform> classTransforms);
 
         T transform(ClassTransform transformer);
-
-        T transform(MethodTransform transformer);
-
-        T transformMethods(List<MethodTransform> transformers);
-
-        T chain(Consumer<T> consumer);
 
         PatchInstance build();
     }
@@ -112,7 +78,7 @@ public interface Patch {
                 .orElseGet(() -> handle.getNested("at")
                     .flatMap(at -> at.<String>getValue("value").map(s -> s.get().equals("CONSTANT") &&
                         at.<List<String>>getValue("args").map(AnnotationValueHandle::get).map(t -> t.size() == 1
-                            && (t.getFirst().equals("doubleValue=" + doubleValue + "D") || t.getFirst().equals("doubleValue=" + doubleValue)))
+                                && (t.getFirst().equals("doubleValue=" + doubleValue + "D") || t.getFirst().equals("doubleValue=" + doubleValue)))
                             .orElse(false)))
                     .orElse(false)));
         }

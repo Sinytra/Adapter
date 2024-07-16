@@ -11,6 +11,8 @@ import org.slf4j.Logger;
 
 import java.util.List;
 
+import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
+
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class DynamicInjectionPointPatch implements MethodTransform {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -28,7 +30,7 @@ public class DynamicInjectionPointPatch implements MethodTransform {
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
         if (methodContext.failsDirtyInjectionCheck()) {
             // TODO Only show in tests
-            LOGGER.debug("Considering method {}.{}", classNode.name, methodNode.name);
+            LOGGER.debug(MIXINPATCH, "Considering method {}.{}", classNode.name, methodNode.name);
 
             for (DynamicFixer fix : FIXES) {
                 Object data = fix.prepare(methodContext);

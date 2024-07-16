@@ -112,8 +112,7 @@ public class DynamicModifyVarAtReturnPatch implements MethodTransform {
             return Patch.Result.PASS;
         }
         // Get method call argument instructions
-        MethodCallInterpreter interpreter = MethodCallAnalyzer.analyzeInterpretMethod(dirtyTarget.methodNode(), new MethodCallInterpreter(dirtyMinsn));
-        List<AbstractInsnNode> args = interpreter.getTargetArgs();
+        List<AbstractInsnNode> args = MethodCallAnalyzer.findMethodCallParamInsns(dirtyTarget.methodNode(), dirtyMinsn);
         if (args == null) {
             return Patch.Result.PASS;
         }

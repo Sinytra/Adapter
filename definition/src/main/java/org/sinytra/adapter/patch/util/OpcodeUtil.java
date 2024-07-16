@@ -22,7 +22,8 @@ public class OpcodeUtil {
         Type.DOUBLE_TYPE, new BoxedType(double.class, Double.class)
     );
 
-    public record BoxedType(Class<?> primitiveClass, Class<?> boxedClass) {}
+    public record BoxedType(Class<?> primitiveClass, Class<?> boxedClass) {
+    }
 
     public static boolean isStoreOpcode(int opcode) {
         return opcode >= Opcodes.ISTORE && opcode <= Opcodes.ASTORE;
@@ -61,5 +62,13 @@ public class OpcodeUtil {
             visitor.visitTypeInsn(Opcodes.CHECKCAST, boxedName);
             visitor.visitMethodInsn(Opcodes.INVOKEVIRTUAL, boxedName, conversionMethod, conversionDesc, false);
         }
+    }
+
+    public static int getAccessVisibility(int access) {
+        return access & 0x7;
+    }
+
+    public static int setAccessVisibility(int access, int visibility) {
+        return access & ~0x7 | visibility;
     }
 }

@@ -5,6 +5,9 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.assertj.core.api.Assertions;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.patch.api.MixinClassGenerator;
+import org.sinytra.adapter.patch.api.MixinConstants;
+import org.sinytra.adapter.patch.api.PatchEnvironment;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.util.AdapterUtil;
@@ -19,7 +22,6 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -28,18 +30,24 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import java.util.zip.ZipFile;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 public abstract class MinecraftMixinPatchTest {
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    protected abstract LoadResult load(String className) throws Exception;
+    public interface AssertCallback {
+        void accept(MethodNode patched, MethodNode expected, PatchEnvironment env);
+    }
+
+    protected abstract LoadResult load(String className, List<String> allowedMethods) throws Exception;
 
     @SafeVarargs
     protected final void assertSameCode(
         String className,
         String testName,
-        BiConsumer<MethodNode, MethodNode>... assertions
+        AssertCallback... assertions
     ) throws Exception {
-        final LoadResult result = load(className);
+        final LoadResult result = load(className, List.of(testName));
         final MethodNode patched = result.patched.methods
             .stream().filter(m -> m.name.equals(testName))
             .findFirst().orElseThrow();
@@ -81,7 +89,7 @@ public abstract class MinecraftMixinPatchTest {
             })
             .containsExactlyInAnyOrder(expected.localVariables.toArray(LocalVariableNode[]::new));
 
-        Stream.of(assertions).forEach(c -> c.accept(patched, expected));
+        Stream.of(assertions).forEach(c -> c.accept(patched, expected, result.env()));
     }
 
     public static class InsnComparator implements Comparator<AbstractInsnNode> {
@@ -109,7 +117,7 @@ public abstract class MinecraftMixinPatchTest {
         }
     }
 
-    public record LoadResult(ClassNode patched, ClassNode expected) {
+    public record LoadResult(PatchEnvironment env, ClassNode patched, ClassNode expected) {
     }
 
     protected ClassNode loadClass(String name) throws IOException {
@@ -145,10 +153,25 @@ public abstract class MinecraftMixinPatchTest {
         };
     }
 
-    protected BiConsumer<MethodNode, MethodNode> assertTargetMethod() {
+    protected AssertCallback assertUnique() {
+        return (patched, expected, env) -> {
+            Assertions.assertThat(patched.visibleAnnotations.stream().anyMatch(ann -> ann.desc.equals(MixinConstants.UNIQUE)))
+                .as("Unique method")
+                .isEqualTo(expected.visibleAnnotations.stream().anyMatch(ann -> ann.desc.equals(MixinConstants.UNIQUE)));
+        };
+    }
+
+    protected AssertCallback assertHasGeneratedMethod(String targetClass) {
+        return (patched, expected, env) -> {
+            MixinClassGenerator.GeneratedClass generatedClass = env.classGenerator().getGeneratedMixinClasses().get(targetClass);
+            assertNotNull(generatedClass, "Missing generated class for " + targetClass);
+        };
+    }
+
+    protected AssertCallback assertTargetMethod() {
         Function<AnnotationNode, List<String>> targetMethodExtractor = node -> new AnnotationHandle(node).<List<String>>getValue("method").map(AnnotationValueHandle::get).orElseThrow();
 
-        return (patched, expected) -> {
+        return (patched, expected, env) -> {
             AnnotationNode patchedMethodAnn = patched.visibleAnnotations.getFirst();
             AnnotationNode expectedMethodAnn = expected.visibleAnnotations.getFirst();
 
@@ -158,14 +181,14 @@ public abstract class MinecraftMixinPatchTest {
         };
     }
 
-    protected BiConsumer<MethodNode, MethodNode> assertInjectionPoint() {
+    protected AssertCallback assertInjectionPoint() {
         Function<AnnotationNode, Pair<String, String>> injectionPointExtractor = node -> new AnnotationHandle(node).getNested("at").map(h -> {
             String value = h.<String>getValue("value").orElseThrow().get();
             String target = h.<String>getValue("target").orElseThrow().get();
             return Pair.of(value, target);
         }).orElseThrow();
 
-        return (patched, expected) -> {
+        return (patched, expected, env) -> {
             AnnotationNode patchedMethodAnn = patched.visibleAnnotations.getFirst();
             AnnotationNode expectedMethodAnn = expected.visibleAnnotations.getFirst();
 
@@ -175,7 +198,7 @@ public abstract class MinecraftMixinPatchTest {
         };
     }
 
-    protected BiConsumer<MethodNode, MethodNode> assertSliceRange() {
+    protected AssertCallback assertSliceRange() {
         BiFunction<String, AnnotationNode, Pair<String, String>> sliceExtractor = (name, node) -> new AnnotationHandle(node).getNested("slice")
             .flatMap(ann -> ann.getNested(name))
             .map(h -> {
@@ -185,7 +208,7 @@ public abstract class MinecraftMixinPatchTest {
             })
             .orElse(null);
 
-        return (patched, expected) -> {
+        return (patched, expected, env) -> {
             AnnotationNode patchedMethodAnn = patched.visibleAnnotations.getFirst();
             AnnotationNode expectedMethodAnn = expected.visibleAnnotations.getFirst();
 

@@ -172,7 +172,8 @@ public final class MethodContextImpl implements MethodContext {
         return AdapterUtil.summariseLocals(locals, startPos);
     }
 
-    private List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable TargetPair target) {
+    @Nullable
+    public List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable TargetPair target) {
         if (target == null) {
             return List.of();
         }

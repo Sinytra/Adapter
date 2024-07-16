@@ -2,7 +2,6 @@ package org.sinytra.adapter.patch.fixes;
 
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.analysis.LocalVarAnalyzer;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
@@ -22,7 +21,7 @@ import java.util.List;
 
 public final class MethodUpgrader {
 
-    public static void upgradeMethod(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, String originalDesc, String modifiedDesc) {
+    public static void upgradeMethod(MethodNode methodNode, MethodContext methodContext, String originalDesc, String modifiedDesc) {
         MethodQualifier cleanQualifier = MethodQualifier.create(originalDesc).orElse(null);
         if (cleanQualifier == null) {
             return;
@@ -34,11 +33,11 @@ public final class MethodUpgrader {
         if (methodContext.methodAnnotation().matchesDesc(MixinConstants.MODIFY_ARGS)) {
             ModifyArgsOffsetTransformer.handleModifiedDesc(methodNode, cleanQualifier.desc(), dirtyQualifier.desc());
         } else if (methodContext.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
-            upgradeWrapOperation(classNode, methodNode, methodContext, cleanQualifier, dirtyQualifier);
+            upgradeWrapOperation(methodNode, methodContext, cleanQualifier, dirtyQualifier);
         }
     }
 
-    public static void upgradeCapturedLocals(ClassNode classNode, MethodNode methodNode, MethodContext methodContext) {
+    public static void upgradeCapturedLocals(MethodNode methodNode, MethodContext methodContext) {
         AdapterUtil.CapturedLocals capturedLocals = AdapterUtil.getCapturedLocals(methodNode, methodContext);
         if (capturedLocals == null) {
             return;
@@ -51,7 +50,7 @@ public final class MethodUpgrader {
         }
 
         LocalVarAnalyzer.CapturedLocalsTransform transform = LocalVarAnalyzer.analyzeCapturedLocals(capturedLocals, methodNode);
-        transform.remover().apply(classNode, methodNode, methodContext);
+        transform.remover().apply(methodContext);
 
         List<Type> expected = List.of(Type.getArgumentTypes(methodNode.desc));
         List<Type> required = ImmutableList.<Type>builder()
@@ -64,11 +63,11 @@ public final class MethodUpgrader {
                 .map(LayeredParamsDiffSnapshot.ParamModification::asParameterTransformer)
                 .toList();
             MethodTransform patch = TransformParameters.builder().transform(transformers).withOffset().targetType(ParamTransformTarget.METHOD).build();
-            patch.apply(classNode, methodNode, methodContext);
+            patch.apply(methodContext);
         }
     }
 
-    private static void upgradeWrapOperation(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, MethodQualifier cleanQualifier, MethodQualifier dirtyQualifier) {
+    private static void upgradeWrapOperation(MethodNode methodNode, MethodContext methodContext, MethodQualifier cleanQualifier, MethodQualifier dirtyQualifier) {
         if (dirtyQualifier.owner() == null || cleanQualifier.desc() == null) {
             return;
         }
@@ -87,7 +86,7 @@ public final class MethodUpgrader {
         SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(originalDesc, modifiedDesc);
         if (!diff.isEmpty()) {
             MethodTransform patch = diff.asParameterTransformer(ParamTransformTarget.ALL, false, false);
-            patch.apply(classNode, methodNode, methodContext);
+            patch.apply(methodContext);
         }
     }
 }

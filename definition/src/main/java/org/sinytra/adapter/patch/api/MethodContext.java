@@ -49,6 +49,11 @@ public interface MethodContext {
 
     List<AbstractInsnNode> findInjectionTargetInsns(@Nullable TargetPair target);
 
+    /**
+     * Uncached variant of {@link #findInjectionTargetInsns(TargetPair)}
+     */
+    List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable TargetPair target);
+
     @Nullable
     Pair<ClassNode, List<MethodNode>> findInjectionTargetCandidates(ClassLookup lookup);
 

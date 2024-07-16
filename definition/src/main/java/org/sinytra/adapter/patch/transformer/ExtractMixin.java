@@ -164,13 +164,13 @@ public record ExtractMixin(String targetClass, boolean remove) implements Method
     }
 
     private static int fixAccess(int access) {
-        int visibility = access & 0x7;
+        int visibility = OpcodeUtil.getAccessVisibility(access);
         // Lower than protected
         if (visibility == Opcodes.ACC_PRIVATE || visibility == 0) {
             // Widen to protected
             // Add synthetic to avoid mixin complaining about non-private static members being present
             // Setting the access to public will prevent the member from being renamed
-            return access & ~0x7 | Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC;
+            return OpcodeUtil.setAccessVisibility(visibility, Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC);
         }
         return access;
     }

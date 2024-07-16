@@ -54,7 +54,7 @@ public record ModifyInjectionPoint(@Nullable String value, String target, boolea
             String original = handle.get();
             handle.set(this.target);
             if (!this.dontUpgrade) {
-                MethodUpgrader.upgradeMethod(classNode, methodNode, methodContext, original, this.target);
+                MethodUpgrader.upgradeMethod(methodNode, methodContext, original, this.target);
             }
         } else {
             annotation.appendValue("target", this.target);

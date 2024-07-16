@@ -125,6 +125,12 @@ public class MethodCallAnalyzer {
         });
     }
 
+    @Nullable
+    public static List<AbstractInsnNode> findMethodCallParamInsns(MethodNode methodNode, MethodInsnNode insn) {
+        MethodCallInterpreter interpreter = MethodCallAnalyzer.analyzeInterpretMethod(methodNode, new MethodCallInterpreter(insn));
+        return interpreter.getTargetArgs();
+    }
+
     public static <T> List<T> analyzeMethod(MethodNode methodNode, NaryOperationHandler<T> handler) {
         return analyzeMethod(methodNode, (insn, values) -> true, handler);
     }
@@ -169,6 +175,34 @@ public class MethodCallAnalyzer {
             return values.iterator().next();
         }
         throw new NullPointerException("Method " + name + " not found");
+    }
+
+    private static class MethodCallInterpreter extends SourceInterpreter {
+        private final MethodInsnNode targetInsn;
+        private List<AbstractInsnNode> targetArgs;
+
+        public MethodCallInterpreter(MethodInsnNode targetInsn) {
+            super(Opcodes.ASM9);
+            this.targetInsn = targetInsn;
+        }
+
+        @javax.annotation.Nullable
+        public List<AbstractInsnNode> getTargetArgs() {
+            return this.targetArgs;
+        }
+
+        @Override
+        public SourceValue naryOperation(AbstractInsnNode insn, List<? extends SourceValue> values) {
+            if (insn == this.targetInsn && this.targetArgs == null) {
+                List<AbstractInsnNode> targetArgs = values.stream()
+                    .map(v -> v.insns.size() == 1 ? v.insns.iterator().next() : null)
+                    .toList();
+                if (!targetArgs.contains(null)) {
+                    this.targetArgs = targetArgs;
+                }
+            }
+            return super.naryOperation(insn, values);
+        }
     }
 
     private static class AnalysingSourceInterpreter<T> extends SourceInterpreter {

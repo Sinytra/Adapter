@@ -54,8 +54,19 @@ public class LivingEntityMixin {
         ourUniqueMethod(); // Prevent extraction
     }
 
-    @Inject(method = "baseTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;getAirSupply()I"))
+    @Unique
     public void onUnderwaterExpected(CallbackInfo ci) {
+        ourUniqueMethod();
+    }
+
+    // https://github.com/Earthcomputer/clientcommands/blob/b5ed9155bdab5606498f6dc6538e5a6bdfad3b70/src/main/java/net/earthcomputer/clientcommands/mixin/rngevents/LivingEntityMixin.java#L83
+    @Inject(method = "baseTick", at = @At(value = "FIELD", target = "Lnet/minecraft/world/level/Level;isClientSide:Z", ordinal = 2))
+    public void testFrostWalker(CallbackInfo ci) {
+        ourUniqueMethod();
+    }
+
+    @Unique
+    public void testFrostWalkerExpected(CallbackInfo ci) {
         ourUniqueMethod();
     }
 

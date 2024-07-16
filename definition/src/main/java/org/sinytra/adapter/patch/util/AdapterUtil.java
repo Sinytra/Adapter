@@ -12,7 +12,9 @@ import org.objectweb.asm.tree.*;
 import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceMethodVisitor;
 import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
-import org.sinytra.adapter.patch.api.*;
+import org.sinytra.adapter.patch.api.MethodContext;
+import org.sinytra.adapter.patch.api.MixinConstants;
+import org.sinytra.adapter.patch.api.PatchEnvironment;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import org.slf4j.Logger;
@@ -57,6 +59,18 @@ public final class AdapterUtil {
             return locals.get(ordinal).index;
         }
         return -1;
+    }
+
+    public static String randomString(int length) {
+        int leftLimit = 48; // numeral '0'
+        int rightLimit = 122; // letter 'z'
+        Random random = new Random();
+
+        return random.ints(leftLimit, rightLimit + 1)
+            .filter(i -> (i <= 57 || i >= 65) && (i <= 90 || i >= 97))
+            .limit(length)
+            .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
+            .toString();
     }
 
     public static boolean isAnonymousClass(String name) {
