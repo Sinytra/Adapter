@@ -28,10 +28,13 @@ public class DynFixArbitraryInjectionPoint implements DynamicFixer<DynFixArbitra
     @Override
     public Data prepare(MethodContext methodContext) {
         if (methodContext.methodAnnotation().matchesAny(ACCEPTED_ANNOTATIONS)) {
+            MethodContext.TargetPair dirtyInjectionTarget = methodContext.findDirtyInjectionTarget();
+            if (dirtyInjectionTarget == null) {
+                return null;
+            }
             MethodContext.TargetPair cleanInjectionTarget = methodContext.findCleanInjectionTarget();
             List<AbstractInsnNode> cleanInsns = methodContext.findInjectionTargetInsns(cleanInjectionTarget);
-            if (cleanInsns.size() == 1 && methodContext.failsDirtyInjectionCheck()) {
-                MethodContext.TargetPair dirtyInjectionTarget = methodContext.findDirtyInjectionTarget();
+            if (cleanInsns.size() == 1 && dirtyInjectionTarget != null && methodContext.failsDirtyInjectionCheck()) {
                 AbstractInsnNode cleanInjectionInsn = cleanInsns.getFirst();
                 return new Data(dirtyInjectionTarget, cleanInjectionInsn);
             }

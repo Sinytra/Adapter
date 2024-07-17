@@ -28,7 +28,7 @@ public class DynamicInjectionPointPatch implements MethodTransform {
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
-        if (methodContext.failsDirtyInjectionCheck()) {
+        if (methodContext.failsDirtyInjectionCheck() && methodContext.findCleanInjectionTarget() != null) {
             // TODO Only show in tests
             LOGGER.debug(MIXINPATCH, "Considering method {}.{}", classNode.name, methodNode.name);
 

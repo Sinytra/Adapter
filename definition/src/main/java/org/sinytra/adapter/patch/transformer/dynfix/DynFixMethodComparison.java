@@ -24,14 +24,16 @@ import java.util.*;
 import java.util.stream.Stream;
 
 public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparison.Data> {
-    public record Data(AbstractInsnNode cleanInjectionInsn) {
-    }
+    public record Data(AbstractInsnNode cleanInjectionInsn) {}
 
     @Nullable
     @Override
     public Data prepare(MethodContext methodContext) {
-        if (methodContext.methodAnnotation().matchesDesc(MixinConstants.INJECT)) {
+        if (methodContext.methodAnnotation().matchesDesc(MixinConstants.INJECT) && methodContext.findDirtyInjectionTarget() != null) {
             MethodContext.TargetPair cleanInjectionTarget = methodContext.findCleanInjectionTarget();
+            if (cleanInjectionTarget == null) {
+                return null;
+            }
             List<AbstractInsnNode> cleanInsns = methodContext.findInjectionTargetInsns(cleanInjectionTarget);
             if (cleanInsns.size() == 1) {
                 return new Data(cleanInsns.getFirst());
