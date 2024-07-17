@@ -29,7 +29,7 @@ public class DynFixSplitMethod implements DynamicFixer<DynFixSplitMethod.Data> {
     @Nullable
     @Override
     public DynFixSplitMethod.Data prepare(MethodContext methodContext) {
-        if (methodContext.hasInjectionPointValue("INVOKE")) {
+        if (methodContext.hasInjectionPointValue("INVOKE") && methodContext.findCleanInjectionTarget() != null && methodContext.findDirtyInjectionTarget() != null) {
             return new Data();
         }
         return null;
