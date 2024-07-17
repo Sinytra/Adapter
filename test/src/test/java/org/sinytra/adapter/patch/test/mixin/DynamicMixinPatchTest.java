@@ -164,6 +164,16 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    @Test
+    void testCompareModifiedMethod3() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/AbstractMinecartMixin",
+            "skipVelocityClamping",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
     @Override
     protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
         final ClassNode patched = loadClass(className);

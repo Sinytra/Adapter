@@ -24,18 +24,20 @@ import java.util.*;
 import java.util.stream.Stream;
 
 public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparison.Data> {
+    private static final Set<String> ACCEPTED_ANNOTATIONS = Set.of(MixinConstants.INJECT, MixinConstants.WRAP_OPERATION);
+
     public record Data(AbstractInsnNode cleanInjectionInsn) {}
 
     @Nullable
     @Override
     public Data prepare(MethodContext methodContext) {
-        if (methodContext.methodAnnotation().matchesDesc(MixinConstants.INJECT) && methodContext.findDirtyInjectionTarget() != null) {
+        if (methodContext.methodAnnotation().matchesAny(ACCEPTED_ANNOTATIONS) && methodContext.findDirtyInjectionTarget() != null) {
             MethodContext.TargetPair cleanInjectionTarget = methodContext.findCleanInjectionTarget();
             if (cleanInjectionTarget == null) {
                 return null;
             }
             List<AbstractInsnNode> cleanInsns = methodContext.findInjectionTargetInsns(cleanInjectionTarget);
-            if (cleanInsns.size() == 1) {
+            if (!cleanInsns.isEmpty()) {
                 return new Data(cleanInsns.getFirst());
             }
         }
@@ -61,13 +63,22 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
 
         Map<List<AbstractInsnNode>, List<AbstractInsnNode>> matchedLabels = new LinkedHashMap<>();
         for (List<AbstractInsnNode> cleanInsns : cleanLabelsOriginal) {
+            List<List<AbstractInsnNode>> candidates = new ArrayList<>();
+
             for (List<AbstractInsnNode> dirtyInsns : dirtyLabels) {
                 if (InstructionMatcher.test(cleanInsns, dirtyInsns, InsnComparator.IGNORE_VAR_INDEX | InsnComparator.IGNORE_LINE_NUMBERS)) {
-                    matchedLabels.put(cleanInsns, dirtyInsns);
-                    cleanLabels.remove(cleanInsns);
-                    dirtyLabels.remove(dirtyInsns);
-                    break;
+                    candidates.add(dirtyInsns);
                 }
+            }
+            // TODO Try and come up with something better
+            // This prevents messing up the order of labels
+            // Without this countermeasure, it might happen that a label that was deleted will match a seemingly identical label somewhere else in the method, which is wrong
+            // We disable any duplicated until we can properly handle such cases
+            if (candidates.size() == 1) {
+                List<AbstractInsnNode> dirtyInsns = candidates.getFirst();
+                matchedLabels.put(cleanInsns, dirtyInsns);
+                cleanLabels.remove(cleanInsns);
+                dirtyLabels.remove(dirtyInsns);
             }
         }
 
@@ -78,6 +89,11 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
 
         ClassNode cleanTargetClass = methodContext.findCleanInjectionTarget().classNode();
         List<List<AbstractInsnNode>> hunkLabels = dirtyLabelsOriginal.subList(dirtyLabelsOriginal.indexOf(patchRange.getFirst()) + 1, dirtyLabelsOriginal.indexOf(patchRange.getSecond()));
+
+        if (methodContext.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
+            return handleTargetModification(hunkLabels, methodContext);
+        }
+
         for (List<AbstractInsnNode> insns : hunkLabels) {
             for (AbstractInsnNode insn : insns) {
                 if (insn instanceof MethodInsnNode minsn && minsn.getOpcode() == Opcodes.INVOKESTATIC && !minsn.owner.equals(cleanTargetClass.name)) {
@@ -99,6 +115,21 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
             }
         }
 
+        return Patch.Result.PASS;
+    }
+
+    private static Patch.Result handleTargetModification(List<List<AbstractInsnNode>> hunkLabels, MethodContext methodContext) {
+        ClassNode dirtyTarget = methodContext.findDirtyInjectionTarget().classNode();
+        for (List<AbstractInsnNode> insns : hunkLabels) {
+            for (AbstractInsnNode insn : insns) {
+                if (insn instanceof MethodInsnNode minsn && minsn.owner.equals(dirtyTarget.name)) {
+                    MethodNode method = MethodCallAnalyzer.findMethodByUniqueName(dirtyTarget, minsn.name);
+                    if (!methodContext.findInjectionTargetInsns(new MethodContext.TargetPair(dirtyTarget, method)).isEmpty()) {
+                        return BundledMethodTransform.builder().modifyTarget(minsn.name + minsn.desc).apply(methodContext);
+                    }
+                }
+            }
+        }
         return Patch.Result.PASS;
     }
 
@@ -193,6 +224,9 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
     // TODO This should be an automatic upgrade tbh
     private static void adjustInjectorOrdinalForNewMethod(MethodInsnNode minsn, MethodContext methodContext) {
         AnnotationValueHandle<Integer> handle = methodContext.injectionPointAnnotationOrThrow().<Integer>getValue("ordinal").orElse(null);
+        if (handle == null) {
+            return;
+        }
         int originalOrdinal = handle.get();
         // Temporarily adjust ordinal to account for previous calls that have not been moved to the new class
         if (handle != null) {
