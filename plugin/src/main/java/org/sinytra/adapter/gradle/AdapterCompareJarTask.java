@@ -15,7 +15,7 @@ import org.gradle.api.tasks.*;
 import org.sinytra.adapter.patch.LVTOffsets;
 import org.sinytra.adapter.patch.PatchInstance;
 import org.sinytra.adapter.patch.api.Patch;
-import org.sinytra.adapter.patch.serialization.PatchSerialization;
+import org.sinytra.adapter.patch.transformer.serialization.PatchSerialization;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 import org.sinytra.adapter.patch.util.provider.ZipClassLookup;

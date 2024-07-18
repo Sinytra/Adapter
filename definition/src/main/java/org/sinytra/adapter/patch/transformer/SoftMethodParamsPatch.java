@@ -9,8 +9,8 @@ import org.sinytra.adapter.patch.analysis.InheritanceHandler;
 import org.sinytra.adapter.patch.analysis.params.ParametersDiff;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
-import org.sinytra.adapter.patch.serialization.MethodTransformSerialization;
-import org.sinytra.adapter.patch.transformer.param.TransformParameters;
+import org.sinytra.adapter.patch.transformer.serialization.MethodTransformSerialization;
+import org.sinytra.adapter.patch.transformer.operation.param.TransformParameters;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 

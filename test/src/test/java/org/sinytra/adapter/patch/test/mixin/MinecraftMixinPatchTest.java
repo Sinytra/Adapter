@@ -8,8 +8,8 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.api.MixinClassGenerator;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.PatchEnvironment;
-import org.sinytra.adapter.patch.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 import org.sinytra.adapter.patch.util.provider.ZipClassLookup;
@@ -121,7 +121,7 @@ public abstract class MinecraftMixinPatchTest {
     public record LoadResult(PatchEnvironment env, ClassNode patched, ClassNode expected) {
     }
 
-    protected ClassNode loadClass(String name) throws IOException {
+    public static ClassNode loadClass(String name) throws IOException {
         final ClassNode n = new ClassNode();
         try (final InputStream is = MinecraftMixinPatchTest.class.getClassLoader().getResourceAsStream(name + ".class")) {
             new ClassReader(is).accept(n, 0);

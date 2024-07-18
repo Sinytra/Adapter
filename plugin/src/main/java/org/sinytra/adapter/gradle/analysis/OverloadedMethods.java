@@ -4,8 +4,9 @@ import com.mojang.datafixers.util.Pair;
 import org.sinytra.adapter.gradle.util.MatchResult;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.api.MethodTransform;
-import org.sinytra.adapter.patch.transformer.ModifyInjectionTarget;
-import org.sinytra.adapter.patch.transformer.filter.InjectionPointTransformerFilter;
+import org.sinytra.adapter.patch.transformer.pipeline.MethodTransformationPipeline;
+import org.sinytra.adapter.patch.transformer.operation.ModifyInjectionTarget;
+import org.sinytra.adapter.patch.transformer.pipeline.InjectionPointTransformerFilter;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -141,9 +142,9 @@ public class OverloadedMethods {
 
     public record MethodOverload(boolean isFullMatch, MethodNode methodNode, List<String> excludedInjectionPoints) {
         public MethodTransform getPatchTargetTransform(MethodNode method) {
-            return this.excludedInjectionPoints.isEmpty()
-                ? new ModifyInjectionTarget(List.of(method.name + method.desc))
-                : InjectionPointTransformerFilter.create(new ModifyInjectionTarget(List.of(method.name + method.desc)), this.excludedInjectionPoints);
+            return MethodTransformationPipeline.builder(new ModifyInjectionTarget(List.of(method.name + method.desc)))
+                .filter(InjectionPointTransformerFilter.create(this.excludedInjectionPoints))
+                .build();
         }
     }
 }

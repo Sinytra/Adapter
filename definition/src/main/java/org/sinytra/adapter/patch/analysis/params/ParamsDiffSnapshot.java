@@ -3,7 +3,7 @@ package org.sinytra.adapter.patch.analysis.params;
 import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
 import org.sinytra.adapter.patch.api.MethodTransform;
-import org.sinytra.adapter.patch.transformer.param.ParamTransformTarget;
+import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformTarget;
 
 import java.util.List;
 

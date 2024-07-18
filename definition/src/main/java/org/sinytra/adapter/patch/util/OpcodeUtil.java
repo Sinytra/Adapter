@@ -1,6 +1,5 @@
 package org.sinytra.adapter.patch.util;
 
-import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.MethodNode;
@@ -22,8 +21,7 @@ public class OpcodeUtil {
         Type.DOUBLE_TYPE, new BoxedType(double.class, Double.class)
     );
 
-    public record BoxedType(Class<?> primitiveClass, Class<?> boxedClass) {
-    }
+    public record BoxedType(Class<?> primitiveClass, Class<?> boxedClass) {}
 
     public static boolean isStoreOpcode(int opcode) {
         return opcode >= Opcodes.ISTORE && opcode <= Opcodes.ASTORE;
@@ -51,17 +49,6 @@ public class OpcodeUtil {
 
     public static int getReturnOpcode(int sort) {
         return Opcodes.IRETURN + INSN_TYPE_OFFSETS_EXTENDED.indexOf(sort) + 1;
-    }
-
-    public static void castObjectType(Type to, MethodVisitor visitor) {
-        BoxedType boxed = BOXED_TYPES.get(to);
-        if (boxed != null) {
-            String boxedName = boxed.boxedClass().getName().replace('.', '/');
-            String conversionMethod = boxed.primitiveClass().getName() + "Value";
-            String conversionDesc = Type.getMethodDescriptor(to);
-            visitor.visitTypeInsn(Opcodes.CHECKCAST, boxedName);
-            visitor.visitMethodInsn(Opcodes.INVOKEVIRTUAL, boxedName, conversionMethod, conversionDesc, false);
-        }
     }
 
     public static int getAccessVisibility(int access) {

@@ -10,10 +10,9 @@ import org.sinytra.adapter.patch.api.ClassTransform;
 import org.sinytra.adapter.patch.api.MethodTransform;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.PatchEnvironment;
-import org.sinytra.adapter.patch.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.selector.FieldMatcher;
-import org.sinytra.adapter.patch.serialization.MethodTransformSerialization;
-import org.sinytra.adapter.patch.transformer.RedirectAccessor;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
+import org.sinytra.adapter.patch.analysis.selector.FieldMatcher;
+import org.sinytra.adapter.patch.transformer.serialization.MethodTransformSerialization;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 
 import java.util.Collection;
@@ -87,11 +86,6 @@ public final class InterfacePatchInstance extends PatchInstance {
                 this.targetFields.add(new FieldMatcher(target));
             }
             return this;
-        }
-
-        @Override
-        public InterfacePatchBuilder modifyValue(String value) {
-            return transform(new RedirectAccessor(value));
         }
 
         @Override

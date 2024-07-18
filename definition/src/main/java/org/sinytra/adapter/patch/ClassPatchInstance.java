@@ -5,23 +5,22 @@ import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.AnnotationNode;
-import org.objectweb.asm.tree.InsnList;
-import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.api.ClassTransform;
 import org.sinytra.adapter.patch.api.MethodTransform;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.PatchEnvironment;
-import org.sinytra.adapter.patch.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
-import org.sinytra.adapter.patch.selector.InjectionPointMatcher;
-import org.sinytra.adapter.patch.selector.MethodMatcher;
-import org.sinytra.adapter.patch.serialization.MethodTransformSerialization;
-import org.sinytra.adapter.patch.transformer.*;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
+import org.sinytra.adapter.patch.analysis.selector.InjectionPointMatcher;
+import org.sinytra.adapter.patch.analysis.selector.MethodMatcher;
+import org.sinytra.adapter.patch.transformer.serialization.MethodTransformSerialization;
+import org.sinytra.adapter.patch.transformer.operation.DisableMixin;
+import org.sinytra.adapter.patch.transformer.operation.DivertRedirectorTransform;
+import org.sinytra.adapter.patch.transformer.operation.ModifyInjectionPoint;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.*;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -139,25 +138,8 @@ public final class ClassPatchInstance extends PatchInstance {
         }
 
         @Override
-        public ClassPatchBuilder redirectShadowMethod(String original, String target, BiConsumer<MethodInsnNode, InsnList> callFixer) {
-            return transform(new RedirectShadowMethod(original, target, callFixer));
-        }
-
-        @Override
         public ClassPatchBuilder divertRedirector(Consumer<InstructionAdapter> patcher) {
             return transform(new DivertRedirectorTransform(patcher));
-        }
-
-        @Override
-        public ClassPatchBuilder updateRedirectTarget(String originalTarget, String newTarget) {
-            return targetInjectionPoint(originalTarget)
-                .transform(new ModifyRedirectToWrapper(
-                    MethodQualifier.create(originalTarget).orElseThrow(),
-                    MethodQualifier.create(newTarget).orElseThrow()
-                ))
-                .modifyMixinType(MixinConstants.WRAP_OPERATION, b -> b
-                    .sameTarget()
-                    .injectionPoint("INVOKE", newTarget));
         }
 
         @Override

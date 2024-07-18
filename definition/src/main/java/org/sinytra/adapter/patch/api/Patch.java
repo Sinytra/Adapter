@@ -4,16 +4,13 @@ import com.mojang.serialization.Codec;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.InsnList;
-import org.objectweb.asm.tree.MethodInsnNode;
 import org.sinytra.adapter.patch.ClassPatchInstance;
 import org.sinytra.adapter.patch.InterfacePatchInstance;
 import org.sinytra.adapter.patch.PatchInstance;
-import org.sinytra.adapter.patch.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 
 import java.util.List;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -100,18 +97,12 @@ public interface Patch {
             return modifyInjectionPoint(null, target);
         }
 
-        ClassPatchBuilder redirectShadowMethod(String original, String target, BiConsumer<MethodInsnNode, InsnList> callFixer);
-
         ClassPatchBuilder divertRedirector(Consumer<InstructionAdapter> patcher);
-
-        ClassPatchBuilder updateRedirectTarget(String originalTarget, String newTarget);
 
         ClassPatchBuilder disable();
     }
 
     interface InterfacePatchBuilder extends Builder<InterfacePatchBuilder> {
         InterfacePatchBuilder targetField(String... targets);
-
-        InterfacePatchBuilder modifyValue(String value);
     }
 }

@@ -20,6 +20,7 @@ public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nu
     public MethodQualifier(@Nullable String name, @Nullable String desc) {
         this(null, name, desc);
     }
+
     @Nullable
     public static Optional<MethodQualifier> create(String qualifier) {
         Matcher matcher = METHOD_QUALIFIER_PATTERN.matcher(qualifier);

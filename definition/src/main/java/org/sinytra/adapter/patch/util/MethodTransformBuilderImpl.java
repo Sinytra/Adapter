@@ -3,7 +3,8 @@ package org.sinytra.adapter.patch.util;
 import org.sinytra.adapter.patch.api.MethodTransform;
 import org.sinytra.adapter.patch.api.MethodTransformBuilder;
 import org.sinytra.adapter.patch.transformer.*;
-import org.sinytra.adapter.patch.transformer.param.TransformParameters;
+import org.sinytra.adapter.patch.transformer.operation.*;
+import org.sinytra.adapter.patch.transformer.operation.param.TransformParameters;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,24 +38,14 @@ public class MethodTransformBuilderImpl<T extends MethodTransformBuilder<T>> imp
     }
 
     @Override
-    public T modifyVariableIndex(int start, int offset) {
-        return transform(new ChangeModifiedVariableIndex(start, offset));
-    }
-
-    @Override
     public T modifyMethodAccess(ModifyMethodAccess.AccessChange... changes) {
         return transform(new ModifyMethodAccess(List.of(changes)));
     }
 
     @Override
     public T extractMixin(String targetClass) {
-        return transform(ModifyVarUpgradeToModifyExprVal.INSTANCE)
+        return improveModifyVar()
             .transform(new ExtractMixin(targetClass));
-    }
-
-    @Override
-    public T splitMixin(String targetClass) {
-        return transform(new SplitMixinTransform(targetClass));
     }
 
     @Override

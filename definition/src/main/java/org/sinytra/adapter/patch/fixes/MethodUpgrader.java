@@ -2,6 +2,8 @@ package org.sinytra.adapter.patch.fixes;
 
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.analysis.LocalVarAnalyzer;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
@@ -10,10 +12,10 @@ import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MethodTransform;
 import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.transformer.ModifyArgsOffsetTransformer;
-import org.sinytra.adapter.patch.transformer.param.ParamTransformTarget;
-import org.sinytra.adapter.patch.transformer.param.ParameterTransformer;
-import org.sinytra.adapter.patch.transformer.param.TransformParameters;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
+import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformTarget;
+import org.sinytra.adapter.patch.transformer.operation.param.ParameterTransformer;
+import org.sinytra.adapter.patch.transformer.operation.param.TransformParameters;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
@@ -34,6 +36,33 @@ public final class MethodUpgrader {
             ModifyArgsOffsetTransformer.handleModifiedDesc(methodNode, cleanQualifier.desc(), dirtyQualifier.desc());
         } else if (methodContext.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
             upgradeWrapOperation(methodNode, methodContext, cleanQualifier, dirtyQualifier);
+        }
+    }
+
+    // TODO This should be an automatic upgrade tbh
+    public static void adjustInjectorOrdinalForNewMethod(MethodInsnNode minsn, MethodContext methodContext) {
+        AnnotationValueHandle<Integer> handle = methodContext.injectionPointAnnotationOrThrow().<Integer>getValue("ordinal").orElse(null);
+        if (handle == null) {
+            return;
+        }
+        int originalOrdinal = handle.get();
+        // Temporarily adjust ordinal to account for previous calls that have not been moved to the new class
+        if (handle != null) {
+            handle.set(-1);
+            List<AbstractInsnNode> insns = methodContext.computeInjectionTargetInsns(methodContext.findDirtyInjectionTarget());
+            handle.set(originalOrdinal);
+            int newOrdinal = originalOrdinal;
+            for (AbstractInsnNode insn : methodContext.findDirtyInjectionTarget().methodNode().instructions) {
+                if (insn == minsn) {
+                    break;
+                }
+                if (insns.contains(insn)) {
+                    newOrdinal--;
+                }
+            }
+            if (newOrdinal >= 0) {
+                handle.set(newOrdinal);
+            }
         }
     }
 

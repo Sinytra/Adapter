@@ -13,12 +13,12 @@ import org.sinytra.adapter.patch.analysis.MethodLabelComparator;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.Patch;
-import org.sinytra.adapter.patch.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
+import org.sinytra.adapter.patch.fixes.MethodUpgrader;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.transformer.BundledMethodTransform;
-import org.sinytra.adapter.patch.transformer.MirrorableExtractMixin;
-import org.sinytra.adapter.patch.transformer.ModifyInjectionPoint;
-import org.sinytra.adapter.patch.transformer.param.*;
+import org.sinytra.adapter.patch.transformer.operation.ModifyInjectionPoint;
+import org.sinytra.adapter.patch.transformer.operation.param.*;
+import org.sinytra.adapter.patch.transformer.pipeline.MethodTransformationPipeline;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 
 import java.util.HashSet;
@@ -201,52 +201,22 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
         if (targetClass == null) {
             return Patch.Result.PASS;
         }
+
         MethodNode targetMethod = methodContext.patchContext().environment().dirtyClassLookup().findMethod(minsn.owner, minsn.name, minsn.desc).orElse(null);
         if (targetMethod == null) {
             return Patch.Result.PASS;
         }
-        adjustInjectorOrdinalForNewMethod(minsn, methodContext);
+
+        MethodUpgrader.adjustInjectorOrdinalForNewMethod(minsn, methodContext);
         List<AbstractInsnNode> newTargetInsns = methodContext.findInjectionTargetInsns(new MethodContext.TargetPair(targetClass, targetMethod));
         if (newTargetInsns.isEmpty()) {
             return Patch.Result.PASS;
         }
-        Patch.Result res = BundledMethodTransform.builder()
-            .extractMixin(minsn.owner)
-            // Applied only if previous transform succeeds
-            .modifyTarget(minsn.name + minsn.desc)
-            .build(true)
-            .apply(methodContext);
-        if (res != Patch.Result.PASS) {
-            return res;
-        }
-        // Extraction failed? Let's try something else
-        return new MirrorableExtractMixin(targetClass.name, minsn).apply(methodContext);
-    }
 
-    // TODO This should be an automatic upgrade tbh
-    private static void adjustInjectorOrdinalForNewMethod(MethodInsnNode minsn, MethodContext methodContext) {
-        AnnotationValueHandle<Integer> handle = methodContext.injectionPointAnnotationOrThrow().<Integer>getValue("ordinal").orElse(null);
-        if (handle == null) {
-            return;
-        }
-        int originalOrdinal = handle.get();
-        // Temporarily adjust ordinal to account for previous calls that have not been moved to the new class
-        if (handle != null) {
-            handle.set(-1);
-            List<AbstractInsnNode> insns = methodContext.computeInjectionTargetInsns(methodContext.findDirtyInjectionTarget());
-            handle.set(originalOrdinal);
-            int newOrdinal = originalOrdinal;
-            for (AbstractInsnNode insn : methodContext.findDirtyInjectionTarget().methodNode().instructions) {
-                if (insn == minsn) {
-                    break;
-                }
-                if (insns.contains(insn)) {
-                    newOrdinal--;
-                }
-            }
-            if (newOrdinal >= 0) {
-                handle.set(newOrdinal);
-            }
-        }
+        return MethodTransformationPipeline.builder(b -> b.extractMixin(minsn.owner))
+            .onSuccess(b -> b.modifyTarget(minsn.name + minsn.desc))
+            // Extraction failed? Let's try something else
+            .onFail(() -> new MirrorableExtractMixin(targetClass.name, minsn))
+            .apply(methodContext);
     }
 }

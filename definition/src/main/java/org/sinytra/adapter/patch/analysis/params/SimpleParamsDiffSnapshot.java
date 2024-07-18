@@ -10,11 +10,11 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.sinytra.adapter.patch.api.MethodTransform;
 import org.sinytra.adapter.patch.transformer.BundledMethodTransform;
-import org.sinytra.adapter.patch.transformer.ModifyMethodParams;
-import org.sinytra.adapter.patch.transformer.param.InjectParameterTransform;
-import org.sinytra.adapter.patch.transformer.param.ParamTransformTarget;
-import org.sinytra.adapter.patch.transformer.param.ParameterTransformer;
-import org.sinytra.adapter.patch.transformer.param.TransformParameters;
+import org.sinytra.adapter.patch.transformer.operation.ModifyMethodParams;
+import org.sinytra.adapter.patch.transformer.operation.param.InjectParameterTransform;
+import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformTarget;
+import org.sinytra.adapter.patch.transformer.operation.param.ParameterTransformer;
+import org.sinytra.adapter.patch.transformer.operation.param.TransformParameters;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.slf4j.Logger;
 
