@@ -96,8 +96,8 @@ public final class MethodContextImpl implements MethodContext {
     @Override
     public MethodQualifier getTargetMethodQualifier() {
         // Get method targets
-        List<String> methodRefs = methodAnnotation().<List<String>>getValue("method").orElseThrow().get();
-        if (methodRefs.size() > 1) {
+        List<String> methodRefs = methodAnnotation().<List<String>>getValue("method").map(AnnotationValueHandle::get).orElseGet(Collections::emptyList);
+        if (methodRefs.size() != 1) {
             // We only support single method targets for now
             return null;
         }
@@ -246,7 +246,7 @@ public final class MethodContextImpl implements MethodContext {
 
     @Nullable
     private TargetPair findInjectionTarget(ClassLookup lookup) {
-        Pair<ClassNode, List<MethodNode>> pair = findInjectionTargetCandidates(lookup);
+        Pair<ClassNode, List<MethodNode>> pair = findInjectionTargetCandidates(lookup, false);
         if (pair == null) {
             return null;
         }
@@ -263,7 +263,7 @@ public final class MethodContextImpl implements MethodContext {
     }
 
     @Nullable
-    public Pair<ClassNode, List<MethodNode>> findInjectionTargetCandidates(ClassLookup lookup) {
+    public Pair<ClassNode, List<MethodNode>> findInjectionTargetCandidates(ClassLookup lookup, boolean ignoreDesc) {
         // Find target method qualifier
         MethodQualifier qualifier = getTargetMethodQualifier();
         if (qualifier == null || qualifier.name() == null) {
@@ -288,7 +288,7 @@ public final class MethodContextImpl implements MethodContext {
         // Find target method in class
         String desc = qualifier.desc();
         List<MethodNode> candidates = targetClass.methods.stream()
-            .filter(mtd -> mtd.name.equals(qualifier.name()) && (desc == null || mtd.desc.equals(desc)))
+            .filter(mtd -> mtd.name.equals(qualifier.name()) && (ignoreDesc || desc == null || mtd.desc.equals(desc)))
             .toList();
         // If there's multiple candidates, try removing bouncer methods
         if (candidates.size() > 1 && desc == null) {

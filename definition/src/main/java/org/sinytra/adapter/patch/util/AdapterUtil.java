@@ -23,10 +23,7 @@ import org.spongepowered.asm.mixin.gen.AccessorInfo;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.*;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
-import java.util.function.UnaryOperator;
+import java.util.function.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -37,6 +34,7 @@ public final class AdapterUtil {
     private static final Pattern FIELD_REF_PATTERN = Pattern.compile("^(?<owner>L.+?;)?(?<name>[^:]+)?:(?<desc>.+)?$");
     public static final Type CI_TYPE = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfo");
     public static final Type CIR_TYPE = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable");
+    public static final Type OPERATION_TYPE = Type.getObjectType(MixinConstants.OPERATION_INTERNAL_NAME);
     private static final Logger LOGGER = LogUtils.getLogger();
 
     public static int getLVTOffsetForType(Type type) {
@@ -240,6 +238,15 @@ public final class AdapterUtil {
             }
         }
         return null;
+    }
+
+    public static <T> T[] removeArrayElement(T[] arr, int index, IntFunction<T[]> arrayGen) {
+        if (arr == null) {
+            return null;
+        }
+        List<T> list = new ArrayList<>(Arrays.asList(arr));
+        list.remove(index);
+        return list.toArray(arrayGen);
     }
 
     public record CapturedLocals(MethodContext.TargetPair target, boolean isStatic, int paramLocalStart, int paramLocalEnd, int lvtOffset,

@@ -20,13 +20,17 @@ import java.util.List;
 import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 import static org.sinytra.adapter.patch.transformer.param.ParamTransformationUtil.findWrapOperationOriginalCall;
 
-public record ReplaceParametersTransformer(int index, Type type) implements ParameterTransformer {
+public record ReplaceParametersTransformer(int index, Type type, boolean upgradeUsage) implements ParameterTransformer {
     static final Codec<ReplaceParametersTransformer> CODEC = RecordCodecBuilder.create(in -> in.group(
         Codec.intRange(0, 255).fieldOf("index").forGetter(ReplaceParametersTransformer::index),
         AdapterUtil.TYPE_CODEC.fieldOf("type").forGetter(ReplaceParametersTransformer::type)
     ).apply(in, ReplaceParametersTransformer::new));
 
     private static final Logger LOGGER = LogUtils.getLogger();
+
+    public ReplaceParametersTransformer(int index, Type type) {
+        this(index, type, true);
+    }
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, List<Type> parameters, int offset) {
@@ -47,7 +51,7 @@ public record ReplaceParametersTransformer(int index, Type type) implements Para
 
         List<AbstractInsnNode> ignoreInsns = findWrapOperationOriginalCall(methodNode, methodContext);
         BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
-        if (this.type.getSort() == Type.OBJECT && originalType.getSort() == Type.OBJECT) {
+        if (this.upgradeUsage && this.type.getSort() == Type.OBJECT && originalType.getSort() == Type.OBJECT) {
             // Replace variable usages with the new type
             for (AbstractInsnNode insn : methodNode.instructions) {
                 if (ignoreInsns.contains(insn)) {

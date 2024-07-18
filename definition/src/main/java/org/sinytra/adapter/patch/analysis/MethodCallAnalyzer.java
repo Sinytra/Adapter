@@ -131,6 +131,22 @@ public class MethodCallAnalyzer {
         return interpreter.getTargetArgs();
     }
 
+    @Nullable
+    public static List<AbstractInsnNode> findFullMethodCallParamInsns(MethodNode methodNode, MethodInsnNode minsn) {
+        List<AbstractInsnNode> insns = findMethodCallParamInsns(methodNode, minsn);
+        if (minsn != null) {
+            List<AbstractInsnNode> fullInsns = new ArrayList<>();
+            for (AbstractInsnNode i = insns.getFirst(); i != null ; i = i.getNext()) {
+                if (i == minsn) {
+                    break;
+                }
+                fullInsns.add(i);
+            }
+            return fullInsns;
+        }
+        return null;
+    }
+
     public static <T> List<T> analyzeMethod(MethodNode methodNode, NaryOperationHandler<T> handler) {
         return analyzeMethod(methodNode, (insn, values) -> true, handler);
     }

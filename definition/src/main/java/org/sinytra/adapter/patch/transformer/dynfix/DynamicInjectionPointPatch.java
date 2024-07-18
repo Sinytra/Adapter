@@ -16,10 +16,12 @@ import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class DynamicInjectionPointPatch implements MethodTransform {
     private static final Logger LOGGER = LogUtils.getLogger();
+    private static final List<DynamicFixer<?>> PREPATCH = List.of(
+        new DynFixResolveAmbigousTarget()
+    );
     private static final List<DynamicFixer<?>> FIXES = List.of(
         new DynFixSliceBoundary(),
         new DynFixAtVariableAssignStore(),
-        new DynFixResolveAmbigousTarget(),
         new DynFixSplitMethod(),
         // Have this one always come last
         new DynFixMethodComparison(),
@@ -32,15 +34,23 @@ public class DynamicInjectionPointPatch implements MethodTransform {
             // TODO Only show in tests
             LOGGER.debug(MIXINPATCH, "Considering method {}.{}", classNode.name, methodNode.name);
 
+            Patch.Result result = Patch.Result.PASS;
+            for (DynamicFixer fix : PREPATCH) {
+                Object data = fix.prepare(methodContext);
+                if (data != null) {
+                    result = result.or(fix.apply(classNode, methodNode, methodContext, data));
+                }
+            }
             for (DynamicFixer fix : FIXES) {
                 Object data = fix.prepare(methodContext);
                 if (data != null) {
-                    Patch.Result result = fix.apply(classNode, methodNode, methodContext, data);
-                    if (result != Patch.Result.PASS) {
-                        return result;
+                    Patch.Result patchResult = fix.apply(classNode, methodNode, methodContext, data);
+                    if (patchResult != Patch.Result.PASS) {
+                        return patchResult.or(result);
                     }
                 }
             }
+            return result;
         }
         return Patch.Result.PASS;
     }

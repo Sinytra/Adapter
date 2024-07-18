@@ -1,27 +1,29 @@
 package org.sinytra.adapter.patch.transformer.dynfix;
 
-import com.google.common.collect.ImmutableList;
-import com.mojang.datafixers.util.Pair;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import org.jetbrains.annotations.Nullable;
+import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.commons.GeneratorAdapter;
-import org.objectweb.asm.commons.Method;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.patch.analysis.InsnComparator;
-import org.sinytra.adapter.patch.analysis.InstructionMatcher;
+import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
+import org.sinytra.adapter.patch.analysis.MethodLabelComparator;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.Patch;
+import org.sinytra.adapter.patch.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.transformer.BundledMethodTransform;
+import org.sinytra.adapter.patch.transformer.MirrorableExtractMixin;
 import org.sinytra.adapter.patch.transformer.ModifyInjectionPoint;
+import org.sinytra.adapter.patch.transformer.param.*;
 import org.sinytra.adapter.patch.util.AdapterUtil;
-import org.sinytra.adapter.patch.util.OpcodeUtil;
 
-import java.util.*;
-import java.util.stream.Stream;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparison.Data> {
     private static final Set<String> ACCEPTED_ANNOTATIONS = Set.of(MixinConstants.INJECT, MixinConstants.WRAP_OPERATION);
@@ -46,54 +48,19 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, Data data) {
-        List<List<AbstractInsnNode>> cleanLabels = getLabelsInMethod(methodContext.findCleanInjectionTarget().methodNode());
-        List<List<AbstractInsnNode>> cleanLabelsOriginal = List.copyOf(cleanLabels);
-
         AbstractInsnNode cleanInjectionInsn = data.cleanInjectionInsn();
-        List<List<AbstractInsnNode>> cleanMatchedLabels = cleanLabels.stream()
-            .filter(insns -> insns.contains(cleanInjectionInsn))
-            .toList();
-        if (cleanMatchedLabels.size() != 1) {
+        MethodLabelComparator.ComparisonResult comparisonResult = MethodLabelComparator.findPatchedLabels(cleanInjectionInsn, methodContext);
+        if (comparisonResult == null) {
             return Patch.Result.PASS;
         }
-        List<AbstractInsnNode> cleanLabel = cleanMatchedLabels.getFirst();
+        List<List<AbstractInsnNode>> hunkLabels = comparisonResult.patchedLabels();
 
-        List<List<AbstractInsnNode>> dirtyLabels = getLabelsInMethod(methodContext.findDirtyInjectionTarget().methodNode());
-        List<List<AbstractInsnNode>> dirtyLabelsOriginal = List.copyOf(dirtyLabels);
-
-        Map<List<AbstractInsnNode>, List<AbstractInsnNode>> matchedLabels = new LinkedHashMap<>();
-        for (List<AbstractInsnNode> cleanInsns : cleanLabelsOriginal) {
-            List<List<AbstractInsnNode>> candidates = new ArrayList<>();
-
-            for (List<AbstractInsnNode> dirtyInsns : dirtyLabels) {
-                if (InstructionMatcher.test(cleanInsns, dirtyInsns, InsnComparator.IGNORE_VAR_INDEX | InsnComparator.IGNORE_LINE_NUMBERS)) {
-                    candidates.add(dirtyInsns);
-                }
-            }
-            // TODO Try and come up with something better
-            // This prevents messing up the order of labels
-            // Without this countermeasure, it might happen that a label that was deleted will match a seemingly identical label somewhere else in the method, which is wrong
-            // We disable any duplicated until we can properly handle such cases
-            if (candidates.size() == 1) {
-                List<AbstractInsnNode> dirtyInsns = candidates.getFirst();
-                matchedLabels.put(cleanInsns, dirtyInsns);
-                cleanLabels.remove(cleanInsns);
-                dirtyLabels.remove(dirtyInsns);
-            }
-        }
-
-        Pair<List<AbstractInsnNode>, List<AbstractInsnNode>> patchRange = findPatchHunkRange(cleanLabel, cleanLabelsOriginal, matchedLabels);
-        if (patchRange == null) {
-            return Patch.Result.PASS;
+        if (methodContext.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
+            return handleWrapOperationToInstanceOf(cleanInjectionInsn, comparisonResult.cleanLabel(), hunkLabels, methodContext)
+                .orElseGet(() -> handleTargetModification(hunkLabels, methodContext));
         }
 
         ClassNode cleanTargetClass = methodContext.findCleanInjectionTarget().classNode();
-        List<List<AbstractInsnNode>> hunkLabels = dirtyLabelsOriginal.subList(dirtyLabelsOriginal.indexOf(patchRange.getFirst()) + 1, dirtyLabelsOriginal.indexOf(patchRange.getSecond()));
-
-        if (methodContext.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
-            return handleTargetModification(hunkLabels, methodContext);
-        }
-
         for (List<AbstractInsnNode> insns : hunkLabels) {
             for (AbstractInsnNode insn : insns) {
                 if (insn instanceof MethodInsnNode minsn && minsn.getOpcode() == Opcodes.INVOKESTATIC && !minsn.owner.equals(cleanTargetClass.name)) {
@@ -116,6 +83,100 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
         }
 
         return Patch.Result.PASS;
+    }
+
+    private static Patch.Result handleWrapOperationToInstanceOf(AbstractInsnNode cleanInjectionInsn, List<AbstractInsnNode> cleanLabel, List<List<AbstractInsnNode>> hunkLabels, MethodContext methodContext) {
+        if (!(cleanInjectionInsn instanceof MethodInsnNode minsn) || hunkLabels.size() != 1 || !(cleanLabel.getLast() instanceof JumpInsnNode) || cleanLabel.stream().anyMatch(i -> i instanceof TypeInsnNode)) {
+            return Patch.Result.PASS;
+        }
+        List<AbstractInsnNode> dirtyLabel = hunkLabels.getFirst();
+        if (!(dirtyLabel.getLast() instanceof JumpInsnNode)) {
+            return Patch.Result.PASS;
+        }
+        List<TypeInsnNode> instanceOfCalls = dirtyLabel.stream().filter(i -> i instanceof TypeInsnNode).map(i -> (TypeInsnNode) i).toList();
+        if (instanceOfCalls.size() != 1) {
+            return Patch.Result.PASS;
+        }
+        TypeInsnNode instanceOfCall = instanceOfCalls.getFirst();
+        MethodNode methodNode = methodContext.getMixinMethod();
+        LocalVariableLookup mixinLocals = new LocalVariableLookup(methodNode);
+
+        Type[] argsTypes = Type.getArgumentTypes(methodNode.desc);
+        Set<Integer> paramVars = new HashSet<>();
+        for (int i = 0; i < argsTypes.length; i++) {
+            if (argsTypes[i].equals(AdapterUtil.OPERATION_TYPE)) {
+                break;
+            }
+            LocalVariableNode lvn = mixinLocals.getByParameterOrdinal(i);
+            paramVars.add(lvn.index);
+        }
+
+        ParamTransformationUtil.extractWrapOperation(methodContext, methodNode, List.of(argsTypes), op -> {
+            for (int i = 1; i < paramVars.size(); i++) {
+                op.removeParameter(i);
+            }
+        });
+
+        List<AbstractInsnNode> originalOpCall = ParamTransformationUtil.findWrapOperationOriginalCallArgs(methodNode, methodContext);
+        Multimap<Integer, VarInsnNode> usedVars = HashMultimap.create();
+        for (AbstractInsnNode insn : methodNode.instructions) {
+            if (insn instanceof VarInsnNode varInsn && !originalOpCall.contains(insn) && paramVars.contains(varInsn.var)) {
+                usedVars.put(varInsn.var, varInsn);
+            }
+        }
+
+        List<AbstractInsnNode> originalCallArgs = MethodCallAnalyzer.findMethodCallParamInsns(methodContext.findCleanInjectionTarget().methodNode(), minsn);
+        LocalVariableNode instanceLocal = mixinLocals.getByParameterOrdinal(0);
+        for (int paramVar : usedVars.keySet()) {
+            if (paramVar == instanceLocal.index) {
+                int cleanOrdinal = methodContext.cleanLocalsTable().getTypedOrdinal(methodContext.cleanLocalsTable().getByIndex(((VarInsnNode) originalCallArgs.getFirst()).var)).orElse(-1);
+                if (cleanOrdinal == -1) {
+                    return Patch.Result.PASS;
+                }
+                LocalVariableNode dirtyLocal = methodContext.dirtyLocalsTable().getByTypedOrdinal(Type.getType(instanceLocal.desc), cleanOrdinal).orElse(null);
+                if (dirtyLocal == null) {
+                    return Patch.Result.PASS;
+                }
+                TransformParameters.builder()
+                    .transform(new InjectParameterTransform(argsTypes.length, Type.getType(dirtyLocal.desc), false))
+                    .build()
+                    .apply(methodContext);
+                int newOrdinal = Type.getArgumentTypes(methodNode.desc).length - 1;
+                AnnotationVisitor visitor = methodNode.visitParameterAnnotation(newOrdinal, MixinConstants.LOCAL, false);
+                visitor.visit("ordinal", cleanOrdinal);
+                visitor.visitEnd();
+                int newIndex = new LocalVariableLookup(methodNode).getByParameterOrdinal(newOrdinal).index;
+                usedVars.get(paramVar).forEach(varInsn -> varInsn.var = newIndex);
+            } else {
+                String loadedType = instanceOfCall.getPrevious() instanceof MethodInsnNode m ? Type.getReturnType(m.desc).getDescriptor() : null;
+                LocalVariableNode node = mixinLocals.getByIndex(paramVar);
+                if (loadedType == null || !loadedType.equals(node.desc)) {
+                    return Patch.Result.PASS;
+                }
+                usedVars.get(paramVar).forEach(varInsn -> varInsn.var = instanceLocal.index);
+            }
+        }
+
+        Patch.Result result = TransformParameters.builder()
+            .transform(new ReplaceParametersTransformer(0, Type.getObjectType("java/lang/Object"), false))
+            .chain(b -> {
+                for (int i = 1; i < paramVars.size(); i++) {
+                    b.transform(new RemoveParameterTransformer(i, false));
+                }
+            })
+            .build()
+            .apply(methodContext);
+        if (result == Patch.Result.PASS) {
+            return Patch.Result.PASS;
+        }
+
+        AnnotationHandle ann = methodContext.methodAnnotation(); 
+        ann.removeValues("at");
+        AnnotationVisitor visitor = ann.unwrap().visitAnnotation("constant", MixinConstants.CONSTANT);
+        visitor.visit("classValue", Type.getObjectType(instanceOfCall.desc));
+        visitor.visitEnd();
+
+        return Patch.Result.APPLY;
     }
 
     private static Patch.Result handleTargetModification(List<List<AbstractInsnNode>> hunkLabels, MethodContext methodContext) {
@@ -159,66 +220,7 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
             return res;
         }
         // Extraction failed? Let's try something else
-        return createInjectionPoint(targetClass, minsn, methodContext);
-    }
-
-    private static Patch.Result createInjectionPoint(ClassNode newTargetClass, MethodInsnNode minsn, MethodContext methodContext) {
-        Type selfType = Type.getObjectType(methodContext.findDirtyInjectionTarget().classNode().name);
-        Type[] params = Type.getArgumentTypes(minsn.desc);
-        int selfIndex = Stream.of(Stream.iterate(0, i -> i < params.length, i -> i + 1)
-                .filter(i -> params[i].equals(selfType))
-                .toList())
-            .filter(list -> list.size() == 1)
-            .map(List::getFirst)
-            .findFirst()
-            .orElse(-1);
-        if (selfIndex == -1) {
-            return Patch.Result.PASS;
-        }
-
-        List<AbstractInsnNode> callInsns = MethodCallAnalyzer.findMethodCallParamInsns(methodContext.findDirtyInjectionTarget().methodNode(), minsn);
-        if (callInsns == null || callInsns.size() <= selfIndex) {
-            return Patch.Result.PASS;
-        }
-        AbstractInsnNode selfParamInsn = callInsns.get(selfIndex);
-        if (selfParamInsn instanceof VarInsnNode varInsn && varInsn.getOpcode() == Opcodes.ALOAD && varInsn.var == 0) {
-            // Cool, out instance is passed into the method. Now let's inject there and call the old mixin method
-            ClassNode generatedTarget = methodContext.patchContext().environment().classGenerator().getOrGenerateMixinClass(methodContext.getMixinClass(), newTargetClass.name, null);
-            methodContext.patchContext().environment().refmapHolder().copyEntries(methodContext.getMixinClass().name, generatedTarget.name);
-            // Generate a method with the same injector annotation
-            MethodNode originalMixinMethod = methodContext.getMixinMethod();
-            String name = originalMixinMethod.name + "$adapter$mirror$" + AdapterUtil.randomString(5);
-            List<Type> originalParams = List.of(Type.getArgumentTypes(originalMixinMethod.desc));
-            List<Type> newParams = ImmutableList.<Type>builder().add(Type.getArgumentTypes(minsn.desc)).add(AdapterUtil.CI_TYPE).build();
-            // Make sure we have all required params
-            if (!new HashSet<>(newParams).containsAll(originalParams)) {
-                return Patch.Result.PASS;
-            }
-
-            String desc = Type.getMethodDescriptor(Type.VOID_TYPE, newParams.toArray(Type[]::new));
-            // Change target
-            BundledMethodTransform.builder().modifyTarget(minsn.name + minsn.desc).apply(methodContext);
-            MethodNode invokerMixinMethod = (MethodNode) generatedTarget.visitMethod(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, name, desc, null, null);
-            invokerMixinMethod.visibleAnnotations = new ArrayList<>(originalMixinMethod.visibleAnnotations);
-            // Make original mixin a unique public method
-            originalMixinMethod.access = OpcodeUtil.setAccessVisibility(originalMixinMethod.access, Opcodes.ACC_PUBLIC);
-            originalMixinMethod.visibleAnnotations.remove(methodContext.methodAnnotation().unwrap());
-            originalMixinMethod.visitAnnotation(MixinConstants.UNIQUE, true);
-            // Now call the original mixin
-            GeneratorAdapter gen = new GeneratorAdapter(invokerMixinMethod, invokerMixinMethod.access, invokerMixinMethod.name, invokerMixinMethod.desc);
-            gen.newLabel();
-            gen.loadArg(selfIndex);
-            for (Type type : originalParams) {
-                gen.loadArg(newParams.indexOf(type));
-            }
-            gen.invokeVirtual(selfType, new Method(originalMixinMethod.name, originalMixinMethod.desc));
-            gen.newLabel();
-            gen.returnValue();
-            gen.newLabel();
-            gen.endMethod();
-            return Patch.Result.APPLY;
-        }
-        return Patch.Result.PASS;
+        return new MirrorableExtractMixin(targetClass.name, minsn).apply(methodContext);
     }
 
     // TODO This should be an automatic upgrade tbh
@@ -246,48 +248,5 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
                 handle.set(newOrdinal);
             }
         }
-    }
-
-    @Nullable
-    private static Pair<List<AbstractInsnNode>, List<AbstractInsnNode>> findPatchHunkRange(List<AbstractInsnNode> cleanLabel, List<List<AbstractInsnNode>> cleanLabels, Map<List<AbstractInsnNode>, List<AbstractInsnNode>> matchedLabels) {
-        // Find last matched dirty label BEFORE the injection point
-        List<AbstractInsnNode> dirtyLabelBefore = Stream.iterate(cleanLabels.indexOf(cleanLabel), i -> i > 0, i -> i - 1)
-            .map(i -> matchedLabels.get(cleanLabels.get(i)))
-            .filter(Objects::nonNull)
-            .findFirst()
-            .orElse(null);
-        if (dirtyLabelBefore == null) {
-            return null;
-        }
-
-        // Find first matched dirty label AFTER the injection point
-        List<AbstractInsnNode> dirtyLabelAfter = Stream.iterate(cleanLabels.indexOf(cleanLabel), i -> i < cleanLabels.size(), i -> i + 1)
-            .map(i -> matchedLabels.get(cleanLabels.get(i)))
-            .filter(Objects::nonNull)
-            .findFirst()
-            .orElse(null);
-        if (dirtyLabelAfter == null) {
-            return null;
-        }
-
-        return Pair.of(dirtyLabelBefore, dirtyLabelAfter);
-    }
-
-    private static List<List<AbstractInsnNode>> getLabelsInMethod(MethodNode methodNode) {
-        List<List<AbstractInsnNode>> list = new ArrayList<>();
-        List<AbstractInsnNode> workingList = null;
-        for (AbstractInsnNode insn : methodNode.instructions) {
-            if (insn instanceof FrameNode) {
-                continue;
-            }
-            if (insn instanceof LabelNode) {
-                if (workingList != null) {
-                    list.add(workingList);
-                }
-                workingList = new ArrayList<>();
-            }
-            workingList.add(insn);
-        }
-        return list;
     }
 }

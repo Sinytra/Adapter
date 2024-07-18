@@ -174,6 +174,16 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    @Test
+    void testModifiedToInstanceOfCall() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/StemBlockMixin",
+            "isOnFarmland",
+            assertTargetMethod(),
+            assertTargetsConstant()
+        );
+    }
+
     @Override
     protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
         final ClassNode patched = loadClass(className);

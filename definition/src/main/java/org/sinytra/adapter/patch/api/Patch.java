@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 public interface Patch {
     static ClassPatchBuilder builder() {
@@ -43,6 +44,10 @@ public interface Patch {
                 return COMPUTE_FRAMES;
             }
             return this;
+        }
+
+        public Result orElseGet(Supplier<Result> other) {
+            return this == PASS ? other.get() : this;
         }
     }
 

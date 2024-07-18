@@ -55,7 +55,7 @@ public interface MethodContext {
     List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable TargetPair target);
 
     @Nullable
-    Pair<ClassNode, List<MethodNode>> findInjectionTargetCandidates(ClassLookup lookup);
+    Pair<ClassNode, List<MethodNode>> findInjectionTargetCandidates(ClassLookup lookup, boolean ignoreDesc);
 
     void updateDescription(List<Type> parameters);
 

@@ -3,12 +3,11 @@ package org.sinytra.adapter.patch.transformer.dynfix;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
-import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.Patch;
-import org.sinytra.adapter.patch.transformer.ModifyInjectionTarget;
+import org.sinytra.adapter.patch.transformer.BundledMethodTransform;
 import org.slf4j.Logger;
 
 import java.util.List;
@@ -22,13 +21,21 @@ import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 public class DynFixResolveAmbigousTarget implements DynamicFixer<DynFixResolveAmbigousTarget.Data> {
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    public record Data(Pair<ClassNode, List<MethodNode>> candidates) {}
+    public record Data(Pair<ClassNode, List<MethodNode>> candidates) {
+    }
 
     @Nullable
     @Override
     public Data prepare(MethodContext methodContext) {
-        Pair<ClassNode, List<MethodNode>> candidates = methodContext.findInjectionTargetCandidates(methodContext.patchContext().environment().dirtyClassLookup());
-        if (candidates != null && candidates.getSecond().size() > 1) {
+        Pair<ClassNode, List<MethodNode>> candidates = methodContext.findInjectionTargetCandidates(methodContext.patchContext().environment().dirtyClassLookup(), true);
+        if (candidates != null && !candidates.getSecond().isEmpty()) {
+            // Only apply single candidate change when the target desc has changed
+            if (candidates.getSecond().size() == 1) {
+                MethodContext.TargetPair cleanTarget = methodContext.findCleanInjectionTarget();
+                if (cleanTarget == null || candidates.getSecond().getFirst().desc.equals(cleanTarget.methodNode().desc)) {
+                    return null;
+                }
+            }
             return new Data(candidates);
         }
         return null;
@@ -36,12 +43,12 @@ public class DynFixResolveAmbigousTarget implements DynamicFixer<DynFixResolveAm
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, Data data) {
-        for (MethodNode target : data.candidates().getSecond()) {
-            List<AbstractInsnNode> insns = methodContext.findInjectionTargetInsns(new MethodContext.TargetPair(data.candidates().getFirst(), target));
-            if (!insns.isEmpty()) {
+        List<MethodNode> candidates = data.candidates().getSecond();
+        for (MethodNode target : candidates) {
+            if (candidates.size() == 1 || !methodContext.findInjectionTargetInsns(new MethodContext.TargetPair(data.candidates().getFirst(), target)).isEmpty()) {
                 String newTarget = target.name + target.desc;
                 LOGGER.debug(MIXINPATCH, "Resolving ambigous method selector of {}.{} to {}", classNode.name, methodNode.name, newTarget);
-                return new ModifyInjectionTarget(List.of(newTarget)).apply(methodContext);
+                return BundledMethodTransform.builder().modifyTarget(newTarget).apply(methodContext);
             }
         }
         return Patch.Result.PASS;

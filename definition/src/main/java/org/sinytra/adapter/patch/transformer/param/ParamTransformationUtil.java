@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.selector.AnnotationHandle;
@@ -45,6 +46,17 @@ public final class ParamTransformationUtil {
                 }
             }
             return List.copyOf(list);
+        }
+        return List.of();
+    }
+
+    public static List<AbstractInsnNode> findWrapOperationOriginalCallArgs(MethodNode methodNode, MethodContext methodContext) {
+        if (methodContext.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
+            for (AbstractInsnNode insn : methodNode.instructions) {
+                if (insn instanceof MethodInsnNode minsn && WO_ORIGINAL_CALL.matches(minsn)) {
+                    return MethodCallAnalyzer.findFullMethodCallParamInsns(methodNode, minsn);
+                }
+            }
         }
         return List.of();
     }

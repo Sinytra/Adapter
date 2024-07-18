@@ -31,6 +31,7 @@ import java.util.stream.StreamSupport;
 import java.util.zip.ZipFile;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public abstract class MinecraftMixinPatchTest {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -219,6 +220,20 @@ public abstract class MinecraftMixinPatchTest {
             Assertions.assertThat(sliceExtractor.apply("to", patchedMethodAnn))
                 .as("Slice To")
                 .isEqualTo(sliceExtractor.apply("to", expectedMethodAnn));
+        };
+    }
+
+    protected AssertCallback assertTargetsConstant() {
+        return (patched, expected, env) -> {
+            AnnotationHandle patchedMethodAnn = new AnnotationHandle(patched.visibleAnnotations.getFirst());
+            AnnotationHandle expectedMethodAnn = new AnnotationHandle(expected.visibleAnnotations.getFirst());
+
+            assertTrue(patchedMethodAnn.getNested("at").isEmpty());
+            assertTrue(patchedMethodAnn.getNested("constant").isPresent());
+
+            Assertions.assertThat(patchedMethodAnn.getNested("constant").get().unwrap().values)
+                .as("Values")
+                .isEqualTo(expectedMethodAnn.getNested("constant").get().unwrap().values);
         };
     }
 }
