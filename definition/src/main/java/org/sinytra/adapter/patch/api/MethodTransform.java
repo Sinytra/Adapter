@@ -9,7 +9,7 @@ import java.util.Set;
 
 public interface MethodTransform {
     default Codec<? extends MethodTransform> codec() {
-        throw new UnsupportedOperationException("This transform is not serializable");
+        throw new UnsupportedOperationException("Transform %s is not serializable".formatted(getClass()));
     }
 
     default Collection<String> getAcceptedAnnotations() {

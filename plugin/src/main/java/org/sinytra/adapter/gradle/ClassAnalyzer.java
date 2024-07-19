@@ -382,27 +382,28 @@ public class ClassAnalyzer {
             for (int cleanIdx = 0, dirtyIdx = 0; cleanIdx < cleanLambdas.size() && dirtyIdx < dirtyLambdas.size(); ) {
                 String cleanLambda = cleanLambdas.get(cleanIdx);
                 String dirtyLambda = dirtyLambdas.get(cleanIdx);
-                if (cleanLambda.equals(dirtyLambda)) {
+                MethodNode cleanLambdaMethod = findUniqueMethod(this.cleanMethods, cleanLambda);
+                MethodNode dirtyLambdaMethod = findUniqueMethod(this.dirtyMethods, dirtyLambda);
+                if (cleanLambdaMethod.name.equals(dirtyLambdaMethod.name) && cleanLambdaMethod.desc.equals(dirtyLambdaMethod.desc)) {
                     cleanIdx++;
                     dirtyIdx++;
                 } else {
-                    boolean noDirty;
+                    boolean removed = !dirtyLambdas.contains(cleanLambda);
                     // Lambda removed in Forge, ignore
-                    if (noDirty = !dirtyLambdas.contains(cleanLambda)) {
+                    if (removed) {
                         cleanIdx++;
                     }
-                    // Lambda added by Forge, ignore
-                    if (!cleanLambdas.contains(dirtyLambda)) {
+                    if (cleanLambdas.contains(dirtyLambda)) {
+                        cleanIdx++;
                         dirtyIdx++;
 
                         // Lambda (likely) modified by Forge, proceed
-                        if (noDirty) {
-                            MethodNode cleanLambdaMethod = findUniqueMethod(this.cleanMethods, cleanLambda);
-                            MethodNode dirtyLambdaMethod = findUniqueMethod(this.dirtyMethods, dirtyLambda);
+                        if (!removed) {
                             tryFindExpandedMethod(patches, replacementCalls, cleanLambdaMethod, dirtyLambdaMethod);
                         }
-                    } else {
-                        cleanIdx++;
+                    }
+                    // Lambda added by Forge, ignore
+                    else {
                         dirtyIdx++;
                     }
                 }
@@ -453,7 +454,7 @@ public class ClassAnalyzer {
         Type[] parameterTypes = Type.getArgumentTypes(clean.desc);
         LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.compareMethodParameters(clean, dirty);
         if (!diff.isEmpty()) {
-            LayeredParamsDiffSnapshot valid = valiadateSnapshot(diff, parameterTypes, clean, dirty);
+            LayeredParamsDiffSnapshot valid = validateSnapshot(diff, parameterTypes, clean, dirty);
             if (valid == null) {
                 return;
             }
@@ -480,7 +481,7 @@ public class ClassAnalyzer {
         }
     }
 
-    private LayeredParamsDiffSnapshot valiadateSnapshot(LayeredParamsDiffSnapshot snapshot, Type[] parameterTypes, MethodNode clean, MethodNode dirty) {
+    private LayeredParamsDiffSnapshot validateSnapshot(LayeredParamsDiffSnapshot snapshot, Type[] parameterTypes, MethodNode clean, MethodNode dirty) {
         if (!snapshot.replacements().isEmpty()) {
             List<Pair<Integer, Type>> newReplacements = new ArrayList<>(snapshot.replacements());
             List<Pair<Integer, Integer>> swaps = new ArrayList<>();

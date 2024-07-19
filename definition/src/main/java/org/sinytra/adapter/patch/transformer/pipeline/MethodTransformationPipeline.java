@@ -37,6 +37,11 @@ public class MethodTransformationPipeline implements MethodTransform {
     }
 
     @Override
+    public Codec<? extends MethodTransform> codec() {
+        return CODEC;
+    }
+
+    @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
         for (MethodTransformFilter filter : filters) {
             if (!filter.test(methodContext)) {

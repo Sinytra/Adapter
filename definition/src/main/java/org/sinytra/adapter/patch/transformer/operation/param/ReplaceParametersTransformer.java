@@ -20,6 +20,7 @@ import java.util.List;
 import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 import static org.sinytra.adapter.patch.transformer.operation.param.ParamTransformationUtil.findWrapOperationOriginalCall;
 
+// TODO Just add @Coerce if the types are inherited
 public record ReplaceParametersTransformer(int index, Type type, boolean upgradeUsage) implements ParameterTransformer {
     static final Codec<ReplaceParametersTransformer> CODEC = RecordCodecBuilder.create(in -> in.group(
         Codec.intRange(0, 255).fieldOf("index").forGetter(ReplaceParametersTransformer::index),
