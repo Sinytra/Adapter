@@ -161,6 +161,13 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
                         int nextOp = insn.getNext().getOpcode();
                         if (bfu != null && nextOp != Opcodes.IFNULL && nextOp != Opcodes.IFNONNULL) {
                             TypeAdapter typeFix = bfu.getTypeAdapter(type, originalType);
+                            // If this is a wrap operation, make an educated guess and try adapting the instance type
+                            if (typeFix == null && annotation.matchesDesc(MixinConstants.WRAP_OPERATION)) {
+                                typeFix = bfu.getTypeAdapter(params[0], originalType);
+                                if (typeFix != null) {
+                                    varInsn.var = lvtLookup.getByParameterOrdinal(0).index;
+                                }
+                            }
                             if (typeFix != null) {
                                 typeFix.apply(methodNode.instructions, varInsn);
                             }

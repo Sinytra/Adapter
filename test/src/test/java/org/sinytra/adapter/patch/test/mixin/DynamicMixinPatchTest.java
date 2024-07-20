@@ -184,6 +184,26 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    @Test
+    void testModifiedWrapOperationTarget() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/PumpkinBlockMixin",
+            "isShears",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
+    void testModifiedWrapOperationTarget2() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/TripWireBlockMixin",
+            "isShears",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
     @Override
     protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
         final ClassNode patched = loadClass(className);
@@ -201,7 +221,7 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
             },
             createCleanLookup(),
             createDirtyLookup(),
-            null,
+            new BytecodeFixerUpperTestFrontend().unwrap(),
             FabricUtil.COMPATIBILITY_LATEST
         );
         DYNAMIC_PATCHES.forEach(p -> p.apply(patched, env));

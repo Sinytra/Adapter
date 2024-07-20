@@ -34,4 +34,18 @@ public interface MethodTransformBuilder<T extends MethodTransformBuilder<T>> {
     T transformMethods(List<MethodTransform> transformers);
 
     T chain(Consumer<T> consumer);
+
+    interface Class<T extends Class<T>> extends MethodTransformBuilder<T> {
+        default T modifyInjectionPoint(String value, String target) {
+            return modifyInjectionPoint(value, target, false);
+        }
+
+        T modifyInjectionPoint(String value, String target, boolean resetValues);
+
+        T modifyInjectionPoint(String value, String target, boolean resetValues, boolean dontUpgrade);
+
+        default T modifyInjectionPoint(String target) {
+            return modifyInjectionPoint(null, target);
+        }
+    }
 }

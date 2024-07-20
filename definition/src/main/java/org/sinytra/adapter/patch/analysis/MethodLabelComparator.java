@@ -12,7 +12,8 @@ import java.util.*;
 import java.util.stream.Stream;
 
 public class MethodLabelComparator {
-    public record ComparisonResult(List<List<AbstractInsnNode>> patchedLabels, List<AbstractInsnNode> cleanLabel) {}
+    public record ComparisonResult(List<List<AbstractInsnNode>> patchedLabels, List<AbstractInsnNode> cleanLabel) {
+    }
 
     @Nullable
     public static ComparisonResult findPatchedLabels(AbstractInsnNode cleanInjectionInsn, MethodContext methodContext) {
@@ -55,21 +56,28 @@ public class MethodLabelComparator {
         if (patchRange == null) {
             return null;
         }
-        
-        List<List<AbstractInsnNode>> patchedLabels = dirtyLabelsOriginal.subList(dirtyLabelsOriginal.indexOf(patchRange.getFirst()) + 1, dirtyLabelsOriginal.indexOf(patchRange.getSecond()));
+
+        int to = dirtyLabelsOriginal.indexOf(patchRange.getSecond());
+        List<List<AbstractInsnNode>> patchedLabels = patchRange.getFirst() == null ? dirtyLabelsOriginal.subList(0, to) : dirtyLabelsOriginal.subList(dirtyLabelsOriginal.indexOf(patchRange.getFirst()) + 1, to);
         return new ComparisonResult(patchedLabels, cleanLabel);
     }
 
     @Nullable
-    private static Pair<List<AbstractInsnNode>, List<AbstractInsnNode>> findPatchHunkRange(List<AbstractInsnNode> cleanLabel, List<List<AbstractInsnNode>> cleanLabels, Map<List<AbstractInsnNode>, List<AbstractInsnNode>> matchedLabels) {
+    private static Pair<@Nullable List<AbstractInsnNode>, List<AbstractInsnNode>> findPatchHunkRange(List<AbstractInsnNode> cleanLabel, List<List<AbstractInsnNode>> cleanLabels, Map<List<AbstractInsnNode>, List<AbstractInsnNode>> matchedLabels) {
         // Find last matched dirty label BEFORE the injection point
-        List<AbstractInsnNode> dirtyLabelBefore = Stream.iterate(cleanLabels.indexOf(cleanLabel), i -> i >= 0, i -> i - 1)
-            .map(i -> matchedLabels.get(cleanLabels.get(i)))
-            .filter(Objects::nonNull)
-            .findFirst()
-            .orElse(null);
-        if (dirtyLabelBefore == null) {
-            return null;
+        List<AbstractInsnNode> dirtyLabelBefore;
+        int cleanLabelOrdinal = cleanLabels.indexOf(cleanLabel);
+        if (cleanLabelOrdinal == 0) {
+            dirtyLabelBefore = null;
+        } else {
+            dirtyLabelBefore = Stream.iterate(cleanLabelOrdinal, i -> i >= 0, i -> i - 1)
+                .map(i -> matchedLabels.get(cleanLabels.get(i)))
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+            if (dirtyLabelBefore == null) {
+                return null;
+            }
         }
 
         // Find first matched dirty label AFTER the injection point

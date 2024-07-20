@@ -57,6 +57,7 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
 
         if (methodContext.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
             return handleWrapOperationToInstanceOf(cleanInjectionInsn, comparisonResult.cleanLabel(), hunkLabels, methodContext)
+                .orElseGet(() -> handleWrapOpertationNewInjectionPoint(cleanInjectionInsn, comparisonResult.cleanLabel(), hunkLabels, methodContext))
                 .orElseGet(() -> handleTargetModification(hunkLabels, methodContext));
         }
 
@@ -83,6 +84,26 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
         }
 
         return Patch.Result.PASS;
+    }
+
+    private static Patch.Result handleWrapOpertationNewInjectionPoint(AbstractInsnNode cleanInjectionInsn, List<AbstractInsnNode> cleanLabel, List<List<AbstractInsnNode>> hunkLabels, MethodContext methodContext) {
+        if (!(cleanInjectionInsn instanceof MethodInsnNode minsn) || hunkLabels.size() != 1) {
+            return Patch.Result.PASS;
+        }
+        Type cleanReturnType = Type.getReturnType(minsn.desc);
+        List<AbstractInsnNode> dirtyLabel = hunkLabels.getFirst();
+        List<String> cleanMethodCalls = cleanLabel.stream().filter(i -> i instanceof MethodInsnNode m && m.owner.equals(minsn.owner) && Type.getReturnType(m.desc).equals(cleanReturnType)).map(i -> ((MethodInsnNode) i).name).toList();
+        List<MethodInsnNode> methodCalls = dirtyLabel.stream()
+            .filter(i -> i instanceof MethodInsnNode m && m.owner.equals(minsn.owner) && Type.getReturnType(m.desc).equals(cleanReturnType) && !cleanMethodCalls.contains(m.name))
+            .map(i -> (MethodInsnNode) i)
+            .toList();
+        if (methodCalls.size() != 1) {
+            return Patch.Result.PASS;
+        }
+        MethodInsnNode dirtyMinsn = methodCalls.getFirst();
+        return BundledMethodTransform.builder()
+            .modifyInjectionPoint("INVOKE", MethodCallAnalyzer.getCallQualifier(dirtyMinsn))
+            .apply(methodContext);
     }
 
     private static Patch.Result handleWrapOperationToInstanceOf(AbstractInsnNode cleanInjectionInsn, List<AbstractInsnNode> cleanLabel, List<List<AbstractInsnNode>> hunkLabels, MethodContext methodContext) {

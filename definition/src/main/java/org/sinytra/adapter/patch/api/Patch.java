@@ -64,7 +64,7 @@ public interface Patch {
         PatchInstance build();
     }
 
-    interface ClassPatchBuilder extends Builder<ClassPatchBuilder> {
+    interface ClassPatchBuilder extends Builder<ClassPatchBuilder>, MethodTransformBuilder.Class<ClassPatchBuilder> {
         ClassPatchBuilder targetMethod(String... targets);
 
         default ClassPatchBuilder targetInjectionPoint(String target) {
@@ -83,18 +83,6 @@ public interface Patch {
                                 && (t.getFirst().equals("doubleValue=" + doubleValue + "D") || t.getFirst().equals("doubleValue=" + doubleValue)))
                             .orElse(false)))
                     .orElse(false)));
-        }
-
-        default ClassPatchBuilder modifyInjectionPoint(String value, String target) {
-            return modifyInjectionPoint(value, target, false);
-        }
-
-        ClassPatchBuilder modifyInjectionPoint(String value, String target, boolean resetValues);
-
-        ClassPatchBuilder modifyInjectionPoint(String value, String target, boolean resetValues, boolean dontUpgrade);
-
-        default ClassPatchBuilder modifyInjectionPoint(String target) {
-            return modifyInjectionPoint(null, target);
         }
 
         ClassPatchBuilder divertRedirector(Consumer<InstructionAdapter> patcher);

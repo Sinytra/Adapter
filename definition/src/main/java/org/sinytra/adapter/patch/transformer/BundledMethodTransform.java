@@ -26,7 +26,7 @@ public record BundledMethodTransform(List<MethodTransform> transforms) implement
         return new Builder();
     }
 
-    public static class Builder extends MethodTransformBuilderImpl<Builder> {
+    public static class Builder extends MethodTransformBuilderImpl.ClassImpl<Builder> {
         private Builder() {}
 
         public MethodTransform build() {
