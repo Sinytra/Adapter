@@ -31,7 +31,7 @@ public record SoftMethodParamsPatch(String replacementTarget, MethodTransform ta
 
     @Override
     public Collection<String> getAcceptedAnnotations() {
-        return Set.of(MixinConstants.INJECT);
+        return Set.of(MixinConstants.INJECT, MixinConstants.REDIRECT);
     }
 
     @Override

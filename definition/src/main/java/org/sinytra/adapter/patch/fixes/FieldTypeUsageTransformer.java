@@ -18,6 +18,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
+
 public class FieldTypeUsageTransformer implements ClassTransform {
     private static final Logger LOGGER = LogUtils.getLogger();
 
@@ -89,7 +91,7 @@ public class FieldTypeUsageTransformer implements ClassTransform {
     private static boolean runFieldFix(BytecodeFixerUpper bfu, Pair<Type, Type> updatedTypes, MethodNode method, FieldInsnNode finsn) {
         TypeAdapter typeAdapter = bfu.getTypeAdapter(updatedTypes.getSecond(), updatedTypes.getFirst());
         if (typeAdapter != null) {
-            LOGGER.info("Running fixup for field {}.{}{} in method {}{}", finsn.owner, finsn.name, finsn.desc, method.name, method.desc);
+            LOGGER.debug(MIXINPATCH, "Running fixup for field {}.{}{} in method {}{}", finsn.owner, finsn.name, finsn.desc, method.name, method.desc);
             finsn.desc = updatedTypes.getSecond().getDescriptor();
             typeAdapter.apply(method.instructions, finsn);
             return true;

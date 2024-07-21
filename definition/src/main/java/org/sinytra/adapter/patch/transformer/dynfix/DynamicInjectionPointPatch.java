@@ -23,8 +23,9 @@ public class DynamicInjectionPointPatch implements MethodTransform {
         new DynFixSliceBoundary(),
         new DynFixAtVariableAssignStore(),
         new DynFixSplitMethod(),
-        // Have this one always come last
+        new DynFixParameterTypeAdapter(),
         new DynFixMethodComparison(),
+        // Have this one always come last
         new DynFixArbitraryInjectionPoint()
     );
 

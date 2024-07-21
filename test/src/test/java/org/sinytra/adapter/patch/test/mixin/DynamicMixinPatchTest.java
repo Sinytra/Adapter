@@ -6,6 +6,7 @@ import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchEnvironment;
 import org.sinytra.adapter.patch.api.RefmapHolder;
 import org.sinytra.adapter.patch.fixes.FieldTypeUsageTransformer;
+import org.sinytra.adapter.patch.transformer.SoftMethodParamsPatch;
 import org.sinytra.adapter.patch.transformer.dynfix.DynamicInjectionPointPatch;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 import org.spongepowered.asm.mixin.FabricUtil;
@@ -212,6 +213,16 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         assertSameField(
             "org/sinytra/adapter/test/mixin/CrossbowAttackGoalMixin",
             "mob"
+        );
+    }
+
+    @Test
+    void testDynamicParameterTypeAdapter() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/CrossbowAttackGoalMixin",
+            "redirectedGetHandPossiblyHolding",
+            assertTargetMethod(),
+            assertInjectionPoint()
         );
     }
 
