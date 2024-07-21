@@ -5,11 +5,11 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.assertj.core.api.Assertions;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.api.MixinClassGenerator;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.PatchEnvironment;
-import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 import org.sinytra.adapter.patch.util.provider.ZipClassLookup;
@@ -30,8 +30,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import java.util.zip.ZipFile;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public abstract class MinecraftMixinPatchTest {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -91,6 +90,23 @@ public abstract class MinecraftMixinPatchTest {
             .containsExactlyInAnyOrder(expected.localVariables.toArray(LocalVariableNode[]::new));
 
         Stream.of(assertions).forEach(c -> c.accept(patched, expected, result.env()));
+    }
+
+    protected final void assertSameField(
+        String className,
+        String testName
+    ) throws Exception {
+        final LoadResult result = load(className, List.of(testName));
+        final FieldNode patched = result.patched.fields
+            .stream().filter(m -> m.name.equals(testName))
+            .findFirst().orElseThrow();
+        final FieldNode expected = result.expected.fields
+            .stream().filter(m -> m.name.equals(testName + "Expected"))
+            .findFirst().orElseThrow();
+
+        LOGGER.info("Patched field node: \n{}", patched);
+
+        assertEquals(patched.desc, expected.desc, "Field types differ");
     }
 
     public static class InsnComparator implements Comparator<AbstractInsnNode> {

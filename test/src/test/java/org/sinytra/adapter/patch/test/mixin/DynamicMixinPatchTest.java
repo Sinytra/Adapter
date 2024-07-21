@@ -5,7 +5,9 @@ import org.objectweb.asm.tree.ClassNode;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchEnvironment;
 import org.sinytra.adapter.patch.api.RefmapHolder;
+import org.sinytra.adapter.patch.fixes.FieldTypeUsageTransformer;
 import org.sinytra.adapter.patch.transformer.dynfix.DynamicInjectionPointPatch;
+import org.sinytra.adapter.patch.util.provider.ClassLookup;
 import org.spongepowered.asm.mixin.FabricUtil;
 
 import java.util.List;
@@ -14,6 +16,7 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     private static final List<Patch> DYNAMIC_PATCHES = List.of(
         Patch.builder()
             .transform(new DynamicInjectionPointPatch())
+            .transform(new FieldTypeUsageTransformer())
             .build()
     );
 
@@ -204,10 +207,20 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    @Test
+    void testModifiedFieldType() throws Exception {
+        assertSameField(
+            "org/sinytra/adapter/test/mixin/CrossbowAttackGoalMixin",
+            "mob"
+        );
+    }
+
     @Override
     protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
         final ClassNode patched = loadClass(className);
         patched.methods.removeIf(m -> !allowedMethods.contains(m.name));
+        ClassLookup cleanLookup = createCleanLookup();
+        ClassLookup dirtyLookup = createDirtyLookup();
         final PatchEnvironment env = PatchEnvironment.create(
             new RefmapHolder() {
                 @Override
@@ -221,7 +234,7 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
             },
             createCleanLookup(),
             createDirtyLookup(),
-            new BytecodeFixerUpperTestFrontend().unwrap(),
+            new BytecodeFixerUpperTestFrontend(cleanLookup, dirtyLookup).unwrap(),
             FabricUtil.COMPATIBILITY_LATEST
         );
         DYNAMIC_PATCHES.forEach(p -> p.apply(patched, env));

@@ -3,26 +3,33 @@ package org.sinytra.adapter.patch.fixes;
 import com.mojang.datafixers.util.Pair;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.FieldNode;
+import org.sinytra.adapter.patch.util.provider.ClassLookup;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class BytecodeFixerUpper {
     public static final List<TypeAdapterProvider> DEFAULT_PROVIDERS = List.of(
         SupplierTypeAdapter.INSTANCE
     );
 
-    private final Map<String, Map<String, Pair<Type, Type>>> newFieldTypes;
     private final List<TypeAdapter> fieldTypeAdapters;
     private final List<TypeAdapterProvider> dynamicTypeAdapters;
     private final BytecodeFixerJarGenerator generator;
+    private final ClassLookup cleanLookup;
+    private final ClassLookup dirtyLookup;
 
-    public BytecodeFixerUpper(Map<String, Map<String, Pair<Type, Type>>> newFieldTypes, List<TypeAdapter> fieldTypeAdapters) {
-        this(newFieldTypes, fieldTypeAdapters, DEFAULT_PROVIDERS);
+    private final Map<String, Pair<Type, Type>> fieldTypeChangesCache = new ConcurrentHashMap<>();
+
+    public BytecodeFixerUpper(ClassLookup cleanLookup, ClassLookup dirtyLookup, List<TypeAdapter> fieldTypeAdapters) {
+        this(cleanLookup, dirtyLookup, fieldTypeAdapters, DEFAULT_PROVIDERS);
     }
 
-    public BytecodeFixerUpper(Map<String, Map<String, Pair<Type, Type>>> newFieldTypes, List<TypeAdapter> fieldTypeAdapters, List<TypeAdapterProvider> dynamicTypeAdapters) {
-        this.newFieldTypes = newFieldTypes;
+    public BytecodeFixerUpper(ClassLookup cleanLookup, ClassLookup dirtyLookup, List<TypeAdapter> fieldTypeAdapters, List<TypeAdapterProvider> dynamicTypeAdapters) {
+        this.cleanLookup = cleanLookup;
+        this.dirtyLookup = dirtyLookup;
         this.fieldTypeAdapters = fieldTypeAdapters;
         this.dynamicTypeAdapters = dynamicTypeAdapters;
         this.generator = new BytecodeFixerJarGenerator();
@@ -33,8 +40,21 @@ public final class BytecodeFixerUpper {
     }
 
     public Pair<Type, Type> getFieldTypeChange(String owner, String name) {
-        Map<String, Pair<Type, Type>> fields = this.newFieldTypes.get(owner);
-        return fields != null ? fields.get(name) : null;
+        String key = owner + ":" + name;
+        return fieldTypeChangesCache.computeIfAbsent(key, k -> {
+            FieldNode cleanField = this.cleanLookup.findField(owner, name).orElse(null);
+            if (cleanField == null) {
+                return null;
+            }
+            FieldNode dirtyField = this.dirtyLookup.findField(owner, name).orElse(null);
+            if (dirtyField == null) {
+                return null;
+            }
+            if (!cleanField.desc.equals(dirtyField.desc)) {
+                return Pair.of(Type.getType(cleanField.desc), Type.getType(dirtyField.desc));
+            }
+            return null;
+        });
     }
 
     @Nullable

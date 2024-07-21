@@ -6,9 +6,9 @@ import org.objectweb.asm.tree.MethodInsnNode;
 import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
 import org.sinytra.adapter.patch.fixes.SimpleTypeAdapter;
 import org.sinytra.adapter.patch.fixes.TypeAdapter;
+import org.sinytra.adapter.patch.util.provider.ClassLookup;
 
 import java.util.List;
-import java.util.Map;
 
 public class BytecodeFixerUpperTestFrontend {
     private static final List<TypeAdapter> FIELD_TYPE_ADAPTERS = List.of(
@@ -18,8 +18,8 @@ public class BytecodeFixerUpperTestFrontend {
 
     private final BytecodeFixerUpper bfu;
 
-    public BytecodeFixerUpperTestFrontend() {
-        this.bfu = new BytecodeFixerUpper(Map.of(), FIELD_TYPE_ADAPTERS);
+    public BytecodeFixerUpperTestFrontend(ClassLookup cleanLookup, ClassLookup dirtyLookup) {
+        this.bfu = new BytecodeFixerUpper(cleanLookup, dirtyLookup, FIELD_TYPE_ADAPTERS);
     }
 
     public BytecodeFixerUpper unwrap() {
