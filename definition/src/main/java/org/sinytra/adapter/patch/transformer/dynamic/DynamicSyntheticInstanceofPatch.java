@@ -58,7 +58,10 @@ public class DynamicSyntheticInstanceofPatch implements MethodTransform {
                 if (cleanMatcher.test(dirtyMatcher)) {
                     // ModifyExpressionValue doesn't include the original instanceof call, so we can skip comparing instructions
                     if (methodContext.methodAnnotation().matchesDesc(MixinConstants.MODIFY_EXPR_VAL)) {
-                        TypeInsnNode instanceOfInsn = (TypeInsnNode) findLabelInsns(insn).stream().filter(i -> i.getOpcode() == Opcodes.INSTANCEOF).findFirst().orElseThrow();
+                        TypeInsnNode instanceOfInsn = (TypeInsnNode) findLabelInsns(insn).stream().filter(i -> i.getOpcode() == Opcodes.INSTANCEOF).findFirst().orElse(null);
+                        if (instanceOfInsn == null) {
+                            return Patch.Result.PASS;
+                        }
                         MethodTransform transform = new ModifyMixinType(MixinConstants.MODIFY_INSTANCEOF_VAL, b -> {
                             b.sameTarget().injectionPoint("sinytra:INSTANCEOF", instanceOfInsn.desc);
                             int ordinal = getInstanceofOrdinal(dirtyInsns, instanceOfInsn);
