@@ -69,7 +69,7 @@ public class DynFixSplitMethod implements DynamicFixer<DynFixSplitMethod.Data> {
         if (candidates.isEmpty()) {
             List<MethodNode> nestedLambdas = invocations.stream()
                 .flatMap(m -> MethodCallAnalyzer.findLambdasInMethod(dirtyTargetClass, m, null).stream())
-                .map(s -> MethodCallAnalyzer.findMethodByUniqueName(dirtyTargetClass, s))
+                .flatMap(s -> MethodCallAnalyzer.findMethodByUniqueName(dirtyTargetClass, s).stream())
                 .toList();
             candidates = findInsnsCalls(nestedLambdas, methodContext);
         }

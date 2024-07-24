@@ -205,8 +205,8 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
         for (List<AbstractInsnNode> insns : hunkLabels) {
             for (AbstractInsnNode insn : insns) {
                 if (insn instanceof MethodInsnNode minsn && minsn.owner.equals(dirtyTarget.name)) {
-                    MethodNode method = MethodCallAnalyzer.findMethodByUniqueName(dirtyTarget, minsn.name);
-                    if (!methodContext.findInjectionTargetInsns(new MethodContext.TargetPair(dirtyTarget, method)).isEmpty()) {
+                    MethodNode method = MethodCallAnalyzer.findMethodByUniqueName(dirtyTarget, minsn.name).orElse(null);
+                    if (method != null && !methodContext.findInjectionTargetInsns(new MethodContext.TargetPair(dirtyTarget, method)).isEmpty()) {
                         return BundledMethodTransform.builder().modifyTarget(minsn.name + minsn.desc).apply(methodContext);
                     }
                 }

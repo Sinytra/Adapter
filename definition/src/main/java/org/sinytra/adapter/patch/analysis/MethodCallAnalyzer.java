@@ -42,12 +42,12 @@ public class MethodCallAnalyzer {
         return list;
     }
 
-    public static MethodNode findMethodByUniqueName(ClassNode cls, String name) {
+    public static Optional<MethodNode> findMethodByUniqueName(ClassNode cls, String name) {
         List<MethodNode> methods = cls.methods.stream().filter(m -> m.name.equals(name)).toList();
         if (methods.size() != 1) {
-            throw new IllegalStateException("Multiple candidates found for method " + name + " in class " + cls.name);
+            return Optional.empty();
         }
-        return methods.getFirst();
+        return Optional.of(methods.getFirst());
     }
 
     public static Multimap<String, MethodInsnNode> getMethodCalls(MethodNode node, List<String> callOrder) {
