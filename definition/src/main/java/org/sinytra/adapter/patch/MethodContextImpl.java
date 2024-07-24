@@ -9,6 +9,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
 import org.sinytra.adapter.patch.api.MethodContext;
+import org.sinytra.adapter.patch.api.MethodTransform;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.PatchContext;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
@@ -127,10 +128,10 @@ public final class MethodContextImpl implements MethodContext {
     }
 
     @Override
-    public void updateDescription(List<Type> parameters) {
+    public void updateDescription(MethodTransform transform, List<Type> parameters) {
         Type returnType = Type.getReturnType(this.methodNode.desc);
         String newDesc = Type.getMethodDescriptor(returnType, parameters.toArray(Type[]::new));
-        LOGGER.info(PatchInstance.MIXINPATCH, "Changing descriptor of method {}.{}{} to {}", this.classNode.name, this.methodNode.name, this.methodNode.desc, newDesc);
+        recordAudit(transform, "Change descriptor to %s", newDesc);
         this.methodNode.desc = newDesc;
         this.methodNode.signature = null;
     }
@@ -222,6 +223,11 @@ public final class MethodContextImpl implements MethodContext {
     @Override
     public boolean hasInjectionPointValue(String value) {
         return this.injectionPointAnnotation != null && this.injectionPointAnnotation.<String>getValue("value").map(v -> value.equals(v.get())).orElse(false);
+    }
+
+    @Override
+    public void recordAudit(Object transform, String message, Object... args) {
+        this.patchContext.environment().auditTrail().recordAudit(transform, this, message, args);
     }
 
     private InsnList getSlicedInsns(AnnotationHandle parentAnnotation, ClassNode classNode, MethodNode injectorMethod, ClassNode targetClass, MethodNode targetMethod, PatchContext context, Target mixinTarget) {

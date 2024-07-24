@@ -10,11 +10,12 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.analysis.MethodLabelComparator;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.Patch;
+import org.sinytra.adapter.patch.api.PatchAuditTrail;
 import org.sinytra.adapter.patch.fixes.MethodUpgrader;
-import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.transformer.BundledMethodTransform;
 import org.sinytra.adapter.patch.transformer.operation.ModifyInjectionPoint;
 import org.sinytra.adapter.patch.transformer.operation.param.*;
@@ -23,6 +24,7 @@ import org.sinytra.adapter.patch.util.AdapterUtil;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparison.Data> {
@@ -47,18 +49,20 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
     }
 
     @Override
-    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, Data data) {
+    @Nullable
+    public FixResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchAuditTrail auditTrail, Data data) {
         AbstractInsnNode cleanInjectionInsn = data.cleanInjectionInsn();
         MethodLabelComparator.ComparisonResult comparisonResult = MethodLabelComparator.findPatchedLabels(cleanInjectionInsn, methodContext);
         if (comparisonResult == null) {
-            return Patch.Result.PASS;
+            return null;
         }
         List<List<AbstractInsnNode>> hunkLabels = comparisonResult.patchedLabels();
 
         if (methodContext.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
             return handleWrapOperationToInstanceOf(cleanInjectionInsn, comparisonResult.cleanLabel(), hunkLabels, methodContext)
-                .orElseGet(() -> handleWrapOpertationNewInjectionPoint(cleanInjectionInsn, comparisonResult.cleanLabel(), hunkLabels, methodContext))
-                .orElseGet(() -> handleTargetModification(hunkLabels, methodContext));
+                .or(() -> handleWrapOpertationNewInjectionPoint(cleanInjectionInsn, comparisonResult.cleanLabel(), hunkLabels, methodContext))
+                .or(() -> handleTargetModification(hunkLabels, methodContext))
+                .orElse(null);
         }
 
         ClassNode cleanTargetClass = methodContext.findCleanInjectionTarget().classNode();
@@ -67,7 +71,7 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
                 if (insn instanceof MethodInsnNode minsn && minsn.getOpcode() == Opcodes.INVOKESTATIC && !minsn.owner.equals(cleanTargetClass.name)) {
                     Patch.Result result = attemptExtractMixin(minsn, methodContext);
                     if (result != Patch.Result.PASS) {
-                        return result;
+                        return FixResult.of(result, PatchAuditTrail.Match.FULL);
                     }
                 }
             }
@@ -78,17 +82,17 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
             for (AbstractInsnNode insn : insns) {
                 if (insn instanceof MethodInsnNode minsn) {
                     String newInjectionPoint = Type.getObjectType(minsn.owner).getDescriptor() + minsn.name + minsn.desc;
-                    return new ModifyInjectionPoint("INVOKE", newInjectionPoint, true, false).apply(methodContext);
+                    return FixResult.of(new ModifyInjectionPoint("INVOKE", newInjectionPoint, true, false).apply(methodContext), PatchAuditTrail.Match.PARTIAL);
                 }
             }
         }
 
-        return Patch.Result.PASS;
+        return null;
     }
 
-    private static Patch.Result handleWrapOpertationNewInjectionPoint(AbstractInsnNode cleanInjectionInsn, List<AbstractInsnNode> cleanLabel, List<List<AbstractInsnNode>> hunkLabels, MethodContext methodContext) {
+    private static Optional<FixResult> handleWrapOpertationNewInjectionPoint(AbstractInsnNode cleanInjectionInsn, List<AbstractInsnNode> cleanLabel, List<List<AbstractInsnNode>> hunkLabels, MethodContext methodContext) {
         if (!(cleanInjectionInsn instanceof MethodInsnNode minsn) || hunkLabels.size() != 1) {
-            return Patch.Result.PASS;
+            return Optional.empty();
         }
         Type cleanReturnType = Type.getReturnType(minsn.desc);
         List<AbstractInsnNode> dirtyLabel = hunkLabels.getFirst();
@@ -98,25 +102,25 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
             .map(i -> (MethodInsnNode) i)
             .toList();
         if (methodCalls.size() != 1) {
-            return Patch.Result.PASS;
+            return Optional.empty();
         }
         MethodInsnNode dirtyMinsn = methodCalls.getFirst();
-        return BundledMethodTransform.builder()
+        return Optional.of(FixResult.of(BundledMethodTransform.builder()
             .modifyInjectionPoint("INVOKE", MethodCallAnalyzer.getCallQualifier(dirtyMinsn))
-            .apply(methodContext);
+            .apply(methodContext), PatchAuditTrail.Match.FULL));
     }
 
-    private static Patch.Result handleWrapOperationToInstanceOf(AbstractInsnNode cleanInjectionInsn, List<AbstractInsnNode> cleanLabel, List<List<AbstractInsnNode>> hunkLabels, MethodContext methodContext) {
+    private static Optional<FixResult> handleWrapOperationToInstanceOf(AbstractInsnNode cleanInjectionInsn, List<AbstractInsnNode> cleanLabel, List<List<AbstractInsnNode>> hunkLabels, MethodContext methodContext) {
         if (!(cleanInjectionInsn instanceof MethodInsnNode minsn) || hunkLabels.size() != 1 || !(cleanLabel.getLast() instanceof JumpInsnNode) || cleanLabel.stream().anyMatch(i -> i instanceof TypeInsnNode)) {
-            return Patch.Result.PASS;
+            return Optional.empty();
         }
         List<AbstractInsnNode> dirtyLabel = hunkLabels.getFirst();
         if (!(dirtyLabel.getLast() instanceof JumpInsnNode)) {
-            return Patch.Result.PASS;
+            return Optional.empty();
         }
         List<TypeInsnNode> instanceOfCalls = dirtyLabel.stream().filter(i -> i instanceof TypeInsnNode).map(i -> (TypeInsnNode) i).toList();
         if (instanceOfCalls.size() != 1) {
-            return Patch.Result.PASS;
+            return Optional.empty();
         }
         TypeInsnNode instanceOfCall = instanceOfCalls.getFirst();
         MethodNode methodNode = methodContext.getMixinMethod();
@@ -152,11 +156,11 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
             if (paramVar == instanceLocal.index) {
                 int cleanOrdinal = methodContext.cleanLocalsTable().getTypedOrdinal(methodContext.cleanLocalsTable().getByIndex(((VarInsnNode) originalCallArgs.getFirst()).var)).orElse(-1);
                 if (cleanOrdinal == -1) {
-                    return Patch.Result.PASS;
+                    return Optional.empty();
                 }
                 LocalVariableNode dirtyLocal = methodContext.dirtyLocalsTable().getByTypedOrdinal(Type.getType(instanceLocal.desc), cleanOrdinal).orElse(null);
                 if (dirtyLocal == null) {
-                    return Patch.Result.PASS;
+                    return Optional.empty();
                 }
                 TransformParameters.builder()
                     .transform(new InjectParameterTransform(argsTypes.length, Type.getType(dirtyLocal.desc), false))
@@ -172,7 +176,7 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
                 String loadedType = instanceOfCall.getPrevious() instanceof MethodInsnNode m ? Type.getReturnType(m.desc).getDescriptor() : null;
                 LocalVariableNode node = mixinLocals.getByIndex(paramVar);
                 if (loadedType == null || !loadedType.equals(node.desc)) {
-                    return Patch.Result.PASS;
+                    return Optional.empty();
                 }
                 usedVars.get(paramVar).forEach(varInsn -> varInsn.var = instanceLocal.index);
             }
@@ -188,31 +192,31 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
             .build()
             .apply(methodContext);
         if (result == Patch.Result.PASS) {
-            return Patch.Result.PASS;
+            return Optional.empty();
         }
 
-        AnnotationHandle ann = methodContext.methodAnnotation(); 
+        AnnotationHandle ann = methodContext.methodAnnotation();
         ann.removeValues("at");
         AnnotationVisitor visitor = ann.unwrap().visitAnnotation("constant", MixinConstants.CONSTANT);
         visitor.visit("classValue", Type.getObjectType(instanceOfCall.desc));
         visitor.visitEnd();
 
-        return Patch.Result.APPLY;
+        return Optional.of(FixResult.of(Patch.Result.APPLY, PatchAuditTrail.Match.FULL));
     }
 
-    private static Patch.Result handleTargetModification(List<List<AbstractInsnNode>> hunkLabels, MethodContext methodContext) {
+    private static Optional<FixResult> handleTargetModification(List<List<AbstractInsnNode>> hunkLabels, MethodContext methodContext) {
         ClassNode dirtyTarget = methodContext.findDirtyInjectionTarget().classNode();
         for (List<AbstractInsnNode> insns : hunkLabels) {
             for (AbstractInsnNode insn : insns) {
                 if (insn instanceof MethodInsnNode minsn && minsn.owner.equals(dirtyTarget.name)) {
                     MethodNode method = MethodCallAnalyzer.findMethodByUniqueName(dirtyTarget, minsn.name).orElse(null);
                     if (method != null && !methodContext.findInjectionTargetInsns(new MethodContext.TargetPair(dirtyTarget, method)).isEmpty()) {
-                        return BundledMethodTransform.builder().modifyTarget(minsn.name + minsn.desc).apply(methodContext);
+                        return Optional.of(FixResult.of(BundledMethodTransform.builder().modifyTarget(minsn.name + minsn.desc).apply(methodContext), PatchAuditTrail.Match.FULL));
                     }
                 }
             }
         }
-        return Patch.Result.PASS;
+        return Optional.empty();
     }
 
     private static Patch.Result attemptExtractMixin(MethodInsnNode minsn, MethodContext methodContext) {

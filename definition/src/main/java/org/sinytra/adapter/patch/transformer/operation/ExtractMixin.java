@@ -70,8 +70,10 @@ public record ExtractMixin(String targetClass, boolean remove) implements Method
             result = result.or(recreateLocalVariables(classNode, methodNode, methodContext, context, generatedTarget));
         }
 
+        methodContext.recordAudit(this, "Extract mixin to target %s", this.targetClass);
         // Remove original method
         if (this.remove) {
+            methodContext.recordAudit(this, "Remove original method");
             context.postApply(() -> classNode.methods.removeAll(candidates.methods));
         }
         return result.or(Patch.Result.APPLY);

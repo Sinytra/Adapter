@@ -1,24 +1,28 @@
 package org.sinytra.adapter.patch.fixes;
 
 import com.google.common.collect.ImmutableList;
+import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.analysis.LocalVarAnalyzer;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MethodTransform;
 import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformTarget;
 import org.sinytra.adapter.patch.transformer.operation.param.ParameterTransformer;
 import org.sinytra.adapter.patch.transformer.operation.param.TransformParameters;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
+import java.util.Comparator;
 import java.util.List;
 
 public final class MethodUpgrader {
@@ -32,10 +36,47 @@ public final class MethodUpgrader {
         if (dirtyQualifier == null) {
             return;
         }
-        if (methodContext.methodAnnotation().matchesDesc(MixinConstants.MODIFY_ARGS)) {
+        AnnotationHandle annotation = methodContext.methodAnnotation();
+        if (annotation.matchesDesc(MixinConstants.MODIFY_ARGS)) {
             ModifyArgsOffsetTransformer.handleModifiedDesc(methodNode, cleanQualifier.desc(), dirtyQualifier.desc());
-        } else if (methodContext.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
+        } else if (annotation.matchesDesc(MixinConstants.WRAP_OPERATION)) {
             upgradeWrapOperation(methodNode, methodContext, cleanQualifier, dirtyQualifier);
+        } else if (annotation.matchesDesc(MixinConstants.MODIFY_EXPR_VAL)) {
+            upgradeModifyExpValue(methodNode, methodContext, cleanQualifier, dirtyQualifier);
+        }
+    }
+
+    private static void upgradeModifyExpValue(MethodNode methodNode, MethodContext methodContext, MethodQualifier cleanQualifier, MethodQualifier dirtyQualifier) {
+        if (dirtyQualifier.desc() == null || cleanQualifier.desc() == null) {
+            return;
+        }
+        List<Type> originalTargetDesc = List.of(Type.getArgumentTypes(cleanQualifier.desc()));
+        List<Type> modifiedTargetDesc = List.of(Type.getArgumentTypes(dirtyQualifier.desc()));
+        List<Type> originalDesc = List.of(Type.getArgumentTypes(methodNode.desc));
+        final List<Type> originalDescRef = originalDesc;
+        List<Pair<AnnotationNode, Type>> localAnnotations = AdapterUtil.getAnnotatedParameters(methodNode, originalDesc.toArray(Type[]::new), MixinConstants.LOCAL, Pair::of).stream()
+            .sorted(Comparator.comparingInt(i -> originalDescRef.indexOf(i.getSecond())))
+            .toList();
+        if (!localAnnotations.isEmpty()) {
+            originalDesc = originalDesc.subList(0, originalDesc.indexOf(localAnnotations.getFirst().getSecond()));
+        }
+        if (originalDesc.size() == 1) {
+            return;
+        }
+
+        int capturedParams = Math.min(originalTargetDesc.size(), originalDesc.size() - 1);
+        int popParams = originalTargetDesc.size() - capturedParams;
+        List<Type> modifiedDesc = ImmutableList.<Type>builder()
+            // Add return object parameter
+            .add(originalDesc.getFirst())
+            // Add target parameters
+            .addAll(modifiedTargetDesc.subList(0, modifiedTargetDesc.size() - popParams))
+            .build();
+        // Create diff
+        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(originalDesc, modifiedDesc);
+        if (!diff.isEmpty()) {
+            MethodTransform patch = diff.asParameterTransformer(ParamTransformTarget.ALL, false, false);
+            patch.apply(methodContext);
         }
     }
 

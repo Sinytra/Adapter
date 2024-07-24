@@ -57,7 +57,7 @@ public interface MethodContext {
     @Nullable
     Pair<ClassNode, List<MethodNode>> findInjectionTargetCandidates(ClassLookup lookup, boolean ignoreDesc);
 
-    void updateDescription(List<Type> parameters);
+    void updateDescription(MethodTransform transform, List<Type> parameters);
 
     boolean isStatic();
 
@@ -79,6 +79,8 @@ public interface MethodContext {
     boolean failsDirtyInjectionCheck();
 
     boolean hasInjectionPointValue(String value);
+
+    void recordAudit(Object transform, String message, Object... args);
 
     record LocalVariable(int index, Type type) {}
 

@@ -42,10 +42,6 @@ public interface Patch {
             }
             return this;
         }
-
-        public Result orElseGet(Supplier<Result> other) {
-            return this == PASS ? other.get() : this;
-        }
     }
 
     interface Builder<T extends Builder<T>> extends MethodTransformBuilder<T> {

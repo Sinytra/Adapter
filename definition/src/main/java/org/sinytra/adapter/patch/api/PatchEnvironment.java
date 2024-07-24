@@ -29,4 +29,6 @@ public interface PatchEnvironment {
     RefmapHolder refmapHolder();
 
     int fabricLVTCompatibility();
+
+    PatchAuditTrail auditTrail();
 }

@@ -1,20 +1,16 @@
 package org.sinytra.adapter.patch.transformer.dynfix;
 
-import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.api.Patch;
+import org.sinytra.adapter.patch.api.PatchAuditTrail;
 import org.sinytra.adapter.patch.transformer.operation.ModifyInjectionTarget;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.OpcodeUtil;
-import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
 /**
  * Handle cases where a single method is split into multiple smaller pieces.
@@ -22,7 +18,6 @@ import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
  */
 public class DynFixSplitMethod implements DynamicFixer<DynFixSplitMethod.Data> {
     private static final String DEPRECATED = "Ljava/lang/Deprecated;";
-    private static final Logger LOGGER = LogUtils.getLogger();
 
     public record Data() {}
 
@@ -36,14 +31,15 @@ public class DynFixSplitMethod implements DynamicFixer<DynFixSplitMethod.Data> {
     }
 
     @Override
-    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, Data data) {
+    @Nullable
+    public FixResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchAuditTrail auditTrail, Data data) {
         MethodNode cleanTargetMethod = methodContext.findCleanInjectionTarget().methodNode();
         ClassNode dirtyTargetClass = methodContext.findDirtyInjectionTarget().classNode();
         MethodNode dirtyTargetMethod = methodContext.findDirtyInjectionTarget().methodNode();
 
         // Check that a Deprecated annotation was added to the dirty method 
         if (AdapterUtil.hasAnnotation(cleanTargetMethod.visibleAnnotations, DEPRECATED) || !AdapterUtil.hasAnnotation(dirtyTargetMethod.visibleAnnotations, DEPRECATED)) {
-            return Patch.Result.PASS;
+            return null;
         }
 
         // Iterate over isns, leave out first and last elements
@@ -58,7 +54,7 @@ public class DynFixSplitMethod implements DynamicFixer<DynFixSplitMethod.Data> {
                     MethodNode method = dirtyTargetClass.methods.stream().filter(m -> m.name.equals(methodInsn.name) && m.desc.equals(methodInsn.desc)).findFirst().orElseThrow();
                     invocations.add(method);
                 } else if (previous == null || !OpcodeUtil.isReturnOpcode(previous.getOpcode())) {
-                    return Patch.Result.PASS;
+                    return null;
                 }
             }
         }
@@ -77,11 +73,11 @@ public class DynFixSplitMethod implements DynamicFixer<DynFixSplitMethod.Data> {
         if (candidates.size() == 1) {
             MethodNode method = candidates.getFirst();
             String newTarget = method.name + method.desc;
-            LOGGER.debug(MIXINPATCH, "Adjusting split method target of {}.{} to {}", classNode.name, methodNode.name, newTarget);
-            return new ModifyInjectionTarget(List.of(newTarget)).apply(methodContext);
+            methodContext.recordAudit(this, "Adjusting split method target to %s", newTarget);
+            return FixResult.of(new ModifyInjectionTarget(List.of(newTarget)).apply(methodContext), PatchAuditTrail.Match.FULL);
         }
 
-        return Patch.Result.PASS;
+        return null;
     }
 
     private static List<MethodNode> findInsnsCalls(List<MethodNode> methods, MethodContext methodContext) {

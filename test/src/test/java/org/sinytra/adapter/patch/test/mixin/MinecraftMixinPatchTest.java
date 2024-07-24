@@ -104,7 +104,7 @@ public abstract class MinecraftMixinPatchTest {
             .stream().filter(m -> m.name.equals(testName + "Expected"))
             .findFirst().orElseThrow();
 
-        LOGGER.info("Patched field node: \n{}", patched);
+        LOGGER.info("Patched field node: {} {}", patched.name, patched.desc);
 
         assertEquals(patched.desc, expected.desc, "Field types differ");
     }

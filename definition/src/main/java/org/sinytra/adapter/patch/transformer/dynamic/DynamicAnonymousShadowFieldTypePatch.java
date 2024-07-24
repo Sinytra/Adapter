@@ -2,16 +2,14 @@ package org.sinytra.adapter.patch.transformer.dynamic;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
-import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.api.ClassTransform;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchContext;
-import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.util.AdapterUtil;
-import org.slf4j.Logger;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -19,8 +17,6 @@ import java.util.List;
 import java.util.Map;
 
 public class DynamicAnonymousShadowFieldTypePatch implements ClassTransform {
-    private static final Logger LOGGER = LogUtils.getLogger();
-
     @Override
     public Patch.Result apply(ClassNode classNode, @Nullable AnnotationValueHandle<?> annotation, PatchContext context) {
         if (annotation == null || !annotation.getKey().equals("targets")) {
@@ -64,7 +60,7 @@ public class DynamicAnonymousShadowFieldTypePatch implements ClassTransform {
         }
 
         if (!renames.isEmpty()) {
-            renames.forEach((from, to) -> LOGGER.info("Renaming anonymous class field {}.{} to {}", classNode.name, from, to));
+            renames.forEach((from, to) -> context.environment().auditTrail().recordAudit(this, classNode, "Rename anonymous class field %s to %s", from, to));
             for (MethodNode method : classNode.methods) {
                 for (AbstractInsnNode insn : method.instructions) {
                     if (insn instanceof FieldInsnNode finsn && finsn.owner.equals(classNode.name)) {

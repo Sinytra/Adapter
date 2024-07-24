@@ -3,10 +3,7 @@ package org.sinytra.adapter.patch.transformer.dynfix;
 import com.mojang.logging.LogUtils;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.api.MethodTransform;
-import org.sinytra.adapter.patch.api.Patch;
-import org.sinytra.adapter.patch.api.PatchContext;
+import org.sinytra.adapter.patch.api.*;
 import org.slf4j.Logger;
 
 import java.util.List;
@@ -32,22 +29,29 @@ public class DynamicInjectionPointPatch implements MethodTransform {
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
         if (methodContext.failsDirtyInjectionCheck() && methodContext.findCleanInjectionTarget() != null) {
-            // TODO Only show in tests
             LOGGER.debug(MIXINPATCH, "Considering method {}.{}", classNode.name, methodNode.name);
+
+            PatchAuditTrail auditTrail = context.environment().auditTrail();
+            auditTrail.recordResult(methodContext, PatchAuditTrail.Match.NONE);
 
             Patch.Result result = Patch.Result.PASS;
             for (DynamicFixer fix : PREPATCH) {
                 Object data = fix.prepare(methodContext);
                 if (data != null) {
-                    result = result.or(fix.apply(classNode, methodNode, methodContext, data));
+                    DynamicFixer.FixResult fixResult = fix.apply(classNode, methodNode, methodContext, auditTrail, data);
+                    if (fixResult != null) {
+                        auditTrail.recordResult(methodContext, fixResult.match());
+                        result = result.or(fixResult.result());
+                    }
                 }
             }
             for (DynamicFixer fix : FIXES) {
                 Object data = fix.prepare(methodContext);
                 if (data != null) {
-                    Patch.Result patchResult = fix.apply(classNode, methodNode, methodContext, data);
-                    if (patchResult != Patch.Result.PASS) {
-                        return patchResult.or(result);
+                    DynamicFixer.FixResult fixResult = fix.apply(classNode, methodNode, methodContext, auditTrail, data);
+                    if (fixResult != null) {
+                        auditTrail.recordResult(methodContext, fixResult.match());
+                        return result.or(fixResult.result());
                     }
                 }
             }

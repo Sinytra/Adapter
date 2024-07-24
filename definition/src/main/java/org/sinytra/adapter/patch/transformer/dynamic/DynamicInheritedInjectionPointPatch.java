@@ -13,6 +13,8 @@ import org.slf4j.Logger;
 
 import java.util.List;
 
+import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
+
 public class DynamicInheritedInjectionPointPatch implements MethodTransform {
     private static final Logger LOGGER = LogUtils.getLogger();
 
@@ -20,7 +22,7 @@ public class DynamicInheritedInjectionPointPatch implements MethodTransform {
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
         AnnotationHandle atNode = methodContext.injectionPointAnnotation();
         if (atNode == null) {
-            LOGGER.debug("Target @At annotation not found in method {}.{}{}", classNode.name, methodNode.name, methodNode.desc);
+            LOGGER.debug(MIXINPATCH, "Target @At annotation not found in method {}.{}{}", classNode.name, methodNode.name, methodNode.desc);
             return Patch.Result.PASS;
         }
         if (atNode.<String>getValue("value").map(v -> !v.get().equals("INVOKE")).orElse(true)) {

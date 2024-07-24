@@ -12,6 +12,7 @@ import org.sinytra.adapter.patch.analysis.params.ParamsDiffSnapshot;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.Patch;
+import org.sinytra.adapter.patch.api.PatchAuditTrail;
 import org.sinytra.adapter.patch.transformer.BundledMethodTransform;
 import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformTarget;
 import org.sinytra.adapter.patch.util.MethodQualifier;
@@ -56,13 +57,14 @@ public class DynFixParameterTypeAdapter implements DynamicFixer<DynFixParameterT
     }
 
     @Override
-    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, Data data) {
+    @Nullable
+    public FixResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchAuditTrail auditTrail, Data data) {
         Patch.Result result = BundledMethodTransform.builder()
             .modifyInjectionPoint(MethodCallAnalyzer.getCallQualifier(data.newCall()))
             .transform(data.diff().asParameterTransformer(ParamTransformTarget.INJECTION_POINT, false))
             .apply(methodContext);
         if (result == Patch.Result.PASS) {
-            return Patch.Result.PASS;
+            return null;
         }
 
         MethodQualifier qualifier = data.qualifier();
@@ -74,7 +76,7 @@ public class DynFixParameterTypeAdapter implements DynamicFixer<DynFixParameterT
             }
         }
 
-        return result.or(Patch.Result.APPLY);
+        return FixResult.of(result.or(Patch.Result.APPLY), PatchAuditTrail.Match.FULL);
     }
 
     @Nullable

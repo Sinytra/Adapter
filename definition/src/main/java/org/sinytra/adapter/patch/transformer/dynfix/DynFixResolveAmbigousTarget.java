@@ -1,28 +1,21 @@
 package org.sinytra.adapter.patch.transformer.dynfix;
 
 import com.mojang.datafixers.util.Pair;
-import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.api.Patch;
+import org.sinytra.adapter.patch.api.PatchAuditTrail;
 import org.sinytra.adapter.patch.transformer.BundledMethodTransform;
-import org.slf4j.Logger;
 
 import java.util.List;
-
-import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
 /**
  * Handle cases where a mixin with no descriptor in its target tmethod selector has come to have multiple candidate injection methods
  * as a result of Forge adding one with the same name.
  */
 public class DynFixResolveAmbigousTarget implements DynamicFixer<DynFixResolveAmbigousTarget.Data> {
-    private static final Logger LOGGER = LogUtils.getLogger();
-
-    public record Data(Pair<ClassNode, List<MethodNode>> candidates) {
-    }
+    public record Data(Pair<ClassNode, List<MethodNode>> candidates) {}
 
     @Nullable
     @Override
@@ -42,15 +35,16 @@ public class DynFixResolveAmbigousTarget implements DynamicFixer<DynFixResolveAm
     }
 
     @Override
-    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, Data data) {
+    @Nullable
+    public FixResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchAuditTrail auditTrail, Data data) {
         List<MethodNode> candidates = data.candidates().getSecond();
         for (MethodNode target : candidates) {
             if (candidates.size() == 1 || !methodContext.findInjectionTargetInsns(new MethodContext.TargetPair(data.candidates().getFirst(), target)).isEmpty()) {
                 String newTarget = target.name + target.desc;
-                LOGGER.debug(MIXINPATCH, "Resolving ambigous method selector of {}.{} to {}", classNode.name, methodNode.name, newTarget);
-                return BundledMethodTransform.builder().modifyTarget(newTarget).apply(methodContext);
+                methodContext.recordAudit(this, "Resolve ambigous method selector to %s", newTarget);
+                return FixResult.of(BundledMethodTransform.builder().modifyTarget(newTarget).apply(methodContext), PatchAuditTrail.Match.FULL);
             }
         }
-        return Patch.Result.PASS;
+        return null;
     }
 }

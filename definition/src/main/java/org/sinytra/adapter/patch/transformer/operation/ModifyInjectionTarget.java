@@ -1,23 +1,18 @@
 package org.sinytra.adapter.patch.transformer.operation;
 
-import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.patch.api.*;
-import org.sinytra.adapter.patch.fixes.MethodUpgrader;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
+import org.sinytra.adapter.patch.api.*;
+import org.sinytra.adapter.patch.fixes.MethodUpgrader;
 import org.sinytra.adapter.patch.util.MethodQualifier;
-import org.slf4j.Logger;
 
 import java.util.List;
 
-import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
-
 public record ModifyInjectionTarget(List<String> replacementMethods, Action action) implements MethodTransform {
-    private static final Logger LOGGER = LogUtils.getLogger();
     public static final Codec<ModifyInjectionTarget> CODEC = RecordCodecBuilder.create(instance -> instance.group(
         Codec.STRING.listOf().fieldOf("replacementMethods").forGetter(ModifyInjectionTarget::replacementMethods),
         Action.CODEC.optionalFieldOf("action", Action.OVERWRITE).forGetter(ModifyInjectionTarget::action)
@@ -34,9 +29,9 @@ public record ModifyInjectionTarget(List<String> replacementMethods, Action acti
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
-        LOGGER.info(MIXINPATCH, "Redirecting mixin {}.{} to {}", classNode.name, methodNode.name, this.replacementMethods);
         AnnotationHandle annotation = methodContext.methodAnnotation();
 
+        methodContext.recordAudit(this, "Change mixin target to %s", this.replacementMethods);
         if (annotation.matchesDesc(MixinConstants.OVERWRITE)) {
             if (this.replacementMethods.size() > 1) {
                 throw new IllegalStateException("Cannot determine replacement @Overwrite method name, multiple specified: " + this.replacementMethods);
@@ -47,7 +42,13 @@ public record ModifyInjectionTarget(List<String> replacementMethods, Action acti
                 .ifPresent(str -> methodNode.name = str);
         } else {
             annotation.<List<String>>getValue("method").ifPresentOrElse(
-                handle -> this.action.handler.apply(handle, methodContext.matchingTargets(), this.replacementMethods),
+                handle -> {
+                    List<String> original = handle.get();
+                    this.action.handler.apply(handle, methodContext.matchingTargets(), this.replacementMethods);
+                    if (original.size() == 1 && handle.get().size() == 1) {
+                        MethodUpgrader.upgradeMethod(methodNode, methodContext, original.getFirst(), handle.get().getFirst());
+                    }
+                },
                 () -> annotation.appendValue("method", this.replacementMethods)
             );
         }

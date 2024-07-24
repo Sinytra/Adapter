@@ -24,6 +24,7 @@ public record ModifyTargetClasses(Consumer<List<Type>> consumer) implements Meth
             List<Type> types = new ArrayList<>(valueHandle.get());
             this.consumer.accept(types);
             valueHandle.set(types);
+            methodContext.recordAudit(this, "Modify target classes to %s", types);
             return Patch.Result.APPLY;
         }
         return Patch.Result.PASS;

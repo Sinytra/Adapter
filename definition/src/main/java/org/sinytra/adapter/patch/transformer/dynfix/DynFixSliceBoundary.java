@@ -3,10 +3,11 @@ package org.sinytra.adapter.patch.transformer.dynfix;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
+import org.sinytra.adapter.patch.api.MethodContext;
+import org.sinytra.adapter.patch.api.Patch;
+import org.sinytra.adapter.patch.api.PatchAuditTrail;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.MockMixinRuntime;
 import org.spongepowered.asm.mixin.injection.code.ISliceContext;
@@ -40,7 +41,8 @@ public class DynFixSliceBoundary implements DynamicFixer<DynFixSliceBoundary.Dat
     }
 
     @Override
-    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, Data data) {
+    @Nullable
+    public FixResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchAuditTrail auditTrail, Data data) {
         MethodContext.TargetPair dirtyTarget = methodContext.findDirtyInjectionTarget();
         Target mixinTarget = MockMixinRuntime.createMixinTarget(dirtyTarget);
         AnnotationHandle slice = data.slice();
@@ -51,11 +53,11 @@ public class DynFixSliceBoundary implements DynamicFixer<DynFixSliceBoundary.Dat
         InsnList insns = methodSlice.getSlice(mixinTarget);
 
         if (insns.size() != dirtyTarget.methodNode().instructions.size()) {
-            return Patch.Result.PASS;
+            return null;
         }
 
-        return data.slices().stream()
-            .reduce(Patch.Result.PASS, (a, b) -> a.or(fixSlideInjectionPoint(b, dirtyTarget.methodNode())), Patch.Result::or);
+        return FixResult.of(data.slices().stream()
+            .reduce(Patch.Result.PASS, (a, b) -> a.or(fixSlideInjectionPoint(b, dirtyTarget.methodNode())), Patch.Result::or), PatchAuditTrail.Match.FULL);
     }
 
     private static Patch.Result fixSlideInjectionPoint(AnnotationHandle annotation, MethodNode dirtyMethod) {

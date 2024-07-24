@@ -13,14 +13,13 @@ import org.jetbrains.annotations.VisibleForTesting;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.LVTOffsets;
-import org.sinytra.adapter.patch.PatchInstance;
 import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.patch.analysis.params.ParamsDiffSnapshot;
 import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
-import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
+import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformTarget;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.slf4j.Logger;
@@ -29,6 +28,8 @@ import org.spongepowered.asm.mixin.FabricUtil;
 import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+
+import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
 public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements MethodTransform {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -114,7 +115,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
                 if (sameType.size() == 1) {
                     int index = sameType.getFirst().index();
                     annotation.appendValue("index", index);
-                    LOGGER.info(PatchInstance.MIXINPATCH, "Fixing @Local annotation target on {}.{} using index {}", classNode.name, methodNode.name, index);
+                    methodContext.recordAudit(this, "Fix @Local annotation using index %s", index);
                     return Patch.Result.APPLY;
                 }
             }
@@ -142,7 +143,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             OptionalInt reorder = this.lvtOffsets.get().findReorder(targetClass.name, targetMethod.name, targetMethod.desc, index);
             if (reorder.isPresent()) {
                 int newIndex = reorder.getAsInt();
-                LOGGER.info(PatchInstance.MIXINPATCH, "Swapping {} index in {}.{} from {} for {}", annotation.getDesc(), classNode.name, methodNode.name, index, newIndex);
+                methodContext.recordAudit(this, "Swap %s index from %s to %s", annotation.getDesc(), index, newIndex);
                 handle.set(newIndex);
                 return Patch.Result.APPLY;
             }
@@ -174,7 +175,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             // Check if we can rearrange parameters
             SimpleParamsDiffSnapshot rearrange = rearrangeParameters(capturedLocals.expected(), availableTypes);
             if (rearrange == null) {
-                LOGGER.debug("Tried to replace local variables in mixin method {}.{} using {}", classNode.name, methodNode.name + methodNode.desc, diff.replacements());
+                LOGGER.debug(MIXINPATCH, "Tried to replace local variables in mixin method {}.{} using {}", classNode.name, methodNode.name + methodNode.desc, diff.replacements());
                 return null;
             }
             diff = rearrange;
@@ -191,7 +192,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
                 int removalIndex = lvt.get(removalLocal).index;
                 for (AbstractInsnNode insn : methodNode.instructions) {
                     if (insn instanceof VarInsnNode varInsn && varInsn.var == removalIndex) {
-                        LOGGER.debug("Cannot remove parameter {} in mixin method {}.{}", removal, classNode.name, methodNode.name + methodNode.desc);
+                        LOGGER.debug(MIXINPATCH, "Cannot remove parameter {} in mixin method {}.{}", removal, classNode.name, methodNode.name + methodNode.desc);
                         return null;
                     }
                 }

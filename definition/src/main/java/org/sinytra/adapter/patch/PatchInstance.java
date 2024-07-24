@@ -63,6 +63,9 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
             for (MethodNode method : classNode.methods) {
                 MethodContext methodContext = checkMethodTarget(classAnnotation, classNode, method, environment, classTarget.targetTypes(), context);
                 if (methodContext != null) {
+                    if (!this.transforms.isEmpty()) {
+                        environment.auditTrail().prepareMethod(methodContext);
+                    }
                     for (MethodTransform transform : this.transforms) {
                         Collection<String> accepted = transform.getAcceptedAnnotations();
                         if (accepted.isEmpty() || accepted.contains(methodContext.methodAnnotation().getDesc())) {

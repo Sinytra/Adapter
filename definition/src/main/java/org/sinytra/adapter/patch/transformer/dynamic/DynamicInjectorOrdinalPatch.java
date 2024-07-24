@@ -2,26 +2,22 @@ package org.sinytra.adapter.patch.transformer.dynamic;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
-import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.patch.PatchInstance;
 import org.sinytra.adapter.patch.analysis.*;
-import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
+import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.GeneratedVariables;
 import org.sinytra.adapter.patch.util.SingleValueHandle;
-import org.slf4j.Logger;
 
 import java.util.*;
 import java.util.function.Consumer;
 
 public class DynamicInjectorOrdinalPatch implements MethodTransform {
-    private static final Logger LOGGER = LogUtils.getLogger();
     private static final Map<String, OffsetUpdateHandler> OFFSET_HANDLERS = Map.of(
         "INVOKE", InvokeOffsetHandler.INSTANCE,
         "RETURN", ReturnOffsetHandler.INSTANCE
@@ -50,7 +46,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
 
         boolean applied = false;
         for (HandlerInstance<?, ?> instance : offsetHandlers) {
-            applied |= instance.apply(methodContext, classNode, methodNode, cleanTarget, dirtyTarget);
+            applied |= instance.apply(this, methodContext, classNode, methodNode, cleanTarget, dirtyTarget);
         }
         return applied ? Patch.Result.APPLY : Patch.Result.PASS;
     }
@@ -105,11 +101,11 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
     }
 
     private record HandlerInstance<T, U>(UpdateHandler<T, U> handler, T context, Consumer<U> applicator) {
-        public boolean apply(MethodContext methodContext, ClassNode classNode, MethodNode methodNode, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget) {
+        public boolean apply(MethodTransform transform, MethodContext methodContext, ClassNode classNode, MethodNode methodNode, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget) {
             Optional<U> updatedValue = this.handler.apply(methodContext, classNode, methodNode, cleanTarget, dirtyTarget, this.context);
             if (updatedValue.isPresent()) {
                 U value = updatedValue.get();
-                LOGGER.info(PatchInstance.MIXINPATCH, "Updating injection point ordinal of {}.{} from {} to {}", classNode.name, methodNode.name, this.context, value);
+                methodContext.recordAudit(transform, "Update injection point ordinal from %s to %s", this.context, value);
                 this.applicator.accept(value);
                 return true;
             }

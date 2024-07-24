@@ -1,25 +1,20 @@
 package org.sinytra.adapter.patch.transformer.operation;
 
-import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.api.*;
-import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
-
 public record ModifyMethodAccess(List<AccessChange> changes) implements MethodTransform {
     public static final Codec<ModifyMethodAccess> CODEC = RecordCodecBuilder.create(instance -> instance.group(
         AccessChange.CODEC.listOf().fieldOf("changes").forGetter(ModifyMethodAccess::changes)
     ).apply(instance, ModifyMethodAccess::new));
-    private static final Logger LOGGER = LogUtils.getLogger();
 
     public record AccessChange(boolean add, int modifier) {
         public static final Codec<AccessChange> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -39,7 +34,7 @@ public record ModifyMethodAccess(List<AccessChange> changes) implements MethodTr
         for (AccessChange change : this.changes) {
             if (change.add) {
                 if ((methodNode.access & change.modifier) == 0) {
-                    LOGGER.info(MIXINPATCH, "Adding access modifier {} to method {}.{}{}", change.modifier, classNode.name, methodNode.name, methodNode.desc);
+                    methodContext.recordAudit(this, "Adding access modifier %s", change.modifier);
                     methodNode.access |= change.modifier;
                     result = Patch.Result.APPLY;
                     if (change.modifier == Opcodes.ACC_STATIC && methodContext.methodAnnotation().matchesDesc(MixinConstants.INJECT)) {
@@ -49,7 +44,7 @@ public record ModifyMethodAccess(List<AccessChange> changes) implements MethodTr
                             List<Type> newParams = new ArrayList<>(Arrays.asList(params));
                             newParams.addFirst(types.getFirst());
 
-                            methodContext.updateDescription(newParams);
+                            methodContext.updateDescription(this, newParams);
                         } else {
                             throw new IllegalStateException("Cannot automatically determine target instance type for mixin " + classNode.name);
                         }
@@ -57,7 +52,7 @@ public record ModifyMethodAccess(List<AccessChange> changes) implements MethodTr
                 }
             } else {
                 if ((methodNode.access & change.modifier) != 0) {
-                    LOGGER.info(MIXINPATCH, "Removing access modifier {} from method {}.{}{}", change.modifier, classNode.name, methodNode.name, methodNode.desc);
+                    methodContext.recordAudit(this, "Removing access modifier %s", change.modifier);
                     methodNode.access &= ~change.modifier;
                     if (change.modifier == Opcodes.ACC_STATIC) {
                         LocalVariableNode firstParam = methodNode.localVariables.stream().filter(lvn -> lvn.index == 0).findFirst().orElseThrow();

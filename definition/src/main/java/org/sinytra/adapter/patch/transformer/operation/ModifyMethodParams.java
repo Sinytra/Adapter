@@ -1,7 +1,6 @@
 package org.sinytra.adapter.patch.transformer.operation;
 
 import com.mojang.datafixers.util.Pair;
-import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.jetbrains.annotations.Nullable;
@@ -10,25 +9,23 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.PatchInstance;
+import org.sinytra.adapter.patch.analysis.LVTSnapshot;
 import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
 import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
-import org.sinytra.adapter.patch.fixes.TypeAdapter;
-import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.analysis.LVTSnapshot;
 import org.sinytra.adapter.patch.fixes.ModifyArgsOffsetTransformer;
+import org.sinytra.adapter.patch.fixes.TypeAdapter;
 import org.sinytra.adapter.patch.transformer.operation.param.InjectParameterTransform;
 import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformTarget;
 import org.sinytra.adapter.patch.transformer.operation.param.SwapParametersTransformer;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.SingleValueHandle;
-import org.slf4j.Logger;
 
 import java.util.*;
 import java.util.function.Consumer;
 
-import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 import static org.sinytra.adapter.patch.transformer.operation.param.ParamTransformationUtil.calculateLVTIndex;
 import static org.sinytra.adapter.patch.transformer.operation.param.ParamTransformationUtil.findWrapOperationOriginalCall;
 
@@ -39,8 +36,6 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
         SimpleParamsDiffSnapshot.CODEC.fieldOf("context").forGetter(ModifyMethodParams::context),
         ParamTransformTarget.CODEC.optionalFieldOf("targetInjectionPoint", ParamTransformTarget.ALL).forGetter(ModifyMethodParams::targetType)
     ).apply(instance, (context, targetInjectionPoint) -> new ModifyMethodParams(context, targetInjectionPoint, false, null)));
-
-    private static final Logger LOGGER = LogUtils.getLogger();
     
     public static ModifyMethodParams create(SimpleParamsDiffSnapshot diff, ParamTransformTarget targetType) {
         return new ModifyMethodParams(diff, targetType, false, null);
@@ -185,7 +180,7 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
             if (methodNode.parameters.size() > paramIndex) {
                 int localIndex = calculateLVTIndex(newParameterTypes, isNonStatic, paramIndex);
                 LVTSnapshot lvtSnapshot = LVTSnapshot.take(methodNode);
-                LOGGER.info("Substituting parameter {} for {} in {}.{}", paramIndex, substituteParamIndex, classNode.name, methodNode.name);
+                methodContext.recordAudit(this, "Substitute parameter %s for %s", paramIndex, substituteParamIndex);
                 methodNode.parameters.remove(paramIndex);
                 newParameterTypes.remove(paramIndex);
                 int substituteIndex = calculateLVTIndex(newParameterTypes, isNonStatic, substituteParamIndex);
@@ -216,7 +211,7 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
             Type toType = newParameterTypes.get(to);
             newParameterTypes.set(from, toType);
             newParameterTypes.set(to, fromType);
-            LOGGER.info(MIXINPATCH, "Swapped parameters at positions {}({}) and {}({}) in {}.{}", from, fromNode.name, to, toNode.name, classNode.name, methodNode.name);
+            methodContext.recordAudit(this, "Swap parameters %s <%s> and %s <%s>", from, fromNode.name, to, toNode.name);
 
             int fromNewLVT = calculateLVTIndex(newParameterTypes, isNonStatic, from);
             int toNewLVT = calculateLVTIndex(newParameterTypes, isNonStatic, to);
@@ -229,7 +224,7 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
         }
 
         if (!this.context.removals().isEmpty()) {
-            LOGGER.info(MIXINPATCH, "Removing parameters {} from method {}.{}", this.context.removals(), classNode.name, methodNode.name);
+            methodContext.recordAudit(this, "Remove parameters %s", this.context.removals());
         }
         this.context.removals().stream()
             .sorted(Comparator.<Integer>comparingInt(i -> i).reversed())
@@ -237,7 +232,7 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
         offsetMoves.forEach(move -> {
             int from = move.getFirst();
             int to = move.getSecond();
-            LOGGER.info(MIXINPATCH, "Moving parameter from index {} to {} in method {}.{}", from, to, classNode.name, methodNode.name);
+            methodContext.recordAudit(this, "Move parameter from index {} to {}", from, to);
             int tempIndex = -999;
             Pair<@Nullable ParameterNode, @Nullable LocalVariableNode> removed = removeLocalVariable(methodNode, from, offset, tempIndex, newParameterTypes);
             if (removed.getFirst() != null) {
@@ -266,7 +261,7 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
             .sorted(Comparator.<Pair<Integer, Consumer<InstructionAdapter>>>comparingInt(Pair::getFirst).reversed())
             .forEach(inline -> {
                 int index = inline.getFirst();
-                LOGGER.info(MIXINPATCH, "Inlining parameter {} of method {}.{}", index, classNode.name, methodNode.name);
+                methodContext.recordAudit(this, "Inlining parameter {}", index);
                 int replaceIndex = -999 + index;
                 removeLocalVariable(methodNode, index, offset, replaceIndex, newParameterTypes);
                 for (AbstractInsnNode insn : methodNode.instructions) {
@@ -278,7 +273,7 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
                 }
             });
 
-        methodContext.updateDescription(newParameterTypes);
+        methodContext.updateDescription(this, newParameterTypes);
 
         return this.context.shouldComputeFrames() ? Patch.Result.COMPUTE_FRAMES : Patch.Result.APPLY;
     }

@@ -5,7 +5,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.Patch;
+import org.sinytra.adapter.patch.api.PatchAuditTrail;
 import org.sinytra.adapter.patch.transformer.operation.ModifyInjectionPoint;
 import org.sinytra.adapter.patch.transformer.operation.ModifyInjectionTarget;
 import org.sinytra.adapter.patch.util.AdapterUtil;
@@ -20,7 +20,7 @@ import java.util.Set;
  */
 public class DynFixAtVariableAssignStore implements DynamicFixer<DynFixAtVariableAssignStore.Data> {
     private static final Set<String> ACCEPTED_ANNOTATIONS = Set.of(MixinConstants.INJECT, MixinConstants.WRAP_OPERATION);
-    
+
     public record Data(MethodNode cleanTargetMethod, MethodContext.TargetPair dirtyTarget, AbstractInsnNode cleanInjectionInsn) {}
 
     @Nullable
@@ -42,7 +42,8 @@ public class DynFixAtVariableAssignStore implements DynamicFixer<DynFixAtVariabl
     }
 
     @Override
-    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, Data data) {
+    @Nullable
+    public FixResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchAuditTrail auditTrail, Data data) {
         MethodNode cleanTargetMethod = data.cleanTargetMethod();
         MethodNode dirtyTargetMethod = data.dirtyTarget().methodNode();
         AbstractInsnNode cleanInjectionInsn = data.cleanInjectionInsn();
@@ -50,53 +51,54 @@ public class DynFixAtVariableAssignStore implements DynamicFixer<DynFixAtVariabl
         // Check that the following instruction is a store operation
         AbstractInsnNode next = findNextUsefulInsn(cleanInjectionInsn);
         if (!(next instanceof VarInsnNode varInsn) || !OpcodeUtil.isStoreOpcode(varInsn.getOpcode())) {
-            return Patch.Result.PASS;
+            return null;
         }
         // Find matching local in dirty target method
         LocalVariableNode cleanLocal = methodContext.cleanLocalsTable().getByIndexOrNull(varInsn.var);
         if (cleanLocal == null) {
-            return Patch.Result.PASS;
+            return null;
         }
         List<LocalVariableNode> cleanLocals = methodContext.cleanLocalsTable().getForType(cleanLocal);
         List<LocalVariableNode> dirtyLocals = methodContext.dirtyLocalsTable().getForType(cleanLocal);
         if (cleanLocals.size() != dirtyLocals.size()) {
-            return Patch.Result.PASS;
+            return null;
         }
         LocalVariableNode dirtyLocal = dirtyLocals.get(cleanLocals.indexOf(cleanLocal));
         // Find store insns
         List<AbstractInsnNode> cleanStoreInsns = findStoreInsns(cleanTargetMethod.instructions, cleanLocal.index);
         int cleanStoreInsnIndex = cleanStoreInsns.indexOf(varInsn);
         if (cleanStoreInsnIndex == -1) {
-            return Patch.Result.PASS;
+            return null;
         }
         List<AbstractInsnNode> dirtyStoreInsns = findStoreInsns(dirtyTargetMethod.instructions, dirtyLocal.index);
         if (cleanStoreInsns.size() != dirtyStoreInsns.size()) {
-            return Patch.Result.PASS;
+            return null;
         }
         AbstractInsnNode dirtyStoreInsn = dirtyStoreInsns.get(cleanStoreInsnIndex);
         // Find first method call before dirty store
         MethodInsnNode previousMethodCall = (MethodInsnNode) AdapterUtil.iterateInsns(dirtyStoreInsn, AbstractInsnNode::getPrevious, i -> i instanceof MethodInsnNode);
         if (previousMethodCall == null) {
-            return Patch.Result.PASS;
+            return null;
         }
-        
+
         if (methodContext.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
             return handleWrapAnnotation(methodContext, data, previousMethodCall);
         }
-        
+
         // All checks have passed, proceed to patch method
         String newInjectionPoint = Type.getObjectType(previousMethodCall.owner).getDescriptor() + previousMethodCall.name + previousMethodCall.desc;
-        return new ModifyInjectionPoint((String) null, newInjectionPoint, true, true)
-            .apply(methodContext);
+        return FixResult.of(new ModifyInjectionPoint((String) null, newInjectionPoint, true, true)
+            .apply(methodContext), PatchAuditTrail.Match.FULL);
     }
 
     // In case the mixin is call-sensitive, we try to keep the orignal injection point if the method was moved
-    private static Patch.Result handleWrapAnnotation(MethodContext methodContext, Data data, MethodInsnNode previousMethodCall) {
+    @Nullable
+    private static FixResult handleWrapAnnotation(MethodContext methodContext, Data data, MethodInsnNode previousMethodCall) {
         if (previousMethodCall.owner.equals(data.dirtyTarget().classNode().name)) {
             String newTarget = previousMethodCall.name + previousMethodCall.desc;
-            return new ModifyInjectionTarget(List.of(newTarget)).apply(methodContext);
+            return FixResult.of(new ModifyInjectionTarget(List.of(newTarget)).apply(methodContext), PatchAuditTrail.Match.FULL);
         }
-        return Patch.Result.PASS;
+        return null;
     }
 
     private static List<AbstractInsnNode> findStoreInsns(InsnList insns, int index) {

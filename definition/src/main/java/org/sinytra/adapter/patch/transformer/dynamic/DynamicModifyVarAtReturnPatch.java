@@ -1,20 +1,17 @@
 package org.sinytra.adapter.patch.transformer.dynamic;
 
 import com.mojang.datafixers.util.Pair;
-import com.mojang.logging.LogUtils;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.SourceInterpreter;
 import org.objectweb.asm.tree.analysis.SourceValue;
-import org.sinytra.adapter.patch.PatchInstance;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
-import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
+import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.transformer.operation.ModifyMixinType;
 import org.sinytra.adapter.patch.util.MockMixinRuntime;
-import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.injection.modify.LocalVariableDiscriminator;
 import org.spongepowered.asm.mixin.injection.struct.InjectionInfo;
 import org.spongepowered.asm.mixin.injection.struct.Target;
@@ -73,8 +70,6 @@ import java.util.Set;
  * }</pre>
  */
 public class DynamicModifyVarAtReturnPatch implements MethodTransform {
-    private static final Logger LOGGER = LogUtils.getLogger();
-
     @Override
     public Collection<String> getAcceptedAnnotations() {
         return Set.of(MixinConstants.MODIFY_VAR);
@@ -127,7 +122,7 @@ public class DynamicModifyVarAtReturnPatch implements MethodTransform {
                 }
                 String qualifier = MethodCallAnalyzer.getCallQualifier(dirtyMinsn);
                 final int index = i;
-                LOGGER.info(PatchInstance.MIXINPATCH, "Redirecting RETURN variable modifier to parameter {} of method call to {}", i, qualifier);
+                methodContext.recordAudit(this, "Redirect RETURN variable modifier to parameter %s of method call to %s", i, qualifier);
                 MethodTransform transform = new ModifyMixinType(MixinConstants.MODIFY_ARG, b -> b.sameTarget()
                     .injectionPoint("INVOKE", qualifier)
                     .putValue("index", index));

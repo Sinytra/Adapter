@@ -8,7 +8,7 @@ import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.Patch;
+import org.sinytra.adapter.patch.api.PatchAuditTrail;
 import org.sinytra.adapter.patch.transformer.operation.ModifyInjectionPoint;
 import org.sinytra.adapter.patch.transformer.operation.ModifyInjectionTarget;
 import org.sinytra.adapter.patch.util.AdapterUtil;
@@ -43,7 +43,8 @@ public class DynFixArbitraryInjectionPoint implements DynamicFixer<DynFixArbitra
     }
 
     @Override
-    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, Data data) {
+    @Nullable
+    public FixResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchAuditTrail auditTrail, Data data) {
         MethodNode dirtyTargetMethod = data.dirtyTarget().methodNode();
         AbstractInsnNode cleanInjectionInsn = data.cleanInjectionInsn();
 
@@ -56,7 +57,7 @@ public class DynFixArbitraryInjectionPoint implements DynamicFixer<DynFixArbitra
             if (previousCallCandidate != null) {
                 targetMethodCall = findReplacementInjectionPoint(previousCallCandidate, AbstractInsnNode::getPrevious, methodContext);
             } else {
-                return Patch.Result.PASS;
+                return null;
             }
         }
 
@@ -67,15 +68,15 @@ public class DynFixArbitraryInjectionPoint implements DynamicFixer<DynFixArbitra
             }
 
             String newInjectionPoint = Type.getObjectType(targetMethodCall.owner).getDescriptor() + targetMethodCall.name + targetMethodCall.desc;
-            return new ModifyInjectionPoint("INVOKE", newInjectionPoint, true, false).apply(methodContext);
+            return FixResult.of(new ModifyInjectionPoint("INVOKE", newInjectionPoint, true, false).apply(methodContext), PatchAuditTrail.Match.PARTIAL);
         }
 
-        return Patch.Result.PASS;
+        return null;
     }
 
-    private static Patch.Result tryMoveTargetMethod(MethodInsnNode insn, MethodContext methodContext) {
+    private static FixResult tryMoveTargetMethod(MethodInsnNode insn, MethodContext methodContext) {
         String newTarget = insn.name + insn.desc;
-        return new ModifyInjectionTarget(List.of(newTarget)).apply(methodContext);
+        return FixResult.of(new ModifyInjectionTarget(List.of(newTarget)).apply(methodContext), PatchAuditTrail.Match.PARTIAL);
     }
 
     private static AbstractInsnNode findCandidates(InstructionMatcher cleanMatcher, MethodNode dirtyTargetMethod, Function<List<AbstractInsnNode>, AbstractInsnNode> selector) {
