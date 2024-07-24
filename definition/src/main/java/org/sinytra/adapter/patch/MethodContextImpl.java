@@ -179,7 +179,7 @@ public final class MethodContextImpl implements MethodContext {
         // Parse injection point
         InjectionPoint injectionPoint = InjectionPoint.parse(mixinContext, this.methodNode, annotation.unwrap(), atNode.unwrap());
         // Find target instructions
-        InsnList instructions = getSlicedInsns(annotation, this.classNode, this.methodNode, target.classNode(), target.methodNode(), patchContext());
+        InsnList instructions = getSlicedInsns(annotation, target.classNode(), target.methodNode(), patchContext());
         List<AbstractInsnNode> targetInsns = new ArrayList<>();
         try {
             injectionPoint.find(target.methodNode().desc, instructions, targetInsns);
@@ -209,15 +209,15 @@ public final class MethodContextImpl implements MethodContext {
         return dirtyPair != null && findInjectionTargetInsns(dirtyPair).isEmpty();
     }
 
-    private InsnList getSlicedInsns(AnnotationHandle parentAnnotation, ClassNode classNode, MethodNode injectorMethod, ClassNode targetClass, MethodNode targetMethod, PatchContext context) {
+    private InsnList getSlicedInsns(AnnotationHandle parentAnnotation, ClassNode targetClass, MethodNode targetMethod, PatchContext context) {
         return parentAnnotation.<AnnotationNode>getValue("slice")
             .map(handle -> {
                 Object value = handle.get();
                 return value instanceof List<?> list ? (AnnotationNode) list.get(0) : (AnnotationNode) value;
             })
             .map(sliceAnn -> {
-                IMixinContext mixinContext = MockMixinRuntime.forClass(classNode.name, targetClass.name, context.environment());
-                ISliceContext sliceContext = MockMixinRuntime.forSlice(mixinContext, injectorMethod);
+                IMixinContext mixinContext = MockMixinRuntime.forClass(this.classNode.name, targetClass.name, context.environment());
+                ISliceContext sliceContext = MockMixinRuntime.forSlice(mixinContext, this.methodNode, this.methodAnnotation.unwrap());
                 return computeSlicedInsns(sliceContext, sliceAnn, targetMethod);
             })
             .orElse(targetMethod.instructions);

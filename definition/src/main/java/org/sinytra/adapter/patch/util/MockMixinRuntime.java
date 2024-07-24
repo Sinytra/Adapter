@@ -45,8 +45,8 @@ public class MockMixinRuntime {
         return new ClassMixinContext(className, targetClass, environment);
     }
 
-    public static ISliceContext forSlice(IMixinContext context, MethodNode methodNode) {
-        return new MethodSliceContext(context, methodNode);
+    public static ISliceContext forSlice(IMixinContext context, MethodNode methodNode, AnnotationNode annotationNode) {
+        return new MethodSliceContext(context, methodNode, annotationNode);
     }
 
     public static InjectionInfo forInjectionInfo(String className, String targetClass, PatchEnvironment environment) {
@@ -61,7 +61,7 @@ public class MockMixinRuntime {
         }
     }
 
-    private record MethodSliceContext(IMixinContext context, MethodNode methodNode) implements ISliceContext {
+    private record MethodSliceContext(IMixinContext context, MethodNode methodNode, AnnotationNode annotationNode) implements ISliceContext {
         @Override
         public IMixinContext getMixin() {
             return this.context;
@@ -75,7 +75,7 @@ public class MockMixinRuntime {
         //@formatter:off
         @Override public MethodSlice getSlice(String id) {throw new UnsupportedOperationException();}
         @Override public MethodNode getMethod() {return this.methodNode;}
-        @Override public AnnotationNode getAnnotationNode() {throw new UnsupportedOperationException();}
+        @Override public AnnotationNode getAnnotationNode() {return this.annotationNode;}
         @Override public ISelectorContext getParent() {throw new UnsupportedOperationException();}
         @Override public IAnnotationHandle getAnnotation() {throw new UnsupportedOperationException();}
         @Override public IAnnotationHandle getSelectorAnnotation() {throw new UnsupportedOperationException();}
