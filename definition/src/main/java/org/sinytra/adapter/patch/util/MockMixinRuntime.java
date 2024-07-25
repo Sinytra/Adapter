@@ -1,8 +1,6 @@
 package org.sinytra.adapter.patch.util;
 
-import org.objectweb.asm.tree.AnnotationNode;
-import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.PatchEnvironment;
 import org.spongepowered.asm.mixin.MixinEnvironment;
@@ -10,14 +8,17 @@ import org.spongepowered.asm.mixin.extensibility.IMixinConfig;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigSource;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
+import org.spongepowered.asm.mixin.injection.InjectionPoint;
 import org.spongepowered.asm.mixin.injection.code.ISliceContext;
 import org.spongepowered.asm.mixin.injection.code.MethodSlice;
 import org.spongepowered.asm.mixin.injection.selectors.ISelectorContext;
 import org.spongepowered.asm.mixin.injection.struct.CallbackInjectionInfo;
 import org.spongepowered.asm.mixin.injection.struct.InjectionInfo;
+import org.spongepowered.asm.mixin.injection.struct.ModifyVariableInjectionInfo;
 import org.spongepowered.asm.mixin.injection.struct.Target;
 import org.spongepowered.asm.mixin.refmap.IMixinContext;
 import org.spongepowered.asm.mixin.refmap.IReferenceMapper;
+import org.spongepowered.asm.mixin.struct.AnnotatedMethodInfo;
 import org.spongepowered.asm.mixin.transformer.ClassInfo;
 import org.spongepowered.asm.mixin.transformer.ext.Extensions;
 import org.spongepowered.asm.util.asm.IAnnotationHandle;
@@ -28,6 +29,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -35,6 +37,9 @@ public class MockMixinRuntime {
     private static final MethodHandles.Lookup TRUSTED_LOOKUP;
     private static final Unsafe UNSAFE;
     private static final MethodHandle TARGET_CTR;
+    private static final Class<?> LOCAL_VARIABLE_INJECTION_POINT_CLASS;
+    private static final VarHandle ANNOTATED_METHOD_INFO_CONTEXT;
+    private static final MethodHandle LOCAL_VARIABLE_INJECTION_POINT_FIND;
 
     static {
         try {
@@ -45,6 +50,10 @@ public class MockMixinRuntime {
             TRUSTED_LOOKUP = (MethodHandles.Lookup) UNSAFE.getObject(UNSAFE.staticFieldBase(hackfield), UNSAFE.staticFieldOffset(hackfield));
 
             TARGET_CTR = MethodHandles.privateLookupIn(Target.class, MethodHandles.lookup()).findConstructor(Target.class, MethodType.methodType(void.class, ClassInfo.class, ClassNode.class, MethodNode.class));
+
+            LOCAL_VARIABLE_INJECTION_POINT_CLASS = Class.forName("org.spongepowered.asm.mixin.injection.modify.ModifyVariableInjector$LocalVariableInjectionPoint");
+            ANNOTATED_METHOD_INFO_CONTEXT = TRUSTED_LOOKUP.findVarHandle(AnnotatedMethodInfo.class, "context", IMixinContext.class);
+            LOCAL_VARIABLE_INJECTION_POINT_FIND = MethodHandles.privateLookupIn(LOCAL_VARIABLE_INJECTION_POINT_CLASS, MethodHandles.lookup()).findVirtual(LOCAL_VARIABLE_INJECTION_POINT_CLASS, "find", MethodType.methodType(boolean.class, InjectionInfo.class, InsnList.class, Collection.class, Target.class));
         } catch (Throwable t) {
             throw new RuntimeException(t);
         }
@@ -70,13 +79,27 @@ public class MockMixinRuntime {
     public static InjectionInfo forInjectionInfo(String className, String targetClass, PatchEnvironment environment) {
         try {
             InjectionInfo injectionInfo = (InjectionInfo) UNSAFE.allocateInstance(CallbackInjectionInfo.class);
-            VarHandle handle = TRUSTED_LOOKUP.findVarHandle(InjectionInfo.class, "context", IMixinContext.class);
             IMixinContext context = forClass(className, targetClass, environment);
-            handle.set(injectionInfo, context);
+            ANNOTATED_METHOD_INFO_CONTEXT.set(injectionInfo, context);
             return injectionInfo;
         } catch (Throwable t) {
             throw new RuntimeException(t);
         }
+    }
+
+    public static boolean findModifyVariableInjectionInsns(InjectionPoint injectionPoint, IMixinContext mixinContext, InsnList insns, List<AbstractInsnNode> list, Target target) throws Throwable {
+        InjectionInfo info = MockMixinRuntime.createModifyVariableInjectionInfo(mixinContext);
+        return (boolean) LOCAL_VARIABLE_INJECTION_POINT_FIND.invoke(injectionPoint, info, insns, list, target);
+    }
+
+    public static boolean injectionPointNeedsSpecialCare(InjectionPoint injectionPoint) {
+        return LOCAL_VARIABLE_INJECTION_POINT_CLASS.isInstance(injectionPoint);
+    }
+
+    public static InjectionInfo createModifyVariableInjectionInfo(IMixinContext mixinContext) throws Exception {
+        ModifyVariableInjectionInfo info = (ModifyVariableInjectionInfo) UNSAFE.allocateInstance(ModifyVariableInjectionInfo.class);
+        ANNOTATED_METHOD_INFO_CONTEXT.set(info, mixinContext);
+        return info;
     }
 
     private record MethodSliceContext(IMixinContext context, MethodNode methodNode) implements ISliceContext {

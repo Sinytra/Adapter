@@ -1,6 +1,5 @@
 package org.sinytra.adapter.patch.transformer.dynamic;
 
-import com.mojang.logging.LogUtils;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
@@ -9,20 +8,14 @@ import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
 import org.sinytra.adapter.patch.util.MethodQualifier;
-import org.slf4j.Logger;
 
 import java.util.List;
 
-import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
-
 public class DynamicInheritedInjectionPointPatch implements MethodTransform {
-    private static final Logger LOGGER = LogUtils.getLogger();
-
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
         AnnotationHandle atNode = methodContext.injectionPointAnnotation();
         if (atNode == null) {
-            LOGGER.debug(MIXINPATCH, "Target @At annotation not found in method {}.{}{}", classNode.name, methodNode.name, methodNode.desc);
             return Patch.Result.PASS;
         }
         if (atNode.<String>getValue("value").map(v -> !v.get().equals("INVOKE")).orElse(true)) {

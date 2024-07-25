@@ -8,12 +8,12 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MethodTransform;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.PatchContext;
-import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.MockMixinRuntime;
@@ -22,12 +22,13 @@ import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.injection.InjectionPoint;
 import org.spongepowered.asm.mixin.injection.code.ISliceContext;
 import org.spongepowered.asm.mixin.injection.code.MethodSlice;
+import org.spongepowered.asm.mixin.injection.points.BeforeConstant;
 import org.spongepowered.asm.mixin.injection.struct.Target;
-import org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionException;
 import org.spongepowered.asm.mixin.refmap.IMixinContext;
 import org.spongepowered.asm.util.Locals;
 
 import java.util.*;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -175,27 +176,38 @@ public final class MethodContextImpl implements MethodContext {
 
     @Nullable
     public List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable TargetPair target) {
+        return computeInjectionTargetInsns(target, this::injectionPointAnnotation, (ctx, h) -> InjectionPoint.parse(ctx, this.methodNode, methodAnnotation().unwrap(), h.unwrap()));
+    }
+
+    private List<AbstractInsnNode> computeConstantTargetInsns(@Nullable TargetPair target) {
+        return computeInjectionTargetInsns(target, () -> methodAnnotation().getNested("constant").orElse(null), (ctx, h) -> new BeforeConstant(ctx, h.unwrap(), Type.getReturnType(this.methodNode.desc).getDescriptor()));
+    }
+
+    @Nullable
+    private List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable TargetPair target, Supplier<AnnotationHandle> atNodeSupplier, BiFunction<IMixinContext, AnnotationHandle, InjectionPoint> injectionPointParser) {
         if (target == null) {
             return List.of();
         }
-        AnnotationHandle atNode = injectionPointAnnotation();
+        AnnotationHandle atNode = atNodeSupplier.get();
         if (atNode == null) {
-            LOGGER.debug("Target @At annotation not found in method {}.{}{}", this.classNode.name, this.methodNode.name, this.methodNode.desc);
             return List.of();
         }
-        AnnotationHandle annotation = methodAnnotation();
         // Provide a minimum implementation of IMixinContext
         IMixinContext mixinContext = MockMixinRuntime.forClass(this.classNode.name, target.classNode().name, patchContext().environment());
         // Parse injection point
-        InjectionPoint injectionPoint = InjectionPoint.parse(mixinContext, this.methodNode, annotation.unwrap(), atNode.unwrap());
+        InjectionPoint injectionPoint = injectionPointParser.apply(mixinContext, atNode);
         Target mixinTarget = MockMixinRuntime.createMixinTarget(target);
         // Find target instructions
-        InsnList instructions = getSlicedInsns(annotation, this.classNode, this.methodNode, target.classNode(), target.methodNode(), patchContext(), mixinTarget);
+        InsnList instructions = getSlicedInsns(methodAnnotation(), this.classNode, this.methodNode, target.classNode(), target.methodNode(), patchContext(), mixinTarget);
         List<AbstractInsnNode> targetInsns = new ArrayList<>();
         try {
-            injectionPoint.find(target.methodNode().desc, instructions, targetInsns);
-        } catch (InvalidInjectionException | UnsupportedOperationException e) {
-            LOGGER.error("Error finding injection insns: {}", e.getMessage());
+            if (MockMixinRuntime.injectionPointNeedsSpecialCare(injectionPoint)) {
+                MockMixinRuntime.findModifyVariableInjectionInsns(injectionPoint, mixinContext, target.methodNode().instructions, targetInsns, mixinTarget);
+            } else {
+                injectionPoint.find(target.methodNode().desc, instructions, targetInsns);
+            }
+        } catch (Throwable e) {
+            LOGGER.error("Error finding injection insns", e);
             return List.of();
         }
         return targetInsns;
@@ -217,7 +229,7 @@ public final class MethodContextImpl implements MethodContext {
     @Override
     public boolean failsDirtyInjectionCheck() {
         TargetPair dirtyPair = findDirtyInjectionTarget();
-        return dirtyPair == null || findInjectionTargetInsns(dirtyPair).isEmpty();
+        return dirtyPair == null || computeInjectionTargetInsns(dirtyPair).isEmpty() && computeConstantTargetInsns(dirtyPair).isEmpty();
     }
 
     @Override
