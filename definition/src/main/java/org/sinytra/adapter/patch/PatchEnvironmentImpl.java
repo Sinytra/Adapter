@@ -20,8 +20,8 @@ public record PatchEnvironmentImpl(
     PatchAuditTrail auditTrail
 ) implements PatchEnvironment {
 
-    public PatchEnvironmentImpl(RefmapHolder refmapHolder, ClassLookup cleanClassLookup, @Nullable BytecodeFixerUpper bytecodeFixerUpper, int fabricLVTCompatibility) {
-        this(refmapHolder, cleanClassLookup, MixinClassLookup.INSTANCE, bytecodeFixerUpper, new MixinClassGeneratorImpl(), new InheritanceHandler(MixinClassLookup.INSTANCE), fabricLVTCompatibility, new PatchAuditTrailImpl());
+    public PatchEnvironmentImpl(RefmapHolder refmapHolder, ClassLookup cleanClassLookup, @Nullable BytecodeFixerUpper bytecodeFixerUpper, int fabricLVTCompatibility, PatchAuditTrail auditTrail) {
+        this(refmapHolder, cleanClassLookup, MixinClassLookup.INSTANCE, bytecodeFixerUpper, new MixinClassGeneratorImpl(), new InheritanceHandler(MixinClassLookup.INSTANCE), fabricLVTCompatibility, auditTrail);
     }
     
     public PatchEnvironmentImpl(RefmapHolder refmapHolder, ClassLookup cleanClassLookup, ClassLookup dirtyClassLookup, @Nullable BytecodeFixerUpper bytecodeFixerUpper, int fabricLVTCompatibility) {

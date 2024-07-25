@@ -1,8 +1,13 @@
 package org.sinytra.adapter.patch.api;
 
 import org.objectweb.asm.tree.ClassNode;
+import org.sinytra.adapter.patch.PatchAuditTrailImpl;
 
 public interface PatchAuditTrail {
+    static PatchAuditTrail create() {
+        return new PatchAuditTrailImpl();
+    }
+
     void prepareMethod(MethodContext methodContext);
 
     void recordAudit(Object transform, ClassNode classNode, String message, Object... args);
