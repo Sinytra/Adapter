@@ -27,7 +27,7 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
 
     @Override
     public Collection<String> getAcceptedAnnotations() {
-        return Set.of(MixinConstants.INJECT, MixinConstants.MODIFY_VAR);
+        return Set.of(MixinConstants.INJECT, MixinConstants.MODIFY_VAR, MixinConstants.MODIFY_RETURN_VAL);
     }
 
     @Override

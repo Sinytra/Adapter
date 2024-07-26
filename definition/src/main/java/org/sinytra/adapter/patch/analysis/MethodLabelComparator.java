@@ -57,8 +57,18 @@ public class MethodLabelComparator {
             return null;
         }
 
+        List<List<AbstractInsnNode>> patchedLabels;
         int to = dirtyLabelsOriginal.indexOf(patchRange.getSecond());
-        List<List<AbstractInsnNode>> patchedLabels = patchRange.getFirst() == null ? dirtyLabelsOriginal.subList(0, to) : dirtyLabelsOriginal.subList(dirtyLabelsOriginal.indexOf(patchRange.getFirst()) + 1, to);
+        if (patchRange.getFirst() == null) {
+            patchedLabels = dirtyLabelsOriginal.subList(0, to);
+        } else {
+            int from = dirtyLabelsOriginal.indexOf(patchRange.getFirst()) + 1;
+            if (from < to) {
+                patchedLabels = dirtyLabelsOriginal.subList(dirtyLabelsOriginal.indexOf(patchRange.getFirst()) + 1, to);
+            } else {
+                return null;
+            }
+        }
         return new ComparisonResult(patchedLabels, cleanLabel);
     }
 
