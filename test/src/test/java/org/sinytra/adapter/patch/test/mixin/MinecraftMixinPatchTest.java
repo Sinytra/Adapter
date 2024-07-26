@@ -21,6 +21,7 @@ import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -88,6 +89,19 @@ public abstract class MinecraftMixinPatchTest {
                     .collect(Collectors.joining("\n"));
             })
             .containsExactlyInAnyOrder(expected.localVariables.toArray(LocalVariableNode[]::new));
+
+        Assertions.assertThat(Objects.requireNonNullElseGet(patched.invisibleParameterAnnotations, () -> new List[0]))
+            .as("Invisible parameter annotations")
+            .usingElementComparator(Comparator.comparing(l -> l == null ? "null" : ((List<AnnotationNode>) l).stream().map(a -> a.desc).toList().toString()))
+            .withRepresentation(object -> {
+                if (object instanceof List<?> list) {
+                    object = list.toArray(List[]::new);
+                }
+                return Stream.of(((List<AnnotationNode>[]) object))
+                    .<String>map(n -> n == null ? "null" : n.stream().map(o -> o.desc).toList().toString())
+                    .collect(Collectors.joining("\n  "));
+            })
+            .containsExactlyInAnyOrder(Objects.requireNonNullElseGet(expected.invisibleParameterAnnotations, () -> new List[0]));
 
         Stream.of(assertions).forEach(c -> c.accept(patched, expected, result.env()));
     }

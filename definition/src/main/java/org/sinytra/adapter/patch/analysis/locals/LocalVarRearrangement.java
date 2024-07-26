@@ -1,4 +1,4 @@
-package org.sinytra.adapter.patch.analysis;
+package org.sinytra.adapter.patch.analysis.locals;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;

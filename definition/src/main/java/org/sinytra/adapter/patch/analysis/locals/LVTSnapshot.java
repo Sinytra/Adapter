@@ -1,4 +1,4 @@
-package org.sinytra.adapter.patch.analysis;
+package org.sinytra.adapter.patch.analysis.locals;
 
 import it.unimi.dsi.fastutil.ints.Int2IntArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;

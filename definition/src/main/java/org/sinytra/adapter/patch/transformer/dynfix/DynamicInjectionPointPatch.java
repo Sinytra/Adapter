@@ -13,6 +13,9 @@ import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class DynamicInjectionPointPatch implements MethodTransform {
     private static final Logger LOGGER = LogUtils.getLogger();
+    private static final List<DynamicFixer<?>> PASSIVE = List.of(
+        new DynFixLocalCaptureUpgrade()
+    );
     private static final List<DynamicFixer<?>> PREPATCH = List.of(
         new DynFixResolveAmbigousTarget()
     );
@@ -28,13 +31,30 @@ public class DynamicInjectionPointPatch implements MethodTransform {
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
-        if (methodContext.failsDirtyInjectionCheck() && methodContext.findCleanInjectionTarget() != null) {
+        if (methodContext.findCleanInjectionTarget() == null) {
+            return Patch.Result.PASS;
+        }
+
+        PatchAuditTrail auditTrail = context.environment().auditTrail();
+        Patch.Result result = Patch.Result.PASS;
+
+        for (DynamicFixer fix : PASSIVE) {
+            Object data = fix.prepare(methodContext);
+            if (data != null) {
+                auditTrail.recordResult(methodContext, PatchAuditTrail.Match.NONE);
+                DynamicFixer.FixResult fixResult = fix.apply(classNode, methodNode, methodContext, auditTrail, data);
+                if (fixResult != null) {
+                    auditTrail.recordResult(methodContext, fixResult.match());
+                    result = result.or(fixResult.result());
+                }
+            }
+        }
+
+        if (methodContext.failsDirtyInjectionCheck()) {
             LOGGER.debug(MIXINPATCH, "Considering method {}.{}", classNode.name, methodNode.name);
 
-            PatchAuditTrail auditTrail = context.environment().auditTrail();
             auditTrail.recordResult(methodContext, PatchAuditTrail.Match.NONE);
 
-            Patch.Result result = Patch.Result.PASS;
             for (DynamicFixer fix : PREPATCH) {
                 Object data = fix.prepare(methodContext);
                 if (data != null) {
@@ -55,8 +75,8 @@ public class DynamicInjectionPointPatch implements MethodTransform {
                     }
                 }
             }
-            return result;
         }
-        return Patch.Result.PASS;
+
+        return result;
     }
 }

@@ -1,10 +1,15 @@
-package org.sinytra.adapter.patch.analysis;
+package org.sinytra.adapter.patch.analysis.locals;
 
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import org.jetbrains.annotations.Nullable;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
+import org.sinytra.adapter.patch.analysis.params.ParamsDiffSnapshot;
+import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MethodTransform;
 import org.sinytra.adapter.patch.transformer.operation.param.TransformParameters;
 import org.sinytra.adapter.patch.util.AdapterUtil;
@@ -17,6 +22,25 @@ import java.util.Map;
 import java.util.stream.IntStream;
 
 public final class LocalVarAnalyzer {
+
+    public record CapturedLocalsInfo(AdapterUtil.CapturedLocals capturedLocals, ParamsDiffSnapshot diff, List<Type> availableTypes) {}
+    
+    @Nullable
+    public static CapturedLocalsInfo getCapturedLocals(MethodContext methodContext) {
+        AdapterUtil.CapturedLocals capturedLocals = AdapterUtil.getCapturedLocals(methodContext.getMixinMethod(), methodContext);
+        if (capturedLocals == null) {
+            return null;
+        }
+        // Get available local variables at the injection point in the target method
+        List<MethodContext.LocalVariable> available = methodContext.getTargetMethodLocals(capturedLocals.target());
+        if (available == null) {
+            return null;
+        }
+        List<Type> availableTypes = available.stream().map(MethodContext.LocalVariable::type).toList();
+        // Compare expected and available params
+        ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(capturedLocals.expected(), availableTypes);
+        return new CapturedLocalsInfo(capturedLocals, diff, availableTypes);
+    }
 
     public static InsnList findInitializerInsns(MethodNode methodNode, int index) {
         InsnList insns = new InsnList();
@@ -39,7 +63,7 @@ public final class LocalVarAnalyzer {
 
     public record CapturedLocalsUsage(LocalVariableLookup targetTable, Int2IntMap usageCount, Int2ObjectMap<InsnList> varInsnLists) {}
 
-    public record CapturedLocalsTransform(List<Integer> used, MethodTransform remover) {
+    public record CapturedLocalsTransform(List<Integer> used, MethodTransform remover, List<LocalVariableNode> usedLocalNodes) {
         public CapturedLocalsUsage getUsage(AdapterUtil.CapturedLocals capturedLocals) {
             LocalVariableLookup targetTable = new LocalVariableLookup(capturedLocals.target().methodNode());
             Int2ObjectMap<InsnList> varInsnLists = new Int2ObjectOpenHashMap<>();
@@ -57,6 +81,7 @@ public final class LocalVarAnalyzer {
         int paramLocalStart = capturedLocals.paramLocalStart();
         LocalVariableLookup table = capturedLocals.lvt();
         List<Integer> used = new ArrayList<>();
+        List<LocalVariableNode> usedLocalNodes = new ArrayList<>();
         for (AbstractInsnNode insn : methodNode.instructions) {
             if (insn instanceof VarInsnNode varInsn) {
                 LocalVariableNode node = table.getByIndexOrNull(varInsn.var);
@@ -66,6 +91,7 @@ public final class LocalVarAnalyzer {
                 int ordinal = table.getOrdinal(node);
                 if (ordinal >= paramLocalStart && ordinal <= capturedLocals.paramLocalEnd()) {
                     used.add(ordinal - 1); // Subtract 1, which represents the CI param
+                    usedLocalNodes.add(node);
                 }
             }
         }
@@ -76,7 +102,7 @@ public final class LocalVarAnalyzer {
                 .boxed().sorted(Collections.reverseOrder())
                 .forEach(b::remove))
             .build();
-        return new CapturedLocalsTransform(used, remover);
+        return new CapturedLocalsTransform(used, remover, usedLocalNodes);
     }
 
     public static void findVariableInitializerInsns(MethodNode methodNode, boolean isStatic, int index, Int2ObjectMap<InsnList> varInsnLists, Int2IntMap usageCount) {

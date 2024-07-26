@@ -12,7 +12,7 @@ import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchContext;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.analysis.LVTSnapshot;
+import org.sinytra.adapter.patch.analysis.locals.LVTSnapshot;
 import org.sinytra.adapter.patch.fixes.ModifyArgsOffsetTransformer;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 

@@ -13,8 +13,8 @@ import org.jetbrains.annotations.VisibleForTesting;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.LVTOffsets;
-import org.sinytra.adapter.patch.analysis.LocalVariableLookup;
-import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
+import org.sinytra.adapter.patch.analysis.locals.LocalVarAnalyzer;
+import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.patch.analysis.params.ParamsDiffSnapshot;
 import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
@@ -153,27 +153,19 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
 
     @Nullable
     private ParamsDiffSnapshot compareParameters(ClassNode classNode, MethodNode methodNode, MethodContext methodContext) {
-        AdapterUtil.CapturedLocals capturedLocals = AdapterUtil.getCapturedLocals(methodNode, methodContext);
-        if (capturedLocals == null) {
+        LocalVarAnalyzer.CapturedLocalsInfo info = LocalVarAnalyzer.getCapturedLocals(methodContext);
+        if (info == null) {
             return null;
         }
-
-        // Get available local variables at the injection point in the target method
-        List<MethodContext.LocalVariable> available = methodContext.getTargetMethodLocals(capturedLocals.target());
-        if (available == null) {
-            return null;
-        }
-        List<Type> availableTypes = available.stream().map(MethodContext.LocalVariable::type).toList();
-        // Compare expected and available params
-        ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(capturedLocals.expected(), availableTypes);
+        ParamsDiffSnapshot diff = info.diff();
         if (diff.isEmpty()) {
-            // No changes required
             return null;
         }
+        AdapterUtil.CapturedLocals capturedLocals = info.capturedLocals();
         // Replacements are only partially supported, as most would require LVT fixups and converters
         if (!diff.replacements().isEmpty() && areReplacedParamsUsed(diff.replacements(), methodNode)) {
             // Check if we can rearrange parameters
-            SimpleParamsDiffSnapshot rearrange = rearrangeParameters(capturedLocals.expected(), availableTypes);
+            SimpleParamsDiffSnapshot rearrange = rearrangeParameters(capturedLocals.expected(), info.availableTypes());
             if (rearrange == null) {
                 LOGGER.debug(MIXINPATCH, "Tried to replace local variables in mixin method {}.{} using {}", classNode.name, methodNode.name + methodNode.desc, diff.replacements());
                 return null;

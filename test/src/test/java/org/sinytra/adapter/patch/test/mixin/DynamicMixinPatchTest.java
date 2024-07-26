@@ -39,7 +39,8 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
                 }
 
                 @Override
-                public void copyEntries(String from, String to) {}
+                public void copyEntries(String from, String to) {
+                }
             },
             cleanLookup,
             dirtyLookup,
@@ -253,6 +254,16 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/CrossbowAttackGoalMixin",
             "redirectedGetHandPossiblyHolding",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
+    void testDynamicLocalCaptureupgrade() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/GuiMixin",
+            "cozyBackground",
             assertTargetMethod(),
             assertInjectionPoint()
         );

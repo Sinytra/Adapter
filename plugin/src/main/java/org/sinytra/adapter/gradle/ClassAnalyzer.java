@@ -15,7 +15,7 @@ import org.sinytra.adapter.gradle.util.TraceCallback;
 import org.sinytra.adapter.patch.LVTOffsets;
 import org.sinytra.adapter.patch.PatchInstance;
 import org.sinytra.adapter.patch.analysis.InheritanceHandler;
-import org.sinytra.adapter.patch.analysis.LocalVarRearrangement;
+import org.sinytra.adapter.patch.analysis.locals.LocalVarRearrangement;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
