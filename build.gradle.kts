@@ -35,9 +35,6 @@ allprojects {
 
     neoForge {
         version = versionNeoForge
-
-        // Temp
-        neoFormRuntime.version.set("0.1.70")
     }
 
     repositories {
