@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "org.sinytra.adapter"
-version = "1.0-SNAPSHOT"
+version = "1.1-SNAPSHOT"
 
 java {
     toolchain {
@@ -27,7 +27,7 @@ repositories {
 }
 
 dependencies { 
-    compileOnly("net.neoforged:moddev-gradle:0.1.124")
+    compileOnly("net.neoforged:moddev-gradle:1.0.15")
 }
 
 publishing {

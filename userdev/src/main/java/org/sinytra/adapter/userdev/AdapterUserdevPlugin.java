@@ -1,5 +1,6 @@
 package org.sinytra.adapter.userdev;
 
+import net.neoforged.moddevgradle.dsl.InternalModelHelper;
 import net.neoforged.moddevgradle.dsl.NeoForgeExtension;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
@@ -17,7 +18,8 @@ public class AdapterUserdevPlugin implements Plugin<Project> {
     }
 
     public static void applyPlugin(Project project) {
-        Property<String> neoForgeVersion = project.getExtensions().getByType(NeoForgeExtension.class).getVersion();
+        NeoForgeExtension neoForge = project.getExtensions().getByType(NeoForgeExtension.class);
+        Property<String> neoForgeVersion = neoForge.getVersion();
 
         Configuration neoForgeUserdevArtifact = project.getConfigurations().create("neoForgeUserdevArtifact", spec -> {
             spec.setCanBeResolved(true);
@@ -46,6 +48,7 @@ public class AdapterUserdevPlugin implements Plugin<Project> {
             task.getOutputFile().set(project.file("build/%s/joined.lzma".formatted(task.getName())));
         });
 
+        // Used by org.sinytra.adapter.gradle plugin
         TaskProvider<CreateBinpatchedArtifactTask> createBinpatchedArtifact = project.getTasks().register("createBinpatchedArtifact", CreateBinpatchedArtifactTask.class, task -> {
             task.dependsOn("extractBinPatches");
             task.setGroup("sinytra");
@@ -53,6 +56,14 @@ public class AdapterUserdevPlugin implements Plugin<Project> {
             task.getRenamedInput().set(createCleanArtifact.flatMap(CreateCleanArtifactTask::getOutputFile));
             task.getPatches().set(extractBinPatches.flatMap(ExtractBinPatches::getOutputFile));
             task.getOutputFile().set(project.file("build/%s/minecraft-binpatched.jar".formatted(task.getName())));
+        });
+
+        // Attach clean artifact path to run configs
+        neoForge.getRuns().configureEach(runModel -> {
+            runModel.systemProperty("connector.clean.path", createCleanArtifact.get().getOutputFile().get().getAsFile().getAbsolutePath());
+            project.getTasks().named(InternalModelHelper.nameOfRun(runModel, "prepare", "run")).configure(task -> {
+                task.dependsOn(createCleanArtifact);
+            });
         });
     }
 }

@@ -3,7 +3,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 plugins {
-    id("net.neoforged.moddev") version "0.1.126"
+    id("net.neoforged.moddev") version "1.0.15"
     id("org.sinytra.adapter.userdev")
     id("org.sinytra.adapter.gradle")
     `maven-publish`
