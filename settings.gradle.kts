@@ -14,6 +14,12 @@ pluginManagement {
             url = uri("https://maven.fabricmc.net")
         }
     }
+
+    val versionModDevGradle: String by settings
+  
+    plugins {
+        id("net.neoforged.moddev") version versionModDevGradle
+    }
 }
 
 rootProject.name = "Adapter"

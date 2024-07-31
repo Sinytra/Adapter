@@ -1,9 +1,13 @@
+import java.util.*
+
 plugins {
     `java-gradle-plugin`
 }
 
 group = "org.sinytra.adapter"
 version = "1.0-SNAPSHOT"
+
+val versionModDevGradle: String by Properties().also { file("../gradle.properties").bufferedReader().use(it::load) }
 
 java {
     toolchain {
@@ -37,6 +41,7 @@ repositories {
 }
 
 dependencies {
+    compileOnly(group = "net.neoforged", name = "moddev-gradle", version = versionModDevGradle)
     implementation(group = "org.sinytra.adapter", name = "definition")
     implementation(group = "org.sinytra.adapter", name = "userdev")
     implementation(group = "org.apache.commons", name = "commons-lang3", version = "3.13.0")

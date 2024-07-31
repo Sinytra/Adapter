@@ -39,10 +39,9 @@ dependencies {
 
 tasks {
     test {
-        dependsOn(createCleanArtifact)
         useJUnitPlatform()
         systemProperty("adapter.definition.paramdiff.debug", true)
-        systemProperty("adapter.clean.path", createCleanArtifact.get().outputFile.get().asFile.absolutePath)
+        systemProperty("adapter.clean.path", neoForge.neoFormRuntime.additionalResults.getting("vanillaDeobfuscated").get().absolutePath)
         systemProperty("forge.logging.console.level", "debug")
         outputs.upToDateWhen { false }
     }

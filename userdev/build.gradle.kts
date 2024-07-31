@@ -1,10 +1,14 @@
+import java.util.Properties
+
 plugins {
     `java-gradle-plugin`
     `maven-publish`
 }
 
 group = "org.sinytra.adapter"
-version = "1.1-SNAPSHOT"
+version = "1.2-SNAPSHOT"
+
+val versionModDevGradle: String by Properties().also { file("../gradle.properties").bufferedReader().use(it::load) }
 
 java {
     toolchain {
@@ -27,7 +31,7 @@ repositories {
 }
 
 dependencies { 
-    compileOnly("net.neoforged:moddev-gradle:1.0.15")
+    compileOnly(group = "net.neoforged", name = "moddev-gradle", version = versionModDevGradle)
 }
 
 publishing {

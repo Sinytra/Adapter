@@ -1,12 +1,13 @@
 package org.sinytra.adapter.userdev;
 
-import net.neoforged.moddevgradle.dsl.InternalModelHelper;
 import net.neoforged.moddevgradle.dsl.NeoForgeExtension;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.TaskProvider;
+
+import java.io.File;
 
 public class AdapterUserdevPlugin implements Plugin<Project> {
     private static final String MDG_ID = "net.neoforged.moddev";
@@ -34,13 +35,8 @@ public class AdapterUserdevPlugin implements Plugin<Project> {
             spec.withDependencies(dependencies -> dependencies.addLater(project.provider(() -> project.getDependencyFactory().create("net.neoforged.installertools:binarypatcher:2.1.2"))));
         });
 
-        TaskProvider<CreateCleanArtifactTask> createCleanArtifact = project.getTasks().register("createCleanArtifact", CreateCleanArtifactTask.class, task -> {
-            task.setGroup("sinytra");
-            task.getNeoForgeRuntime().from(project.getConfigurations().named("neoFormRuntime"));
-            task.getNeoForgeArtifact().set(neoForgeVersion.map(v -> "net.neoforged:neoforge:" + v));
-            task.getWorkDir().set(project.getLayout().getBuildDirectory().dir("tmp/neoformruntime"));
-            task.getOutputFile().set(project.file("build/%s/minecraft-renamed.jar".formatted(task.getName())));
-        });
+        File requestedOutput = project.file("build/createCleanArtifact/minecraft-renamed.jar");
+        neoForge.getNeoFormRuntime().getAdditionalResults().put("vanillaDeobfuscated", requestedOutput);
 
         TaskProvider<ExtractBinPatches> extractBinPatches = project.getTasks().register("extractBinPatches", ExtractBinPatches.class, task -> {
             task.setGroup("sinytra");
@@ -53,17 +49,14 @@ public class AdapterUserdevPlugin implements Plugin<Project> {
             task.dependsOn("extractBinPatches");
             task.setGroup("sinytra");
             task.getRuntime().from(neoForgeBinpatchRuntime);
-            task.getRenamedInput().set(createCleanArtifact.flatMap(CreateCleanArtifactTask::getOutputFile));
+            task.getRenamedInput().set(requestedOutput);
             task.getPatches().set(extractBinPatches.flatMap(ExtractBinPatches::getOutputFile));
             task.getOutputFile().set(project.file("build/%s/minecraft-binpatched.jar".formatted(task.getName())));
         });
 
         // Attach clean artifact path to run configs
         neoForge.getRuns().configureEach(runModel -> {
-            runModel.systemProperty("connector.clean.path", createCleanArtifact.get().getOutputFile().get().getAsFile().getAbsolutePath());
-            project.getTasks().named(InternalModelHelper.nameOfRun(runModel, "prepare", "run")).configure(task -> {
-                task.dependsOn(createCleanArtifact);
-            });
+            runModel.systemProperty("connector.clean.path", requestedOutput.getAbsolutePath());
         });
     }
 }
