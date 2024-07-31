@@ -46,7 +46,7 @@ public class AdapterUserdevPlugin implements Plugin<Project> {
 
         // Used by org.sinytra.adapter.gradle plugin
         TaskProvider<CreateBinpatchedArtifactTask> createBinpatchedArtifact = project.getTasks().register("createBinpatchedArtifact", CreateBinpatchedArtifactTask.class, task -> {
-            task.dependsOn("extractBinPatches");
+            task.dependsOn("extractBinPatches", "createMinecraftArtifacts");
             task.setGroup("sinytra");
             task.getRuntime().from(neoForgeBinpatchRuntime);
             task.getRenamedInput().set(requestedOutput);
