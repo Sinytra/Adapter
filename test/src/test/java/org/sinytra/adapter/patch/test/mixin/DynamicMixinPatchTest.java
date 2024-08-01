@@ -113,6 +113,16 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     }
 
     @Test
+    void testMovedInjectionPointToMethod5() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/LevelMixin",
+            "modifyLeastStatus",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
     void testUpdatedInjectionPointFieldToMethod() throws Exception {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/HoeItemMixin",

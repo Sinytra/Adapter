@@ -1,5 +1,6 @@
 package org.sinytra.adapter.patch.transformer.dynfix;
 
+import com.google.common.collect.Multimap;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
@@ -11,6 +12,7 @@ import org.sinytra.adapter.patch.util.OpcodeUtil;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Handle cases where a single method is split into multiple smaller pieces.
@@ -33,13 +35,26 @@ public class DynFixSplitMethod implements DynamicFixer<DynFixSplitMethod.Data> {
     @Override
     @Nullable
     public FixResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchAuditTrail auditTrail, Data data) {
+        List<MethodNode> candidates = locateCandidates(methodContext);
+
+        if (candidates.size() == 1) {
+            MethodNode method = candidates.getFirst();
+            String newTarget = method.name + method.desc;
+            methodContext.recordAudit(this, "Adjusting split method target to %s", newTarget);
+            return FixResult.of(new ModifyInjectionTarget(List.of(newTarget)).apply(methodContext), PatchAuditTrail.Match.FULL);
+        }
+
+        return null;
+    }
+
+    private static List<MethodNode> locateCandidates(MethodContext methodContext) {
         MethodNode cleanTargetMethod = methodContext.findCleanInjectionTarget().methodNode();
         ClassNode dirtyTargetClass = methodContext.findDirtyInjectionTarget().classNode();
         MethodNode dirtyTargetMethod = methodContext.findDirtyInjectionTarget().methodNode();
 
         // Check that a Deprecated annotation was added to the dirty method 
         if (AdapterUtil.hasAnnotation(cleanTargetMethod.visibleAnnotations, DEPRECATED) || !AdapterUtil.hasAnnotation(dirtyTargetMethod.visibleAnnotations, DEPRECATED)) {
-            return null;
+            return tryFindPartialCandidates(cleanTargetMethod, dirtyTargetClass, dirtyTargetMethod, methodContext);
         }
 
         // Iterate over isns, leave out first and last elements
@@ -49,7 +64,7 @@ public class DynFixSplitMethod implements DynamicFixer<DynFixSplitMethod.Data> {
         for (int i = 1; i < dirtyTargetMethod.instructions.size() - 1; i++) {
             AbstractInsnNode insn = dirtyTargetMethod.instructions.get(i);
             if (insn instanceof LabelNode) {
-                AbstractInsnNode previous = insn.getPrevious(); 
+                AbstractInsnNode previous = insn.getPrevious();
                 if (previous instanceof MethodInsnNode methodInsn && methodInsn.owner.equals(dirtyTargetClass.name)) {
                     MethodNode method = dirtyTargetClass.methods.stream().filter(m -> m.name.equals(methodInsn.name) && m.desc.equals(methodInsn.desc)).findFirst().orElseThrow();
                     invocations.add(method);
@@ -67,17 +82,24 @@ public class DynFixSplitMethod implements DynamicFixer<DynFixSplitMethod.Data> {
                 .flatMap(m -> MethodCallAnalyzer.findLambdasInMethod(dirtyTargetClass, m, null).stream())
                 .flatMap(s -> MethodCallAnalyzer.findMethodByUniqueName(dirtyTargetClass, s).stream())
                 .toList();
-            candidates = findInsnsCalls(nestedLambdas, methodContext);
+            return findInsnsCalls(nestedLambdas, methodContext);
         }
 
-        if (candidates.size() == 1) {
-            MethodNode method = candidates.getFirst();
-            String newTarget = method.name + method.desc;
-            methodContext.recordAudit(this, "Adjusting split method target to %s", newTarget);
-            return FixResult.of(new ModifyInjectionTarget(List.of(newTarget)).apply(methodContext), PatchAuditTrail.Match.FULL);
-        }
+        return candidates;
+    }
 
-        return null;
+    // Handle cases where only part of the method is moved away
+    private static List<MethodNode> tryFindPartialCandidates(MethodNode cleanTargetMethod, ClassNode dirtyTargetClass, MethodNode dirtyTargetMethod, MethodContext methodContext) {
+        Multimap<String, MethodInsnNode> cleanMethodCalls = MethodCallAnalyzer.getMethodCalls(cleanTargetMethod, new ArrayList<>());
+        Multimap<String, MethodInsnNode> dirtyMethodCalls = MethodCallAnalyzer.getMethodCalls(dirtyTargetMethod, new ArrayList<>());
+
+        List<MethodNode> dirtyOnlyCalls = dirtyMethodCalls.entries().stream()
+            .filter(e -> !cleanMethodCalls.containsKey(e.getKey()) && e.getValue().owner.equals(dirtyTargetClass.name))
+            .map(Map.Entry::getValue)
+            .flatMap(i -> MethodCallAnalyzer.findMethodByNameOrThrow(dirtyTargetClass, i.name, i.desc).stream())
+            .toList();
+
+        return findInsnsCalls(dirtyOnlyCalls, methodContext);
     }
 
     private static List<MethodNode> findInsnsCalls(List<MethodNode> methods, MethodContext methodContext) {

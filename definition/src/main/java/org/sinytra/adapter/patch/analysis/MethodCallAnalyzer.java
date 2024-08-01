@@ -50,6 +50,12 @@ public class MethodCallAnalyzer {
         return Optional.of(methods.getFirst());
     }
 
+    public static Optional<MethodNode> findMethodByNameOrThrow(ClassNode cls, String name, String desc) {
+        return cls.methods.stream()
+            .filter(m -> m.name.equals(name) && m.desc.equals(desc))
+            .findFirst();
+    }
+
     public static Multimap<String, MethodInsnNode> getMethodCalls(MethodNode node, List<String> callOrder) {
         ImmutableMultimap.Builder<String, MethodInsnNode> calls = ImmutableMultimap.builder();
         for (AbstractInsnNode insn : node.instructions) {
