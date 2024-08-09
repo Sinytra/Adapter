@@ -131,6 +131,25 @@ public class MethodCallAnalyzer {
         });
     }
 
+    public static int getMethodCallOrdinal(MethodNode method, MethodInsnNode insn) {
+        List<MethodInsnNode> insns = new ArrayList<>();
+        for (AbstractInsnNode i : method.instructions) {
+            if (i instanceof MethodInsnNode m && InsnComparator.instructionsEqual(m, insn)) {
+                insns.add(m);
+            }
+        }
+        return insns.indexOf(insn);
+    }
+
+    public static int getArgIndex(String desc, Type type) {
+        List<Type> args = Arrays.asList(Type.getArgumentTypes(desc));
+        List<Type> found = args.stream().filter(type::equals).toList();
+        if (found.size() != 1) {
+            return -1;
+        }
+        return args.indexOf(found.getFirst());
+    }
+
     @Nullable
     public static List<AbstractInsnNode> findMethodCallParamInsns(MethodNode methodNode, MethodInsnNode insn) {
         MethodCallInterpreter interpreter = MethodCallAnalyzer.analyzeInterpretMethod(methodNode, new MethodCallInterpreter(insn));

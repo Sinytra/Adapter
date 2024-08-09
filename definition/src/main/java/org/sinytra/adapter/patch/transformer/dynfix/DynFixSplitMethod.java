@@ -50,32 +50,45 @@ public class DynFixSplitMethod implements DynamicFixer<DynFixSplitMethod.Data> {
 
         return null;
     }
+    
+    public static boolean isDirtyDeprecatedMethod(MethodNode clean, MethodNode dirty) {
+        return !AdapterUtil.hasAnnotation(clean.visibleAnnotations, DEPRECATED) && AdapterUtil.hasAnnotation(dirty.visibleAnnotations, DEPRECATED);
+    }
 
+    @Nullable
+    public static List<MethodNode> collectMethodInvocations(ClassNode cls, MethodNode mtd) {
+        // Iterate over isns, leave out first and last elements
+        // Collect method invocations
+        // All labels must be finalized by a method invocation to pass
+        List<MethodNode> invocations = new ArrayList<>();
+        for (int i = 1; i < mtd.instructions.size() - 1; i++) {
+            AbstractInsnNode insn = mtd.instructions.get(i);
+            if (insn instanceof LabelNode) {
+                AbstractInsnNode previous = insn.getPrevious();
+                if (previous instanceof MethodInsnNode methodInsn && methodInsn.owner.equals(cls.name)) {
+                    MethodNode method = cls.methods.stream().filter(m -> m.name.equals(methodInsn.name) && m.desc.equals(methodInsn.desc)).findFirst().orElseThrow();
+                    invocations.add(method);
+                } else if (previous == null || !OpcodeUtil.isReturnOpcode(previous.getOpcode())) {
+                    return null;
+                }
+            }
+        }
+        return invocations;
+    }
+    
     private static List<CandidateMethod> locateCandidates(MethodContext methodContext) {
         MethodNode cleanTargetMethod = methodContext.findCleanInjectionTarget().methodNode();
         ClassNode dirtyTargetClass = methodContext.findDirtyInjectionTarget().classNode();
         MethodNode dirtyTargetMethod = methodContext.findDirtyInjectionTarget().methodNode();
 
         // Check that a Deprecated annotation was added to the dirty method 
-        if (AdapterUtil.hasAnnotation(cleanTargetMethod.visibleAnnotations, DEPRECATED) || !AdapterUtil.hasAnnotation(dirtyTargetMethod.visibleAnnotations, DEPRECATED)) {
+        if (!isDirtyDeprecatedMethod(cleanTargetMethod, dirtyTargetMethod)) {
             return tryFindPartialCandidates(cleanTargetMethod, dirtyTargetClass, dirtyTargetMethod, methodContext);
         }
 
-        // Iterate over isns, leave out first and last elements
-        // Collect method invocations
-        // All labels must be finalized by a method invocation to pass
-        List<MethodNode> invocations = new ArrayList<>();
-        for (int i = 1; i < dirtyTargetMethod.instructions.size() - 1; i++) {
-            AbstractInsnNode insn = dirtyTargetMethod.instructions.get(i);
-            if (insn instanceof LabelNode) {
-                AbstractInsnNode previous = insn.getPrevious();
-                if (previous instanceof MethodInsnNode methodInsn && methodInsn.owner.equals(dirtyTargetClass.name)) {
-                    MethodNode method = dirtyTargetClass.methods.stream().filter(m -> m.name.equals(methodInsn.name) && m.desc.equals(methodInsn.desc)).findFirst().orElseThrow();
-                    invocations.add(method);
-                } else if (previous == null || !OpcodeUtil.isReturnOpcode(previous.getOpcode())) {
-                    return null;
-                }
-            }
+        List<MethodNode> invocations = collectMethodInvocations(dirtyTargetClass, dirtyTargetMethod);
+        if (invocations == null) {
+            return null;
         }
 
         List<CandidateMethod> candidates = findInsnsCalls(invocations, methodContext);

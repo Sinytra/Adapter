@@ -4,12 +4,14 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
+import org.sinytra.adapter.patch.analysis.InsnComparator;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.analysis.MethodLabelComparator;
+import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
@@ -22,13 +24,11 @@ import org.sinytra.adapter.patch.transformer.operation.param.*;
 import org.sinytra.adapter.patch.transformer.pipeline.MethodTransformationPipeline;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Stream;
 
 public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparison.Data> {
-    private static final Set<String> ACCEPTED_ANNOTATIONS = Set.of(MixinConstants.INJECT, MixinConstants.WRAP_OPERATION);
+    private static final Set<String> ACCEPTED_ANNOTATIONS = Set.of(MixinConstants.INJECT, MixinConstants.WRAP_OPERATION, MixinConstants.MODIFY_ARG);
 
     public record Data(AbstractInsnNode cleanInjectionInsn) {}
 
@@ -58,6 +58,10 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
         }
         List<List<AbstractInsnNode>> hunkLabels = comparisonResult.patchedLabels();
 
+        if (methodContext.methodAnnotation().matchesDesc(MixinConstants.MODIFY_ARG)) {
+            return handleModifyArgInjectionPoint(cleanInjectionInsn, hunkLabels, methodContext);
+        }
+
         if (methodContext.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
             return handleWrapOperationToInstanceOf(cleanInjectionInsn, comparisonResult.cleanLabel(), hunkLabels, methodContext)
                 .or(() -> handleWrapOpertationNewInjectionPoint(cleanInjectionInsn, comparisonResult.cleanLabel(), hunkLabels, methodContext))
@@ -85,6 +89,93 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
                     return FixResult.of(new ModifyInjectionPoint("INVOKE", newInjectionPoint, true, false).apply(methodContext), PatchAuditTrail.Match.PARTIAL);
                 }
             }
+        }
+
+        return null;
+    }
+
+    // Handle ModifyArg when targetting INDY values
+    private static FixResult handleModifyArgInjectionPoint(AbstractInsnNode cleanInjectionInsn, List<List<AbstractInsnNode>> hunkLabels, MethodContext methodContext) {
+        if (!(cleanInjectionInsn instanceof MethodInsnNode minsn)) {
+            return null;
+        }
+
+        Type desiredType = Type.getArgumentTypes(methodContext.getMixinMethod().desc)[0];
+
+        int index = MethodCallAnalyzer.getArgIndex(minsn.desc, desiredType) + 1;
+        if (index == 0) {
+            return null;
+        }
+        List<AbstractInsnNode> cleanCallParamInsns = MethodCallAnalyzer.findMethodCallParamInsns(methodContext.findCleanInjectionTarget().methodNode(), minsn);
+        if (cleanCallParamInsns.size() <= index) {
+            return null;
+        }
+
+        AbstractInsnNode targetArgInsn = cleanCallParamInsns.get(index);
+        if (!(targetArgInsn instanceof InvokeDynamicInsnNode cleanIndy)) {
+            return null;
+        }
+
+        MethodContext.TargetPair cleanTarget = methodContext.findCleanInjectionTarget();
+        MethodContext.TargetPair dirtyTarget = methodContext.findDirtyInjectionTarget();
+        // Handle cases where the method has been split off
+        if (cleanIndy.bsmArgs.length > 2 && cleanIndy.bsmArgs[1] instanceof Handle handle && handle.getOwner().equals(dirtyTarget.classNode().name)) {
+            MethodNode cleanMethod = MethodCallAnalyzer.findMethodByUniqueName(cleanTarget.classNode(), handle.getName()).orElse(null);
+            if (cleanMethod == null) {
+                return null;
+            }
+            MethodNode dirtyMethod = MethodCallAnalyzer.findMethodByUniqueName(dirtyTarget.classNode(), handle.getName()).orElse(null);
+            if (dirtyMethod == null) {
+                return null;
+            }
+            if (DynFixSplitMethod.isDirtyDeprecatedMethod(cleanMethod, dirtyMethod)) {
+                List<MethodNode> invocations = DynFixSplitMethod.collectMethodInvocations(dirtyTarget.classNode(), dirtyMethod);
+                if (invocations != null) {
+                    MethodNode last = invocations.getLast();
+                    if (last.desc.equals(dirtyMethod.desc)) {
+                        InvokeDynamicInsnNode clone = (InvokeDynamicInsnNode) cleanIndy.clone(Map.of());
+                        clone.bsmArgs = Stream.of(clone.bsmArgs).toArray();
+                        clone.bsmArgs[1] = new Handle(handle.getTag(), handle.getOwner(), last.name, handle.getDesc(), handle.isInterface());
+                        cleanIndy = clone;
+                    }
+                }
+            }
+        }
+
+        MethodNode dirtyMethod = methodContext.findDirtyInjectionTarget().methodNode();
+        List<MethodInsnNode> matches = new ArrayList<>();
+        for (List<AbstractInsnNode> label : hunkLabels) {
+            for (AbstractInsnNode insn : label) {
+                if (insn instanceof MethodInsnNode m && Stream.of(Type.getArgumentTypes(m.desc)).filter(desiredType::equals).count() == 1) {
+                    int argIndex = MethodCallAnalyzer.getArgIndex(m.desc, desiredType) + 1;
+                    if (argIndex == 0) {
+                        continue;
+                    }
+                    List<AbstractInsnNode> list = MethodCallAnalyzer.findMethodCallParamInsns(dirtyMethod, m);
+                    if (list.size() > argIndex && list.get(argIndex) instanceof InvokeDynamicInsnNode dirtyIndy && InsnComparator.instructionsEqual(cleanIndy, dirtyIndy)) {
+                        matches.add(m);
+                    }
+                }
+            }
+        }
+
+        if (matches.size() == 1) {
+            MethodInsnNode m = matches.getFirst();
+            String newInjectionPoint = Type.getObjectType(m.owner).getDescriptor() + m.name + m.desc;
+
+            Patch.Result result = MethodTransformationPipeline.builder(new ModifyInjectionPoint("INVOKE", newInjectionPoint, true, false))
+                .onSuccess(() -> (cls, mtd, mtx, ctx) -> {
+                    int ordinal = MethodCallAnalyzer.getMethodCallOrdinal(dirtyMethod, m);
+                    if (ordinal == -1) {
+                        throw new IllegalStateException("Ordinal not found?");
+                    }
+                    AnnotationHandle handle = mtx.injectionPointAnnotationOrThrow();
+                    handle.setOrAppend("ordinal", ordinal);
+                    return Patch.Result.APPLY;
+                })
+                .apply(methodContext);
+
+            return FixResult.of(result, PatchAuditTrail.Match.FULL);
         }
 
         return null;

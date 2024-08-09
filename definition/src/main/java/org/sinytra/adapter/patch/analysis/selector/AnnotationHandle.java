@@ -82,4 +82,11 @@ public final class AnnotationHandle {
         this.annotationNode = annotationNode;
         this.handleCache.values().forEach(v -> v.refresh(annotationNode));
     }
+
+    public void setOrAppend(String key, Object value) {
+        getValue(key).ifPresentOrElse(
+            v -> v.set(value),
+            () -> appendValue(key, value)
+        );
+    }
 }

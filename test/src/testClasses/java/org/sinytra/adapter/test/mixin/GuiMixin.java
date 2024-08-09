@@ -5,6 +5,7 @@ import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.LayeredDraw;
 import net.minecraft.client.resources.MobEffectTextureManager;
 import net.minecraft.core.Holder;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -97,5 +98,36 @@ public class GuiMixin {
     )
     private int moveHealthDownExpected(int original) {
         return original;
+    }
+
+    // https://github.com/SkyblockerMod/Skyblocker/blob/8cfd59bbf6c71d1de6ed35ad36b2abd801eddb71/src/main/java/de/hysky/skyblocker/mixins/InGameHudMixin.java#L97
+    @ModifyArg(
+        method = "<init>(Lnet/minecraft/client/Minecraft;)V",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/client/gui/LayeredDraw;add(Lnet/minecraft/client/gui/LayeredDraw$Layer;)Lnet/minecraft/client/gui/LayeredDraw;",
+            ordinal = 2
+        )
+    )
+    private LayeredDraw.Layer afterMainHud(LayeredDraw.Layer mainHudLayer) {
+        return (context, tickCounter) -> {
+            mainHudLayer.render(context, tickCounter);
+            System.out.println("Hello");
+        };
+    }
+
+    @ModifyArg(
+        method = "<init>(Lnet/minecraft/client/Minecraft;)V",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/neoforged/neoforge/client/gui/GuiLayerManager;add(Lnet/minecraft/resources/ResourceLocation;Lnet/minecraft/client/gui/LayeredDraw$Layer;)Lnet/neoforged/neoforge/client/gui/GuiLayerManager;",
+            ordinal = 11
+        )
+    )
+    private LayeredDraw.Layer afterMainHudExpected(LayeredDraw.Layer mainHudLayer) {
+        return (context, tickCounter) -> {
+            mainHudLayer.render(context, tickCounter);
+            System.out.println("Hello");
+        };
     }
 }
