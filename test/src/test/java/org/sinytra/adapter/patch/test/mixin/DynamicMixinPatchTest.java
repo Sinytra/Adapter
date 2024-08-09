@@ -178,6 +178,12 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
             assertTargetMethod(),
             assertInjectionPoint()
         );
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/GuiMixin",
+            "moveHealthDown",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
     }
 
     @Test

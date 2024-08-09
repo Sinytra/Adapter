@@ -1,5 +1,6 @@
 package org.sinytra.adapter.test.mixin;
 
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.Gui;
@@ -79,5 +80,22 @@ public class GuiMixin {
     private void cozyBackgroundExpected(GuiGraphics context, DeltaTracker tickCounter, CallbackInfo ci, @Local Holder registryEntry) {
         // Use only a single captured local
         boolean something = registryEntry == null;
+    }
+
+    // https://github.com/SkyblockerMod/Skyblocker/blob/fa67224da0cdcd2325b24f41732e820ff7ef04e8/src/main/java/de/hysky/skyblocker/mixins/InGameHudMixin.java#L97
+    @ModifyExpressionValue(
+        method = "renderPlayerHealth(Lnet/minecraft/client/gui/GuiGraphics;)V",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;guiHeight()I")
+    )
+    private int moveHealthDown(int original) {
+        return original;
+    }
+
+    @ModifyExpressionValue(
+        method = "renderHealthLevel(Lnet/minecraft/client/gui/GuiGraphics;)V",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;guiHeight()I")
+    )
+    private int moveHealthDownExpected(int original) {
+        return original;
     }
 }
