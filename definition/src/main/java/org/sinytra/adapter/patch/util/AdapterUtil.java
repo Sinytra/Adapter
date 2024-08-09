@@ -272,6 +272,5 @@ public final class AdapterUtil {
         return Type.getReturnType(method.desc) == Type.VOID_TYPE ? CI_TYPE : CIR_TYPE;
     }
 
-    private AdapterUtil() {
-    }
+    private AdapterUtil() {}
 }

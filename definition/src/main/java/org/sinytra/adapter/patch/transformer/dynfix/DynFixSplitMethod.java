@@ -45,6 +45,9 @@ public class DynFixSplitMethod implements DynamicFixer<DynFixSplitMethod.Data> {
             MethodNode method = candidates.getFirst().method();
             String newTarget = method.name + method.desc;
             methodContext.recordAudit(this, "Adjusting split method target to %s", newTarget);
+            if (methodContext.isCancellable()) {
+                SplitMethodCancellationHelper.handle(this, methodContext, method);
+            }
             return FixResult.of(new ModifyInjectionTarget(List.of(newTarget)).apply(methodContext), PatchAuditTrail.Match.FULL);
         }
 

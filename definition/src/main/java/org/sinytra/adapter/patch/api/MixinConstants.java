@@ -29,6 +29,7 @@ public class MixinConstants {
     // Misc
     public static final String MIXIN = "Lorg/spongepowered/asm/mixin/Mixin;";
     public static final String AT = "Lorg/spongepowered/asm/mixin/injection/At;";
+    public static final String AT_SHIFT = "Lorg/spongepowered/asm/mixin/injection/At$Shift;";
     public static final String UNIQUE = "Lorg/spongepowered/asm/mixin/Unique;";
     public static final String SHADOW = "Lorg/spongepowered/asm/mixin/Shadow;";
     public static final String COERCE = "Lorg/spongepowered/asm/mixin/injection/Coerce;";

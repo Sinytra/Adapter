@@ -142,6 +142,11 @@ public final class MethodContextImpl implements MethodContext {
         return (this.methodNode.access & Opcodes.ACC_STATIC) != 0;
     }
 
+    @Override
+    public boolean isCancellable() {
+        return methodAnnotation().matchesDesc(MixinConstants.INJECT) && methodAnnotation().<Boolean>getValue("cancellable").map(AnnotationValueHandle::get).orElse(false);
+    }
+
     @Nullable
     @Override
     public List<LocalVariable> getTargetMethodLocals(TargetPair target) {

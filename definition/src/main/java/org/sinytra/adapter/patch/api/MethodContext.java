@@ -61,6 +61,8 @@ public interface MethodContext {
 
     boolean isStatic();
 
+    boolean isCancellable();
+
     @Nullable
     List<LocalVariable> getTargetMethodLocals(TargetPair target);
 
