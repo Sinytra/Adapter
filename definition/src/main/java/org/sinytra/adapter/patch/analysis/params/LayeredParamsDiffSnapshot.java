@@ -11,6 +11,7 @@ import org.sinytra.adapter.patch.transformer.operation.param.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Consumer;
 
 public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) implements ParamsDiffSnapshot {
@@ -21,7 +22,7 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
 
         boolean satisfiesIndexLimit(int index);
 
-        ParameterTransformer asParameterTransformer();
+        ParameterTransformer asParameterTransformer(Set<Flags> flags);
     }
 
     public record InsertParam(int index, Type type) implements ParamModification {
@@ -36,7 +37,7 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
         }
 
         @Override
-        public ParameterTransformer asParameterTransformer() {
+        public ParameterTransformer asParameterTransformer(Set<Flags> flags) {
             return new InjectParameterTransform(this.index, this.type);
         }
     }
@@ -53,8 +54,8 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
         }
 
         @Override
-        public ParameterTransformer asParameterTransformer() {
-            return new ReplaceParametersTransformer(this.index, this.type);
+        public ParameterTransformer asParameterTransformer(Set<Flags> flags) {
+            return new ReplaceParametersTransformer(this.index, this.type, flags.contains(Flags.UPGRADE_WRAP_OP));
         }
     }
 
@@ -70,7 +71,7 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
         }
 
         @Override
-        public ParameterTransformer asParameterTransformer() {
+        public ParameterTransformer asParameterTransformer(Set<Flags> flags) {
             return new SwapParametersTransformer(this.from, this.to);
         }
     }
@@ -87,7 +88,7 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
         }
 
         @Override
-        public ParameterTransformer asParameterTransformer() {
+        public ParameterTransformer asParameterTransformer(Set<Flags> flags) {
             return new MoveParametersTransformer(this.from, this.to);
         }
     }
@@ -104,7 +105,7 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
         }
 
         @Override
-        public ParameterTransformer asParameterTransformer() {
+        public ParameterTransformer asParameterTransformer(Set<Flags> flags) {
             return new RemoveParameterTransformer(this.index);
         }
     }
@@ -121,7 +122,7 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
         }
 
         @Override
-        public ParameterTransformer asParameterTransformer() {
+        public ParameterTransformer asParameterTransformer(Set<Flags> flags) {
             return new InlineParameterTransformer(this.target, this.adapter);
         }
     }
@@ -138,7 +139,7 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
         }
 
         @Override
-        public ParameterTransformer asParameterTransformer() {
+        public ParameterTransformer asParameterTransformer(Set<Flags> flags) {
             return new SubstituteParameterTransformer(this.target, this.substitute);
         }
     }
@@ -196,8 +197,8 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
     }
 
     @Override
-    public MethodTransform asParameterTransformer(ParamTransformTarget type, boolean withOffset, boolean upgradeWrapOperation) {
-        List<ParameterTransformer> transformers = this.modifications.stream().map(ParamModification::asParameterTransformer).toList();
+    public MethodTransform asParameterTransformer(ParamTransformTarget type, boolean withOffset, Set<Flags> flags) {
+        List<ParameterTransformer> transformers = this.modifications.stream().map(paramModification -> paramModification.asParameterTransformer(flags)).toList();
         return TransformParameters.builder().transform(transformers).withOffset(withOffset).targetType(type).build();
     }
 

@@ -268,6 +268,22 @@ public final class AdapterUtil {
         return sw.toString();
     }
 
+    public static InsnList insnList(AbstractInsnNode... insns) {
+        InsnList list = new InsnList();
+        for (AbstractInsnNode node : insns) {
+            list.add(node);
+        }
+        return list;
+    }
+
+    public static InsnList insnList(List<AbstractInsnNode> insns) {
+        InsnList list = new InsnList();
+        for (AbstractInsnNode node : insns) {
+            list.add(node);
+        }
+        return list;
+    }
+
     public static Type getMixinCallableReturnType(MethodNode method) {
         return Type.getReturnType(method.desc) == Type.VOID_TYPE ? CI_TYPE : CIR_TYPE;
     }

@@ -59,7 +59,7 @@ public class MethodTransformationPipeline implements MethodTransform {
         return new Builder(transform);
     }
 
-    public static Builder builder(Consumer<MethodTransformBuilder<?>> consumer) {
+    public static Builder builder(Consumer<MethodTransformBuilder.Class<?>> consumer) {
         BundledMethodTransform.Builder builder = BundledMethodTransform.builder();
         consumer.accept(builder);
         return new Builder(builder.build());

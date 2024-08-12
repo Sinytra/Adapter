@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
@@ -88,7 +89,7 @@ public record SimpleParamsDiffSnapshot(
     }
 
     @Override
-    public MethodTransform asParameterTransformer(ParamTransformTarget type, boolean withOffset, boolean upgradeWrapOperation) {
+    public MethodTransform asParameterTransformer(ParamTransformTarget type, boolean withOffset, Set<Flags> flags) {
         List<MethodTransform> list = new ArrayList<>();
         SimpleParamsDiffSnapshot light = new SimpleParamsDiffSnapshot(List.of(), this.replacements, this.swaps, this.substitutes, this.removals, this.moves, this.inlines);
         if (!light.isEmpty()) {
@@ -97,7 +98,7 @@ public record SimpleParamsDiffSnapshot(
         if (!this.insertions.isEmpty()) {
             list.add(TransformParameters.builder()
                 .transform(this.insertions.stream()
-                    .<ParameterTransformer>map(p -> new InjectParameterTransform(p.getFirst(), p.getSecond(), upgradeWrapOperation))
+                    .<ParameterTransformer>map(p -> new InjectParameterTransform(p.getFirst(), p.getSecond(), flags.contains(Flags.UPGRADE_WRAP_OP)))
                     .toList())
                 .withOffset(withOffset)
                 .targetType(type)

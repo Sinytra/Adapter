@@ -7,6 +7,7 @@ import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.TypeInsnNode;
 
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 public class SupplierTypeAdapter implements TypeAdapterProvider {
@@ -26,6 +27,11 @@ public class SupplierTypeAdapter implements TypeAdapterProvider {
             patch.add(new MethodInsnNode(Opcodes.INVOKEINTERFACE, "java/util/function/Supplier", "get", "()Ljava/lang/Object;"));
             patch.add(new TypeInsnNode(Opcodes.CHECKCAST, this.to.getInternalName()));
             list.insert(target, patch);
+        }
+
+        @Override
+        public TypeAdapter andThen(BiConsumer<InsnList, AbstractInsnNode> consumer) {
+            throw new UnsupportedOperationException();
         }
     }
 }

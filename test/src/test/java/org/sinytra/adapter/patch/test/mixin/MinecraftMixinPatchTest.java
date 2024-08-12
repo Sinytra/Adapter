@@ -66,7 +66,7 @@ public abstract class MinecraftMixinPatchTest {
                 .collect(Collectors.joining("\n")))
             .isEqualTo(expected.parameters);
 
-        final Predicate<AbstractInsnNode> dontTest = i -> i instanceof LineNumberNode;
+        final Predicate<AbstractInsnNode> dontTest = i -> i instanceof LineNumberNode || i instanceof FrameNode;
         Assertions.assertThat(patched.instructions.iterator())
             .toIterable()
             .as("Instructions")

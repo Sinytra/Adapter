@@ -264,6 +264,16 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     }
 
     @Test
+    void testModifiedWrapOperationTarget3() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/PiglinAiMixin",
+            "isWearingGold",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
     void testModifiedFieldType() throws Exception {
         assertSameField(
             "org/sinytra/adapter/test/mixin/CrossbowAttackGoalMixin",

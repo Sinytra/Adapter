@@ -64,7 +64,8 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
 
         if (methodContext.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
             return handleWrapOperationToInstanceOf(cleanInjectionInsn, comparisonResult.cleanLabel(), hunkLabels, methodContext)
-                .or(() -> handleWrapOpertationNewInjectionPoint(cleanInjectionInsn, comparisonResult.cleanLabel(), hunkLabels, methodContext))
+                .or(() -> handleWrapOperationAdaptedTarget(cleanInjectionInsn, hunkLabels, methodContext))
+                .or(() -> handleWrapOperationNewInjectionPoint(cleanInjectionInsn, comparisonResult.cleanLabel(), hunkLabels, methodContext))
                 .or(() -> handleTargetModification(hunkLabels, methodContext))
                 .orElse(null);
         }
@@ -181,7 +182,25 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
         return null;
     }
 
-    private static Optional<FixResult> handleWrapOpertationNewInjectionPoint(AbstractInsnNode cleanInjectionInsn, List<AbstractInsnNode> cleanLabel, List<List<AbstractInsnNode>> hunkLabels, MethodContext methodContext) {
+    private static Optional<FixResult> handleWrapOperationAdaptedTarget(AbstractInsnNode cleanInjectionInsn, List<List<AbstractInsnNode>> hunkLabels, MethodContext methodContext) {
+        if (!(cleanInjectionInsn instanceof MethodInsnNode minsn) || hunkLabels.size() != 1) {
+            return Optional.empty();
+        }
+
+        List<MethodInsnNode> methodCalls = hunkLabels.getFirst().stream()
+            .filter(i -> i instanceof MethodInsnNode)
+            .map(i -> (MethodInsnNode) i)
+            .toList();
+        if (methodCalls.size() != 1) {
+            return Optional.empty();
+        }
+
+        Patch.Result result = WrapOperationSurgeon.tryUpgrade(methodContext, minsn, methodCalls.getLast());
+
+        return Optional.ofNullable(FixResult.of(result, PatchAuditTrail.Match.FULL));
+    } 
+
+    private static Optional<FixResult> handleWrapOperationNewInjectionPoint(AbstractInsnNode cleanInjectionInsn, List<AbstractInsnNode> cleanLabel, List<List<AbstractInsnNode>> hunkLabels, MethodContext methodContext) {
         if (!(cleanInjectionInsn instanceof MethodInsnNode minsn) || hunkLabels.size() != 1) {
             return Optional.empty();
         }

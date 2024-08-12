@@ -24,6 +24,7 @@ import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 
 public final class MethodUpgrader {
 
@@ -75,7 +76,7 @@ public final class MethodUpgrader {
         // Create diff
         SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(originalDesc, modifiedDesc);
         if (!diff.isEmpty()) {
-            MethodTransform patch = diff.asParameterTransformer(ParamTransformTarget.ALL, false, false);
+            MethodTransform patch = diff.asParameterTransformer(ParamTransformTarget.ALL, false, Set.of());
             patch.apply(methodContext);
         }
     }
@@ -130,7 +131,7 @@ public final class MethodUpgrader {
         LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(expected, required);
         if (!diff.isEmpty()) {
             List<ParameterTransformer> transformers = diff.modifications().stream()
-                .map(LayeredParamsDiffSnapshot.ParamModification::asParameterTransformer)
+                .map(paramModification -> paramModification.asParameterTransformer(Set.of()))
                 .toList();
             MethodTransform patch = TransformParameters.builder().transform(transformers).withOffset().targetType(ParamTransformTarget.METHOD).build();
             patch.apply(methodContext);
@@ -155,7 +156,31 @@ public final class MethodUpgrader {
         // Create diff
         SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(originalDesc, modifiedDesc);
         if (!diff.isEmpty()) {
-            MethodTransform patch = diff.asParameterTransformer(ParamTransformTarget.ALL, false, false);
+            MethodTransform patch = diff.asParameterTransformer(ParamTransformTarget.ALL, false, Set.of());
+            patch.apply(methodContext);
+        }
+    }
+
+    public static void upgradeWrapOperationLayered(MethodContext methodContext, MethodQualifier cleanQualifier, MethodQualifier dirtyQualifier) {
+        if (dirtyQualifier.owner() == null || cleanQualifier.desc() == null) {
+            return;
+        }
+        List<Type> originalTargetDesc = List.of(Type.getArgumentTypes(cleanQualifier.desc()));
+        List<Type> modifiedTargetDesc = List.of(Type.getArgumentTypes(dirtyQualifier.desc()));
+        MethodNode methodNode = methodContext.getMixinMethod();
+        List<Type> originalDesc = List.of(Type.getArgumentTypes(methodNode.desc));
+        List<Type> modifiedDesc = ImmutableList.<Type>builder()
+            // Add instance parameter
+            .add(Type.getType(dirtyQualifier.owner()))
+            // Add target parameters
+            .addAll(modifiedTargetDesc)
+            // Add everything after the original owner and target args (such as captured locals)
+            .addAll(originalDesc.subList(1 + originalTargetDesc.size(), originalDesc.size()))
+            .build();
+        // Create diff
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(originalDesc, modifiedDesc);
+        if (!diff.isEmpty()) {
+            MethodTransform patch = diff.asParameterTransformer(ParamTransformTarget.ALL, false, Set.of());
             patch.apply(methodContext);
         }
     }

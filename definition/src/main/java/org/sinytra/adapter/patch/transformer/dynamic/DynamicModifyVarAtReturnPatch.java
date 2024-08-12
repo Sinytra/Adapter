@@ -1,11 +1,8 @@
 package org.sinytra.adapter.patch.transformer.dynamic;
 
 import com.mojang.datafixers.util.Pair;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.objectweb.asm.tree.analysis.SourceInterpreter;
-import org.objectweb.asm.tree.analysis.SourceValue;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
@@ -16,7 +13,6 @@ import org.spongepowered.asm.mixin.injection.modify.LocalVariableDiscriminator;
 import org.spongepowered.asm.mixin.injection.struct.InjectionInfo;
 import org.spongepowered.asm.mixin.injection.struct.Target;
 
-import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -152,33 +148,5 @@ public class DynamicModifyVarAtReturnPatch implements MethodTransform {
         LocalVariableDiscriminator.Context ctx = new LocalVariableDiscriminator.Context(injectionInfo, returnType, discriminator.isArgsOnly(), target, targetInsn);
         int local = discriminator.findLocal(ctx);
         return Pair.of(targetInsn, local);
-    }
-
-    private static class MethodCallInterpreter extends SourceInterpreter {
-        private final MethodInsnNode targetInsn;
-        private List<AbstractInsnNode> targetArgs;
-
-        public MethodCallInterpreter(MethodInsnNode targetInsn) {
-            super(Opcodes.ASM9);
-            this.targetInsn = targetInsn;
-        }
-
-        @Nullable
-        public List<AbstractInsnNode> getTargetArgs() {
-            return this.targetArgs;
-        }
-
-        @Override
-        public SourceValue naryOperation(AbstractInsnNode insn, List<? extends SourceValue> values) {
-            if (insn == this.targetInsn && this.targetArgs == null) {
-                List<AbstractInsnNode> targetArgs = values.stream()
-                    .map(v -> v.insns.size() == 1 ? v.insns.iterator().next() : null)
-                    .toList();
-                if (!targetArgs.contains(null)) {
-                    this.targetArgs = targetArgs;
-                }
-            }
-            return super.naryOperation(insn, values);
-        }
     }
 }
