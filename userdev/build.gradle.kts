@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "org.sinytra.adapter"
-version = "1.2-SNAPSHOT"
+version = "1.2.1-SNAPSHOT"
 
 val versionModDevGradle: String by Properties().also { file("../gradle.properties").bufferedReader().use(it::load) }
 

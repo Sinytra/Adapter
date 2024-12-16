@@ -36,7 +36,7 @@ public class AdapterUserdevPlugin implements Plugin<Project> {
         });
 
         File requestedOutput = project.file("build/createCleanArtifact/minecraft-renamed.jar");
-        neoForge.getNeoFormRuntime().getAdditionalResults().put("vanillaDeobfuscated", requestedOutput);
+        neoForge.getAdditionalMinecraftArtifacts().put("vanillaDeobfuscated", requestedOutput);
 
         TaskProvider<ExtractBinPatches> extractBinPatches = project.getTasks().register("extractBinPatches", ExtractBinPatches.class, task -> {
             task.setGroup("sinytra");

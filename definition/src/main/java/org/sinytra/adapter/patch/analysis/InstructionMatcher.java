@@ -28,6 +28,9 @@ public record InstructionMatcher(AbstractInsnNode insn, List<AbstractInsnNode> b
             return null;
         }
 
+        if (this.after.isEmpty()) {
+            return null;
+        }
         MethodInsnNode nextMethodCall = MethodCallAnalyzer.findFirstInsn(this.after.getFirst(), MethodInsnNode.class, MethodCallAnalyzer.FORWARD);
         if (nextMethodCall == null) {
             return null;

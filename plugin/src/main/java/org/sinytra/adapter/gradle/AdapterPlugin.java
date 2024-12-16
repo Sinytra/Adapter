@@ -28,7 +28,7 @@ public class AdapterPlugin implements Plugin<Project> {
         TaskProvider<CreateBinpatchedArtifactTask> createBinpatchedArtifactTask = project.getTasks().named("createBinpatchedArtifact", CreateBinpatchedArtifactTask.class); 
 
         project.getTasks().register("generateAdapterData", AdapterCompareJarTask.class, task -> {
-            task.getCleanJar().fileProvider(neoForge.getNeoFormRuntime().getAdditionalResults().map(p -> p.get("vanillaDeobfuscated")));
+            task.getCleanJar().fileProvider(neoForge.getAdditionalMinecraftArtifacts().map(p -> p.get("vanillaDeobfuscated")));
             task.getDirtyJar().set(createBinpatchedArtifactTask.flatMap(CreateBinpatchedArtifactTask::getOutputFile));
         });
     }

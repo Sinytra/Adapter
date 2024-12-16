@@ -41,7 +41,7 @@ tasks {
     test {
         useJUnitPlatform()
         systemProperty("adapter.definition.paramdiff.debug", true)
-        systemProperty("adapter.clean.path", neoForge.neoFormRuntime.additionalResults.getting("vanillaDeobfuscated").get().absolutePath)
+        systemProperty("adapter.clean.path", neoForge.additionalMinecraftArtifacts.getting("vanillaDeobfuscated").get().absolutePath)
         systemProperty("forge.logging.console.level", "debug")
         outputs.upToDateWhen { false }
     }
