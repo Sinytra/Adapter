@@ -99,6 +99,32 @@ public class PatchAuditTrailImpl implements PatchAuditTrail {
         return builder.toString();
     }
 
+    @Override
+    public List<Candidate> getFailingMixins() {
+        return this.candidates.entrySet().stream()
+                .filter(m -> m.getValue() == Match.NONE)
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+
+    @Override
+    public Map<Candidate, AuditLog> getAuditTrail() {
+        return this.auditTrail;
+    }
+
+    @Override
+    public Map<Candidate, Match> getCandidates() {
+        return this.candidates;
+    }
+
+    @Override
+    public void merge(PatchAuditTrail other) {
+        synchronized (this.auditTrail) {
+            this.auditTrail.putAll(other.getAuditTrail());
+        }
+        this.candidates.putAll(other.getCandidates());
+    }
+
     private List<String> getSummaryLines() {
         int total = this.candidates.size();
         int successful = (int) this.candidates.values().stream().filter(m -> m == Match.FULL).count();
@@ -119,14 +145,5 @@ public class PatchAuditTrailImpl implements PatchAuditTrail {
 
     public boolean hasFailingMixins() {
         return this.candidates.containsValue(Match.NONE);
-    }
-
-    record AuditLog(@Nullable String originalMethod, List<Pair<Object, StringBuilder>> entries) {
-        public static AuditLog create(MethodContext methodContext) {
-            return new AuditLog(methodContext.getMixinMethod().name + methodContext.getMixinMethod().desc, new ArrayList<>());
-        }
-    }
-
-    record Candidate(ClassNode classNode, MethodNode methodNode) {
     }
 }

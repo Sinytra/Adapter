@@ -1,7 +1,14 @@
 package org.sinytra.adapter.patch.api;
 
+import it.unimi.dsi.fastutil.Pair;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.PatchAuditTrailImpl;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 public interface PatchAuditTrail {
     static PatchAuditTrail create() {
@@ -20,6 +27,14 @@ public interface PatchAuditTrail {
 
     boolean hasFailingMixins();
 
+    List<Candidate> getFailingMixins();
+
+    Map<Candidate, AuditLog> getAuditTrail();
+
+    Map<Candidate, Match> getCandidates();
+
+    void merge(PatchAuditTrail other);
+
     enum Match {
         NONE,
         PARTIAL,
@@ -33,6 +48,14 @@ public interface PatchAuditTrail {
                 return FULL;
             }
             return this;
+        }
+    }
+
+    record Candidate(ClassNode classNode, MethodNode methodNode) {}
+
+    record AuditLog(@Nullable String originalMethod, List<Pair<Object, StringBuilder>> entries) {
+        public static AuditLog create(MethodContext methodContext) {
+            return new AuditLog(methodContext.getMixinMethod().name + methodContext.getMixinMethod().desc, new ArrayList<>());
         }
     }
 }
