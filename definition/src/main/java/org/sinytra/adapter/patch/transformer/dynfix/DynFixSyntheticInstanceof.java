@@ -1,5 +1,6 @@
-package org.sinytra.adapter.patch.transformer.dynamic;
+package org.sinytra.adapter.patch.transformer.dynfix;
 
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.InsnComparator;
@@ -9,7 +10,10 @@ import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.transformer.operation.DisableMixin;
 import org.sinytra.adapter.patch.transformer.operation.ModifyMixinType;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * <p>
@@ -20,32 +24,34 @@ import java.util.*;
  * <p/>
  * Reference: <code>stack.isOf(Items.CROSSBOW)</code> -> <code>stack.getItem() instanceof CrossbowItem</code> in <code>HeldItemRenderer#renderFirstPersonItem</code>
  */
-public class DynamicSyntheticInstanceofPatch implements MethodTransform {
+public class DynFixSyntheticInstanceof implements DynamicFixer<DynFixSyntheticInstanceof.Data> {
+    private static final Set<String> ACCEPTED_ANNOTATIONS = Set.of(MixinConstants.REDIRECT, MixinConstants.MODIFY_EXPR_VAL);
     private static final int RANGE = 4;
 
+    public record Data(AbstractInsnNode cleanInjectionInsn) {}
+
     @Override
-    public Collection<String> getAcceptedAnnotations() {
-        return Set.of(MixinConstants.REDIRECT, MixinConstants.MODIFY_EXPR_VAL);
+    @Nullable
+    public Data prepare(MethodContext methodContext) {
+        if (methodContext.methodAnnotation().matchesAny(ACCEPTED_ANNOTATIONS)
+            && methodContext.hasInjectionPointValue("INVOKE")
+            && methodContext.findCleanInjectionTarget() != null && methodContext.findDirtyInjectionTarget() != null
+        ) {
+            List<AbstractInsnNode> insns = methodContext.findInjectionTargetInsns(methodContext.findCleanInjectionTarget()); 
+            return new Data(insns.getFirst());
+        }
+        return null;
     }
 
     @Override
-    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
-        if (methodContext.injectionPointAnnotation().<String>getValue("value").map(v -> !v.get().equals("INVOKE")).orElse(true)) {
-            return Patch.Result.PASS;
-        }
-        if (!methodContext.failsDirtyInjectionCheck()) {
-            return Patch.Result.PASS;
-        }
-        List<AbstractInsnNode> insns = methodContext.findInjectionTargetInsns(methodContext.findCleanInjectionTarget());
-        if (insns.size() != 1) {
-            return Patch.Result.PASS;
-        }
-        AbstractInsnNode targetInsn = insns.getFirst();
+    @Nullable
+    public FixResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchAuditTrail auditTrail, Data data) {
+        AbstractInsnNode targetInsn = data.cleanInjectionInsn();
         List<AbstractInsnNode> labelInsns = findLabelInsns(targetInsn);
         AbstractInsnNode jumpInsn = labelInsns.getLast();
         // Ensure label contain an if statement
         if (!(jumpInsn instanceof JumpInsnNode)) {
-            return Patch.Result.PASS;
+            return null;
         }
         InstructionMatcher cleanMatcher = MethodCallAnalyzer.findForwardInstructions(targetInsn, RANGE);
         int firstOp = cleanMatcher.after().getFirst().getOpcode();
@@ -60,7 +66,7 @@ public class DynamicSyntheticInstanceofPatch implements MethodTransform {
                     if (methodContext.methodAnnotation().matchesDesc(MixinConstants.MODIFY_EXPR_VAL)) {
                         TypeInsnNode instanceOfInsn = (TypeInsnNode) findLabelInsns(insn).stream().filter(i -> i.getOpcode() == Opcodes.INSTANCEOF).findFirst().orElse(null);
                         if (instanceOfInsn == null) {
-                            return Patch.Result.PASS;
+                            return null;
                         }
                         MethodTransform transform = new ModifyMixinType(MixinConstants.MODIFY_INSTANCEOF_VAL, b -> {
                             b.sameTarget().injectionPoint("sinytra:INSTANCEOF", instanceOfInsn.desc);
@@ -69,7 +75,7 @@ public class DynamicSyntheticInstanceofPatch implements MethodTransform {
                                 b.putValue("ordinal", ordinal);
                             }
                         });
-                        return transform.apply(classNode, methodNode, methodContext, context);
+                        return FixResult.of(transform.apply(methodContext), PatchAuditTrail.Match.FULL);
                     }
 
                     // Found the code point, now determine the contents of the updated if statement
@@ -97,13 +103,13 @@ public class DynamicSyntheticInstanceofPatch implements MethodTransform {
 
                     // Disable mixin. Goodbye.
                     if (finalCleanMatcher.test(finalDirtyMatcher, InsnComparator.IGNORE_VAR_INDEX)) {
-                        return new DisableMixin().apply(classNode, methodNode, methodContext, context);
+                        return FixResult.of(new DisableMixin().apply(methodContext), PatchAuditTrail.Match.PARTIAL);
                     }
                 }
             }
         }
 
-        return Patch.Result.PASS;
+        return null;
     }
 
     private static AbstractInsnNode findInsnAfterLabel(AbstractInsnNode insn) {

@@ -26,4 +26,8 @@ public interface DynamicFixer<DATA> {
             return result == Patch.Result.PASS ? null : new FixResult(result, match);
         }
     }
+
+    final class EmptyData {
+        public static final EmptyData INSTANCE = new EmptyData();
+    }
 }

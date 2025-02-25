@@ -21,24 +21,21 @@ import java.util.Objects;
  * Handle cases where a single method is split into multiple smaller pieces.
  * For an example, see <code>net.minecraft.client.gui.Gui#renderPlayerHealth</code>
  */
-public class DynFixSplitMethod implements DynamicFixer<DynFixSplitMethod.Data> {
+public class DynFixSplitMethod implements DynamicFixer<DynamicFixer.EmptyData> {
     private static final String DEPRECATED = "Ljava/lang/Deprecated;";
-
-    public record Data() {
-    }
 
     @Nullable
     @Override
-    public DynFixSplitMethod.Data prepare(MethodContext methodContext) {
+    public EmptyData prepare(MethodContext methodContext) {
         if (methodContext.hasInjectionPointValue("INVOKE") && methodContext.findCleanInjectionTarget() != null && methodContext.findDirtyInjectionTarget() != null) {
-            return new Data();
+            return EmptyData.INSTANCE;
         }
         return null;
     }
 
     @Override
     @Nullable
-    public FixResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchAuditTrail auditTrail, Data data) {
+    public FixResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchAuditTrail auditTrail, EmptyData data) {
         List<CandidateMethod> candidates = disambiguate(locateCandidates(methodContext), methodContext);
 
         if (candidates.size() == 1) {
