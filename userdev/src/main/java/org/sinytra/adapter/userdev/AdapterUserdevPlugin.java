@@ -4,7 +4,7 @@ import net.neoforged.moddevgradle.dsl.NeoForgeExtension;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
-import org.gradle.api.provider.Property;
+import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.TaskProvider;
 
 import java.io.File;
@@ -20,7 +20,7 @@ public class AdapterUserdevPlugin implements Plugin<Project> {
 
     public static void applyPlugin(Project project) {
         NeoForgeExtension neoForge = project.getExtensions().getByType(NeoForgeExtension.class);
-        Property<String> neoForgeVersion = neoForge.getVersion();
+        Provider<String> neoForgeVersion = project.provider(neoForge::getVersion);
 
         Configuration neoForgeUserdevArtifact = project.getConfigurations().create("neoForgeUserdevArtifact", spec -> {
             spec.setCanBeResolved(true);
