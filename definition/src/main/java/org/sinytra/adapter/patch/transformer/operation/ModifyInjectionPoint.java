@@ -7,10 +7,7 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
-import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.api.MethodTransform;
-import org.sinytra.adapter.patch.api.Patch;
-import org.sinytra.adapter.patch.api.PatchContext;
+import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.fixes.MethodUpgrader;
 
 import java.util.Optional;
@@ -48,7 +45,7 @@ public record ModifyInjectionPoint(@Nullable String value, String target, boolea
         if (handle != null) {
             String original = handle.get();
             handle.set(this.target);
-            if (!this.dontUpgrade) {
+            if (!this.dontUpgrade && !methodContext.methodAnnotation().matchesDesc(MixinConstants.MODIFY_EXPR_VAL)) {
                 MethodUpgrader.upgradeMethod(methodNode, methodContext, original, this.target);
             }
         } else {
