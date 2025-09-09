@@ -7,6 +7,7 @@ import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.PatchAuditTrail;
 import org.sinytra.adapter.patch.transformer.BundledMethodTransform;
+import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.List;
 
@@ -14,12 +15,17 @@ import java.util.List;
  * Handle cases where a mixin with no descriptor in its target tmethod selector has come to have multiple candidate injection methods
  * as a result of Forge adding one with the same name.
  */
-public class DynFixResolveAmbigousTarget implements DynamicFixer<DynFixResolveAmbigousTarget.Data> {
+public class DynFixResolveAmbiguousTarget implements DynamicFixer<DynFixResolveAmbiguousTarget.Data> {
     public record Data(Pair<ClassNode, List<MethodNode>> candidates) {}
 
     @Nullable
     @Override
     public Data prepare(MethodContext methodContext) {
+        MethodQualifier qualifier = methodContext.getTargetMethodQualifier();
+        if (qualifier != null && qualifier.isFull()) {
+            return null;
+        }
+
         Pair<ClassNode, List<MethodNode>> candidates = methodContext.findInjectionTargetCandidates(methodContext.patchContext().environment().dirtyClassLookup(), true);
         if (candidates != null && !candidates.getSecond().isEmpty()) {
             // Only apply single candidate change when the target desc has changed

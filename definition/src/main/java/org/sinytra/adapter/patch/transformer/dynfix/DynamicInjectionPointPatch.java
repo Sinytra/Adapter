@@ -17,7 +17,7 @@ public class DynamicInjectionPointPatch implements MethodTransform {
         new DynFixLocalCaptureUpgrade()
     );
     private static final List<DynamicFixer<?>> PREPATCH = List.of(
-        new DynFixResolveAmbigousTarget()
+        new DynFixResolveAmbiguousTarget()
     );
     private static final List<DynamicFixer<?>> FIXES = List.of(
         new DynFixSliceBoundary(),
