@@ -24,6 +24,11 @@ java {
     withSourcesJar()
 }
 
+sourceSets.main {
+    java.srcDirs("src/next/java")
+    resources.srcDirs("src/next/resources")
+}
+
 repositories {
     mavenCentral()
     maven {
