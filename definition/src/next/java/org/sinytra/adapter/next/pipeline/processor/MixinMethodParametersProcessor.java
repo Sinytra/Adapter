@@ -24,7 +24,7 @@ public class MixinMethodParametersProcessor implements Processor {
 
         if (!diff.isEmpty()) {
             Patch.Result result = diff.asParameterTransformer(ParamTransformTarget.ALL, false)
-                .apply(context.getMethodContext());
+                .apply(context.legacy());
             return result == Patch.Result.PASS ? TxResult.FAIL : TxResult.SUCCESS;
         }
 

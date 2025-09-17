@@ -10,7 +10,7 @@ import java.util.List;
 public class TargetMethodProcessor implements Processor {
     @Override
     public TxResult process(MixinData mixin, MixinContext context, Recipe recipe) {
-        context.getMethodContext().methodAnnotation().getValue("method")
+        context.methodAnnotation().getValue("method")
             .orElseThrow()
             .set(List.of(recipe.dirty().getTargetMethod().asDescriptor()));
         return TxResult.PASS;

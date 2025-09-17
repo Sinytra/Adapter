@@ -16,26 +16,32 @@ import java.util.List;
 public class TargetMethodResolver implements Resolver {
     @Override
     public TxResult resolve(MixinData mixin, MixinContext context, MutableConfiguration dirty, Recipe recipe) {
-        if (dirty.getTargetMethod() != null)
-            return TxResult.PASS;
-        if (context.getMethodContext().findDirtyInjectionTarget() != null)
-            return TxResult.FAIL;
+        // Conditions
+        if (dirty.getTargetMethod() != null) return TxResult.PASS;
+        
+        MethodQualifier cleanQualifier = recipe.clean().getTargetMethod();
+        if (cleanQualifier == null) throw new IllegalStateException("Missing clean target method");
 
-        MethodContext methodContext = context.getMethodContext();
+        // Reuse attempt
+        MethodContext.TargetPair target = context.methods().findMethod(context.dirtyLookup(), cleanQualifier);
+        if (target != null) {
+            dirty.setTargetMethod(cleanQualifier);
+            return TxResult.SUCCESS;
+        }
 
-        if (resolveChangedMethodParams(methodContext, dirty))
+        if (resolveChangedMethodParams(context, cleanQualifier, dirty))
             return TxResult.SUCCESS;
 
         return TxResult.FAIL;
     }
 
-    public boolean resolveChangedMethodParams(MethodContext methodContext, MutableConfiguration dirty) {
-        Pair<ClassNode, List<MethodNode>> candidates = methodContext.findInjectionTargetCandidates(methodContext.patchContext().environment().dirtyClassLookup(), true);
+    public boolean resolveChangedMethodParams(MixinContext context, MethodQualifier cleanQualifier, MutableConfiguration dirty) {
+        Pair<ClassNode, List<MethodNode>> candidates = context.methods().findMethodsIgnoringDesc(context.dirtyLookup(), cleanQualifier);
         if (candidates != null && !candidates.getSecond().isEmpty()) {
             // Only apply single candidate change when the target desc has changed
             if (candidates.getSecond().size() == 1) {
                 MethodNode node = candidates.getSecond().getFirst();
-                MethodContext.TargetPair cleanTarget = methodContext.findCleanInjectionTarget();
+                MethodContext.TargetPair cleanTarget = context.methods().findMethod(context.cleanLookup(), cleanQualifier);
                 if (cleanTarget == null || node.desc.equals(cleanTarget.methodNode().desc)) {
                     return false;
                 }

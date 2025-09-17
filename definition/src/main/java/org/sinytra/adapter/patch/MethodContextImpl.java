@@ -264,7 +264,6 @@ public final class MethodContextImpl implements MethodContext {
     }
 
     private InsnList computeSlicedInsns(ISliceContext context, AnnotationNode annotation, Target mixinTarget) {
-        // TODO TEST THIS
         MethodSlice slice = MethodSlice.parse(context, annotation);
         return slice.getSlice(mixinTarget);
     }

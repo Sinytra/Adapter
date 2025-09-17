@@ -14,7 +14,7 @@ public class InjectionTargetProcessor implements Processor {
         }
 
         // TODO Add if missing
-        AnnotationHandle handle = context.getMethodContext().injectionPointAnnotation();
+        AnnotationHandle handle = context.injectionPointAnnotation();
         if (handle == null) {
             return TxResult.FAIL;
         }

@@ -26,7 +26,7 @@ public class InjectMixin implements MixinType<InjectMixinData> {
 
     @Override
     public void preProcess(InjectMixinData mixin, MixinContext context, MutableConfiguration clean, Recipe recipe) {
-        clean.setParameters(MethodParameters.create(context.getMethodNode().desc, List.of(METHOD_PARAMS, CI_CIR, LOCALS)));
+        clean.setParameters(MethodParameters.create(context.methodNode().desc, List.of(METHOD_PARAMS, CI_CIR, LOCALS)));
         clean.setReturnType(Type.VOID_TYPE);
 
         if (!mixin.getSlice().isEmpty()) {
@@ -42,7 +42,7 @@ public class InjectMixin implements MixinType<InjectMixinData> {
         if (dirty.getTargetMethod() != null && !dirty.getTargetMethod().desc().equals(clean.getTargetMethod().desc())) {
             List<Type> cleanParams = clean.getParameters().get(METHOD_PARAMS);
             if (!cleanParams.isEmpty()) {
-                MethodParameters newParams = MethodParameters.create(context.getMethodNode().desc, List.of(METHOD_PARAMS, CI_CIR, LOCALS));
+                MethodParameters newParams = MethodParameters.create(context.methodNode().desc, List.of(METHOD_PARAMS, CI_CIR, LOCALS));
                 List<Type> dirtyTargetMethodParams = MethodParameters.getParameterTypes(dirty.getTargetMethod().desc());
                 newParams.set(METHOD_PARAMS, dirtyTargetMethodParams);
 

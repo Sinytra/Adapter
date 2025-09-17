@@ -25,15 +25,15 @@ public class ModifyArgMixin implements MixinType<ModifyArgMixinData> {
 
     @Override
     public void preProcess(ModifyArgMixinData mixin, MixinContext context, MutableConfiguration clean, Recipe recipe) {
-        clean.setParameters(MethodParameters.create(context.getMethodNode().desc, List.of(SINGLE_ANY)));
-        clean.setReturnType(Type.getReturnType(context.getMethodNode().desc));
+        clean.setParameters(MethodParameters.create(context.methodNode().desc, List.of(SINGLE_ANY)));
+        clean.setReturnType(Type.getReturnType(context.methodNode().desc));
     }
 
     @Override
     public void postProcess(ModifyArgMixinData mixin, MixinContext context, MutableConfiguration dirty, Recipe recipe) {
         Type type = findArgType(context, recipe.clean().getAtData(), dirty.getAtData());
         if (type != null) {
-            MethodParameters parameters = MethodParameters.create(context.getMethodNode().desc, List.of(SINGLE_ANY));
+            MethodParameters parameters = MethodParameters.create(context.methodNode().desc, List.of(SINGLE_ANY));
             parameters.set(SINGLE_ANY, List.of(type));
             dirty.setParameters(parameters);
             dirty.setReturnType(type);   
@@ -49,10 +49,7 @@ public class ModifyArgMixin implements MixinType<ModifyArgMixinData> {
             List<Type> dirtyArgs = MethodParameters.getParameterTypes(dirtyQualifier.desc());
             if (cleanArgs.size() == 1 && dirtyArgs.size() == 1) {
                 Type dirtyType = dirtyArgs.getFirst();
-                TypeAdapter adapter = context.getMethodContext().patchContext().environment().bytecodeFixerUpper().getTypeAdapter(
-                    cleanArgs.getFirst(),
-                    dirtyType
-                );
+                TypeAdapter adapter = context.getTypeAdapter(cleanArgs.getFirst(), dirtyType);
                 if (adapter != null) {
                     return dirtyType;
                 }

@@ -27,7 +27,7 @@ public class ReturnTypeProcessor implements Processor {
             return TxResult.PASS;
         }
 
-        TypeAdapter adapter = context.getMethodContext().patchContext().environment().bytecodeFixerUpper().getTypeAdapter(cleanType, dirtyType);
+        TypeAdapter adapter = context.getTypeAdapter(cleanType, dirtyType);
         if (adapter == null) {
             return TxResult.PASS;
         }
@@ -35,18 +35,18 @@ public class ReturnTypeProcessor implements Processor {
         ReturnInterpreter inter = new ReturnInterpreter();
         Analyzer<?> analyzer = new Analyzer<>(inter);
         try {
-            analyzer.analyze(context.getMethodNode().name, context.getMethodNode());
+            analyzer.analyze(context.methodNode().name, context.methodNode());
         } catch (AnalyzerException e) {
             throw new RuntimeException(e);
         }
 
         for (AbstractInsnNode insn : inter.insns) {
             if (insn.getOpcode() != Opcodes.ACONST_NULL) {
-                adapter.apply(context.getMethodNode().instructions, insn);
+                adapter.apply(context.methodNode().instructions, insn);
             }
         }
 
-        MethodNode methodNode = context.getMethodNode();
+        MethodNode methodNode = context.methodNode();
         methodNode.desc = Type.getMethodDescriptor(dirtyType, Type.getArgumentTypes(methodNode.desc));
 
         return TxResult.SUCCESS;

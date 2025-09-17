@@ -69,7 +69,7 @@ public class PipelineExecutor {
 
     @Nullable
     private MixinData parseMixinData() {
-        AnnotationHandle atHandle = this.context.getMethodContext().injectionPointAnnotation();
+        AnnotationHandle atHandle = this.context.legacy().injectionPointAnnotation();
         if (atHandle == null) {
             return null;
         }
@@ -79,8 +79,8 @@ public class PipelineExecutor {
             return null;
         }
 
-        MethodQualifier targetMethod = this.context.getMethodContext().getTargetMethodQualifier();
-        AnnotationHandle methodHandle = this.context.getMethodContext().methodAnnotation();
+        MethodQualifier targetMethod = this.context.legacy().getTargetMethodQualifier();
+        AnnotationHandle methodHandle = this.context.legacy().methodAnnotation();
         return this.mixinType.parse(this.classTarget, targetMethod, atData, methodHandle);
     }
 }
