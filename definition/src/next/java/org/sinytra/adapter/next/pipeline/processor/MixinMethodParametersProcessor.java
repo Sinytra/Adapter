@@ -5,6 +5,7 @@ import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.TxResult;
+import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.patch.analysis.params.ParamsDiffSnapshot;
 import org.sinytra.adapter.patch.api.Patch;
@@ -14,12 +15,11 @@ import java.util.List;
 
 public class MixinMethodParametersProcessor implements Processor {
     @Override
-    public TxResult process(MixinData mixin, MixinContext context, Recipe recipe) {
-        if (recipe.dirty().getParameters() == null)
-            return TxResult.FAIL;
+    public TxResult process(MixinData mixin, MixinContext context, Configuration dirty, Recipe recipe) {
+        if (dirty.getParameters() == null) return TxResult.FAIL;
 
         List<Type> cleanParams = recipe.clean().getParameters().merge();
-        List<Type> dirtyParams = recipe.dirty().getParameters().merge();
+        List<Type> dirtyParams = dirty.getParameters().merge();
         ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(cleanParams, dirtyParams);
 
         if (!diff.isEmpty()) {

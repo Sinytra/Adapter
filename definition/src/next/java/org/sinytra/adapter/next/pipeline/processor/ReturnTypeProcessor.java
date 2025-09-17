@@ -12,6 +12,7 @@ import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.TxResult;
+import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.patch.fixes.TypeAdapter;
 
 import java.util.ArrayList;
@@ -19,9 +20,9 @@ import java.util.List;
 
 public class ReturnTypeProcessor implements Processor {
     @Override
-    public TxResult process(MixinData mixin, MixinContext context, Recipe recipe) {
+    public TxResult process(MixinData mixin, MixinContext context, Configuration dirty, Recipe recipe) {
         Type cleanType = recipe.clean().getReturnType();
-        Type dirtyType = recipe.dirty().getReturnType();
+        Type dirtyType = dirty.getReturnType();
 
         if (cleanType.equals(dirtyType)) {
             return TxResult.PASS;
@@ -32,6 +33,7 @@ public class ReturnTypeProcessor implements Processor {
             return TxResult.PASS;
         }
 
+        // TODO API
         ReturnInterpreter inter = new ReturnInterpreter();
         Analyzer<?> analyzer = new Analyzer<>(inter);
         try {

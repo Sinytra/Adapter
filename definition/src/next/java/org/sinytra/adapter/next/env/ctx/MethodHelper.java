@@ -21,7 +21,9 @@ import org.spongepowered.asm.mixin.injection.struct.Target;
 import org.spongepowered.asm.mixin.refmap.IMixinContext;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
@@ -31,13 +33,15 @@ public class MethodHelper {
     private final MixinContext mixinContext;
     private final List<Type> targetTypes;
 
+    private final Map<MethodContext.TargetPair, List<AbstractInsnNode>> targetInstructionsCache = new HashMap<>();
+
     public MethodHelper(MixinContext mixinContext, List<Type> targetTypes) {
         this.mixinContext = mixinContext;
         this.targetTypes = targetTypes;
     }
 
     public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable MethodContext.TargetPair target) {
-        return computeInjectionTargetInsns(target); // TODO CACHE
+        return this.targetInstructionsCache.computeIfAbsent(target, this::computeInjectionTargetInsns);
     }
 
     private List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable MethodContext.TargetPair target) {

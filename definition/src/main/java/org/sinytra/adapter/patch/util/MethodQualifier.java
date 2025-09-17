@@ -40,6 +40,10 @@ public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nu
         return new MethodQualifier(Type.getObjectType(classNode.name).getDescriptor(), methodNode.name, methodNode.desc);
     }
 
+    public static MethodQualifier create(MethodNode methodNode) {
+        return new MethodQualifier(null, methodNode.name, methodNode.desc);
+    }
+
     @Nullable
     public String internalOwnerName() {
         return this.owner != null ? Type.getType(this.owner).getInternalName() : null;

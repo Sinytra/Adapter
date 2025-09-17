@@ -11,6 +11,7 @@ import org.sinytra.adapter.next.env.ann.AtData;
 import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.TxResult;
+import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
@@ -19,21 +20,21 @@ import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
+
+import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
 
 public class InjectionTargetResolver implements Resolver {
-    private static final Set<String> IGNORED_VALUES = Set.of("HEAD", "TAIL");
 
     @Override
-    public TxResult resolve(MixinData mixin, MixinContext context, MutableConfiguration dirty, Recipe recipe) {
+    public TxResult resolve(MixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
         if (dirty.getAtData() != null) {
             return TxResult.PASS;
         }
-        if (IGNORED_VALUES.contains(recipe.clean().getAtData().getValue())) {
-            dirty.setAtData(recipe.clean().getAtData());
+        if (!clean.getAtData().getValue().equals(AT_VAL_INVOKE)) {
+            dirty.inheritAtData();
             return TxResult.SUCCESS;
         }
-        
+
         MethodQualifier dirtyQualifier = dirty.getTargetMethod();
         if (dirtyQualifier == null) {
             return TxResult.FAIL;
@@ -45,11 +46,11 @@ public class InjectionTargetResolver implements Resolver {
         }
         List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(pair);
         if (!insns.isEmpty()) {
-            dirty.setAtData(recipe.clean().getAtData());
+            dirty.setAtData(clean.getAtData());
             return TxResult.SUCCESS;
         }
 
-        AtData replaced = findReplacedType(context, recipe.clean().getTargetMethod(), pair.methodNode(), recipe.clean().getAtData());
+        AtData replaced = findReplacedType(context, clean.getTargetMethod(), pair.methodNode(), clean.getAtData());
         if (replaced != null) {
             dirty.setAtData(replaced);
             return TxResult.SUCCESS;

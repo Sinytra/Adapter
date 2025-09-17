@@ -1,87 +1,136 @@
 package org.sinytra.adapter.next.pipeline.config;
 
+import com.mojang.logging.LogUtils;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.next.env.ann.AtData;
 import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.patch.util.MethodQualifier;
+import org.slf4j.Logger;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
 /**
  * Contains a single recipe state with mixin parameters and custom variables
  */
 public class ConfigurationImpl implements MutableConfiguration {
-    private String targetClass;
-    private MethodQualifier targetMethod;
-    private AtData atData;
+    private static final Logger LOGGER = LogUtils.getLogger();
 
-    private MethodParameters parameters;
-    private Type returnType;
+    private final ConfigAttribute<String> targetClass;
+    private final ConfigAttribute<MethodQualifier> targetMethod;
+    private final ConfigAttribute<AtData> atData;
+    private final ConfigAttribute<MethodParameters> parameters;
+    private final ConfigAttribute<Type> returnType;
 
     private final Map<String, Object> properties = new HashMap<>();
 
-    public ConfigurationImpl(String targetClass, MethodQualifier targetMethod, AtData atData) {
-        this.targetClass = targetClass;
-        this.targetMethod = targetMethod;
-        this.atData = atData;
+    public ConfigurationImpl() {
+        this(null);
     }
 
-    public void validate() {
-        Objects.requireNonNull(this.targetClass, "targetClass");
-        Objects.requireNonNull(this.targetMethod, "targetMethod");
-        // TODO Method desc must not be null
-        Objects.requireNonNull(this.atData, "atData");
-        Objects.requireNonNull(this.parameters, "parameters");
+    public ConfigurationImpl(@Nullable Configuration parent) {
+        this.targetClass = new ConfigAttribute<>("target_class", true, parent != null ? parent::getTargetClass : null);
+        this.targetMethod = new ConfigAttribute<>("target_method", true, parent != null ? parent::getTargetMethod : null);
+        this.atData = new ConfigAttribute<>("at_data", true, parent != null ? parent::getAtData : null);
+        this.parameters = new ConfigAttribute<>("parameters", true, parent != null ? parent::getParameters : null);
+        this.returnType = new ConfigAttribute<>("return_type", true, parent != null ? parent::getReturnType : null);
+    }
+
+    public boolean validate() {
+        List<ConfigAttribute<?>> attrs = List.of(targetClass, targetMethod, atData, parameters, returnType);
+        for (ConfigAttribute<?> attr : attrs) {
+            if (!attr.validate()) {
+                LOGGER.debug(MIXINPATCH, "Missing required config attribute: {}", attr.getKey());
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public void inheritTargetClass() {
+        this.targetClass.setDefault();
+    }
+
+    @Override
+    public void inheritTargetMethod() {
+        this.targetMethod.setDefault();
+    }
+
+    @Override
+    public void inheritAtData() {
+        this.atData.setDefault();
+    }
+
+    @Override
+    public void inheritParameters() {
+        this.parameters.setDefault();
+    }
+
+    @Override
+    public void inheritReturnType() {
+        this.returnType.setDefault();
     }
 
     @Override
     public String getTargetClass() {
-        return this.targetClass;
+        return this.targetClass.get();
     }
 
     @Override
     public MethodQualifier getTargetMethod() {
-        return this.targetMethod;
+        return this.targetMethod.get();
     }
 
     @Override
     public AtData getAtData() {
-        return this.atData;
+        return this.atData.get();
     }
 
     @Override
     public MethodParameters getParameters() {
-        return this.parameters;
+        return this.parameters.get();
     }
 
     @Override
     public Type getReturnType() {
-        return this.returnType;
+        return this.returnType.get();
     }
 
     @Override
     public void setTargetClass(String targetClass) {
-        this.targetClass = targetClass;
+        this.targetClass.set(targetClass);
     }
 
     @Override
     public void setTargetMethod(MethodQualifier targetMethod) {
-        this.targetMethod = targetMethod;
+        this.targetMethod.set(targetMethod);
+    }
+
+    @Override
+    public void setTargetMethod(MethodNode methodNode) {
+        setTargetMethod(MethodQualifier.create(methodNode));
     }
 
     @Override
     public void setAtData(AtData atData) {
-        this.atData = atData;
+        this.atData.set(atData);
     }
 
     @Override
     public void setParameters(MethodParameters parameters) {
-        this.parameters = parameters;
+        this.parameters.set(parameters);
     }
 
     @Override
     public void setReturnType(Type returnType) {
-        this.returnType = returnType;
+        this.returnType.set(returnType);
     }
 
     @SuppressWarnings("unchecked")

@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+@Deprecated // Not longer needed, use plain operations
 public class MethodTransformationPipeline implements MethodTransform {
     public static final Codec<MethodTransformationPipeline> CODEC = RecordCodecBuilder.create(instance -> instance.group(
         MethodTransformSerialization.METHOD_TRANSFORM_CODEC.fieldOf("transform").forGetter(m -> m.transform),
