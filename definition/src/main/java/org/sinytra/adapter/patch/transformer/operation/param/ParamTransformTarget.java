@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 
+@Deprecated // TODO Should no longer be needed in UTP
 public enum ParamTransformTarget {
     ALL,
     METHOD(MixinConstants.INJECT, MixinConstants.OVERWRITE, MixinConstants.MODIFY_VAR),

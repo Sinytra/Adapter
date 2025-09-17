@@ -12,7 +12,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class BytecodeFixerUpper {
     public static final List<TypeAdapterProvider> DEFAULT_PROVIDERS = List.of(
-        SupplierTypeAdapter.INSTANCE
+        SupplierTypeAdapter.INSTANCE,
+        ObjectTypeAdapter.INSTANCE
     );
 
     private final List<TypeAdapter> fieldTypeAdapters;

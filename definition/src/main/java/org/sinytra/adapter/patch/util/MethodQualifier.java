@@ -4,7 +4,9 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.tree.MethodNode;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -34,6 +36,10 @@ public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nu
         return Optional.empty();
     }
 
+    public static MethodQualifier create(ClassNode classNode, MethodNode methodNode) {
+        return new MethodQualifier(Type.getObjectType(classNode.name).getDescriptor(), methodNode.name, methodNode.desc);
+    }
+
     @Nullable
     public String internalOwnerName() {
         return this.owner != null ? Type.getType(this.owner).getInternalName() : null;
@@ -55,5 +61,13 @@ public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nu
 
     public boolean isFull() {
         return this.owner != null && this.name != null && this.desc != null;
+    }
+
+    public String asDescriptor() {
+        String result = "";
+        if (this.owner != null) {
+            result += this.owner;
+        }
+        return result + this.name + this.desc;
     }
 }

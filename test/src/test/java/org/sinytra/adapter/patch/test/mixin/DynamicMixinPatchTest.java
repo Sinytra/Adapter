@@ -5,6 +5,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.tree.ClassNode;
+import org.sinytra.adapter.next.PipelineLegacyMethodTransformer;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchEnvironment;
 import org.sinytra.adapter.patch.api.RefmapHolder;
@@ -20,6 +21,7 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     private static final List<Patch> DYNAMIC_PATCHES = List.of(
         Patch.builder()
             .transform(new DynamicInjectionPointPatch())
+            .transform(new PipelineLegacyMethodTransformer())
             .transform(new FieldTypeUsageTransformer())
             .build()
     );
@@ -52,6 +54,34 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     @AfterAll
     static void postTest() {
         LOGGER.info("Complete report:\n\n{}", patchEnvironment.auditTrail().getCompleteReport());
+    }
+
+    @Test
+    void testChangeMethodParamsInPipeline() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/ServerEntityMixin",
+            "packetWrap",
+            assertTargetMethod()
+        );
+    }
+
+    @Test
+    void testChangeInjectMethodParamsInPipeline() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/ServerEntityMixin",
+            "modifyCreationData",
+            assertTargetMethod()
+        );
+    }
+
+    @Test
+    void testChangeInjectionTargetInPipeline() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/ServerEntityMixin",
+            "markAsInitial",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
     }
 
     @Test

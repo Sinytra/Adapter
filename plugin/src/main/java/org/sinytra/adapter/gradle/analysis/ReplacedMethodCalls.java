@@ -33,6 +33,13 @@ public class ReplacedMethodCalls {
             Multimap<String, MethodInsnNode> cleanCalls = MethodCallAnalyzer.getMethodCalls(cleanMethod, cleanCallOrder);
             Multimap<String, MethodInsnNode> dirtyCalls = MethodCallAnalyzer.getMethodCalls(dirtyMethod, dirtyCallOrder);
 
+            boolean allExist = cleanCalls.asMap().entrySet().stream()
+                .allMatch(e -> dirtyCalls.containsKey(e.getKey())
+                    && dirtyCalls.get(e.getKey()).size() >= e.getValue().size());
+            if (allExist) {
+                return;
+            }
+
             dirtyCalls.asMap().forEach((qualifier, dirtyList) -> {
                 Collection<MethodInsnNode> cleanList = cleanCalls.get(qualifier);
                 if (cleanList.isEmpty() && dirtyList.size() == 1) {

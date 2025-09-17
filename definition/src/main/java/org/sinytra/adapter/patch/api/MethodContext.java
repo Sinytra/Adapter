@@ -19,6 +19,8 @@ public interface MethodContext {
 
     MethodNode getMixinMethod();
 
+    AnnotationHandle rawClassAnnotation();
+
     AnnotationValueHandle<?> classAnnotation();
 
     AnnotationHandle methodAnnotation();

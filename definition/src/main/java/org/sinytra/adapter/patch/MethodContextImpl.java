@@ -35,6 +35,7 @@ import java.util.stream.Stream;
 public final class MethodContextImpl implements MethodContext {
     private static final Logger LOGGER = LogUtils.getLogger();
     private final ClassNode classNode;
+    private final AnnotationHandle rawClassAnnotation;
     private final AnnotationValueHandle<?> classAnnotation;
     private final MethodNode methodNode;
     private final AnnotationHandle methodAnnotation;
@@ -49,8 +50,9 @@ public final class MethodContextImpl implements MethodContext {
     private final Supplier<LocalVariableLookup> dirtyLocalsTableCache;
     private final Map<TargetPair, List<AbstractInsnNode>> targetInstructionsCache;
 
-    public MethodContextImpl(ClassNode classNode, AnnotationValueHandle<?> classAnnotation, MethodNode methodNode, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation, List<Type> targetTypes, List<String> matchingTargets, PatchContext patchContext) {
+    public MethodContextImpl(ClassNode classNode, AnnotationHandle rawClassAnnotation, AnnotationValueHandle<?> classAnnotation, MethodNode methodNode, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation, List<Type> targetTypes, List<String> matchingTargets, PatchContext patchContext) {
         this.classNode = Objects.requireNonNull(classNode, "Missing class node");
+        this.rawClassAnnotation = Objects.requireNonNull(rawClassAnnotation, "Missing raw class annotation");
         this.classAnnotation = Objects.requireNonNull(classAnnotation, "Missing class annotation");
         this.methodNode = Objects.requireNonNull(methodNode, "Missing method node");
         this.methodAnnotation = Objects.requireNonNull(methodAnnotation, "Missing method annotation");
@@ -335,6 +337,11 @@ public final class MethodContextImpl implements MethodContext {
     }
 
     @Override
+    public AnnotationHandle rawClassAnnotation() {
+        return this.rawClassAnnotation;
+    }
+
+    @Override
     public AnnotationValueHandle<?> classAnnotation() {
         return this.classAnnotation;
     }
@@ -367,6 +374,7 @@ public final class MethodContextImpl implements MethodContext {
 
     public static class Builder {
         private ClassNode classNode;
+        private AnnotationHandle rawClassAnnotation;
         private AnnotationValueHandle<?> classAnnotation;
         private MethodNode methodNode;
         private AnnotationHandle methodAnnotation;
@@ -376,6 +384,11 @@ public final class MethodContextImpl implements MethodContext {
 
         public Builder classNode(ClassNode classNode) {
             this.classNode = classNode;
+            return this;
+        }
+
+        public Builder rawClassAnnotation(AnnotationHandle annotation) {
+            this.rawClassAnnotation = annotation;
             return this;
         }
 
@@ -410,7 +423,7 @@ public final class MethodContextImpl implements MethodContext {
         }
 
         public MethodContextImpl build(PatchContext context) {
-            return new MethodContextImpl(this.classNode, this.classAnnotation, this.methodNode, this.methodAnnotation, this.injectionPointAnnotation, List.copyOf(this.targetTypes), List.copyOf(this.matchingTargets), context);
+            return new MethodContextImpl(this.classNode, this.rawClassAnnotation, this.classAnnotation, this.methodNode, this.methodAnnotation, this.injectionPointAnnotation, List.copyOf(this.targetTypes), List.copyOf(this.matchingTargets), context);
         }
     }
 }

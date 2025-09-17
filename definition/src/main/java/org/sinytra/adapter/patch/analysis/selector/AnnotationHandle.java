@@ -1,5 +1,6 @@
 package org.sinytra.adapter.patch.analysis.selector;
 
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.AnnotationNode;
 
 import java.util.*;
@@ -32,6 +33,13 @@ public final class AnnotationHandle {
         return getValue(key)
             .<AnnotationNode>flatMap(AnnotationValueHandle::maybeUnwrap)
             .map(AnnotationHandle::new);
+    }
+
+    public List<AnnotationHandle> getNestedList(String key) {
+        return this.<List<AnnotationNode>>getValue(key).stream()
+            .flatMap(v -> v.get().stream())
+            .map(AnnotationHandle::new)
+            .toList();
     }
 
     @SuppressWarnings("unchecked")
@@ -83,10 +91,14 @@ public final class AnnotationHandle {
         this.handleCache.values().forEach(v -> v.refresh(annotationNode));
     }
 
-    public void setOrAppend(String key, Object value) {
-        getValue(key).ifPresentOrElse(
-            v -> v.set(value),
-            () -> appendValue(key, value)
-        );
+    public void setOrAppendNonNull(String key, @Nullable Object value) {
+        if (value == null) {
+            removeValues(key);
+        } else {
+            getValue(key).ifPresentOrElse(
+                v -> v.set(value),
+                () -> appendValue(key, value)
+            );
+        }
     }
 }

@@ -1,0 +1,29 @@
+package org.sinytra.adapter.next.type;
+
+import org.jetbrains.annotations.Nullable;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
+
+import java.util.HashMap;
+import java.util.Map;
+
+public class MixinTypes {
+    private static final Map<String, MixinType<?>> MIXIN_TYPES = new HashMap<>();
+
+    static {
+        registerMixinType(Inject.class, new InjectMixin());
+        registerMixinType(ModifyVariable.class, new ModifyVariableMixin());
+        registerMixinType(ModifyArg.class, new ModifyArgMixin());
+    }
+
+    @Nullable
+    public static MixinType<?> getMixinType(String annotation) {
+        return MIXIN_TYPES.get(annotation);
+    }
+
+    private static void registerMixinType(Class<?> annotation, MixinType<?> type) {
+        String internalName = annotation.getName().replace('.', '/');
+        MIXIN_TYPES.put(internalName, type);
+    }
+}

@@ -61,7 +61,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
                 result = result.or(classTransform.apply(classNode, classTarget.handle(), context));
             }
             for (MethodNode method : classNode.methods) {
-                MethodContext methodContext = checkMethodTarget(classAnnotation, classNode, method, environment, classTarget.targetTypes(), context);
+                MethodContext methodContext = checkMethodTarget(classTarget.ann(), classAnnotation, classNode, method, environment, classTarget.targetTypes(), context);
                 if (methodContext != null) {
                     if (!this.transforms.isEmpty()) {
                         environment.auditTrail().prepareMethod(methodContext);
@@ -83,11 +83,13 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         if (classNode.invisibleAnnotations != null) {
             for (AnnotationNode annotation : classNode.invisibleAnnotations) {
                 if (annotation.desc.equals(MixinConstants.MIXIN)) {
+                    AnnotationHandle ann = new AnnotationHandle(annotation);
+
                     return PatchInstance.<List<Type>>findAnnotationValue(annotation.values, "value")
                         .map(types -> {
                             for (Type targetType : types.get()) {
                                 if (this.targetClasses.isEmpty() || this.targetClasses.contains(targetType.getInternalName())) {
-                                    return new ClassTarget(types, types.get());
+                                    return new ClassTarget(ann, types, types.get());
                                 }
                             }
                             return null;
@@ -96,7 +98,7 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
                             .map(types -> {
                                 for (String targetType : types.get()) {
                                     if (this.targetClasses.isEmpty() || this.targetClasses.contains(targetType)) {
-                                        return new ClassTarget(types, types.get().stream().map(Type::getObjectType).toList());
+                                        return new ClassTarget(ann, types, types.get().stream().map(Type::getObjectType).toList());
                                     }
                                 }
                                 return null;
@@ -105,17 +107,18 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
                 }
             }
         }
-        return this.targetClasses.isEmpty() ? new ClassTarget(null, List.of()) : null;
+        return this.targetClasses.isEmpty() ? new ClassTarget(null, null, List.of()) : null;
     }
 
     @Nullable
-    private MethodContext checkMethodTarget(@Nullable AnnotationValueHandle<?> classAnnotation, ClassNode owner, MethodNode method, PatchEnvironment remaper, List<Type> targetTypes, PatchContext context) {
+    private MethodContext checkMethodTarget(@Nullable AnnotationHandle rawClassAnnotation, @Nullable AnnotationValueHandle<?> classAnnotation, ClassNode owner, MethodNode method, PatchEnvironment remaper, List<Type> targetTypes, PatchContext context) {
         if (method.visibleAnnotations != null) {
             for (AnnotationNode annotation : method.visibleAnnotations) {
                 if (this.targetAnnotations.isEmpty() || this.targetAnnotations.contains(annotation.desc)) {
                     MethodContextImpl.Builder builder = MethodContextImpl.builder();
-                    if (classAnnotation != null) {
+                    if (rawClassAnnotation != null && classAnnotation != null) {
                         builder.classNode(owner);
+                        builder.rawClassAnnotation(rawClassAnnotation);
                         builder.classAnnotation(classAnnotation);
                         builder.targetTypes(targetTypes);
                     }
@@ -144,7 +147,8 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
         return Optional.empty();
     }
 
-    private record ClassTarget(@Nullable AnnotationValueHandle<?> handle, List<Type> targetTypes) {}
+    private record ClassTarget(AnnotationHandle ann, @Nullable AnnotationValueHandle<?> handle, List<Type> targetTypes) {
+    }
 
     protected abstract static class BaseBuilder<T extends Builder<T>> extends MethodTransformBuilderImpl<T> implements Builder<T> {
         protected final Set<String> targetClasses = new HashSet<>();

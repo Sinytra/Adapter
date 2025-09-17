@@ -58,6 +58,19 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
                 if (ignoreInsns.contains(insn)) {
                     continue;
                 }
+
+                // FIXME Sometimes we need to change the owner in insns, sometimes we don't
+                if (insn instanceof VarInsnNode varInsn && varInsn.var == localVar.index) {
+                    int nextOp = insn.getNext().getOpcode();
+                    if (bfu != null && nextOp != Opcodes.IFNULL && nextOp != Opcodes.IFNONNULL) {
+                        TypeAdapter typeFix = bfu.getTypeAdapter(type, originalType);
+                        if (typeFix != null) {
+                            typeFix.apply(methodNode.instructions, varInsn);
+                            break;
+                        }
+                    }
+                }
+
                 if (insn instanceof MethodInsnNode minsn && minsn.owner.equals(originalType.getInternalName())) {
                     // Find var load instruction
                     AbstractInsnNode previous = minsn.getPrevious();
@@ -73,18 +86,6 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
                             }
                         } while ((previous = previous.getPrevious()) != null);
                     }
-                }
-                if (insn instanceof VarInsnNode varInsn && varInsn.var == localVar.index) {
-                    int nextOp = insn.getNext().getOpcode();
-                    if (bfu != null && nextOp != Opcodes.IFNULL && nextOp != Opcodes.IFNONNULL) {
-                        TypeAdapter typeFix = bfu.getTypeAdapter(type, originalType);
-                        if (typeFix != null) {
-                            typeFix.apply(methodNode.instructions, varInsn);
-                        }
-                    }
-//                    if (this.lvtFixer != null) {
-//                        this.lvtFixer.accept(varInsn.var, varInsn, methodNode.instructions);
-//                    }
                 }
             }
         }

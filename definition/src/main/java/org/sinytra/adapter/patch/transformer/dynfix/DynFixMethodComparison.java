@@ -171,7 +171,7 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
                         throw new IllegalStateException("Ordinal not found?");
                     }
                     AnnotationHandle handle = mtx.injectionPointAnnotationOrThrow();
-                    handle.setOrAppend("ordinal", ordinal);
+                    handle.setOrAppendNonNull("ordinal", ordinal);
                     return Patch.Result.APPLY;
                 })
                 .apply(methodContext);

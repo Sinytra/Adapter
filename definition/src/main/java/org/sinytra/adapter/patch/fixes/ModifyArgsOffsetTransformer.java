@@ -14,6 +14,7 @@ import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.List;
 
+@Deprecated // TODO Remove in favor of Processors
 public class ModifyArgsOffsetTransformer {
     private static final MethodQualifier ARGS_GET = new MethodQualifier("Lorg/spongepowered/asm/mixin/injection/invoke/arg/Args;", "get", "(I)Ljava/lang/Object;");
     private static final MethodQualifier ARGS_SET = new MethodQualifier("Lorg/spongepowered/asm/mixin/injection/invoke/arg/Args;", "set", "(ILjava/lang/Object;)V");
