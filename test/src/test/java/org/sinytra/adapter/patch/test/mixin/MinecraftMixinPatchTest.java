@@ -42,7 +42,6 @@ public abstract class MinecraftMixinPatchTest {
 
     protected abstract LoadResult load(String className, List<String> allowedMethods) throws Exception;
 
-    @SafeVarargs
     protected final void assertSameCode(
         String className,
         String testName,

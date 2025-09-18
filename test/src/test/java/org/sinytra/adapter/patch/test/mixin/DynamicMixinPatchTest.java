@@ -59,7 +59,7 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     @Test
     void testChangeMethodParamsInPipeline() throws Exception {
         assertSameCode(
-            "org/sinytra/adapter/test/mixin/ServerEntityMixin",
+            "org/sinytra/adapter/test/mixin/pipeline/ServerEntityMixin",
             "packetWrap",
             assertTargetMethod()
         );
@@ -68,7 +68,7 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     @Test
     void testChangeInjectMethodParamsInPipeline() throws Exception {
         assertSameCode(
-            "org/sinytra/adapter/test/mixin/ServerEntityMixin",
+            "org/sinytra/adapter/test/mixin/pipeline/ServerEntityMixin",
             "modifyCreationData",
             assertTargetMethod()
         );
@@ -77,7 +77,7 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     @Test
     void testChangeInjectionTargetInPipeline() throws Exception {
         assertSameCode(
-            "org/sinytra/adapter/test/mixin/ServerEntityMixin",
+            "org/sinytra/adapter/test/mixin/pipeline/ServerEntityMixin",
             "markAsInitial",
             assertTargetMethod(),
             assertInjectionPoint()

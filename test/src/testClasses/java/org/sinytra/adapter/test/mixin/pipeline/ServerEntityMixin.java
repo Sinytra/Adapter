@@ -1,4 +1,4 @@
-package org.sinytra.adapter.test.mixin;
+package org.sinytra.adapter.test.mixin.pipeline;
 
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.network.protocol.Packet;
@@ -15,10 +15,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.function.Consumer;
 
+// Source: https://github.com/Patbox/polymer/blob/172729bc495a94bf13d7eb6809efddc53f36739e/polymer-core/src/main/java/eu/pb4/polymer/core/mixin/entity/EntityTrackerEntryMixin.java
 @Mixin(ServerEntity.class)
 public class ServerEntityMixin {
     @ModifyVariable(
-        method = "Lnet/minecraft/server/level/ServerEntity;sendPairingData(Lnet/minecraft/server/level/ServerPlayer;Ljava/util/function/Consumer;)V",
+        method = "sendPairingData(Lnet/minecraft/server/level/ServerPlayer;Ljava/util/function/Consumer;)V",
         at = @At("HEAD"),
         argsOnly = true
     )
@@ -27,7 +28,7 @@ public class ServerEntityMixin {
     }
 
     @ModifyVariable(
-        method = "Lnet/minecraft/server/level/ServerEntity;sendPairingData(Lnet/minecraft/server/level/ServerPlayer;Lnet/neoforged/neoforge/network/bundle/PacketAndPayloadAcceptor;)V",
+        method = "sendPairingData(Lnet/minecraft/server/level/ServerPlayer;Lnet/neoforged/neoforge/network/bundle/PacketAndPayloadAcceptor;)V",
         at = @At("HEAD"),
         argsOnly = true
     )
@@ -36,7 +37,7 @@ public class ServerEntityMixin {
     }
 
     @Inject(
-        method = "Lnet/minecraft/server/level/ServerEntity;sendPairingData(Lnet/minecraft/server/level/ServerPlayer;Ljava/util/function/Consumer;)V",
+        method = "sendPairingData(Lnet/minecraft/server/level/ServerPlayer;Ljava/util/function/Consumer;)V",
         at = @At("TAIL")
     )
     private void modifyCreationData(ServerPlayer player, Consumer<Packet<ClientGamePacketListener>> sender, CallbackInfo ci) {
@@ -44,7 +45,7 @@ public class ServerEntityMixin {
     }
 
     @Inject(
-        method = "Lnet/minecraft/server/level/ServerEntity;sendPairingData(Lnet/minecraft/server/level/ServerPlayer;Lnet/neoforged/neoforge/network/bundle/PacketAndPayloadAcceptor;)V",
+        method = "sendPairingData(Lnet/minecraft/server/level/ServerPlayer;Lnet/neoforged/neoforge/network/bundle/PacketAndPayloadAcceptor;)V",
         at = @At("TAIL")
     )
     private void modifyCreationDataExpected(ServerPlayer player, PacketAndPayloadAcceptor<ClientGamePacketListener> sender, CallbackInfo ci) {
@@ -52,7 +53,7 @@ public class ServerEntityMixin {
     }
 
     @ModifyArg(
-        method = "Lnet/minecraft/server/level/ServerEntity;sendPairingData(Lnet/minecraft/server/level/ServerPlayer;Ljava/util/function/Consumer;)V",
+        method = "sendPairingData(Lnet/minecraft/server/level/ServerPlayer;Ljava/util/function/Consumer;)V",
         at = @At(
             value = "INVOKE",
             target = "Ljava/util/function/Consumer;accept(Ljava/lang/Object;)V",
@@ -64,14 +65,14 @@ public class ServerEntityMixin {
     }
 
     @ModifyArg(
-        method = "Lnet/minecraft/server/level/ServerEntity;sendPairingData(Lnet/minecraft/server/level/ServerPlayer;Lnet/neoforged/neoforge/network/bundle/PacketAndPayloadAcceptor;)V",
+        method = "sendPairingData(Lnet/minecraft/server/level/ServerPlayer;Lnet/neoforged/neoforge/network/bundle/PacketAndPayloadAcceptor;)V",
         at = @At(
             value = "INVOKE",
-            target = "Ljava/util/function/Consumer;accept(Ljava/lang/Object;)V",
+            target = "Lnet/neoforged/neoforge/network/bundle/PacketAndPayloadAcceptor;accept(Lnet/minecraft/network/protocol/Packet;)Lnet/neoforged/neoforge/network/bundle/PacketAndPayloadAcceptor;",
             ordinal = 1
         )
     )
-    private Object markAsInitialExpected(Object obj) {
-        return obj;
+    private Packet<?> markAsInitialExpected(Packet<?> obj) {
+        return (Packet<?>) (Object) obj;
     }
 }
