@@ -8,7 +8,7 @@ import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.PatchAuditTrail;
-import org.sinytra.adapter.patch.transformer.operation.ModifyInjectionTarget;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyInjectionTarget;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.OpcodeUtil;
 

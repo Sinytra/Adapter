@@ -1,8 +1,9 @@
-package org.sinytra.adapter.patch.transformer.operation;
+package org.sinytra.adapter.patch.transformer.operation.unit;
 
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.next.env.ann.MixinAnnotationConstants;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.util.MethodQualifier;
@@ -21,7 +22,7 @@ public record DivertRedirectorTransform(Consumer<InstructionAdapter> patcher) im
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
         String value = methodContext.injectionPointAnnotation().<String>getValue("value").map(AnnotationValueHandle::get).orElse(null);
-        if ("INVOKE".equals(value)) {
+        if (MixinAnnotationConstants.AT_VAL_INVOKE.equals(value)) {
             MethodQualifier target = methodContext.getInjectionPointMethodQualifier();
             if (target != null) {
                 boolean applied = false;

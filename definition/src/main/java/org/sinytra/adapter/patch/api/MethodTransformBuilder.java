@@ -1,10 +1,10 @@
 package org.sinytra.adapter.patch.api;
 
 import org.jetbrains.annotations.ApiStatus;
-import org.sinytra.adapter.patch.transformer.operation.ModifyInjectionTarget;
-import org.sinytra.adapter.patch.transformer.operation.ModifyMethodAccess;
-import org.sinytra.adapter.patch.transformer.operation.ModifyMethodParams;
-import org.sinytra.adapter.patch.transformer.operation.ModifyMixinType;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyInjectionTarget;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyMethodAccess;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyMethodParams;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyMixinType;
 import org.sinytra.adapter.patch.transformer.operation.param.TransformParameters;
 
 import java.util.List;

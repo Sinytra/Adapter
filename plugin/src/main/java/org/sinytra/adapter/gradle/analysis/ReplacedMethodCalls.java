@@ -1,19 +1,20 @@
 package org.sinytra.adapter.gradle.analysis;
 
 import com.google.common.collect.Multimap;
-import org.sinytra.adapter.gradle.util.MatchResult;
-import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.Patch;
-import org.sinytra.adapter.patch.analysis.InstructionMatcher;
-import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
-import org.sinytra.adapter.patch.analysis.params.ParametersDiff;
-import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformTarget;
-import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.apache.commons.lang3.ArrayUtils;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.gradle.util.MatchResult;
+import org.sinytra.adapter.patch.analysis.InstructionMatcher;
+import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
+import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
+import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
+import org.sinytra.adapter.patch.api.MixinConstants;
+import org.sinytra.adapter.patch.api.Patch;
+import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformTarget;
+import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -154,7 +155,7 @@ public class ReplacedMethodCalls {
         }
         // Same owner, same name, different desc => expanded method
         if (cleanQualifier.owner().equals(dirtyQualifier.owner()) && cleanQualifier.name().equals(dirtyQualifier.name()) && !cleanQualifier.desc().equals(dirtyQualifier.desc())) {
-            ParametersDiff diff = ParametersDiff.compareTypeParameters(Type.getArgumentTypes(cleanQualifier.desc()), Type.getArgumentTypes(dirtyQualifier.desc()));
+            SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(Type.getArgumentTypes(cleanQualifier.desc()), Type.getArgumentTypes(dirtyQualifier.desc()));
             if (!diff.insertions().isEmpty() && diff.replacements().isEmpty() && diff.removals().isEmpty()) {
                 context.getTrace().logHeader();
                 LOGGER.info("Replacing expanded method call in {} to {} with {}", dirtyMethod.name, cleanCall, qualifier);
@@ -164,7 +165,7 @@ public class ReplacedMethodCalls {
                     .targetInjectionPoint(cleanCall)
                     // Avoid automatic method upgrades when a parameter transformation is being applied
                     .modifyInjectionPoint(null, qualifier, false, true)
-                    .transformMethods(diff.createTransforms(ParamTransformTarget.INJECTION_POINT))
+                    .transform(diff.asParameterTransformer(ParamTransformTarget.INJECTION_POINT, false))
                     .build();
                 context.addPatch(patch);
                 return true;

@@ -15,7 +15,7 @@ import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
 import org.sinytra.adapter.patch.fixes.MethodUpgrader;
 import org.sinytra.adapter.patch.fixes.TypeAdapter;
 import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformationUtil;
-import org.sinytra.adapter.patch.transformer.pipeline.MethodTransformationPipeline;
+import org.sinytra.adapter.patch.transformer.operation.CompoundMethodTransform;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.OpcodeUtil;
@@ -45,7 +45,7 @@ public class WrapOperationSurgeon {
 
         MethodQualifier oldQualifier = methodContext.getInjectionPointMethodQualifier();
         String newQualifier = MethodCallAnalyzer.getCallQualifier(dirtyInsn);
-        return MethodTransformationPipeline.builder(b -> b.modifyInjectionPoint("INVOKE", newQualifier, false, true))
+        return CompoundMethodTransform.builder(b -> b.modifyInjectionPoint("INVOKE", newQualifier, false, true))
             .onSuccess(() -> (c, m, mtx, ctx) -> {
                 MethodUpgrader.upgradeWrapOperationLayered(methodContext, oldQualifier, MethodQualifier.create(newQualifier).orElseThrow());
 

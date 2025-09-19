@@ -1,4 +1,4 @@
-package org.sinytra.adapter.patch.transformer.operation;
+package org.sinytra.adapter.patch.transformer.operation.unit;
 
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
@@ -29,17 +29,12 @@ import java.util.function.Consumer;
 import static org.sinytra.adapter.patch.transformer.operation.param.ParamTransformationUtil.calculateLVTIndex;
 import static org.sinytra.adapter.patch.transformer.operation.param.ParamTransformationUtil.findWrapOperationOriginalCall;
 
-// TODO Refactor
 @Deprecated
-public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransformTarget targetType, boolean ignoreOffset, @Nullable LVTFixer lvtFixer) implements MethodTransform {
+public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransformTarget targetType) implements MethodTransform {
     public static final Codec<ModifyMethodParams> CODEC = RecordCodecBuilder.create(instance -> instance.group(
         SimpleParamsDiffSnapshot.CODEC.fieldOf("context").forGetter(ModifyMethodParams::context),
         ParamTransformTarget.CODEC.optionalFieldOf("targetInjectionPoint", ParamTransformTarget.ALL).forGetter(ModifyMethodParams::targetType)
-    ).apply(instance, (context, targetInjectionPoint) -> new ModifyMethodParams(context, targetInjectionPoint, false, null)));
-    
-    public static ModifyMethodParams create(SimpleParamsDiffSnapshot diff, ParamTransformTarget targetType) {
-        return new ModifyMethodParams(diff, targetType, false, null);
-    }
+    ).apply(instance, ModifyMethodParams::new));
 
     public static Builder builder() {
         return new Builder();
@@ -68,7 +63,7 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
         Type[] params = Type.getArgumentTypes(methodNode.desc);
         List<Type> newParameterTypes = new ArrayList<>(Arrays.asList(params));
         boolean isNonStatic = (methodNode.access & Opcodes.ACC_STATIC) == 0;
-        boolean needsOffset = annotation.matchesDesc(MixinConstants.REDIRECT) && !this.ignoreOffset;
+        boolean needsOffset = annotation.matchesDesc(MixinConstants.REDIRECT);
         int offset = isNonStatic
             // If it's a redirect, the first local variable (index 1) is the object instance
             ? needsOffset ? 2 : 1
@@ -166,9 +161,6 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
                             if (typeFix != null) {
                                 typeFix.apply(methodNode.instructions, varInsn);
                             }
-                        }
-                        if (this.lvtFixer != null) {
-                            this.lvtFixer.accept(varInsn.var, varInsn, methodNode.instructions);
                         }
                     }
                 }
@@ -326,10 +318,6 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
         }
     }
 
-    public interface LVTFixer {
-        void accept(int index, AbstractInsnNode insn, InsnList list);
-    }
-
     public static class Builder {
         private final List<Pair<Integer, Type>> insertions = new ArrayList<>();
         private final List<Pair<Integer, Type>> replacements = new ArrayList<>();
@@ -337,10 +325,6 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
         private final List<Integer> removals = new ArrayList<>();
         private final List<Pair<Integer, Integer>> swap = new ArrayList<>();
         private final List<Pair<Integer, Consumer<InstructionAdapter>>> inlines = new ArrayList<>();
-        private ParamTransformTarget targetType = ParamTransformTarget.ALL;
-        private boolean ignoreOffset = false;
-        @Nullable
-        private LVTFixer lvtFixer;
 
         public Builder insert(int index, Type type) {
             this.insertions.add(Pair.of(index, type));
@@ -381,21 +365,6 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
             this.swap.add(Pair.of(original, replacement));
             return this;
         }
-
-        public Builder targetType(ParamTransformTarget targetType) {
-            this.targetType = targetType;
-            return this;
-        }
-
-        public Builder ignoreOffset() {
-            this.ignoreOffset = true;
-            return this;
-        }
-
-        public Builder lvtFixer(LVTFixer lvtFixer) {
-            this.lvtFixer = lvtFixer;
-            return this;
-        }
         
         public Builder chain(Consumer<Builder> consumer) {
             consumer.accept(this);
@@ -404,7 +373,7 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
 
         public ModifyMethodParams build() {
             SimpleParamsDiffSnapshot context = new SimpleParamsDiffSnapshot(this.insertions, this.replacements, this.swap, this.substitutes, this.removals, List.of(), this.inlines);
-            return new ModifyMethodParams(context, this.targetType, this.ignoreOffset, this.lvtFixer);
+            return new ModifyMethodParams(context, ParamTransformTarget.ALL);
         }
     }
 }

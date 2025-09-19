@@ -15,9 +15,9 @@ import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.analysis.selector.InjectionPointMatcher;
 import org.sinytra.adapter.patch.analysis.selector.MethodMatcher;
 import org.sinytra.adapter.patch.transformer.serialization.MethodTransformSerialization;
-import org.sinytra.adapter.patch.transformer.operation.DisableMixin;
-import org.sinytra.adapter.patch.transformer.operation.DivertRedirectorTransform;
-import org.sinytra.adapter.patch.transformer.operation.ModifyInjectionPoint;
+import org.sinytra.adapter.patch.transformer.operation.unit.DisableMixin;
+import org.sinytra.adapter.patch.transformer.operation.unit.DivertRedirectorTransform;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyInjectionPoint;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.*;

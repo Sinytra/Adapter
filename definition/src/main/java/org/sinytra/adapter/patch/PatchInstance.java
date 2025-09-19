@@ -9,7 +9,7 @@ import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
-import org.sinytra.adapter.patch.transformer.operation.ModifyTargetClasses;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyTargetClasses;
 import org.sinytra.adapter.patch.util.MethodTransformBuilderImpl;
 import org.slf4j.Marker;
 import org.slf4j.MarkerFactory;

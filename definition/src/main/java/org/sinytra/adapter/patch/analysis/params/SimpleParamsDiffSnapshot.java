@@ -9,12 +9,12 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.sinytra.adapter.patch.api.MethodTransform;
-import org.sinytra.adapter.patch.transformer.BundledMethodTransform;
-import org.sinytra.adapter.patch.transformer.operation.ModifyMethodParams;
+import org.sinytra.adapter.patch.transformer.operation.CompoundMethodTransform;
 import org.sinytra.adapter.patch.transformer.operation.param.InjectParameterTransform;
 import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformTarget;
 import org.sinytra.adapter.patch.transformer.operation.param.ParameterTransformer;
 import org.sinytra.adapter.patch.transformer.operation.param.TransformParameters;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyMethodParams;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.slf4j.Logger;
 
@@ -93,7 +93,7 @@ public record SimpleParamsDiffSnapshot(
         List<MethodTransform> list = new ArrayList<>();
         SimpleParamsDiffSnapshot light = new SimpleParamsDiffSnapshot(List.of(), this.replacements, this.swaps, this.substitutes, this.removals, this.moves, this.inlines);
         if (!light.isEmpty()) {
-            list.add(new ModifyMethodParams(light, type, false, null));
+            list.add(new ModifyMethodParams(light, type));
         }
         if (!this.insertions.isEmpty()) {
             list.add(TransformParameters.builder()
@@ -104,7 +104,7 @@ public record SimpleParamsDiffSnapshot(
                 .targetType(type)
                 .build());
         }
-        return new BundledMethodTransform(list);
+        return CompoundMethodTransform.builder(list).build();
     }
 
     public static Builder builder() {

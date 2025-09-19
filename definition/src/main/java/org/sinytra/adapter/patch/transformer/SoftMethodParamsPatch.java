@@ -6,11 +6,12 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.InheritanceHandler;
-import org.sinytra.adapter.patch.analysis.params.ParametersDiff;
+import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
+import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
-import org.sinytra.adapter.patch.transformer.serialization.MethodTransformSerialization;
 import org.sinytra.adapter.patch.transformer.operation.param.TransformParameters;
+import org.sinytra.adapter.patch.transformer.serialization.MethodTransformSerialization;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
@@ -67,7 +68,7 @@ public record SoftMethodParamsPatch(String replacementTarget, MethodTransform ta
         }
         Type[] args = Type.getArgumentTypes(targetQualifier.desc());
         Type[] newArgs = Type.getArgumentTypes(newQualifier.desc());
-        ParametersDiff diff = ParametersDiff.compareTypeParameters(args, newArgs);
+        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(args, newArgs);
         if (!diff.replacements().isEmpty() && diff.insertions().isEmpty() && diff.swaps().isEmpty()) {
             return diff.replacements().stream()
                 .filter(pair -> {

@@ -4,8 +4,8 @@ import com.mojang.datafixers.util.Pair;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
+import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.patch.analysis.params.ParamsDiffSnapshot;
@@ -13,7 +13,7 @@ import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchAuditTrail;
-import org.sinytra.adapter.patch.transformer.BundledMethodTransform;
+import org.sinytra.adapter.patch.transformer.operation.CompoundMethodTransform;
 import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformTarget;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
@@ -59,9 +59,9 @@ public class DynFixParameterTypeAdapter implements DynamicFixer<DynFixParameterT
     @Override
     @Nullable
     public FixResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchAuditTrail auditTrail, Data data) {
-        Patch.Result result = BundledMethodTransform.builder()
-            .modifyInjectionPoint(MethodCallAnalyzer.getCallQualifier(data.newCall()))
-            .transform(data.diff().asParameterTransformer(ParamTransformTarget.INJECTION_POINT, false))
+        Patch.Result result = CompoundMethodTransform.builder(b -> b
+                .modifyInjectionPoint(MethodCallAnalyzer.getCallQualifier(data.newCall()))
+                .transform(data.diff().asParameterTransformer(ParamTransformTarget.INJECTION_POINT, false)))
             .apply(methodContext);
         if (result == Patch.Result.PASS) {
             return null;

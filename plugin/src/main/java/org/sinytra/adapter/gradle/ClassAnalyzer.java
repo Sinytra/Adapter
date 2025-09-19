@@ -15,16 +15,15 @@ import org.sinytra.adapter.gradle.util.TraceCallback;
 import org.sinytra.adapter.patch.LVTOffsets;
 import org.sinytra.adapter.patch.PatchInstance;
 import org.sinytra.adapter.patch.analysis.InheritanceHandler;
-import org.sinytra.adapter.patch.analysis.locals.LocalVarRearrangement;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
+import org.sinytra.adapter.patch.analysis.locals.LocalVarRearrangement;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
-import org.sinytra.adapter.patch.analysis.params.ParametersDiff;
 import org.sinytra.adapter.patch.api.Patch;
-import org.sinytra.adapter.patch.transformer.operation.ModifyInjectionTarget;
-import org.sinytra.adapter.patch.transformer.operation.ModifyMethodAccess;
 import org.sinytra.adapter.patch.transformer.SoftMethodParamsPatch;
 import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformTarget;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyInjectionTarget;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyMethodAccess;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 import org.slf4j.Logger;
@@ -292,7 +291,7 @@ public class ClassAnalyzer {
             OverloadedMethods.MethodOverload overloader = OverloadedMethods.findOverloadMethod(context, this.dirtyNode.name, method, this.dirtyCommonMethods.values());
             if (overloader != null) {
                 MethodNode overloaderMethod = overloader.methodNode();
-                ParametersDiff diff = ParametersDiff.compareMethodParameters(overloaderMethod, method);
+                LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.compareMethodParameters(overloaderMethod, method);
                 if (!diff.insertions().isEmpty() || !diff.replacements().isEmpty()) {
                     String overloaderQualifier = overloaderMethod.name + overloaderMethod.desc;
                     String dirtyQualifier = method.name + method.desc;
@@ -307,7 +306,7 @@ public class ClassAnalyzer {
                             .targetClass(this.dirtyNode.name)
                             .targetMethod(overloaderQualifier)
                             .transform(overloader.getPatchTargetTransform(method))
-                            .transformMethods(diff.createTransforms(ParamTransformTarget.METHOD))
+                            .transform(diff.asParameterTransformer(ParamTransformTarget.METHOD, false))
                             .build();
                         context.addPatch(patch);
                         replacementCalls.put(Type.getObjectType(this.dirtyNode.name).getDescriptor() + dirtyQualifier, Type.getObjectType(this.cleanNode.name).getDescriptor() + overloaderQualifier);

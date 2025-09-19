@@ -7,7 +7,7 @@ import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.api.*;
-import org.sinytra.adapter.patch.transformer.operation.ModifyMixinType;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyMixinType;
 import org.sinytra.adapter.patch.util.MockMixinRuntime;
 import org.spongepowered.asm.mixin.injection.modify.LocalVariableDiscriminator;
 import org.spongepowered.asm.mixin.injection.struct.InjectionInfo;

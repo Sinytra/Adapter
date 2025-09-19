@@ -18,10 +18,9 @@ import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchAuditTrail;
 import org.sinytra.adapter.patch.fixes.MethodUpgrader;
-import org.sinytra.adapter.patch.transformer.BundledMethodTransform;
-import org.sinytra.adapter.patch.transformer.operation.ModifyInjectionPoint;
+import org.sinytra.adapter.patch.transformer.operation.CompoundMethodTransform;
 import org.sinytra.adapter.patch.transformer.operation.param.*;
-import org.sinytra.adapter.patch.transformer.pipeline.MethodTransformationPipeline;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyInjectionPoint;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 
 import java.util.*;
@@ -164,7 +163,7 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
             MethodInsnNode m = matches.getFirst();
             String newInjectionPoint = Type.getObjectType(m.owner).getDescriptor() + m.name + m.desc;
 
-            Patch.Result result = MethodTransformationPipeline.builder(new ModifyInjectionPoint("INVOKE", newInjectionPoint, true, false))
+            Patch.Result result = CompoundMethodTransform.builder(new ModifyInjectionPoint("INVOKE", newInjectionPoint, true, false))
                 .onSuccess(() -> (cls, mtd, mtx, ctx) -> {
                     int ordinal = MethodCallAnalyzer.getMethodCallOrdinal(dirtyMethod, m);
                     if (ordinal == -1) {
@@ -215,9 +214,10 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
             return Optional.empty();
         }
         MethodInsnNode dirtyMinsn = methodCalls.getFirst();
-        return Optional.of(FixResult.of(BundledMethodTransform.builder()
-            .modifyInjectionPoint("INVOKE", MethodCallAnalyzer.getCallQualifier(dirtyMinsn))
-            .apply(methodContext), PatchAuditTrail.Match.FULL));
+        Patch.Result result = CompoundMethodTransform.builder(b -> b
+                .modifyInjectionPoint("INVOKE", MethodCallAnalyzer.getCallQualifier(dirtyMinsn)))
+            .apply(methodContext);
+        return Optional.of(FixResult.of(result, PatchAuditTrail.Match.FULL));
     }
 
     private static Optional<FixResult> handleWrapOperationToInstanceOf(AbstractInsnNode cleanInjectionInsn, List<AbstractInsnNode> cleanLabel, List<List<AbstractInsnNode>> hunkLabels, MethodContext methodContext) {
@@ -321,7 +321,9 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
                 if (insn instanceof MethodInsnNode minsn && minsn.owner.equals(dirtyTarget.name)) {
                     MethodNode method = MethodCallAnalyzer.findMethodByUniqueName(dirtyTarget, minsn.name).orElse(null);
                     if (method != null && !methodContext.findInjectionTargetInsns(new MethodContext.TargetPair(dirtyTarget, method)).isEmpty()) {
-                        return Optional.of(FixResult.of(BundledMethodTransform.builder().modifyTarget(minsn.name + minsn.desc).apply(methodContext), PatchAuditTrail.Match.FULL));
+                        Patch.Result result = CompoundMethodTransform.builder(b -> b.modifyTarget(minsn.name + minsn.desc))
+                            .apply(methodContext);
+                        return Optional.of(FixResult.of(result, PatchAuditTrail.Match.FULL));
                     }
                 }
             }
@@ -348,7 +350,7 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
             return Patch.Result.PASS;
         }
 
-        return MethodTransformationPipeline.builder(b -> b.extractMixin(minsn.owner))
+        return CompoundMethodTransform.builder(b -> b.extractMixin(minsn.owner))
             .onSuccess(b -> b.modifyTarget(minsn.name + minsn.desc))
             // Extraction failed? Let's try something else
             .onFail(() -> new MirrorableExtractMixin(targetClass.name, minsn))

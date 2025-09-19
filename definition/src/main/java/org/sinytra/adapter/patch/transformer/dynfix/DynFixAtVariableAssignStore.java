@@ -6,8 +6,8 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.PatchAuditTrail;
-import org.sinytra.adapter.patch.transformer.operation.ModifyInjectionPoint;
-import org.sinytra.adapter.patch.transformer.operation.ModifyInjectionTarget;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyInjectionPoint;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyInjectionTarget;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.OpcodeUtil;
 

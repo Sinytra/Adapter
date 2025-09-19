@@ -6,9 +6,9 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import org.sinytra.adapter.patch.api.MethodTransform;
 import org.sinytra.adapter.patch.transformer.SoftMethodParamsPatch;
-import org.sinytra.adapter.patch.transformer.operation.*;
 import org.sinytra.adapter.patch.transformer.operation.param.TransformParameters;
-import org.sinytra.adapter.patch.transformer.pipeline.MethodTransformationPipeline;
+import org.sinytra.adapter.patch.transformer.operation.unit.*;
+import org.sinytra.adapter.patch.transformer.operation.CompoundMethodTransform;
 
 import java.util.Objects;
 
@@ -30,7 +30,7 @@ public class MethodTransformSerialization {
         .put("modify_method", ModifyMethodParams.CODEC)
         .put("transform_parameters", TransformParameters.CODEC)
         .put("soft_modify_method", SoftMethodParamsPatch.CODEC)
-        .put("pipeline_transform", MethodTransformationPipeline.CODEC)
+        .put("pipeline_transform", CompoundMethodTransform.CODEC)
         .build();
 
     private static String getTransformName(MethodTransform transform) {

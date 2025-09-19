@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
+import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.patch.analysis.params.ParametersDiff;
 import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
 import org.sinytra.adapter.patch.test.mixin.MinecraftMixinPatchTest;
@@ -103,16 +105,12 @@ public class ParameterComparisonTest {
         MethodNode cleanMethod = cleanNode.methods.stream().filter(m -> m.name.equals("namedInsertionTest")).findFirst().orElseThrow();
         MethodNode dirtyMethod = dirtyNode.methods.stream().filter(m -> m.name.equals("namedInsertionTest")).findFirst().orElseThrow();
 
-        ParametersDiff diff = ParametersDiff.compareMethodParameters(cleanMethod, dirtyMethod);
-        int originalCount = Type.getArgumentTypes(cleanMethod.desc).length;
-        System.out.println("Original originalCount: " + originalCount);
-        System.out.println("Actual originalCount: " + diff.originalCount());
-        assertEquals(originalCount, diff.originalCount());
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.compareMethodParameters(cleanMethod, dirtyMethod);
 
         System.out.println("Insertions:");
         diff.insertions().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
         assertEquals(1, diff.insertions().size());
-        assertEquals(9, diff.insertions().getFirst().getFirst());
+        assertEquals(7, diff.insertions().getFirst().getFirst());
         assertEquals(Type.FLOAT_TYPE, diff.insertions().getFirst().getSecond());
 
         System.out.println("Replacements:");

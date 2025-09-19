@@ -7,8 +7,8 @@ import org.sinytra.adapter.patch.analysis.InsnComparator;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.api.*;
-import org.sinytra.adapter.patch.transformer.operation.DisableMixin;
-import org.sinytra.adapter.patch.transformer.operation.ModifyMixinType;
+import org.sinytra.adapter.patch.transformer.operation.unit.DisableMixin;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyMixinType;
 
 import java.util.ArrayList;
 import java.util.List;

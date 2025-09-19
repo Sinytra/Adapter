@@ -1,4 +1,4 @@
-package org.sinytra.adapter.patch.transformer.operation;
+package org.sinytra.adapter.patch.transformer.operation.unit;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -46,6 +46,7 @@ public record ModifyInjectionTarget(List<String> replacementMethods, Action acti
                     List<String> original = handle.get();
                     this.action.handler.apply(handle, methodContext.matchingTargets(), this.replacementMethods);
                     if (original.size() == 1 && handle.get().size() == 1) {
+                        // TODO Remove side effect
                         MethodUpgrader.upgradeMethod(methodNode, methodContext, original.getFirst(), handle.get().getFirst());
                     }
                 },

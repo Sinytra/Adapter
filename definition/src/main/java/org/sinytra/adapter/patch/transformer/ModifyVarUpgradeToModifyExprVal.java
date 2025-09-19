@@ -5,7 +5,7 @@ import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
-import org.sinytra.adapter.patch.transformer.operation.ModifyMixinType;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyMixinType;
 
 import java.util.Collection;
 import java.util.Set;

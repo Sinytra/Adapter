@@ -1,4 +1,4 @@
-package org.sinytra.adapter.patch.transformer.pipeline;
+package org.sinytra.adapter.patch.transformer.operation.filter;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;

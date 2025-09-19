@@ -2,21 +2,11 @@ package org.sinytra.adapter.patch.analysis.params;
 
 import com.mojang.datafixers.util.Pair;
 import org.jetbrains.annotations.Nullable;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.LocalVariableNode;
-import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.patch.api.MethodTransform;
-import org.sinytra.adapter.patch.transformer.operation.ModifyMethodParams;
-import org.sinytra.adapter.patch.transformer.operation.param.InjectParameterTransform;
-import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformTarget;
-import org.sinytra.adapter.patch.transformer.operation.param.ParameterTransformer;
-import org.sinytra.adapter.patch.transformer.operation.param.TransformParameters;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.GeneratedVariables;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -24,31 +14,17 @@ import java.util.stream.Stream;
  * @deprecated Use {@link EnhancedParamsDiff} where possible
  */
 @Deprecated
-public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insertions, List<Pair<Integer, Type>> replacements, List<Pair<Integer, Integer>> swaps,
-                             List<Integer> removals, List<Pair<Integer, Integer>> moves) {
-    public static final ParametersDiff EMPTY = new ParametersDiff(-1, List.of(), List.of(), List.of(), List.of(), List.of());
-
-    public List<MethodTransform> createTransforms(ParamTransformTarget type) {
-        List<MethodTransform> list = new ArrayList<>();
-        SimpleParamsDiffSnapshot light = SimpleParamsDiffSnapshot.createLight(this);
-        if (!light.isEmpty()) {
-            list.add(new ModifyMethodParams(light, type, false, null));
-        }
-        if (!this.insertions.isEmpty()) {
-            list.add(new TransformParameters(this.insertions.stream()
-                .<ParameterTransformer>map(p -> new InjectParameterTransform(p.getFirst(), p.getSecond()))
-                .toList(), true, type));
-        }
-        return list;
-    }
-
+public record ParametersDiff(
+    int originalCount,
+    List<Pair<Integer, Type>> insertions,
+    List<Pair<Integer, Type>> replacements,
+    List<Pair<Integer, Integer>> swaps,
+    List<Integer> removals,
+    List<Pair<Integer, Integer>> moves
+) {
     public record MethodParameter(Type type, boolean isGeneratedType) {
         public MethodParameter(@Nullable String name, Type type) {
             this(type, name != null && GeneratedVariables.isGeneratedVariableName(name, type));
-        }
-
-        public MethodParameter(LocalVariableNode lv) {
-            this(lv.name, Type.getType(lv.desc));
         }
 
         public boolean matchName(MethodParameter other) {
@@ -56,43 +32,14 @@ public record ParametersDiff(int originalCount, List<Pair<Integer, Type>> insert
         }
     }
 
-    public static ParametersDiff compareMethodParameters(MethodNode clean, MethodNode dirty) {
-        if (clean.localVariables == null || dirty.localVariables == null) {
-            return EMPTY;
-        }
-
-        int cleanParamCount = Type.getArgumentTypes(clean.desc).length;
-        int dirtyParamCount = Type.getArgumentTypes(dirty.desc).length;
-        boolean isCleanStatic = (clean.access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC;
-        boolean isDirtyStatic = (dirty.access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC;
-        // Get params as local variables, which include their names as well
-        List<MethodParameter> cleanParams = clean.localVariables.stream()
-            .sorted(Comparator.comparingInt(lv -> lv.index))
-            .filter(lv -> isCleanStatic || lv.index != 0)
-            .limit(cleanParamCount)
-            .map(MethodParameter::new)
-            .toList();
-        List<MethodParameter> dirtyParams = dirty.localVariables.stream()
-            .sorted(Comparator.comparingInt(lv -> lv.index))
-            .filter(lv -> isDirtyStatic || lv.index != 0)
-            .limit(dirtyParamCount)
-            .map(MethodParameter::new)
-            .toList();
-        return compareParameters(cleanParams, dirtyParams, false);
-    }
-
     public static ParametersDiff compareTypeParameters(Type[] parameterTypes, Type[] newParameterTypes) {
-        return compareTypeParameters(parameterTypes, newParameterTypes, false);
-    }
-
-    public static ParametersDiff compareTypeParameters(Type[] parameterTypes, Type[] newParameterTypes, boolean lvtIndexes) {
         List<MethodParameter> cleanParameters = Stream.of(parameterTypes)
             .map(type -> new MethodParameter(null, type))
             .toList();
         List<MethodParameter> dirtyParameters = Stream.of(newParameterTypes)
             .map(type -> new MethodParameter(null, type))
             .toList();
-        return compareParameters(cleanParameters, dirtyParameters, lvtIndexes);
+        return compareParameters(cleanParameters, dirtyParameters, false);
     }
 
     public static ParametersDiff compareParameters(List<MethodParameter> cleanParameters, List<MethodParameter> dirtyParameters, boolean lvtIndexes) {

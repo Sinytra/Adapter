@@ -1,4 +1,4 @@
-package org.sinytra.adapter.patch.transformer.operation;
+package org.sinytra.adapter.patch.transformer.operation.unit;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -45,6 +45,7 @@ public record ModifyInjectionPoint(@Nullable String value, String target, boolea
         if (handle != null) {
             String original = handle.get();
             handle.set(this.target);
+            // TODO Remove side effect
             if (!this.dontUpgrade && !methodContext.methodAnnotation().matchesDesc(MixinConstants.MODIFY_EXPR_VAL)) {
                 MethodUpgrader.upgradeMethod(methodNode, methodContext, original, this.target);
             }

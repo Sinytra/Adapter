@@ -5,7 +5,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import org.sinytra.adapter.patch.api.MethodTransformFilter;
-import org.sinytra.adapter.patch.transformer.pipeline.InjectionPointTransformerFilter;
+import org.sinytra.adapter.patch.transformer.operation.filter.InjectionPointTransformerFilter;
 
 import java.util.Objects;
 

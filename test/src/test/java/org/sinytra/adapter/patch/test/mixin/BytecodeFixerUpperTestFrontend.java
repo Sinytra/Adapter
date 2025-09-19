@@ -2,13 +2,18 @@ package org.sinytra.adapter.patch.test.mixin;
 
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.*;
+import org.objectweb.asm.tree.FieldInsnNode;
+import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.tree.TypeInsnNode;
 import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
 import org.sinytra.adapter.patch.fixes.SimpleTypeAdapter;
 import org.sinytra.adapter.patch.fixes.TypeAdapter;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 
 import java.util.List;
+
+import static org.sinytra.adapter.patch.util.AdapterUtil.insnList;
 
 public class BytecodeFixerUpperTestFrontend {
     private static final List<TypeAdapter> FIELD_TYPE_ADAPTERS = List.of(
@@ -18,7 +23,7 @@ public class BytecodeFixerUpperTestFrontend {
             Type.getObjectType("java/util/function/Consumer"),
             Type.getObjectType("net/neoforged/neoforge/network/bundle/PacketAndPayloadAcceptor"),
             (list, insn) ->
-                list.insert(insn, listOf(
+                list.insert(insn, insnList(
                     new TypeInsnNode(Opcodes.NEW, "net/neoforged/neoforge/network/bundle/PacketAndPayloadAcceptor"),
                     new InsnNode(Opcodes.DUP),
                     new MethodInsnNode(Opcodes.INVOKESPECIAL, "net/neoforged/neoforge/network/bundle/PacketAndPayloadAcceptor", "<init>", "(Ljava/util/function/Consumer;)V")
@@ -38,13 +43,5 @@ public class BytecodeFixerUpperTestFrontend {
 
     public BytecodeFixerUpper unwrap() {
         return this.bfu;
-    }
-
-    private static InsnList listOf(AbstractInsnNode... nodes) {
-        InsnList list = new InsnList();
-        for (AbstractInsnNode node : nodes) {
-            list.add(node);
-        }
-        return list;
     }
 }

@@ -1,4 +1,4 @@
-package org.sinytra.adapter.patch.transformer.pipeline;
+package org.sinytra.adapter.patch.transformer.operation;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -7,31 +7,35 @@ import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.transformer.serialization.MethodTransformFilterSerialization;
 import org.sinytra.adapter.patch.transformer.serialization.MethodTransformSerialization;
-import org.sinytra.adapter.patch.transformer.BundledMethodTransform;
+import org.sinytra.adapter.patch.util.MethodTransformBuilderImpl;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-@Deprecated // Not longer needed, use plain operations
-public class MethodTransformationPipeline implements MethodTransform {
-    public static final Codec<MethodTransformationPipeline> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        MethodTransformSerialization.METHOD_TRANSFORM_CODEC.fieldOf("transform").forGetter(m -> m.transform),
-        MethodTransformFilterSerialization.METHOD_TRANSFORM_FILTER_CODEC.listOf().fieldOf("filters").forGetter(m -> m.filters)
-    ).apply(instance, MethodTransformationPipeline::new));
+// TODO Convert into universal operations interface to avoid using raw constructors
+public class CompoundMethodTransform implements MethodTransform {
+    public static final Codec<CompoundMethodTransform> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+        MethodTransformSerialization.METHOD_TRANSFORM_CODEC.listOf().fieldOf("transforms").forGetter(m -> m.transforms),
+        MethodTransformFilterSerialization.METHOD_TRANSFORM_FILTER_CODEC.listOf().optionalFieldOf("filters", List.of()).forGetter(m -> m.filters)
+    ).apply(instance, CompoundMethodTransform::new));
 
-    private final MethodTransform transform;
+    private final List<MethodTransform> transforms;
     private final List<Supplier<MethodTransform>> onSuccess;
     private final List<Supplier<MethodTransform>> onFail;
     private final List<MethodTransformFilter> filters;
 
-    private MethodTransformationPipeline(MethodTransform transform, List<MethodTransformFilter> filters) {
-        this(transform, List.of(), List.of(), filters);
+    private CompoundMethodTransform(List<MethodTransform> transforms) {
+        this(transforms, List.of(), List.of(), List.of());
     }
 
-    private MethodTransformationPipeline(MethodTransform transform, List<Supplier<MethodTransform>> onSuccess, List<Supplier<MethodTransform>> onFail, List<MethodTransformFilter> filters) {
-        this.transform = transform;
+    private CompoundMethodTransform(List<MethodTransform> transforms, List<MethodTransformFilter> filters) {
+        this(transforms, List.of(), List.of(), filters);
+    }
+
+    private CompoundMethodTransform(List<MethodTransform> transforms, List<Supplier<MethodTransform>> onSuccess, List<Supplier<MethodTransform>> onFail, List<MethodTransformFilter> filters) {
+        this.transforms = transforms;
         this.onSuccess = onSuccess;
         this.onFail = onFail;
         this.filters = filters;
@@ -49,7 +53,8 @@ public class MethodTransformationPipeline implements MethodTransform {
                 return Patch.Result.PASS;
             }
         }
-        Patch.Result result = this.transform.apply(methodContext);
+        Patch.Result result = this.transforms.stream()
+            .reduce(Patch.Result.PASS, (a, b) -> a.or(b.apply(methodContext)), Patch.Result::or);
         for (Supplier<MethodTransform> supplier : result == Patch.Result.PASS ? this.onFail : this.onSuccess) {
             result = result.or(supplier.get().apply(methodContext));
         }
@@ -57,23 +62,33 @@ public class MethodTransformationPipeline implements MethodTransform {
     }
 
     public static Builder builder(MethodTransform transform) {
-        return new Builder(transform);
+        return new Builder(List.of(transform));
+    }
+
+    public static Builder builder(List<MethodTransform> transforms) {
+        return new Builder(transforms);
+    }
+
+    private static class BundleBuilder extends MethodTransformBuilderImpl.ClassImpl<BundleBuilder> {
+        private List<MethodTransform> build() {
+            return this.transforms;
+        }
     }
 
     public static Builder builder(Consumer<MethodTransformBuilder.Class<?>> consumer) {
-        BundledMethodTransform.Builder builder = BundledMethodTransform.builder();
+        BundleBuilder builder = new BundleBuilder();
         consumer.accept(builder);
         return new Builder(builder.build());
     }
 
     public static class Builder {
-        private final MethodTransform transform;
+        private final List<MethodTransform> transforms;
         private final List<Supplier<MethodTransform>> onSuccess = new ArrayList<>();
         private final List<Supplier<MethodTransform>> onFail = new ArrayList<>();
         private final List<MethodTransformFilter> filters = new ArrayList<>();
 
-        private Builder(MethodTransform transform) {
-            this.transform = transform;
+        private Builder(List<MethodTransform> transforms) {
+            this.transforms = transforms;
         }
 
         public Builder onSuccess(Supplier<MethodTransform> onSuccess) {
@@ -82,9 +97,9 @@ public class MethodTransformationPipeline implements MethodTransform {
         }
 
         public Builder onSuccess(Consumer<MethodTransformBuilder<?>> consumer) {
-            BundledMethodTransform.Builder builder = BundledMethodTransform.builder();
+            BundleBuilder builder = new BundleBuilder();
             consumer.accept(builder);
-            this.onSuccess.add(builder::build);
+            this.onSuccess.add(() -> new CompoundMethodTransform(builder.build()));
             return this;
         }
 
@@ -94,9 +109,9 @@ public class MethodTransformationPipeline implements MethodTransform {
         }
 
         public Builder onFail(Consumer<MethodTransformBuilder<?>> consumer) {
-            BundledMethodTransform.Builder builder = BundledMethodTransform.builder();
+            BundleBuilder builder = new BundleBuilder();
             consumer.accept(builder);
-            this.onFail.add(builder::build);
+            this.onFail.add(() -> new CompoundMethodTransform(builder.build()));
             return this;
         }
 
@@ -110,8 +125,8 @@ public class MethodTransformationPipeline implements MethodTransform {
             return this;
         }
 
-        public MethodTransformationPipeline build() {
-            return new MethodTransformationPipeline(this.transform, this.onSuccess, this.onFail, this.filters);
+        public CompoundMethodTransform build() {
+            return new CompoundMethodTransform(this.transforms, this.onSuccess, this.onFail, this.filters);
         }
 
         public Patch.Result apply(MethodContext methodContext) {

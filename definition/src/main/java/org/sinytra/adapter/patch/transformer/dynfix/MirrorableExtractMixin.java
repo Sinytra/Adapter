@@ -8,7 +8,7 @@ import org.objectweb.asm.commons.Method;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.api.*;
-import org.sinytra.adapter.patch.transformer.BundledMethodTransform;
+import org.sinytra.adapter.patch.transformer.operation.CompoundMethodTransform;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.OpcodeUtil;
 
@@ -56,7 +56,9 @@ public record MirrorableExtractMixin(String destinationClass, MethodInsnNode des
 
         String desc = Type.getMethodDescriptor(Type.VOID_TYPE, newParams.toArray(Type[]::new));
         // Change target
-        BundledMethodTransform.builder().modifyTarget(this.destinationMethodInvocation.name + this.destinationMethodInvocation.desc).apply(methodContext);
+        CompoundMethodTransform.builder(b -> b
+                .modifyTarget(this.destinationMethodInvocation.name + this.destinationMethodInvocation.desc))
+            .apply(methodContext);
         MethodNode invokerMixinMethod = (MethodNode) generatedTarget.visitMethod(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, name, desc, null, null);
         invokerMixinMethod.visibleAnnotations = new ArrayList<>(originalMixinMethod.visibleAnnotations);
         // Make original mixin a unique public method
