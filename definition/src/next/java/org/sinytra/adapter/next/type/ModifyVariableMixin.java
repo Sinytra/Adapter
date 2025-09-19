@@ -34,9 +34,7 @@ public class ModifyVariableMixin implements MixinType<ModifyVariableMixinData> {
     }
 
     @Override
-    public void postProcess(ModifyVariableMixinData mixin, MixinContext context, MutableConfiguration dirty, Recipe recipe) {
-        Configuration clean = recipe.clean();
-
+    public void postProcess(ModifyVariableMixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
         if (mixin.argsOnly() && dirty.getTargetMethod() != null && !dirty.getTargetMethod().desc().equals(clean.getTargetMethod().desc())) {
             Type cleanVarType = clean.getParameters().get(SINGLE_ANY).getFirst();
             List<Type> cleanTargetMethodParams = MethodParameters.getParameterTypes(clean.getTargetMethod().desc());

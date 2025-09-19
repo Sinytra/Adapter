@@ -16,9 +16,6 @@ public class DynamicInjectionPointPatch implements MethodTransform {
     private static final List<DynamicFixer<?>> PASSIVE = List.of(
         new DynFixLocalCaptureUpgrade()
     );
-    private static final List<DynamicFixer<?>> PREPATCH = List.of(
-        new DynFixResolveAmbiguousTarget()
-    );
     private static final List<DynamicFixer<?>> FIXES = List.of(
         new DynFixSliceBoundary(),
         new DynFixAtVariableAssignStore(),
@@ -56,16 +53,6 @@ public class DynamicInjectionPointPatch implements MethodTransform {
 
             auditTrail.recordResult(methodContext, PatchAuditTrail.Match.NONE);
 
-            for (DynamicFixer fix : PREPATCH) {
-                Object data = fix.prepare(methodContext);
-                if (data != null) {
-                    DynamicFixer.FixResult fixResult = fix.apply(classNode, methodNode, methodContext, auditTrail, data);
-                    if (fixResult != null) {
-                        auditTrail.recordResult(methodContext, fixResult.match());
-                        result = result.or(fixResult.result());
-                    }
-                }
-            }
             for (DynamicFixer fix : FIXES) {
                 Object data = fix.prepare(methodContext);
                 if (data != null) {

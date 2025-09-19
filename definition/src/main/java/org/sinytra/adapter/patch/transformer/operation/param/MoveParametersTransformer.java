@@ -49,8 +49,7 @@ public record MoveParametersTransformer(int from, int to) implements ParameterTr
         parameters.remove(paramIndex);
 
         Type type = Type.getType(localVar.desc);
-        int destination = this.to;
-        localVar.index = lookup.getByParameterOrdinal(destination).index + offset;
+        localVar.index = lookup.getByParameterOrdinal(this.to).index + offset;
 
         LVTSnapshot.with(methodNode, () -> methodNode.localVariables.add(localVar.index, localVar));
         AdapterUtil.replaceLVT(methodNode, idx -> idx == tempIndex ? localVar.index : idx);

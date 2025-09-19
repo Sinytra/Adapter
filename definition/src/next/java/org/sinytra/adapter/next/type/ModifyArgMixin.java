@@ -8,6 +8,7 @@ import org.sinytra.adapter.next.env.ann.ClassTarget;
 import org.sinytra.adapter.next.env.ann.ModifyArgMixinData;
 import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.next.pipeline.Recipe;
+import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.fixes.TypeAdapter;
@@ -30,7 +31,7 @@ public class ModifyArgMixin implements MixinType<ModifyArgMixinData> {
     }
 
     @Override
-    public void postProcess(ModifyArgMixinData mixin, MixinContext context, MutableConfiguration dirty, Recipe recipe) {
+    public void postProcess(ModifyArgMixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
         Type type = findArgType(context, recipe.clean().getAtData(), dirty.getAtData());
         if (type != null) {
             MethodParameters parameters = MethodParameters.create(context.methodNode().desc, List.of(SINGLE_ANY));

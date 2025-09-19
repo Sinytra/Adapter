@@ -4,6 +4,7 @@ import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.Redirect;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -15,6 +16,7 @@ public class MixinTypes {
         registerMixinType(Inject.class, new InjectMixin());
         registerMixinType(ModifyVariable.class, new ModifyVariableMixin());
         registerMixinType(ModifyArg.class, new ModifyArgMixin());
+        registerMixinType(Redirect.class, new RedirectMixin());
     }
 
     @Nullable

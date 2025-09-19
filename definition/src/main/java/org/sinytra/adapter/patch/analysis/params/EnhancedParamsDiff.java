@@ -299,7 +299,7 @@ public class EnhancedParamsDiff {
                 Integer count = entry.getValue();
                 if (count == 1) {
                     TypeWithContext inserted = clean.stream().filter(t -> t.type().equals(type)).findFirst().orElseThrow();
-                    tempDiff.remove(clean.indexOf(inserted));
+                    tempDiff.remove(inserted.pos());
                     cleanGroup.remove(type);
                     rearrangeClean.remove(inserted);
                 }

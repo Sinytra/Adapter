@@ -1,6 +1,7 @@
 package org.sinytra.adapter.next.pipeline.resolver;
 
 import com.mojang.datafixers.util.Pair;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.next.env.MixinContext;
@@ -12,6 +13,7 @@ import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class TargetMethodResolver implements Resolver {
@@ -45,15 +47,35 @@ public class TargetMethodResolver implements Resolver {
      */
     public boolean handleChangedMethodParams(MixinContext context, MethodQualifier cleanQualifier, MutableConfiguration dirty) {
         Pair<ClassNode, List<MethodNode>> candidates = context.methods().findMethodsIgnoringDesc(context.dirtyLookup(), cleanQualifier);
+        if (candidates == null) return false;
+
+        // Find single matching candidate
+        MethodNode resolved = resolveReplacementCandidate(context, candidates.getFirst(), candidates.getSecond());
+        if (resolved == null) return false;
+
         // Only apply single candidate change when the target desc has changed
-        if (candidates != null && candidates.getSecond().size() == 1) {
-            MethodNode node = candidates.getSecond().getFirst();
-            MethodContext.TargetPair cleanTarget = context.methods().findMethod(context.cleanLookup(), cleanQualifier);
-            if (!node.desc.equals(cleanTarget.methodNode().desc)) {
-                dirty.setTargetMethod(node);
-                return true;
+        MethodContext.TargetPair cleanTarget = context.methods().findMethod(context.cleanLookup(), cleanQualifier);
+        if (!resolved.desc.equals(cleanTarget.methodNode().desc)) {
+            dirty.setTargetMethod(resolved);
+            return true;
+        }
+
+        return false;
+    }
+
+    @Nullable
+    private MethodNode resolveReplacementCandidate(MixinContext context, ClassNode classNode, List<MethodNode> methods) {
+        if (methods.size() == 1) {
+            return methods.getFirst();
+        }
+
+        List<MethodNode> valid = new ArrayList<>();
+        for (MethodNode method : methods) {
+            if (!context.methods().findInjectionTargetInsns(new MethodContext.TargetPair(classNode, method)).isEmpty()) {
+                valid.add(method);
             }
         }
-        return false;
+
+        return valid.size() == 1 ? valid.getFirst() : null;
     }
 }

@@ -75,7 +75,7 @@ public class PipelineExecutor {
         }
 
         // 4. Complete dirty config
-        this.mixinType.postProcess(data, this.context, dirtyConfig, recipe);
+        this.mixinType.postProcess(data, this.context, cleanConfig, dirtyConfig, recipe);
 
         // 4.1. Validate dirty config
         if (!dirtyConfig.validate()) {

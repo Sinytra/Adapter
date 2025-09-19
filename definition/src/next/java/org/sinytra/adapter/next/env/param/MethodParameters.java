@@ -10,9 +10,12 @@ import java.util.function.Predicate;
 public class MethodParameters {
     public sealed interface ParamGroup {
         ParamGroup METHOD_PARAMS = new Variable("method_params");
+        ParamGroup CAPTURED_PARAMS = new Variable("captured_params");
+
         ParamGroup SINGLE_ANY = new Single("single_any", t -> true);
         ParamGroup CI_CIR = new Single("ci_cir", t -> t.equals(AdapterUtil.CI_TYPE) || t.equals(AdapterUtil.CIR_TYPE));
         ParamGroup OPERATION = new Single("operation", t -> t.equals(AdapterUtil.OPERATION_TYPE));
+
         ParamGroup LOCALS = new Variable("locals");
 
         String name();
@@ -107,5 +110,32 @@ public class MethodParameters {
         }
 
         return new MethodParameters(groups, types);
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static class Builder {
+        private final Map<ParamGroup, List<Type>> groups = new HashMap<>();
+        private final List<ParamGroup> order = new ArrayList<>();
+
+        public Builder put(ParamGroup group, List<Type> params) {
+            if (this.order.contains(group)) {
+                throw new IllegalStateException("Duplicate group " + group);
+            }
+
+            this.groups.put(group, new ArrayList<>(params));
+            this.order.add(group);
+
+            return this;
+        }
+
+        public MethodParameters build() {
+            return new MethodParameters(
+                this.groups,
+                this.order
+            );
+        }
     }
 }

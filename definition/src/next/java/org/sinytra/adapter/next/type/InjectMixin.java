@@ -35,10 +35,9 @@ public class InjectMixin implements MixinType<InjectMixinData> {
     }
 
     @Override
-    public void postProcess(InjectMixinData mixin, MixinContext context, MutableConfiguration dirty, Recipe recipe) {
+    public void postProcess(InjectMixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
         dirty.setReturnType(Type.VOID_TYPE);
 
-        Configuration clean = recipe.clean();
         if (dirty.getTargetMethod() != null && !dirty.getTargetMethod().desc().equals(clean.getTargetMethod().desc())) {
             List<Type> cleanParams = clean.getParameters().get(METHOD_PARAMS);
             if (!cleanParams.isEmpty()) {

@@ -17,7 +17,7 @@ import java.util.function.Consumer;
 public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) implements ParamsDiffSnapshot {
     public static LayeredParamsDiffSnapshot EMPTY = new LayeredParamsDiffSnapshot(List.of());
 
-    public interface ParamModification {
+    public sealed interface ParamModification permits InsertParam, ReplaceParam, SwapParam, MoveParam, RemoveParam, InlineParam, SubstituteParam {
         ParamModification offset(int offset);
 
         boolean satisfiesIndexLimit(int index);
@@ -42,7 +42,7 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
         }
     }
 
-    record ReplaceParam(int index, Type type) implements ParamModification {
+    public record ReplaceParam(int index, Type type) implements ParamModification {
         @Override
         public ParamModification offset(int offset) {
             return new ReplaceParam(this.index + offset, this.type);
@@ -59,7 +59,7 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
         }
     }
 
-    record SwapParam(int from, int to) implements ParamModification {
+    public record SwapParam(int from, int to) implements ParamModification {
         @Override
         public ParamModification offset(int offset) {
             return new SwapParam(this.from + offset, this.to + offset);
@@ -76,7 +76,7 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
         }
     }
 
-    record MoveParam(int from, int to) implements ParamModification {
+    public record MoveParam(int from, int to) implements ParamModification {
         @Override
         public ParamModification offset(int offset) {
             return new MoveParam(this.from + offset, this.to + offset);
@@ -93,7 +93,7 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
         }
     }
 
-    record RemoveParam(int index) implements ParamModification {
+    public record RemoveParam(int index) implements ParamModification {
         @Override
         public ParamModification offset(int offset) {
             return new RemoveParam(this.index + offset);
@@ -110,7 +110,7 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
         }
     }
 
-    record InlineParam(int target, Consumer<InstructionAdapter> adapter) implements ParamModification {
+    public record InlineParam(int target, Consumer<InstructionAdapter> adapter) implements ParamModification {
         @Override
         public ParamModification offset(int offset) {
             return new InlineParam(this.target + offset, this.adapter);
@@ -127,7 +127,7 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
         }
     }
 
-    record SubstituteParam(int target, int substitute) implements ParamModification {
+    public record SubstituteParam(int target, int substitute) implements ParamModification {
         @Override
         public ParamModification offset(int offset) {
             return new SubstituteParam(this.target + offset, this.substitute + offset);
