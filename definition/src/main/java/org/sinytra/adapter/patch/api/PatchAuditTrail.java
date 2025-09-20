@@ -36,6 +36,8 @@ public interface PatchAuditTrail {
 
     void merge(PatchAuditTrail other);
 
+    Set<String> getSilencedClasses();
+
     void silenceClasses(Set<String> classes);
 
     enum Match {

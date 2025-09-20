@@ -70,7 +70,12 @@ public class PatchAuditTrailImpl implements PatchAuditTrail {
         List<Map.Entry<Candidate, Match>> failed = this.candidates.entrySet().stream().filter(m -> m.getValue() == Match.NONE).toList();
         if (!failed.isEmpty()) {
             builder.append("\n=============== Failed mixins ===============");
-            failed.forEach(e -> builder.append("\n").append(e.getKey().classNode().name).append("\t").append(e.getKey().methodNode().name).append(e.getKey().methodNode().desc));
+            failed.forEach(e -> builder.append("\n")
+                .append(isSilenced(e.getKey()) ? "(ignored) " : "")
+                .append(e.getKey().classNode().name)
+                .append(" ")
+                .append(e.getKey().methodNode().name)
+                .append(e.getKey().methodNode().desc));
             builder.append("\n=============================================\n\n");
         } else {
             builder.append("\n");
@@ -120,7 +125,15 @@ public class PatchAuditTrailImpl implements PatchAuditTrail {
         synchronized (this.auditTrail) {
             this.auditTrail.putAll(other.getAuditTrail());
         }
+        synchronized (this.silenced) {
+            this.silenced.addAll(other.getSilencedClasses());
+        }
         this.candidates.putAll(other.getCandidates());
+    }
+
+    @Override
+    public Set<String> getSilencedClasses() {
+        return this.silenced;
     }
 
     @Override
@@ -149,7 +162,7 @@ public class PatchAuditTrailImpl implements PatchAuditTrail {
             "==== Connector Mixin Patch Audit Summary ====",
             "Successful: %s".formatted(successful),
             "Partial: %s".formatted(partial),
-            "Failed: %s%s".formatted(failed, silenced > 0 ? " (%s ignored)".formatted(silenced) : ""),
+            "Failed: %s%s".formatted(failed - silenced, silenced > 0 ? " (%s ignored)".formatted(silenced) : ""),
             "Success rate: %s%%        Accuracy: %s%%".formatted(FORMAT.format(rate), FORMAT.format(accuracy)),
             "============================================="
         );
