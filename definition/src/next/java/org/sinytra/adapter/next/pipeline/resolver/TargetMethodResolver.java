@@ -25,7 +25,7 @@ public class TargetMethodResolver implements Resolver {
         // Reuse attempt
         MethodQualifier cleanQualifier = clean.getTargetMethod();
         MethodContext.TargetPair target = context.methods().findMethod(context.dirtyLookup(), cleanQualifier);
-        if (target != null) {
+        if (target != null && !context.methods().findInjectionTargetInsns(target).isEmpty()) {
             dirty.inheritTargetMethod();
             return TxResult.SUCCESS;
         }
