@@ -9,6 +9,7 @@ import org.sinytra.adapter.patch.PatchAuditTrailImpl;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public interface PatchAuditTrail {
     static PatchAuditTrail create() {
@@ -34,6 +35,8 @@ public interface PatchAuditTrail {
     Map<Candidate, Match> getCandidates();
 
     void merge(PatchAuditTrail other);
+
+    void silenceClasses(Set<String> classes);
 
     enum Match {
         NONE,

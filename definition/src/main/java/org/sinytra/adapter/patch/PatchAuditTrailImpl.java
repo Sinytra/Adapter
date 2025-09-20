@@ -10,10 +10,7 @@ import org.sinytra.adapter.patch.api.PatchAuditTrail;
 import org.slf4j.Logger;
 
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
@@ -23,6 +20,7 @@ public class PatchAuditTrailImpl implements PatchAuditTrail {
     private static final Logger LOGGER = LogUtils.getLogger();
     private final Map<Candidate, AuditLog> auditTrail = new LinkedHashMap<>();
     private final Map<Candidate, Match> candidates = new ConcurrentHashMap<>();
+    private final Set<String> silenced = new HashSet<>();
 
     public void prepareMethod(MethodContext methodContext) {
         Candidate candidate = new Candidate(methodContext.getMixinClass(), methodContext.getMixinMethod());
@@ -102,9 +100,9 @@ public class PatchAuditTrailImpl implements PatchAuditTrail {
     @Override
     public List<Candidate> getFailingMixins() {
         return this.candidates.entrySet().stream()
-                .filter(m -> m.getValue() == Match.NONE)
-                .map(Map.Entry::getKey)
-                .toList();
+            .filter(m -> m.getValue() == Match.NONE && !isSilenced(m.getKey()))
+            .map(Map.Entry::getKey)
+            .toList();
     }
 
     @Override
@@ -125,11 +123,25 @@ public class PatchAuditTrailImpl implements PatchAuditTrail {
         this.candidates.putAll(other.getCandidates());
     }
 
+    @Override
+    public void silenceClasses(Set<String> classes) {
+        synchronized (this.silenced) {
+            this.silenced.addAll(classes);
+        }
+    }
+
+    private boolean isSilenced(Candidate candidate) {
+        return this.silenced.contains(candidate.classNode().name);
+    }
+
     private List<String> getSummaryLines() {
         int total = this.candidates.size();
         int successful = (int) this.candidates.values().stream().filter(m -> m == Match.FULL).count();
         int partial = (int) this.candidates.values().stream().filter(m -> m == Match.PARTIAL).count();
         int failed = (int) this.candidates.values().stream().filter(m -> m == Match.NONE).count();
+        int silenced = (int) this.candidates.entrySet().stream()
+            .filter(m -> m.getValue() == Match.NONE && isSilenced(m.getKey()))
+            .count();
         double rate = (successful + partial) / (double) total * 100;
         double accuracy = (successful / (double) total + partial / (double) total / 2.0) * 100;
 
@@ -137,13 +149,13 @@ public class PatchAuditTrailImpl implements PatchAuditTrail {
             "==== Connector Mixin Patch Audit Summary ====",
             "Successful: %s".formatted(successful),
             "Partial: %s".formatted(partial),
-            "Failed: %s".formatted(failed),
+            "Failed: %s%s".formatted(failed, silenced > 0 ? " (%s ignored)".formatted(silenced) : ""),
             "Success rate: %s%%        Accuracy: %s%%".formatted(FORMAT.format(rate), FORMAT.format(accuracy)),
             "============================================="
         );
     }
 
     public boolean hasFailingMixins() {
-        return this.candidates.containsValue(Match.NONE);
+        return !getFailingMixins().isEmpty();
     }
 }

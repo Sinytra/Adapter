@@ -93,7 +93,7 @@ public record SimpleParamsDiffSnapshot(
         List<MethodTransform> list = new ArrayList<>();
         SimpleParamsDiffSnapshot light = new SimpleParamsDiffSnapshot(List.of(), this.replacements, this.swaps, this.substitutes, this.removals, this.moves, this.inlines);
         if (!light.isEmpty()) {
-            list.add(new ModifyMethodParams(light, type));
+            list.add(new ModifyMethodParams(light, type, false));
         }
         if (!this.insertions.isEmpty()) {
             list.add(TransformParameters.builder()

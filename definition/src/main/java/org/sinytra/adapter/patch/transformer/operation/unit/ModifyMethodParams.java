@@ -30,11 +30,11 @@ import static org.sinytra.adapter.patch.transformer.operation.param.ParamTransfo
 import static org.sinytra.adapter.patch.transformer.operation.param.ParamTransformationUtil.findWrapOperationOriginalCall;
 
 @Deprecated
-public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransformTarget targetType) implements MethodTransform {
+public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransformTarget targetType, boolean ignoreOffset) implements MethodTransform {
     public static final Codec<ModifyMethodParams> CODEC = RecordCodecBuilder.create(instance -> instance.group(
         SimpleParamsDiffSnapshot.CODEC.fieldOf("context").forGetter(ModifyMethodParams::context),
         ParamTransformTarget.CODEC.optionalFieldOf("targetInjectionPoint", ParamTransformTarget.ALL).forGetter(ModifyMethodParams::targetType)
-    ).apply(instance, ModifyMethodParams::new));
+    ).apply(instance, (context, targetInjectionPoint) -> new ModifyMethodParams(context, targetInjectionPoint, false)));
 
     public static Builder builder() {
         return new Builder();
@@ -63,7 +63,7 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
         Type[] params = Type.getArgumentTypes(methodNode.desc);
         List<Type> newParameterTypes = new ArrayList<>(Arrays.asList(params));
         boolean isNonStatic = (methodNode.access & Opcodes.ACC_STATIC) == 0;
-        boolean needsOffset = annotation.matchesDesc(MixinConstants.REDIRECT);
+        boolean needsOffset = annotation.matchesDesc(MixinConstants.REDIRECT) && !this.ignoreOffset;
         int offset = isNonStatic
             // If it's a redirect, the first local variable (index 1) is the object instance
             ? needsOffset ? 2 : 1
@@ -325,6 +325,8 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
         private final List<Integer> removals = new ArrayList<>();
         private final List<Pair<Integer, Integer>> swap = new ArrayList<>();
         private final List<Pair<Integer, Consumer<InstructionAdapter>>> inlines = new ArrayList<>();
+        private ParamTransformTarget targetType = ParamTransformTarget.ALL;
+        private boolean ignoreOffset = false;
 
         public Builder insert(int index, Type type) {
             this.insertions.add(Pair.of(index, type));
@@ -365,7 +367,17 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
             this.swap.add(Pair.of(original, replacement));
             return this;
         }
-        
+
+        public Builder targetType(ParamTransformTarget targetType) {
+            this.targetType = targetType;
+            return this;
+        }
+
+        public Builder ignoreOffset() {
+            this.ignoreOffset = true;
+            return this;
+        }
+
         public Builder chain(Consumer<Builder> consumer) {
             consumer.accept(this);
             return this;
@@ -373,7 +385,7 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
 
         public ModifyMethodParams build() {
             SimpleParamsDiffSnapshot context = new SimpleParamsDiffSnapshot(this.insertions, this.replacements, this.swap, this.substitutes, this.removals, List.of(), this.inlines);
-            return new ModifyMethodParams(context, ParamTransformTarget.ALL);
+            return new ModifyMethodParams(context, this.targetType, this.ignoreOffset);
         }
     }
 }
