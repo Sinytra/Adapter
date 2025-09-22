@@ -59,6 +59,10 @@ public class MixinContext {
         return this.methodContext.patchContext().environment().bytecodeFixerUpper().getTypeAdapter(from, to);
     }
 
+    public String remap(String refmapEntry) {
+        return patchContext().remap(refmapEntry);
+    }
+
     public PatchContext patchContext() {
         return this.methodContext.patchContext();
     }

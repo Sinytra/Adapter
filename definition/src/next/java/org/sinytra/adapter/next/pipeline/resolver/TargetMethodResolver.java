@@ -24,7 +24,7 @@ public class TargetMethodResolver implements Resolver {
 
         // Reuse attempt
         MethodQualifier cleanQualifier = clean.getTargetMethod();
-        MethodContext.TargetPair target = context.methods().findMethod(context.dirtyLookup(), cleanQualifier);
+        MethodContext.TargetPair target = context.methods().findOwnMethodPair(context.dirtyLookup(), cleanQualifier);
         if (target != null && !context.methods().findInjectionTargetInsns(target).isEmpty()) {
             dirty.inheritTargetMethod();
             return TxResult.SUCCESS;
@@ -46,7 +46,7 @@ public class TargetMethodResolver implements Resolver {
      * DIRTY: <code>Lnet/minecraft/server/level/ServerEntity;sendPairingData(Lnet/minecraft/server/level/ServerPlayer;Lnet/neoforged/neoforge/network/bundle/PacketAndPayloadAcceptor;)V</code>
      */
     public boolean handleChangedMethodParams(MixinContext context, MethodQualifier cleanQualifier, MutableConfiguration dirty) {
-        Pair<ClassNode, List<MethodNode>> candidates = context.methods().findMethodsIgnoringDesc(context.dirtyLookup(), cleanQualifier);
+        Pair<ClassNode, List<MethodNode>> candidates = context.methods().findOwnMethodsByName(context.dirtyLookup(), cleanQualifier);
         if (candidates == null) return false;
 
         // Find single matching candidate
@@ -54,7 +54,7 @@ public class TargetMethodResolver implements Resolver {
         if (resolved == null) return false;
 
         // Only apply single candidate change when the target desc has changed
-        MethodContext.TargetPair cleanTarget = context.methods().findMethod(context.cleanLookup(), cleanQualifier);
+        MethodContext.TargetPair cleanTarget = context.methods().findOwnMethodPair(context.cleanLookup(), cleanQualifier);
         if (!resolved.desc.equals(cleanTarget.methodNode().desc)) {
             dirty.setTargetMethod(resolved);
             return true;

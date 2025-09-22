@@ -1,6 +1,7 @@
 package org.sinytra.adapter.next.type;
 
 import org.jetbrains.annotations.Nullable;
+import org.sinytra.adapter.patch.api.MixinConstants;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
@@ -17,6 +18,7 @@ public class MixinTypes {
         registerMixinType(ModifyVariable.class, new ModifyVariableMixin());
         registerMixinType(ModifyArg.class, new ModifyArgMixin());
         registerMixinType(Redirect.class, new RedirectMixin());
+        registerMixinType(MixinConstants.WRAP_OPERATION_INTERNAL_NAME, new WrapOperationMixin());
     }
 
     @Nullable
@@ -26,6 +28,10 @@ public class MixinTypes {
 
     private static void registerMixinType(Class<?> annotation, MixinType<?> type) {
         String internalName = annotation.getName().replace('.', '/');
-        MIXIN_TYPES.put(internalName, type);
+        registerMixinType(internalName, type);
+    }
+    
+    private static void registerMixinType(String annInternalName, MixinType<?> type) {
+        MIXIN_TYPES.put(annInternalName, type);
     }
 }

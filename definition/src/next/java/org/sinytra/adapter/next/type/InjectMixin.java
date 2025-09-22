@@ -19,15 +19,16 @@ import static org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup.*;
 
 public class InjectMixin implements MixinType<InjectMixinData> {
     @Override
-    public InjectMixinData parse(ClassTarget targetClass, MethodQualifier targetMethod, AtData atData, AnnotationHandle handle) {
-        List<SliceData> slice = handle.getNestedList("slice").stream().map(SliceData::parse).toList();
+    public InjectMixinData parse(MixinContext context, ClassTarget targetClass, MethodQualifier targetMethod, AtData atData, AnnotationHandle handle) {
+        List<SliceData> slice = handle.getNestedList("slice").stream()
+            .map(s -> SliceData.parse(s, context))
+            .toList();
         return new InjectMixinData(targetClass, targetMethod, atData, slice);
     }
 
     @Override
     public void preProcess(InjectMixinData mixin, MixinContext context, MutableConfiguration clean, Recipe recipe) {
         clean.setParameters(MethodParameters.create(context.methodNode().desc, List.of(METHOD_PARAMS, CI_CIR, LOCALS)));
-        clean.setReturnType(Type.VOID_TYPE);
 
         if (!mixin.getSlice().isEmpty()) {
             clean.setProperty("slice", mixin.getSlice());

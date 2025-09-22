@@ -22,7 +22,7 @@ import static org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup.SIN
 public class ModifyVariableMixin implements MixinType<ModifyVariableMixinData> {
 
     @Override
-    public ModifyVariableMixinData parse(ClassTarget targetClass, MethodQualifier targetMethod, AtData atData, AnnotationHandle handle) {
+    public ModifyVariableMixinData parse(MixinContext context, ClassTarget targetClass, MethodQualifier targetMethod, AtData atData, AnnotationHandle handle) {
         boolean argsOnly = handle.<Boolean>getValue("argsOnly").map(AnnotationValueHandle::get).orElse(false);
         return new ModifyVariableMixinData(targetClass, targetMethod, atData, argsOnly);
     }
@@ -30,7 +30,6 @@ public class ModifyVariableMixin implements MixinType<ModifyVariableMixinData> {
     @Override
     public void preProcess(ModifyVariableMixinData mixin, MixinContext context, MutableConfiguration clean, Recipe recipe) {
         clean.setParameters(MethodParameters.create(context.methodNode().desc, List.of(SINGLE_ANY, LOCALS)));
-        clean.setReturnType(Type.getReturnType(context.methodNode().desc));
     }
 
     @Override

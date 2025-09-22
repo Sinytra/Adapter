@@ -51,4 +51,9 @@ public class PipelineLegacyMethodTransformer implements MethodTransform {
 
         return Patch.Result.PASS;
     }
+
+    @Override
+    public boolean applyOnSuccess() {
+        return false;
+    }
 }

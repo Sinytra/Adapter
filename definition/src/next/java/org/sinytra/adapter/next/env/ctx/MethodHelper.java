@@ -7,8 +7,14 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.next.env.MixinContext;
+import org.sinytra.adapter.next.env.param.MethodParameters;
+import org.sinytra.adapter.next.env.param.ParamDiffResolver;
+import org.sinytra.adapter.next.pipeline.config.Configuration;
+import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
+import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.api.MethodContext;
+import org.sinytra.adapter.patch.api.MethodContext.TargetPair;
 import org.sinytra.adapter.patch.api.PatchContext;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.MockMixinRuntime;
@@ -20,24 +26,47 @@ import org.spongepowered.asm.mixin.injection.code.MethodSlice;
 import org.spongepowered.asm.mixin.injection.struct.Target;
 import org.spongepowered.asm.mixin.refmap.IMixinContext;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
+
+import static org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup.CAPTURED_PARAMS;
 
 public class MethodHelper {
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    private final MixinContext mixinContext;
-    private final List<Type> targetTypes;
+    private final MixinContext context;
+    private final MethodFinder methodFinder;
 
-    private final Map<MethodContext.TargetPair, List<AbstractInsnNode>> targetInstructionsCache = new HashMap<>();
+    private final Map<TargetPair, List<AbstractInsnNode>> targetInstructionsCache = new HashMap<>();
 
-    public MethodHelper(MixinContext mixinContext, List<Type> targetTypes) {
-        this.mixinContext = mixinContext;
-        this.targetTypes = targetTypes;
+    public MethodHelper(MixinContext context, List<Type> targetTypes) {
+        this.context = context;
+
+        String singleTargetClass = targetTypes.size() == 1 ? targetTypes.getFirst().getInternalName() : null;
+        this.methodFinder = new MethodFinder(singleTargetClass);
+    }
+
+    @Nullable
+    public MethodNode findMethod(ClassLookup lookup, MethodQualifier qualifier) {
+        return Optional.ofNullable(findMethodPair(lookup, qualifier))
+            .map(TargetPair::methodNode)
+            .orElse(null);
+    }
+
+    @Nullable
+    public TargetPair findMethodPair(ClassLookup lookup, MethodQualifier qualifier) {
+        return this.methodFinder.findMethod(lookup, qualifier, 0);
+    }
+
+    @Nullable
+    public TargetPair findOwnMethodPair(ClassLookup lookup, MethodQualifier qualifier) {
+        return this.methodFinder.findMethod(lookup, qualifier, MethodFinder.Flags.FALLBACK_OWNER);
+    }
+
+    @Nullable
+    public Pair<ClassNode, List<MethodNode>> findOwnMethodsByName(ClassLookup lookup, MethodQualifier qualifier) {
+        return this.methodFinder.findMethods(lookup, qualifier, MethodFinder.Flags.FALLBACK_OWNER | MethodFinder.Flags.IGNORE_DESC);
     }
 
     public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable MethodContext.TargetPair target) {
@@ -45,65 +74,38 @@ public class MethodHelper {
     }
 
     private List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable MethodContext.TargetPair target) {
-        return computeInjectionTargetInsns(target, this.mixinContext::injectionPointAnnotation,
-            (ctx, h) -> InjectionPoint.parse(ctx, this.mixinContext.methodNode(), this.mixinContext.methodAnnotation().unwrap(), h.unwrap()));
+        return computeInjectionTargetInsns(target, this.context::injectionPointAnnotation,
+            (ctx, h) -> InjectionPoint.parse(ctx, this.context.methodNode(), this.context.methodAnnotation().unwrap(), h.unwrap()));
     }
 
-    @Nullable
-    public MethodContext.TargetPair findMethod(ClassLookup lookup, MethodQualifier qualifier) {
-        Pair<ClassNode, List<MethodNode>> pair = findMethods(lookup, qualifier, true, false);
-        if (pair == null) {
-            return null;
+    public List<Type> resolveCapturedMethodParams(Configuration clean, Configuration dirty) {
+        List<Type> cleanCaptured = clean.getParameters().get(CAPTURED_PARAMS);
+        List<Type> dirtyCaptured = new ArrayList<>();
+
+        // Evaluate parameter difference, capture additional params when necessary
+        if (!cleanCaptured.isEmpty()) {
+            // TODO Clean up boilerplate
+            MethodNode cleanTarget = findMethod(this.context.cleanLookup(), clean.getTargetMethod());
+            MethodNode dirtyTarget = findMethod(this.context.dirtyLookup(), dirty.getTargetMethod());
+
+            LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.compareMethodParameters(cleanTarget, dirtyTarget);
+            List<Type> cleanTargetParams = MethodParameters.getParameterTypes(cleanTarget.desc);
+            ParamDiffResolver.ParamEvalResult evalResult = ParamDiffResolver.resolve(cleanTargetParams, diff);
+
+            int maxIndex = cleanCaptured.stream()
+                .map(evalResult::getUpdated)
+                .filter(Objects::nonNull)
+                .mapToInt(ParamDiffResolver.ParamState::dirtyIndex)
+                .max()
+                .orElse(-1);
+
+            if (maxIndex != -1) {
+                List<Type> dirtyTargetParams = MethodParameters.getParameterTypes(dirtyTarget.desc);
+                dirtyCaptured = List.copyOf(dirtyTargetParams.subList(0, maxIndex + 1));
+            }
         }
 
-        if (pair.getSecond().isEmpty()) {
-            LOGGER.debug("Target method not found: {}{}{}", qualifier.owner(), qualifier.name(), qualifier.desc());
-            return null;
-        } else if (pair.getSecond().size() > 1) {
-            LOGGER.debug("Multiple candidates found for method: {}{}{}", qualifier.owner(), qualifier.name(), qualifier.desc());
-            return null;
-        }
-        return new MethodContext.TargetPair(pair.getFirst(), pair.getSecond().getFirst());
-    }
-
-    @Nullable
-    public Pair<ClassNode, List<MethodNode>> findMethodsIgnoringDesc(ClassLookup lookup, MethodQualifier qualifier) {
-        return findMethods(lookup, qualifier, true, true);
-    }
-
-    @Nullable
-    private Pair<ClassNode, List<MethodNode>> findMethods(ClassLookup lookup, MethodQualifier qualifier, boolean ignoreOwner, boolean ignoreDesc) {
-        if (qualifier == null || qualifier.name() == null) {
-            return null;
-        }
-
-        // Determine target class
-        String owner;
-        if (!ignoreOwner && qualifier.internalOwnerName() != null) {
-            owner = qualifier.internalOwnerName();
-        } else if (this.targetTypes.size() == 1) {
-            owner = this.targetTypes.getFirst().getInternalName();
-        } else {
-            return null;
-        }
-
-        // Find target class
-        ClassNode targetClass = lookup.getClass(owner).orElse(null);
-        if (targetClass == null) {
-            return null;
-        }
-
-        // Find target method in class
-        String desc = qualifier.desc();
-        List<MethodNode> candidates = targetClass.methods.stream()
-            .filter(mtd -> mtd.name.equals(qualifier.name()) && (ignoreDesc || desc == null || mtd.desc.equals(desc)))
-            .toList();
-
-        // If there's multiple candidates, try removing bouncer methods
-        if (candidates.size() > 1 && desc == null) {
-            candidates = candidates.stream().filter(mtd -> (mtd.access & Opcodes.ACC_SYNTHETIC) == 0 && (mtd.access & Opcodes.ACC_BRIDGE) == 0).toList();
-        }
-        return Pair.of(targetClass, candidates);
+        return dirtyCaptured;
     }
 
     @Nullable
@@ -115,14 +117,14 @@ public class MethodHelper {
         if (atNode == null) {
             return List.of();
         }
-        PatchContext patchContext = this.mixinContext.patchContext();
+        PatchContext patchContext = this.context.patchContext();
         // Provide a minimum implementation of IMixinContext
-        IMixinContext mixinContext = MockMixinRuntime.forClass(this.mixinContext.classNode().name, target.classNode().name, patchContext.environment());
+        IMixinContext mixinContext = MockMixinRuntime.forClass(this.context.classNode().name, target.classNode().name, patchContext.environment());
         // Parse injection point
         InjectionPoint injectionPoint = injectionPointParser.apply(mixinContext, atNode);
         Target mixinTarget = MockMixinRuntime.createMixinTarget(target);
         // Find target instructions
-        InsnList instructions = getSlicedInsns(this.mixinContext.methodAnnotation(), this.mixinContext.classNode(), this.mixinContext.methodNode(), target.classNode(), target.methodNode(), patchContext, mixinTarget);
+        InsnList instructions = getSlicedInsns(this.context.methodAnnotation(), this.context.classNode(), this.context.methodNode(), target.classNode(), target.methodNode(), patchContext, mixinTarget);
         List<AbstractInsnNode> targetInsns = new ArrayList<>();
         try {
             if (MockMixinRuntime.injectionPointNeedsSpecialCare(injectionPoint)) {
@@ -154,5 +156,9 @@ public class MethodHelper {
     private InsnList computeSlicedInsns(ISliceContext context, AnnotationNode annotation, Target mixinTarget) {
         MethodSlice slice = MethodSlice.parse(context, annotation);
         return slice.getSlice(mixinTarget);
+    }
+
+    public static boolean isStatic(MethodNode node) {
+        return (node.access & Opcodes.ACC_STATIC) != 0;
     }
 }

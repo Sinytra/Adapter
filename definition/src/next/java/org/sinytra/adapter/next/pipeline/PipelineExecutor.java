@@ -2,6 +2,7 @@ package org.sinytra.adapter.next.pipeline;
 
 import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
+import org.objectweb.asm.Type;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.AtData;
 import org.sinytra.adapter.next.env.ann.ClassTarget;
@@ -48,6 +49,7 @@ public class PipelineExecutor {
         cleanConfig.setTargetClass(data.getTargetClass());
         cleanConfig.setTargetMethod(data.getTargetMethod());
         cleanConfig.setAtData(data.at());
+        cleanConfig.setReturnType(Type.getReturnType(context.methodNode().desc));
 
         // 1.1. Create dirty config
         ConfigurationImpl dirtyConfig = new ConfigurationImpl(cleanConfig);
@@ -103,13 +105,13 @@ public class PipelineExecutor {
             return null;
         }
 
-        AtData atData = AtData.parse(atHandle).orElse(null);
+        AtData atData = AtData.parse(atHandle, this.context).orElse(null);
         if (atData == null) {
             return null;
         }
 
         MethodQualifier targetMethod = this.context.legacy().getTargetMethodQualifier();
         AnnotationHandle methodHandle = this.context.legacy().methodAnnotation();
-        return this.mixinType.parse(this.classTarget, targetMethod, atData, methodHandle);
+        return this.mixinType.parse(this.context, this.classTarget, targetMethod, atData, methodHandle);
     }
 }

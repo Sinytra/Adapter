@@ -20,14 +20,13 @@ import static org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup.SIN
 
 public class ModifyArgMixin implements MixinType<ModifyArgMixinData> {
     @Override
-    public ModifyArgMixinData parse(ClassTarget targetClass, MethodQualifier targetMethod, AtData atData, AnnotationHandle handle) {
+    public ModifyArgMixinData parse(MixinContext context, ClassTarget targetClass, MethodQualifier targetMethod, AtData atData, AnnotationHandle handle) {
         return new ModifyArgMixinData(targetClass, targetMethod, atData);
     }
 
     @Override
     public void preProcess(ModifyArgMixinData mixin, MixinContext context, MutableConfiguration clean, Recipe recipe) {
         clean.setParameters(MethodParameters.create(context.methodNode().desc, List.of(SINGLE_ANY)));
-        clean.setReturnType(Type.getReturnType(context.methodNode().desc));
     }
 
     @Override

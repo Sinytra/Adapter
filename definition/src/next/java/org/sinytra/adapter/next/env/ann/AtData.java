@@ -2,6 +2,7 @@ package org.sinytra.adapter.next.env.ann;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 
@@ -47,13 +48,15 @@ public class AtData {
         }
     }
 
-    public static Optional<AtData> parse(AnnotationHandle annotation) {
+    public static Optional<AtData> parse(AnnotationHandle annotation, MixinContext context) {
         String value = annotation.<String>getValue("value").map(AnnotationValueHandle::get).orElse(null);
         if (value == null) {
             return Optional.empty();
         }
 
-        String target = annotation.<String>getValue("target").map(AnnotationValueHandle::get).orElse(null);
+        String target = annotation.<String>getValue("target").map(AnnotationValueHandle::get)
+            .map(context::remap)
+            .orElse(null);
         Integer ordinal = annotation.<Integer>getValue("ordinal").map(AnnotationValueHandle::get).orElse(null);
 
         return Optional.of(new AtData(value, target, ordinal));

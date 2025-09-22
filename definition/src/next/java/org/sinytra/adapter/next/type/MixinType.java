@@ -14,7 +14,7 @@ import org.sinytra.adapter.patch.util.MethodQualifier;
  * Handles configuration and behavior specific to a Mixin type
  */
 public interface MixinType<T extends MixinData> {
-    T parse(ClassTarget targetClass, MethodQualifier targetMethod, AtData atData, AnnotationHandle handle);
+    T parse(MixinContext context, ClassTarget targetClass, MethodQualifier targetMethod, AtData atData, AnnotationHandle handle);
 
     // TODO Return success flag
     void preProcess(T mixin, MixinContext context, MutableConfiguration clean, Recipe recipe);

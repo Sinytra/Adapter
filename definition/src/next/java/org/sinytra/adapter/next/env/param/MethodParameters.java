@@ -120,6 +120,10 @@ public class MethodParameters {
         private final Map<ParamGroup, List<Type>> groups = new HashMap<>();
         private final List<ParamGroup> order = new ArrayList<>();
 
+        public Builder put(ParamGroup group, Type param) {
+            return put(group, List.of(param));
+        }
+        
         public Builder put(ParamGroup group, List<Type> params) {
             if (this.order.contains(group)) {
                 throw new IllegalStateException("Duplicate group " + group);

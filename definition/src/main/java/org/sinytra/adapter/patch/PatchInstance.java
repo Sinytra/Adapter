@@ -67,6 +67,9 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
                         environment.auditTrail().prepareMethod(methodContext);
                     }
                     for (MethodTransform transform : this.transforms) {
+                        if (result != Result.PASS && !transform.applyOnSuccess())
+                            continue;
+
                         Collection<String> accepted = transform.getAcceptedAnnotations();
                         if (accepted.isEmpty() || accepted.contains(methodContext.methodAnnotation().getDesc())) {
                             result = result.or(transform.apply(classNode, method, methodContext, context));

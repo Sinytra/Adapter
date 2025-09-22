@@ -40,7 +40,7 @@ public class InjectionTargetResolver implements Resolver {
             return TxResult.FAIL;
         }
 
-        MethodContext.TargetPair pair = context.methods().findMethod(context.dirtyLookup(), dirtyQualifier);
+        MethodContext.TargetPair pair = context.methods().findOwnMethodPair(context.dirtyLookup(), dirtyQualifier);
         if (pair == null) {
             return TxResult.FAIL;
         }
@@ -61,7 +61,7 @@ public class InjectionTargetResolver implements Resolver {
 
     @Nullable
     private static AtData findReplacedType(MixinContext context, MethodQualifier cleanQualifier, MethodNode dirtyMethod, AtData original) {
-        MethodContext.TargetPair cleanPair = context.methods().findMethod(context.cleanLookup(), cleanQualifier);
+        MethodContext.TargetPair cleanPair = context.methods().findOwnMethodPair(context.cleanLookup(), cleanQualifier);
         List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(cleanPair);
         if (insns.size() != 1 || !(insns.getFirst() instanceof MethodInsnNode cleanInsn)) {
             return null;

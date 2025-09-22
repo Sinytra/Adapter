@@ -57,6 +57,15 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     }
 
     @Test
+    void testChangedTargetMethodWrapOperation() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/CropBlockMixin",
+            "isOnFarmland",
+            assertTargetMethod()
+        );
+    }
+
+    @Test
     void testChangeMethodParamsInPipeline() throws Exception {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/pipeline/ServerEntityMixin",
