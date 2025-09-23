@@ -284,6 +284,10 @@ public final class AdapterUtil {
         return list;
     }
 
+    public static List<AbstractInsnNode> cloneInsns(Collection<AbstractInsnNode> insns) {
+        return insns.stream().map(i -> i.clone(Map.of())).toList();
+    }
+
     public static Type getMixinCallableReturnType(MethodNode method) {
         return Type.getReturnType(method.desc) == Type.VOID_TYPE ? CI_TYPE : CIR_TYPE;
     }

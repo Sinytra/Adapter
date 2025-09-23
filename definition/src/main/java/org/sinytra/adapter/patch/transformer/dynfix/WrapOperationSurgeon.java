@@ -83,10 +83,10 @@ public class WrapOperationSurgeon {
                 return null;
             }
 
-            List<AbstractInsnNode> subList = receiverInsns.subList(1, receiverInsns.size()).stream().map(i -> i.clone(Map.of())).toList();
+            List<AbstractInsnNode> subList = receiverInsns.subList(1, receiverInsns.size());
 
             TypeAdapter adapter = typeAdapter.andThen((list, insn) -> {
-                list.insert(insn, AdapterUtil.insnList(subList));
+                list.insert(insn, AdapterUtil.insnList(AdapterUtil.cloneInsns(subList)));
             });
             Consumer<InsnList> castCheck = subList.getFirst() instanceof TypeInsnNode typeInsn && typeInsn.getOpcode() == Opcodes.CHECKCAST ?
                 list -> {
@@ -95,7 +95,7 @@ public class WrapOperationSurgeon {
                     originalWOCall.add(originalWOCall.getLast().getNext());
                     originalWOCall.add(originalWOCall.getLast().getNext());
                     originalWOCall.add(originalWOCall.getLast().getNext());
-                    List<AbstractInsnNode> cloned = originalWOCall.stream().map(i -> i.clone(Map.of())).toList();
+                    List<AbstractInsnNode> cloned = AdapterUtil.cloneInsns(originalWOCall);
 
                     boolean hasLabel = list.getFirst() instanceof LabelNode;
                     LabelNode label = hasLabel ? (LabelNode) list.getFirst() : new LabelNode();
