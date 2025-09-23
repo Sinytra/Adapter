@@ -1,5 +1,6 @@
 package org.sinytra.adapter.test.mixin.pipeline;
 
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.world.level.block.Block;
@@ -31,5 +32,29 @@ public class CropBlockMixin {
     )
     private static boolean isOnFarmlandExpected(BlockState instance, Block block, Operation<Boolean> original) {
         return Blocks.FARMLAND.equals(block) || original.call(instance, block);
+    }
+
+    @ModifyExpressionValue(
+        method = "getGrowthSpeed(Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)F",
+        at = @At(
+            value = "INVOKE",
+            ordinal = 0,
+            target = "Lnet/minecraft/world/level/BlockGetter;getBlockState(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;"
+        )
+    )
+    private static BlockState getAvailableMoisture(BlockState original) {
+        return original;
+    }
+
+    @ModifyExpressionValue(
+        method = "getGrowthSpeed(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)F",
+        at = @At(
+            value = "INVOKE",
+            ordinal = 0,
+            target = "Lnet/minecraft/world/level/BlockGetter;getBlockState(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;"
+        )
+    )
+    private static BlockState getAvailableMoistureExpected(BlockState original) {
+        return original;
     }
 }

@@ -7,6 +7,7 @@ import org.sinytra.adapter.patch.util.AdapterUtil;
 import java.util.*;
 import java.util.function.Predicate;
 
+// TODO Support for @Local
 public class MethodParameters {
     public sealed interface ParamGroup {
         ParamGroup METHOD_PARAMS = new Variable("method_params");

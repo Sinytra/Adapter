@@ -19,6 +19,7 @@ public class MixinTypes {
         registerMixinType(ModifyArg.class, new ModifyArgMixin());
         registerMixinType(Redirect.class, new RedirectMixin());
         registerMixinType(MixinConstants.WRAP_OPERATION_INTERNAL_NAME, new WrapOperationMixin());
+        registerMixinType(MixinConstants.MODIFY_EXPR_VAL_INTERNAL_NAME, new ModifyExpressionValueMixin());
     }
 
     @Nullable

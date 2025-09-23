@@ -66,6 +66,15 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     }
 
     @Test
+    void testChangedTargetMethodModifyExpressionValue() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/CropBlockMixin",
+            "getAvailableMoisture",
+            assertTargetMethod()
+        );
+    }
+
+    @Test
     void testChangeMethodParamsInPipeline() throws Exception {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/pipeline/ServerEntityMixin",
