@@ -84,6 +84,8 @@ public interface MethodContext {
 
     boolean hasInjectionPointValue(String value);
 
+    boolean isNotRequired();
+
     void recordAudit(Object transform, String message, Object... args);
 
     record LocalVariable(int index, Type type) {}

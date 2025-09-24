@@ -20,7 +20,6 @@ public class PatchAuditTrailImpl implements PatchAuditTrail {
     private static final Logger LOGGER = LogUtils.getLogger();
     private final Map<Candidate, AuditLog> auditTrail = new LinkedHashMap<>();
     private final Map<Candidate, Match> candidates = new ConcurrentHashMap<>();
-    private final Set<String> silenced = new HashSet<>();
 
     public void prepareMethod(MethodContext methodContext) {
         Candidate candidate = new Candidate(methodContext.getMixinClass(), methodContext.getMixinMethod());
@@ -59,7 +58,10 @@ public class PatchAuditTrailImpl implements PatchAuditTrail {
 
     public void recordResult(MethodContext methodContext, Match match) {
         Candidate candidate = new Candidate(methodContext.getMixinClass(), methodContext.getMixinMethod());
-        this.candidates.compute(candidate, (key, prev) -> prev == null ? match : prev.or(match));
+        this.candidates.compute(candidate, (key, prev) -> {
+            Match maybeIgnore = match == Match.NONE && methodContext.isNotRequired() ? Match.IGNORED : match;
+            return prev == null ? maybeIgnore : prev.or(maybeIgnore);
+        });
     }
 
     public String getCompleteReport() {
@@ -67,11 +69,13 @@ public class PatchAuditTrailImpl implements PatchAuditTrail {
 
         getSummaryLines().forEach(l -> builder.append(l).append("\n"));
 
-        List<Map.Entry<Candidate, Match>> failed = this.candidates.entrySet().stream().filter(m -> m.getValue() == Match.NONE).toList();
+        List<Map.Entry<Candidate, Match>> failed = this.candidates.entrySet().stream()
+            .filter(m -> m.getValue() == Match.NONE || m.getValue() == Match.IGNORED)
+            .toList();
         if (!failed.isEmpty()) {
             builder.append("\n=============== Failed mixins ===============");
             failed.forEach(e -> builder.append("\n")
-                .append(isSilenced(e.getKey()) ? "(ignored) " : "")
+                .append(e.getValue() == Match.IGNORED ? "(ignored) " : "")
                 .append(e.getKey().classNode().name)
                 .append(" ")
                 .append(e.getKey().methodNode().name)
@@ -105,7 +109,7 @@ public class PatchAuditTrailImpl implements PatchAuditTrail {
     @Override
     public List<Candidate> getFailingMixins() {
         return this.candidates.entrySet().stream()
-            .filter(m -> m.getValue() == Match.NONE && !isSilenced(m.getKey()))
+            .filter(m -> m.getValue() == Match.NONE)
             .map(Map.Entry::getKey)
             .toList();
     }
@@ -125,26 +129,18 @@ public class PatchAuditTrailImpl implements PatchAuditTrail {
         synchronized (this.auditTrail) {
             this.auditTrail.putAll(other.getAuditTrail());
         }
-        synchronized (this.silenced) {
-            this.silenced.addAll(other.getSilencedClasses());
-        }
         this.candidates.putAll(other.getCandidates());
     }
 
     @Override
-    public Set<String> getSilencedClasses() {
-        return this.silenced;
-    }
-
-    @Override
     public void silenceClasses(Set<String> classes) {
-        synchronized (this.silenced) {
-            this.silenced.addAll(classes);
+        synchronized (this.candidates) {
+            for (Candidate candidate : Set.copyOf(this.candidates.keySet())) {
+                if (classes.contains(candidate.classNode().name)) {
+                    this.candidates.put(candidate, Match.IGNORED);
+                }
+            }
         }
-    }
-
-    private boolean isSilenced(Candidate candidate) {
-        return this.silenced.contains(candidate.classNode().name);
     }
 
     private List<String> getSummaryLines() {
@@ -152,9 +148,7 @@ public class PatchAuditTrailImpl implements PatchAuditTrail {
         int successful = (int) this.candidates.values().stream().filter(m -> m == Match.FULL).count();
         int partial = (int) this.candidates.values().stream().filter(m -> m == Match.PARTIAL).count();
         int failed = (int) this.candidates.values().stream().filter(m -> m == Match.NONE).count();
-        int silenced = (int) this.candidates.entrySet().stream()
-            .filter(m -> m.getValue() == Match.NONE && isSilenced(m.getKey()))
-            .count();
+        int silenced = (int) this.candidates.values().stream().filter(m -> m == Match.IGNORED).count();
         double rate = (successful + partial) / (double) total * 100;
         double accuracy = (successful / (double) total + partial / (double) total / 2.0) * 100;
 

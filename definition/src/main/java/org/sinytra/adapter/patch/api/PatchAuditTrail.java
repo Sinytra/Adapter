@@ -36,17 +36,31 @@ public interface PatchAuditTrail {
 
     void merge(PatchAuditTrail other);
 
-    Set<String> getSilencedClasses();
-
     void silenceClasses(Set<String> classes);
 
     enum Match {
+        /**
+         * Failed to patch mixin
+         */
         NONE,
+        /**
+         * Failed to patch mixin, but we're ignoring this error
+         */
+        IGNORED,
+        /**
+         * Mixin patched, but it not be accurate
+         */
         PARTIAL,
+        /**
+         * Mixin patched with high precision
+         */
         FULL;
 
         public Match or(Match other) {
             if (this == NONE && other != NONE) {
+                return other;
+            }
+            if (this == IGNORED && other != NONE) {
                 return other;
             }
             if (this == PARTIAL && other == FULL) {

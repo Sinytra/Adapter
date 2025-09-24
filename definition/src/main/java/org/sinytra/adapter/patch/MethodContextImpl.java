@@ -245,6 +245,13 @@ public final class MethodContextImpl implements MethodContext {
     }
 
     @Override
+    public boolean isNotRequired() {
+        return this.methodAnnotation.<Integer>getValue("require")
+            .map(v -> v.get() == 0)
+            .orElse(false);
+    }
+
+    @Override
     public void recordAudit(Object transform, String message, Object... args) {
         this.patchContext.environment().auditTrail().recordAudit(transform, this, message, args);
     }
