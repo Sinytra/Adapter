@@ -87,6 +87,7 @@ public class MethodHelper {
             // TODO Clean up boilerplate
             MethodNode cleanTarget = findMethod(this.context.cleanLookup(), clean.getTargetMethod());
             MethodNode dirtyTarget = findMethod(this.context.dirtyLookup(), dirty.getTargetMethod());
+            if (cleanTarget == null || dirtyTarget == null) return dirtyCaptured;
 
             LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.compareMethodParameters(cleanTarget, dirtyTarget);
             List<Type> cleanTargetParams = MethodParameters.getParameterTypes(cleanTarget.desc);

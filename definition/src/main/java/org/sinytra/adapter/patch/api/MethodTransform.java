@@ -16,10 +16,6 @@ public interface MethodTransform {
         return Set.of();
     }
 
-    default boolean applyOnSuccess() {
-        return true;
-    }
-
     default Patch.Result apply(MethodContext methodContext) {
         return apply(methodContext.getMixinClass(), methodContext.getMixinMethod(), methodContext, methodContext.patchContext());
     }

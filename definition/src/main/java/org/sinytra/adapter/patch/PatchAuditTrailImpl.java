@@ -124,6 +124,13 @@ public class PatchAuditTrailImpl implements PatchAuditTrail {
         return this.candidates;
     }
 
+    @Nullable
+    @Override
+    public Match getMatch(MethodContext methodContext) {
+        Candidate candidate = new Candidate(methodContext.getMixinClass(), methodContext.getMixinMethod());
+        return this.candidates.get(candidate);
+    }
+
     @Override
     public void merge(PatchAuditTrail other) {
         synchronized (this.auditTrail) {
@@ -156,7 +163,7 @@ public class PatchAuditTrailImpl implements PatchAuditTrail {
             "==== Connector Mixin Patch Audit Summary ====",
             "Successful: %s".formatted(successful),
             "Partial: %s".formatted(partial),
-            "Failed: %s%s".formatted(failed - silenced, silenced > 0 ? " (%s ignored)".formatted(silenced) : ""),
+            "Failed: %s%s".formatted(failed, silenced > 0 ? " (%s ignored)".formatted(silenced) : ""),
             "Success rate: %s%%        Accuracy: %s%%".formatted(FORMAT.format(rate), FORMAT.format(accuracy)),
             "============================================="
         );

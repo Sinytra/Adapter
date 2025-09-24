@@ -34,6 +34,9 @@ public interface PatchAuditTrail {
 
     Map<Candidate, Match> getCandidates();
 
+    @Nullable
+    Match getMatch(MethodContext methodContext);
+
     void merge(PatchAuditTrail other);
 
     void silenceClasses(Set<String> classes);

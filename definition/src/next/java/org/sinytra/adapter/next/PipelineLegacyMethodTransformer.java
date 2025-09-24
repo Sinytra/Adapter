@@ -26,6 +26,11 @@ public class PipelineLegacyMethodTransformer implements MethodTransform {
             return Patch.Result.PASS;
         }
 
+        PatchAuditTrail.Match previousMatch = context.environment().auditTrail().getMatch(methodContext);
+        if (previousMatch != null && previousMatch != PatchAuditTrail.Match.NONE) {
+            return Patch.Result.PASS;
+        }
+
         String annotationInternalName = Type.getType(methodContext.methodAnnotation().getDesc()).getInternalName();
         MixinType<?> mixinType = MixinTypes.getMixinType(annotationInternalName);
         if (mixinType == null) {
@@ -50,10 +55,5 @@ public class PipelineLegacyMethodTransformer implements MethodTransform {
         }
 
         return Patch.Result.PASS;
-    }
-
-    @Override
-    public boolean applyOnSuccess() {
-        return false;
     }
 }
