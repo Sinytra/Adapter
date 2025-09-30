@@ -12,7 +12,6 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.patch.LVTOffsets;
 import org.sinytra.adapter.patch.analysis.locals.LocalVarAnalyzer;
 import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.patch.analysis.params.ParamsDiffSnapshot;
@@ -26,12 +25,11 @@ import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.FabricUtil;
 
 import java.util.*;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
-public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements MethodTransform {
+public class DynamicLVTPatch implements MethodTransform {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Set<String> ANNOTATIONS = Set.of(MixinConstants.INJECT, MixinConstants.MODIFY_EXPR_VAL, MixinConstants.MODIFY_VAR);
 
@@ -45,7 +43,7 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             if (!localAnnotations.isEmpty()) {
                 Patch.Result result = Patch.Result.PASS;
                 for (Pair<AnnotationNode, Type> pair : localAnnotations) {
-                    result = result.or(offsetParameterIndex(classNode, methodNode, new AnnotationHandle(pair.getFirst()), pair.getSecond(), methodContext));
+                    result = result.or(offsetParameterIndex(new AnnotationHandle(pair.getFirst()), pair.getSecond(), methodContext));
                 }
                 return result;
             }
@@ -54,33 +52,30 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
             return Patch.Result.PASS;
         }
         if (annotation.matchesDesc(MixinConstants.MODIFY_VAR)) {
-            Patch.Result result = offsetVariableIndex(classNode, methodNode, annotation, methodContext);
-            if (result == Patch.Result.PASS) {
-                AnnotationValueHandle<Integer> ordinal = annotation.<Integer>getValue("ordinal").orElse(null);
-                if (ordinal == null && annotation.getValue("name").isEmpty()) {
-                    Type[] args = Type.getArgumentTypes(methodNode.desc);
-                    if (args.length < 1) {
+            AnnotationValueHandle<Integer> ordinal = annotation.<Integer>getValue("ordinal").orElse(null);
+            if (ordinal == null && annotation.getValue("name").isEmpty()) {
+                Type[] args = Type.getArgumentTypes(methodNode.desc);
+                if (args.length < 1) {
+                    return Patch.Result.PASS;
+                }
+                MethodContext.TargetPair targetPair = methodContext.findDirtyInjectionTarget();
+                if (targetPair == null) {
+                    return Patch.Result.PASS;
+                }
+                for (Integer level : methodContext.getLvtCompatLevelsOrdered()) {
+                    List<MethodContext.LocalVariable> available = methodContext.getTargetMethodLocals(targetPair, 0, level);
+                    if (available == null) {
                         return Patch.Result.PASS;
                     }
-                    MethodContext.TargetPair targetPair = methodContext.findDirtyInjectionTarget();
-                    if (targetPair == null) {
-                        return Patch.Result.PASS;
-                    }
-                    for (Integer level : methodContext.getLvtCompatLevelsOrdered()) {
-                        List<MethodContext.LocalVariable> available = methodContext.getTargetMethodLocals(targetPair, 0, level);
-                        if (available == null) {
-                            return Patch.Result.PASS;
-                        }
-                        Type expected = args[0];
-                        int count = (int) available.stream().filter(lv -> lv.type().equals(expected)).count();
-                        if (count == 1) {
-                            annotation.appendValue("ordinal", 0);
-                            return Patch.Result.APPLY;
-                        }
+                    Type expected = args[0];
+                    int count = (int) available.stream().filter(lv -> lv.type().equals(expected)).count();
+                    if (count == 1) {
+                        annotation.appendValue("ordinal", 0);
+                        return Patch.Result.APPLY;
                     }
                 }
             }
-            return result;
+            return Patch.Result.PASS;
         }
         // Check if the mixin captures LVT
         if (annotation.matchesDesc(MixinConstants.INJECT) && annotation.getValue("locals").isPresent()) {
@@ -94,10 +89,9 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
         return Patch.Result.PASS;
     }
 
-    private Patch.Result offsetParameterIndex(ClassNode classNode, MethodNode methodNode, AnnotationHandle annotation, Type paramType, MethodContext methodContext) {
-        Patch.Result result = offsetVariableIndex(classNode, methodNode, annotation, methodContext);
+    private Patch.Result offsetParameterIndex(AnnotationHandle annotation, Type paramType, MethodContext methodContext) {
         // Validate implicit targets for @Local parameters
-        if (result == Patch.Result.PASS && annotation.getAllValues().isEmpty()) {
+        if (annotation.getAllValues().isEmpty()) {
             int compatLevel = methodContext.patchContext().environment().fabricLVTCompatibility();
             if (compatLevel != FabricUtil.COMPATIBILITY_0_10_0) {
                 return Patch.Result.PASS;
@@ -118,34 +112,6 @@ public record DynamicLVTPatch(Supplier<LVTOffsets> lvtOffsets) implements Method
                     methodContext.recordAudit(this, "Fix @Local annotation using index %s", index);
                     return Patch.Result.APPLY;
                 }
-            }
-        }
-        return result;
-    }
-
-    private Patch.Result offsetVariableIndex(ClassNode classNode, MethodNode methodNode, AnnotationHandle annotation, MethodContext methodContext) {
-        AnnotationValueHandle<Integer> handle = annotation.<Integer>getValue("index").orElse(null);
-        if (handle != null) {
-            // Find variable index
-            int index = handle.get();
-            if (index == -1) {
-                return Patch.Result.PASS;
-            }
-            // Get target class and method
-            MethodContext.TargetPair targetPair = methodContext.findDirtyInjectionTarget();
-            if (targetPair == null) {
-                return Patch.Result.PASS;
-            }
-            ClassNode targetClass = targetPair.classNode();
-            MethodNode targetMethod = targetPair.methodNode();
-            // Find reordered indices
-            // TODO Remove static LVT offsets
-            OptionalInt reorder = this.lvtOffsets.get().findReorder(targetClass.name, targetMethod.name, targetMethod.desc, index);
-            if (reorder.isPresent()) {
-                int newIndex = reorder.getAsInt();
-                methodContext.recordAudit(this, "Swap %s index from %s to %s", annotation.getDesc(), index, newIndex);
-                handle.set(newIndex);
-                return Patch.Result.APPLY;
             }
         }
         return Patch.Result.PASS;

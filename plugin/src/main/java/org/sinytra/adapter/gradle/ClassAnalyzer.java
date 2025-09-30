@@ -2,7 +2,6 @@ package org.sinytra.adapter.gradle;
 
 import com.google.common.collect.*;
 import com.mojang.datafixers.util.Pair;
-import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -12,11 +11,9 @@ import org.sinytra.adapter.gradle.analysis.OverloadedMethods;
 import org.sinytra.adapter.gradle.analysis.ReplacedMethodCalls;
 import org.sinytra.adapter.gradle.util.MatchResult;
 import org.sinytra.adapter.gradle.util.TraceCallback;
-import org.sinytra.adapter.patch.LVTOffsets;
 import org.sinytra.adapter.patch.PatchInstance;
 import org.sinytra.adapter.patch.analysis.InheritanceHandler;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
-import org.sinytra.adapter.patch.analysis.locals.LocalVarRearrangement;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.patch.api.Patch;
@@ -24,7 +21,6 @@ import org.sinytra.adapter.patch.transformer.SoftMethodParamsPatch;
 import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformTarget;
 import org.sinytra.adapter.patch.transformer.operation.unit.ModifyInjectionTarget;
 import org.sinytra.adapter.patch.transformer.operation.unit.ModifyMethodAccess;
-import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,7 +51,6 @@ public class ClassAnalyzer {
     // Methods that exist in both classes, uses patched MethodNodes from the dirty class
     private final Multimap<String, MethodNode> dirtyCommonMethods = HashMultimap.create();
     // Clean class method to their dirty equivalents
-    private final BiMap<MethodNode, MethodNode> originalCleanToDirty;
     private final BiMap<MethodNode, MethodNode> cleanToDirty = HashBiMap.create();
 
     private final Map<String, FieldNode> cleanFields;
@@ -122,12 +117,9 @@ public class ClassAnalyzer {
                 throw new RuntimeException("Found duplicate field " + field.name + " in class " + this.dirtyNode.name);
             }
         }
-        this.originalCleanToDirty = ImmutableBiMap.copyOf(this.cleanToDirty);
     }
 
-    public void analyze(List<? super Patch> patches, Multimap<ChangeCategory, String> info, Map<? super String, String> replacementCalls,
-                        Map<String, Map<MethodQualifier, List<LVTOffsets.Swap>>> reorders
-    ) {
+    public void analyze(List<? super Patch> patches, Multimap<ChangeCategory, String> info, Map<? super String, String> replacementCalls) {
         AnalysisContext context = new AnalysisContext(patches, this.dirtyNode, this.cleanToDirty, this.trace);
         // Try to find added dirtyMethod patches
         findOverloadedMethods(context, replacementCalls);
@@ -138,7 +130,6 @@ public class ClassAnalyzer {
         ReplacedMethodCalls.findReplacedMethodCalls(context, this.dirtyNode, this.cleanToDirty);
         findUpdatedLambdaNames(patches);
         checkAccess(patches);
-        calculateLVTOffsets(reorders);
         this.trace.space();
 
         Collection<String> removedFields = new HashSet<>();
@@ -163,22 +154,6 @@ public class ClassAnalyzer {
         this.trace.reset();
         updateReplacedInjectionPoints(patches, replacementCalls);
         this.trace.space();
-    }
-
-    private void calculateLVTOffsets(Map<String, Map<MethodQualifier, List<LVTOffsets.Swap>>> reorders) {
-        this.originalCleanToDirty.forEach((cleanMethod, dirtyMethod) -> {
-            if (cleanMethod.localVariables != null && dirtyMethod.localVariables != null && cleanMethod.localVariables.size() == dirtyMethod.localVariables.size()) {
-                Int2IntMap swaps = LocalVarRearrangement.getRearrangedParametersFromLocals(cleanMethod.localVariables, dirtyMethod.localVariables);
-                if (swaps != null) {
-                    List<LVTOffsets.Swap> methodReorders = swaps.int2IntEntrySet().stream()
-                        .map(entry -> new LVTOffsets.Swap(entry.getIntKey(), entry.getIntValue()))
-                        .toList();
-                    Map<MethodQualifier, List<LVTOffsets.Swap>> classReorders = reorders.computeIfAbsent(this.dirtyNode.name, s -> new HashMap<>());
-                    MethodQualifier qualifier = new MethodQualifier(dirtyMethod.name, dirtyMethod.desc);
-                    classReorders.put(qualifier, methodReorders);
-                }
-            }
-        });
     }
 
     private void findUpdatedLambdaNames(List<? super PatchInstance> patches) {

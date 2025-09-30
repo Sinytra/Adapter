@@ -12,11 +12,9 @@ import org.gradle.api.file.Directory;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.*;
-import org.sinytra.adapter.patch.LVTOffsets;
 import org.sinytra.adapter.patch.PatchInstance;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.transformer.serialization.PatchSerialization;
-import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 import org.sinytra.adapter.patch.util.provider.ZipClassLookup;
 import org.slf4j.Logger;
@@ -43,13 +41,9 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
     @OutputFile
     public abstract RegularFileProperty getPatchDataOutput();
 
-    @OutputFile
-    public abstract RegularFileProperty getLVTOffsetDataOutput();
-
     public AdapterCompareJarTask() {
         Provider<Directory> outputDir = getProject().getLayout().getBuildDirectory().dir(getName());
         getPatchDataOutput().convention(outputDir.map(dir -> dir.file("patch_data.json")));
-        getLVTOffsetDataOutput().convention(outputDir.map(dir -> dir.file("lvt_offsets.json")));
     }
 
     @TaskAction
@@ -57,13 +51,12 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
         final Logger logger = getLogger();
 
         logger.info("Generating Adapter patch data");
-        logger.info("Clean jar: " + getCleanJar().get().getAsFile().getAbsolutePath());
-        logger.info("Dirty jar: " + getDirtyJar().get().getAsFile().getAbsolutePath());
+        logger.info("Clean jar: {}", getCleanJar().get().getAsFile().getAbsolutePath());
+        logger.info("Dirty jar: {}", getDirtyJar().get().getAsFile().getAbsolutePath());
 
         List<Patch> patches = new ArrayList<>();
         Multimap<ChangeCategory, String> info = HashMultimap.create();
         Map<String, String> replacementCalls = new HashMap<>();
-        Map<String, Map<MethodQualifier, List<LVTOffsets.Swap>>> reorders = new HashMap<>();
 
         try (final ZipFile cleanJar = new ZipFile(getCleanJar().get().getAsFile());
              final ZipFile dirtyJar = new ZipFile(getDirtyJar().get().getAsFile())
@@ -89,7 +82,7 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
 
                     ClassAnalyzer analyzer = ClassAnalyzer.create(cleanData, dirtyData, cleanClassProvider, dirtyClassProvider);
                     analyzers.add(analyzer);
-                    analyzer.analyze(patches, info, replacementCalls, reorders);
+                    analyzer.analyze(patches, info, replacementCalls);
 
                     counter.getAndIncrement();
                 } catch (IOException e) {
@@ -123,10 +116,5 @@ public abstract class AdapterCompareJarTask extends DefaultTask {
         JsonElement patchDataJson = PatchSerialization.serialize(patches, JsonOps.INSTANCE);
         String patchDataJsonStr = gson.toJson(patchDataJson);
         Files.writeString(getPatchDataOutput().get().getAsFile().toPath(), patchDataJsonStr, StandardCharsets.UTF_8);
-
-        LVTOffsets lvtOffsets = new LVTOffsets(reorders);
-        JsonElement offsetJson = lvtOffsets.toJson();
-        String offsetJsonStr = gson.toJson(offsetJson);
-        Files.writeString(getLVTOffsetDataOutput().get().getAsFile().toPath(), offsetJsonStr, StandardCharsets.UTF_8);
     }
 }
