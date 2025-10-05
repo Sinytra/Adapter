@@ -12,6 +12,7 @@ import org.sinytra.adapter.patch.api.PatchAuditTrail;
 import org.sinytra.adapter.patch.transformer.operation.unit.ModifyInjectionPoint;
 import org.sinytra.adapter.patch.transformer.operation.unit.ModifyInjectionTarget;
 import org.sinytra.adapter.patch.util.AdapterUtil;
+import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -110,7 +111,7 @@ public class DynFixArbitraryInjectionPoint implements DynamicFixer<DynFixArbitra
     private static MethodInsnNode findReplacementInjectionPoint(AbstractInsnNode lastInsn, UnaryOperator<AbstractInsnNode> flow, MethodContext methodContext) {
         // Require matching return types for ModifyExpressionValue mixins
         if (methodContext.methodAnnotation().matchesDesc(MixinConstants.MODIFY_EXPR_VAL)) {
-            Type desiredReturnType = Type.getReturnType(methodContext.getInjectionPointMethodQualifier().desc());
+            Type desiredReturnType = Type.getReturnType(methodContext.getMixinMethod().desc);
             return (MethodInsnNode) AdapterUtil.iterateInsns(lastInsn, flow, v -> v instanceof MethodInsnNode minsn && Type.getReturnType(minsn.desc).equals(desiredReturnType));
         } else {
             return (MethodInsnNode) AdapterUtil.iterateInsns(lastInsn, flow, v -> v instanceof MethodInsnNode);

@@ -204,6 +204,11 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
             "isFarmlandNearWater",
             assertInjectionPoint()
         );
+        assertSameCode(
+                "org/sinytra/adapter/test/mixin/LivingEntityMixin",
+                "changeIFrames",
+                assertInjectionPoint()
+        );
     }
 
     @Test
