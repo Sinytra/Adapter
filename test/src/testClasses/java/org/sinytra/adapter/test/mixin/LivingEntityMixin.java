@@ -1,5 +1,8 @@
 package org.sinytra.adapter.test.mixin;
 
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.sugar.Local;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -11,6 +14,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(LivingEntity.class)
 public class LivingEntityMixin {
+    // https://github.com/Alexandra-Myers/Combatify/blob/1.21.1/src/main/java/net/atlas/combatify/mixin/InvulnerabilityMixin.java#L16
+    @ModifyExpressionValue(method = "hurt", at = @At(value = "CONSTANT", args = "intValue=20", ordinal = 0))
+    public int changeIFrames(int original, @Local(ordinal = 0, argsOnly = true) final DamageSource source, @Local(ordinal = 0, argsOnly = true) final float amount) {
+        return original;
+    }
+
+    @ModifyExpressionValue(method = "hurt", at = @At(value = "INVOKE", target = "Lnet/neoforged/neoforge/common/damagesource/DamageContainer;getPostAttackInvulnerabilityTicks()I"))
+    public int changeIFramesExpected(int original, @Local(ordinal = 0, argsOnly = true) final DamageSource source, @Local(ordinal = 0, argsOnly = true) final float amount) {
+        return original;
+    }
+
     // https://github.com/TheDeathlyCow/frostiful/blob/5f0a696400de2ae49b21ff42af5116f058cf13ae/src/main/java/com/github/thedeathlycow/frostiful/mixins/entity/ice_skating/LivingEntityMovementMixin.java#L141
     @ModifyVariable(
         method = "travel",
