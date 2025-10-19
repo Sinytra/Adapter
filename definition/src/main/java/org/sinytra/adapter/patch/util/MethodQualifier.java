@@ -43,6 +43,10 @@ public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nu
     public static MethodQualifier create(MethodNode methodNode) {
         return new MethodQualifier(null, methodNode.name, methodNode.desc);
     }
+    
+    public static MethodQualifier create(MethodInsnNode minsn) {
+        return new MethodQualifier(minsn.owner, minsn.name, minsn.desc);
+    }
 
     @Nullable
     public String internalOwnerName() {
@@ -70,7 +74,7 @@ public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nu
     public String asDescriptor() {
         String result = "";
         if (this.owner != null) {
-            result += this.owner;
+            result += "L" + this.owner + ";";
         }
         return result + this.name + this.desc;
     }

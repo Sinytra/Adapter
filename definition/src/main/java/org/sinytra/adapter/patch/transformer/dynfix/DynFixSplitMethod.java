@@ -88,7 +88,7 @@ public class DynFixSplitMethod implements DynamicFixer<DynamicFixer.EmptyData> {
 
         List<MethodNode> invocations = collectMethodInvocations(dirtyTargetClass, dirtyTargetMethod);
         if (invocations == null) {
-            return null;
+            return List.of();
         }
 
         List<CandidateMethod> candidates = findInsnsCalls(invocations, methodContext);

@@ -24,5 +24,6 @@ pluginManagement {
 
 rootProject.name = "Adapter"
 
-includeBuild("plugin")
+includeBuild("userdev")
+includeBuild("definition")
 include("runtime", "test")

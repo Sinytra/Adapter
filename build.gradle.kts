@@ -1,21 +1,21 @@
-import org.sinytra.adapter.gradle.AdapterPlugin
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-
 plugins {
     id("net.neoforged.moddev")
     id("org.sinytra.adapter.userdev")
-    id("org.sinytra.adapter.gradle")
+    id("net.neoforged.gradleutils") version("3.0.0")
     `maven-publish`
 }
 
 val versionMc: String by project
 val versionNeoForge: String by project
-val timestamp: String = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd.HHmmss"))
 
-version = "${AdapterPlugin.getDefinitionVersion()?.let { "$it-" } ?: "$versionMc-"}$timestamp"
+gradleutils.version {
+    branches {
+        suffixBranch()
+        suffixExemptedBranches("1.21.x")
+    }
+}
 
-println("Data version: $version")
+version = gradleutils.version.toString() + "+$versionMc"
 
 allprojects {
     apply(plugin = "net.neoforged.moddev")
@@ -63,11 +63,5 @@ allprojects {
                 }
             }
         }
-    }
-}
-
-tasks {
-    jar {
-        from(generateAdapterData)
     }
 }

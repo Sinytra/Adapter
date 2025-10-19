@@ -1,7 +1,7 @@
 plugins {
     `java-library`
     `maven-publish`
-    id("net.neoforged.gradleutils").version("3.0.0")
+    id("net.neoforged.gradleutils") version("3.0.0")
 }
 
 val versionMc: String by project

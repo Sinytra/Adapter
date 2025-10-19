@@ -48,6 +48,10 @@ public class AtData {
         }
     }
 
+    public AtData withTarget(String target) {
+        return new AtData(this.value, target, this.ordinal);
+    }
+
     public static Optional<AtData> parse(AnnotationHandle annotation, MixinContext context) {
         String value = annotation.<String>getValue("value").map(AnnotationValueHandle::get).orElse(null);
         if (value == null) {
