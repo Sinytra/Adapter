@@ -13,6 +13,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
@@ -129,5 +130,23 @@ public class GuiMixin {
             mainHudLayer.render(context, tickCounter);
             System.out.println("Hello");
         };
+    }
+
+    @ModifyVariable(
+        method = "Lnet/minecraft/client/gui/Gui;renderPlayerHealth(Lnet/minecraft/client/gui/GuiGraphics;)V",
+        at = @At("STORE"),
+        ordinal = 11
+    )
+    private int moveAirUp(int y) {
+        return y;
+    }
+
+    @ModifyVariable(
+        method = "renderAirLevel(Lnet/minecraft/client/gui/GuiGraphics;)V",
+        at = @At("STORE"),
+        ordinal = 1
+    )
+    private int moveAirUpExpected(int y) {
+        return y;
     }
 }

@@ -3,6 +3,7 @@ package org.sinytra.adapter.patch.test.mixin;
 import com.mojang.logging.LogUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.assertj.core.api.Assertions;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
@@ -212,9 +213,9 @@ public abstract class MinecraftMixinPatchTest {
     }
 
     protected AssertCallback assertInjectionPoint() {
-        Function<AnnotationNode, Pair<String, String>> injectionPointExtractor = node -> new AnnotationHandle(node).getNested("at").map(h -> {
+        Function<AnnotationNode, Pair<String, @Nullable String>> injectionPointExtractor = node -> new AnnotationHandle(node).getNested("at").map(h -> {
             String value = h.<String>getValue("value").orElseThrow().get();
-            String target = h.<String>getValue("target").orElseThrow().get();
+            String target = h.<String>getValue("target").map(AnnotationValueHandle::get).orElse(null);
             return Pair.of(value, target);
         }).orElseThrow();
 

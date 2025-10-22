@@ -234,7 +234,7 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
         assertSameCode(
             "org/sinytra/adapter/test/mixin/GuiMixin",
-            "afterMainHud",
+            "moveAirUp",
             assertTargetMethod(),
             assertInjectionPoint()
         );

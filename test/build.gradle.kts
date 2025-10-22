@@ -24,7 +24,7 @@ configurations {
 }
 
 dependencies {
-    testCompileOnly(group = "org.sinytra.adapter", name = "definition")
+    testImplementation(group = "org.sinytra.adapter", name = "definition")
     "neoForgeTestLibraries"(group = "org.sinytra.adapter", name = "definition") {
         isTransitive = false
     }

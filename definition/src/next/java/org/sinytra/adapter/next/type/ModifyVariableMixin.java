@@ -9,6 +9,8 @@ import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
+import org.sinytra.adapter.next.pipeline.resolver.InjectionTargetResolver;
+import org.sinytra.adapter.next.pipeline.resolver.ModifyVarInjectionTargetSubResolver;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.fixes.TypeAdapter;
@@ -24,12 +26,15 @@ public class ModifyVariableMixin implements MixinType<ModifyVariableMixinData> {
     @Override
     public ModifyVariableMixinData parse(MixinContext context, ClassTarget targetClass, MethodQualifier targetMethod, AtData atData, AnnotationHandle handle) {
         boolean argsOnly = handle.<Boolean>getValue("argsOnly").map(AnnotationValueHandle::get).orElse(false);
-        return new ModifyVariableMixinData(targetClass, targetMethod, atData, argsOnly);
+        Integer ordinal = handle.<Integer>getValue("ordinal").map(AnnotationValueHandle::get).orElse(null);
+        return new ModifyVariableMixinData(targetClass, targetMethod, atData, argsOnly, ordinal);
     }
 
     @Override
     public void preProcess(ModifyVariableMixinData mixin, MixinContext context, MutableConfiguration clean, Recipe recipe) {
         clean.setParameters(MethodParameters.create(context.methodNode().desc, List.of(SINGLE_ANY, LOCALS)));
+
+        recipe.resolvers().getOrThrow(InjectionTargetResolver.class).addSubResolver(new ModifyVarInjectionTargetSubResolver());
     }
 
     @Override
@@ -50,6 +55,10 @@ public class ModifyVariableMixin implements MixinType<ModifyVariableMixinData> {
                 dirty.setParameters(newParams);
                 dirty.setReturnType(dirtyVarType);
             }
+            return;
         }
+
+        dirty.inheritParameters();
+        dirty.inheritReturnType();
     }
 }

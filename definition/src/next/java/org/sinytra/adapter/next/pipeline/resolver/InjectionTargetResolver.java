@@ -25,15 +25,15 @@ import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_I
 public class InjectionTargetResolver implements Resolver {
     private static final int INSN_RANGE = 5;
 
+    private final List<Resolver> subResolvers = new ArrayList<>();
+
+    public void addSubResolver(Resolver subResolver) {
+        this.subResolvers.add(subResolver);
+    }
+
     @Override
     public TxResult resolve(MixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
         if (dirty.getAtData() != null) return TxResult.PASS;
-
-        // Only support INVOKE for now
-        if (!clean.getAtData().getValue().equals(AT_VAL_INVOKE)) {
-            dirty.inheritAtData();
-            return TxResult.SUCCESS;
-        }
 
         MethodQualifier dirtyQualifier = dirty.getTargetMethod();
         if (dirtyQualifier == null) return TxResult.FAIL;
@@ -44,6 +44,19 @@ public class InjectionTargetResolver implements Resolver {
         // Try reusing the original
         List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(pair);
         if (!insns.isEmpty()) {
+            dirty.inheritAtData();
+            return TxResult.SUCCESS;
+        }
+
+        for (Resolver subResolver : this.subResolvers) {
+            TxResult result = subResolver.resolve(mixin, context, clean, dirty, recipe);
+            if (result != TxResult.PASS) {
+                return result;
+            }
+        }
+
+        // Only support INVOKE for now
+        if (!clean.getAtData().getValue().equals(AT_VAL_INVOKE)) {
             dirty.inheritAtData();
             return TxResult.SUCCESS;
         }

@@ -13,5 +13,6 @@ public class Processors extends OrderedRegistry<Processor> {
         add(new InjectionTargetProcessor());
         add(new MixinMethodParametersProcessor());
         add(new ReturnTypeProcessor());
+        add(new PropertyProcessor());
     }
 }

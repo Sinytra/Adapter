@@ -14,6 +14,7 @@ import org.sinytra.adapter.next.pipeline.TxResult;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
 import org.sinytra.adapter.patch.api.MethodContext;
+import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.ArrayList;
@@ -111,7 +112,17 @@ public class TargetMethodResolver implements Resolver {
                 valid.add(method);
             }
         }
+        if (valid.size() == 1) {
+            return valid.getFirst();
+        }
 
-        return valid.size() == 1 ? valid.getFirst() : null;
+        List<MethodNode> nonDeprecated = methods.stream()
+            .filter(m -> !AdapterUtil.hasAnnotation(m.visibleAnnotations, "Ljava/lang/Deprecated;"))
+            .toList();
+        if (nonDeprecated.size() == 1) {
+            return nonDeprecated.getFirst();
+        }
+
+        return null;
     }
 }
