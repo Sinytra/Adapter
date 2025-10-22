@@ -30,6 +30,7 @@ import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
+import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_SHIFT;
 import static org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup.CAPTURED_PARAMS;
 
 public class MethodHelper {
@@ -74,8 +75,12 @@ public class MethodHelper {
     }
 
     private List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable MethodContext.TargetPair target) {
-        return computeInjectionTargetInsns(target, this.context::injectionPointAnnotation,
-            (ctx, h) -> InjectionPoint.parse(ctx, this.context.methodNode(), this.context.methodAnnotation().unwrap(), h.unwrap()));
+        return computeInjectionTargetInsns(
+            target,
+            this.context::injectionPointAnnotation,
+            (ctx, h) -> InjectionPoint.parse(ctx, this.context.methodNode(), this.context.methodAnnotation().unwrap(), h.unwrap()),
+            true
+        );
     }
 
     public List<Type> resolveCapturedMethodParams(Configuration clean, Configuration dirty) {
@@ -110,7 +115,7 @@ public class MethodHelper {
     }
 
     @Nullable
-    private List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable MethodContext.TargetPair target, Supplier<AnnotationHandle> atNodeSupplier, BiFunction<IMixinContext, AnnotationHandle, InjectionPoint> injectionPointParser) {
+    private List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable MethodContext.TargetPair target, Supplier<AnnotationHandle> atNodeSupplier, BiFunction<IMixinContext, AnnotationHandle, InjectionPoint> injectionPointParser, boolean ignoreShift) {
         if (target == null) {
             return List.of();
         }
@@ -118,11 +123,15 @@ public class MethodHelper {
         if (atNode == null) {
             return List.of();
         }
+        AnnotationHandle atNodeCopy = atNode.copy();
+        if (ignoreShift) {
+            atNodeCopy.removeValues(AT_SHIFT);
+        }
         PatchContext patchContext = this.context.patchContext();
         // Provide a minimum implementation of IMixinContext
         IMixinContext mixinContext = MockMixinRuntime.forClass(this.context.classNode().name, target.classNode().name, patchContext.environment());
         // Parse injection point
-        InjectionPoint injectionPoint = injectionPointParser.apply(mixinContext, atNode);
+        InjectionPoint injectionPoint = injectionPointParser.apply(mixinContext, atNodeCopy);
         Target mixinTarget = MockMixinRuntime.createMixinTarget(target);
         // Find target instructions
         InsnList instructions = getSlicedInsns(this.context.methodAnnotation(), this.context.classNode(), this.context.methodNode(), target.classNode(), target.methodNode(), patchContext, mixinTarget);

@@ -152,7 +152,7 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
                         continue;
                     }
                     List<AbstractInsnNode> list = MethodCallAnalyzer.findMethodCallParamInsns(dirtyMethod, m);
-                    if (list.size() > argIndex && list.get(argIndex) instanceof InvokeDynamicInsnNode dirtyIndy && InsnComparator.instructionsEqual(cleanIndy, dirtyIndy)) {
+                    if (list.size() > argIndex && list.get(argIndex) instanceof InvokeDynamicInsnNode dirtyIndy && InsnComparator.insnEqual(cleanIndy, dirtyIndy)) {
                         matches.add(m);
                     }
                 }

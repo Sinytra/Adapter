@@ -10,6 +10,8 @@ import org.sinytra.adapter.patch.transformer.operation.unit.ModifyMixinType;
 import java.util.Collection;
 import java.util.Set;
 
+import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_SHIFT;
+
 /**
  * Original mixin:
  *
@@ -75,7 +77,7 @@ public class ModifyVarUpgradeToModifyExprVal implements MethodTransform {
         // Conditions must be met:
         // - The injection target value is INVOKE
         // - The target is shifted BY 2
-        if (injectionAnnotation == null || injectionAnnotation.<String>getValue("value").filter(v -> ALLOWED_VALUES.contains(v.get())).isEmpty() || injectionAnnotation.getValue("shift").isEmpty() || injectionAnnotation.getValue("by").isEmpty()) {
+        if (injectionAnnotation == null || injectionAnnotation.<String>getValue("value").filter(v -> ALLOWED_VALUES.contains(v.get())).isEmpty() || injectionAnnotation.getValue(AT_SHIFT).isEmpty() || injectionAnnotation.getValue("by").isEmpty()) {
             return Patch.Result.PASS;
         }
         AnnotationValueHandle<String> target = injectionAnnotation.<String>getValue("target").orElse(null);

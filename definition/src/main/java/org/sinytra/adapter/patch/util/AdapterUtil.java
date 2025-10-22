@@ -292,5 +292,13 @@ public final class AdapterUtil {
         return Type.getReturnType(method.desc) == Type.VOID_TYPE ? CI_TYPE : CIR_TYPE;
     }
 
-    private AdapterUtil() {}
+    public static <T> boolean allElementsEqual(Collection<T> list, BiPredicate<T, T> equalityFn) {
+        return list.stream()
+            .reduce((a, b) -> equalityFn.test(a, b) ? a : null)
+            .map(x -> true)
+            .orElse(true);
+    }
+
+    private AdapterUtil() {
+    }
 }

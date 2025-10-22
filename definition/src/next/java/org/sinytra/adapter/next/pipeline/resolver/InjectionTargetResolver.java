@@ -1,5 +1,6 @@
 package org.sinytra.adapter.next.pipeline.resolver;
 
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
@@ -12,9 +13,11 @@ import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.TxResult;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
+import org.sinytra.adapter.patch.analysis.InsnComparator;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.api.MethodContext;
+import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.ArrayList;
@@ -73,7 +76,7 @@ public class InjectionTargetResolver implements Resolver {
         // Find single clean target minsn
         MethodContext.TargetPair cleanPair = context.methods().findOwnMethodPair(context.cleanLookup(), cleanQualifier);
         List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(cleanPair);
-        if (insns.size() != 1 || !(insns.getFirst() instanceof MethodInsnNode cleanInsn)) {
+        if (insns.isEmpty() || !(insns.getFirst() instanceof MethodInsnNode cleanInsn)) {
             return false;
         }
 
@@ -82,16 +85,37 @@ public class InjectionTargetResolver implements Resolver {
         List<InstructionMatcher> dirtyMatchers = dirtyCalls.values().stream()
             .map(i -> MethodCallAnalyzer.findSurroundingInstructions(i, INSN_RANGE))
             .toList();
-        for (InstructionMatcher dirtyMatcher : dirtyMatchers) {
-            if (cleanMatcher.test(dirtyMatcher) && matchesMethodCall(context, cleanInsn, (MethodInsnNode) dirtyMatcher.insn())) {
-                MethodInsnNode minsn = (MethodInsnNode) dirtyMatcher.insn();
-                String target = MethodQualifier.create(minsn).asDescriptor();
-                dirty.setAtData(original.withTarget(target));
-                return true;
-            }
+
+        MethodInsnNode replacement = findBestMatch(context, cleanInsn, cleanMatcher, dirtyMatchers);
+        if (replacement != null) {
+            String target = MethodQualifier.create(replacement).asDescriptor();
+            dirty.setAtData(original.withTarget(target));
+            return true;
         }
 
         return false;
+    }
+
+    private static MethodInsnNode findBestMatch(MixinContext context, MethodInsnNode cleanInsn, InstructionMatcher cleanMatcher, List<InstructionMatcher> dirtyMatchers) {
+        Multimap<Integer, MethodInsnNode> matches = HashMultimap.create();
+        for (InstructionMatcher m : dirtyMatchers) {
+            boolean before = cleanMatcher.testBefore(m);
+            boolean after = cleanMatcher.testAfter(m);
+            int priority = before && after ? 2 : before || after ? 1 : 0;
+
+            MethodInsnNode dirtyInsn = (MethodInsnNode) m.insn();
+            if (priority > 0 && matchesMethodCall(context, cleanInsn, dirtyInsn)) {
+                matches.put(priority, dirtyInsn);
+            }
+        }
+        for (int i = 2; i > 0; --i) {
+            if (matches.containsKey(i)) {
+                return matches.get(i).size() == 1 || AdapterUtil.allElementsEqual(matches.get(i), InsnComparator::insnEqual)
+                    ? matches.get(i).iterator().next()
+                    : null;
+            }
+        }
+        return null;
     }
 
     private static boolean matchesMethodCall(MixinContext context, MethodInsnNode cleanInsn, MethodInsnNode dirtyInsn) {

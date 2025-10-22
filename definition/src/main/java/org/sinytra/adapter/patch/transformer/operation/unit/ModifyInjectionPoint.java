@@ -12,6 +12,8 @@ import org.sinytra.adapter.patch.fixes.MethodUpgrader;
 
 import java.util.Optional;
 
+import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_SHIFT;
+
 public record ModifyInjectionPoint(@Nullable String value, String target, boolean resetValues, boolean dontUpgrade) implements MethodTransform {
     public static final Codec<ModifyInjectionPoint> CODEC = RecordCodecBuilder.create(instance -> instance.group(
         Codec.STRING.optionalFieldOf("value").forGetter(i -> Optional.ofNullable(i.value())),
@@ -54,7 +56,7 @@ public record ModifyInjectionPoint(@Nullable String value, String target, boolea
         }
         if (this.resetValues) {
             methodContext.methodAnnotation().removeValues("slice");
-            annotation.removeValues("ordinal", "shift", "by", "opcode");
+            annotation.removeValues("ordinal", AT_SHIFT, "by", "opcode");
         }
         return Patch.Result.APPLY;
     }

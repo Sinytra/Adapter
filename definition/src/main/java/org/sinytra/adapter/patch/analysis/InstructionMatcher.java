@@ -1,9 +1,7 @@
 package org.sinytra.adapter.patch.analysis;
 
-import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.InsnList;
-import org.objectweb.asm.tree.MethodInsnNode;
 
 import java.util.List;
 
@@ -12,63 +10,36 @@ public record InstructionMatcher(AbstractInsnNode insn, List<AbstractInsnNode> b
         return new InstructionMatcher(insn, after.reversed(), before.reversed());
     }
 
-    @Nullable
-    public String findReplacement(List<String> cleanCallOrder, List<String> dirtyCallOrder) {
-        MethodInsnNode previousMethodCall = MethodCallAnalyzer.findFirstInsn(this.before.getFirst(), MethodInsnNode.class, MethodCallAnalyzer.BACKWARDS);
-        if (previousMethodCall == null) {
-            return null;
-        }
-        String previousCallQualifier = MethodCallAnalyzer.getCallQualifier(previousMethodCall);
-        int previousCallIndex = dirtyCallOrder.indexOf(previousCallQualifier);
-        if (previousCallIndex == -1) {
-            return null;
-        }
-        int previousDirtyCount = count(dirtyCallOrder, previousCallQualifier);
-        if (previousDirtyCount < 1 || previousDirtyCount != count(cleanCallOrder, previousCallQualifier)) {
-            return null;
-        }
-
-        if (this.after.isEmpty()) {
-            return null;
-        }
-        MethodInsnNode nextMethodCall = MethodCallAnalyzer.findFirstInsn(this.after.getFirst(), MethodInsnNode.class, MethodCallAnalyzer.FORWARD);
-        if (nextMethodCall == null) {
-            return null;
-        }
-        String nextCallQualifier = MethodCallAnalyzer.getCallQualifier(nextMethodCall);
-        int nextCallIndex = dirtyCallOrder.indexOf(nextCallQualifier);
-        if (nextCallIndex == -1) {
-            return null;
-        }
-        int nextDirtyCount = count(dirtyCallOrder, nextCallQualifier);
-        if (nextDirtyCount < 1 || nextDirtyCount != count(cleanCallOrder, nextCallQualifier)) {
-            return null;
-        }
-
-        int diff = nextCallIndex - previousCallIndex;
-        if (diff == 2) {
-            return dirtyCallOrder.get(previousCallIndex + 1);
-        }
-        return null;
-    }
-
     public boolean test(InstructionMatcher other) {
         return test(other, 0);
     }
 
     public boolean test(InstructionMatcher other, int flags) {
-        if (this.before.size() == other.before.size() && this.after.size() == other.after.size()) {
-            for (int i = 0; i < this.before.size(); i++) {
-                AbstractInsnNode insn = this.before.get(i);
-                AbstractInsnNode otherInsn = other.before.get(i);
-                if (!InsnComparator.instructionsEqual(insn, otherInsn, flags)) {
-                    return false;
-                }
-            }
-            for (int i = 0; i < this.after.size(); i++) {
-                AbstractInsnNode insn = this.after.get(i);
-                AbstractInsnNode otherInsn = other.after.get(i);
-                if (!InsnComparator.instructionsEqual(insn, otherInsn, flags)) {
+        return testBefore(other, flags) && testAfter(other, flags);
+    }
+
+    public boolean testBefore(InstructionMatcher other) {
+        return testBefore(other, 0);
+    }
+
+    public boolean testBefore(InstructionMatcher other, int flags) {
+        return testInsns(this.before, other.before, flags);
+    }
+    
+    public boolean testAfter(InstructionMatcher other) {
+        return testAfter(other, 0);
+    }
+    
+    public boolean testAfter(InstructionMatcher other, int flags) {
+        return testInsns(this.after, other.after, flags);
+    }
+
+    private boolean testInsns(List<AbstractInsnNode> ours, List<AbstractInsnNode> theirs, int flags) {
+        if (ours.size() == theirs.size()) {
+            for (int i = 0; i < ours.size(); i++) {
+                AbstractInsnNode insn = ours.get(i);
+                AbstractInsnNode otherInsn = theirs.get(i);
+                if (!InsnComparator.insnEqual(insn, otherInsn, flags)) {
                     return false;
                 }
             }
@@ -86,7 +57,7 @@ public record InstructionMatcher(AbstractInsnNode insn, List<AbstractInsnNode> b
             for (int i = 0; i < first.size(); i++) {
                 AbstractInsnNode insn = first.get(i);
                 AbstractInsnNode otherInsn = second.get(i);
-                if (!InsnComparator.instructionsEqual(insn, otherInsn, flags)) {
+                if (!InsnComparator.insnEqual(insn, otherInsn, flags)) {
                     return false;
                 }
             }
@@ -100,16 +71,12 @@ public record InstructionMatcher(AbstractInsnNode insn, List<AbstractInsnNode> b
             for (int i = 0; i < first.size(); i++) {
                 AbstractInsnNode insn = first.get(i);
                 AbstractInsnNode otherInsn = second.get(i);
-                if (!InsnComparator.instructionsEqual(insn, otherInsn, flags)) {
+                if (!InsnComparator.insnEqual(insn, otherInsn, flags)) {
                     return false;
                 }
             }
             return true;
         }
         return false;
-    }
-
-    public static <T> int count(List<T> list, T item) {
-        return (int) list.stream().filter(item::equals).count();
     }
 }

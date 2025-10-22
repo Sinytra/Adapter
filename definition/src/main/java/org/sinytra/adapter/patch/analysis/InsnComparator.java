@@ -36,11 +36,11 @@ public class InsnComparator {
     public static final int IGNORE_VAR_INDEX = 0x001;
     public static final int IGNORE_LINE_NUMBERS = 0x010;
 
-    public static boolean instructionsEqual(AbstractInsnNode a, AbstractInsnNode b) {
-        return instructionsEqual(a, b, 0);
+    public static boolean insnEqual(AbstractInsnNode a, AbstractInsnNode b) {
+        return insnEqual(a, b, 0);
     }
 
-    public static boolean instructionsEqual(AbstractInsnNode a, AbstractInsnNode b, int flags) {
+    public static boolean insnEqual(AbstractInsnNode a, AbstractInsnNode b, int flags) {
         if (a == b) return true;
         if (a == null || b == null) return false;
         if (a.getClass() != b.getClass()) return false;
@@ -79,11 +79,11 @@ public class InsnComparator {
         } else if (a instanceof LineNumberNode) {
             LineNumberNode la = (LineNumberNode) a;
             LineNumberNode lb = (LineNumberNode) b;
-            return (flags & IGNORE_LINE_NUMBERS) != 0 || la.line == lb.line && instructionsEqual(la.start, lb.start);
+            return (flags & IGNORE_LINE_NUMBERS) != 0 || la.line == lb.line && insnEqual(la.start, lb.start);
         } else if (a instanceof LookupSwitchInsnNode) {
             LookupSwitchInsnNode la = (LookupSwitchInsnNode) a;
             LookupSwitchInsnNode lb = (LookupSwitchInsnNode) b;
-            return instructionsEqual(la.dflt, lb.dflt) &&
+            return insnEqual(la.dflt, lb.dflt) &&
                 Objects.equals(la.keys, lb.keys) &&
                 instructionListsEqual(la.labels, lb.labels);
         } else if (a instanceof MethodInsnNode) {
@@ -102,7 +102,7 @@ public class InsnComparator {
             TableSwitchInsnNode tb = (TableSwitchInsnNode) b;
             return ta.min == tb.min &&
                 ta.max == tb.max &&
-                instructionsEqual(ta.dflt, tb.dflt) &&
+                insnEqual(ta.dflt, tb.dflt) &&
                 instructionListsEqual(ta.labels, tb.labels);
         } else if (a instanceof TypeInsnNode) {
             TypeInsnNode ta = (TypeInsnNode) a;
@@ -121,7 +121,7 @@ public class InsnComparator {
         if (a == null || b == null) return false;
         if (a.size() != b.size()) return false;
         for (int i = 0; i < a.size(); i++) {
-            if (!instructionsEqual(a.get(i), b.get(i))) return false;
+            if (!insnEqual(a.get(i), b.get(i))) return false;
         }
         return true;
     }

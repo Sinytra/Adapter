@@ -241,6 +241,16 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     }
 
     @Test
+    void testMethodInjectionTargetParamsChanged() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/LevelRendererMixin",
+            "postRenderParticles",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
     void testModifiedSliceTarget() throws Exception {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/LivingEntityMixin",

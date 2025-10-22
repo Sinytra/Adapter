@@ -134,7 +134,7 @@ public class MethodCallAnalyzer {
     public static int getMethodCallOrdinal(MethodNode method, MethodInsnNode insn) {
         List<MethodInsnNode> insns = new ArrayList<>();
         for (AbstractInsnNode i : method.instructions) {
-            if (i instanceof MethodInsnNode m && InsnComparator.instructionsEqual(m, insn)) {
+            if (i instanceof MethodInsnNode m && InsnComparator.insnEqual(m, insn)) {
                 insns.add(m);
             }
         }

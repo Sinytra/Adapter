@@ -28,6 +28,12 @@ public final class AnnotationHandle {
     public AnnotationNode unwrap() {
         return this.annotationNode;
     }
+    
+    public AnnotationHandle copy() {
+        AnnotationNode copy = new AnnotationNode(this.annotationNode.desc);
+        this.annotationNode.accept(copy);
+        return new AnnotationHandle(copy);
+    }
 
     public Optional<AnnotationHandle> getNested(String key) {
         return getValue(key)
