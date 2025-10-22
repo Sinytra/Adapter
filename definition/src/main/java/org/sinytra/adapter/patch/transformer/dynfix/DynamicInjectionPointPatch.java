@@ -39,7 +39,6 @@ public class DynamicInjectionPointPatch implements MethodTransform {
         for (DynamicFixer fix : PASSIVE) {
             Object data = fix.prepare(methodContext);
             if (data != null) {
-                auditTrail.recordResult(methodContext, PatchAuditTrail.Match.NONE);
                 DynamicFixer.FixResult fixResult = fix.apply(classNode, methodNode, methodContext, auditTrail, data);
                 if (fixResult != null) {
                     auditTrail.recordResult(methodContext, fixResult.match());

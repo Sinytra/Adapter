@@ -54,7 +54,9 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
             result = result.or(transform.apply(classNode, methodNode, methodContext, context, newParameterTypes, offset));
         }
 
-        methodContext.updateDescription(this, newParameterTypes);
+        if (result != Patch.Result.PASS) {
+            methodContext.updateDescription(this, newParameterTypes);
+        }
 
         return result;
     }
