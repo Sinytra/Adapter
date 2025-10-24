@@ -4,8 +4,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.sinytra.adapter.patch.api.MethodTransform;
@@ -15,7 +13,6 @@ import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformTarge
 import org.sinytra.adapter.patch.transformer.operation.param.ParameterTransformer;
 import org.sinytra.adapter.patch.transformer.operation.param.TransformParameters;
 import org.sinytra.adapter.patch.transformer.operation.unit.ModifyMethodParams;
-import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
@@ -35,27 +32,8 @@ public record SimpleParamsDiffSnapshot(
     List<Pair<Integer, Integer>> moves,
     List<Pair<Integer, Consumer<InstructionAdapter>>> inlines
 ) implements ParamsDiffSnapshot {
-    public static final Codec<Pair<Integer, Type>> MODIFICATION_CODEC = Codec.pair(
-        Codec.INT.fieldOf("index").codec(),
-        AdapterUtil.TYPE_CODEC.fieldOf("type").codec()
-    );
-    public static final Codec<Pair<Integer, Integer>> SWAP_CODEC = Codec.pair(
-        Codec.INT.fieldOf("original").codec(),
-        Codec.INT.fieldOf("replacement").codec()
-    );
-    public static final Codec<SimpleParamsDiffSnapshot> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        MODIFICATION_CODEC.listOf().optionalFieldOf("insertions", List.of()).forGetter(SimpleParamsDiffSnapshot::insertions),
-        MODIFICATION_CODEC.listOf().optionalFieldOf("replacements", List.of()).forGetter(SimpleParamsDiffSnapshot::replacements),
-        SWAP_CODEC.listOf().optionalFieldOf("swaps", List.of()).forGetter(SimpleParamsDiffSnapshot::swaps)
-    ).apply(instance, (insertions, replacements, swaps) ->
-        new SimpleParamsDiffSnapshot(insertions, replacements, swaps, List.of(), List.of(), List.of(), List.of())));
-
     public static SimpleParamsDiffSnapshot create(ParametersDiff diff) {
         return new SimpleParamsDiffSnapshot(diff.insertions(), diff.replacements(), diff.swaps(), List.of(), diff.removals(), diff.moves(), List.of());
-    }
-
-    public static SimpleParamsDiffSnapshot createLight(ParametersDiff diff) {
-        return new SimpleParamsDiffSnapshot(List.of(), diff.replacements(), diff.swaps(), List.of(), diff.removals(), diff.moves(), List.of());
     }
 
     public boolean isEmpty() {

@@ -1,8 +1,6 @@
 package org.sinytra.adapter.patch.transformer.operation.unit;
 
 import com.mojang.datafixers.util.Pair;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -15,8 +13,8 @@ import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
-import org.sinytra.adapter.patch.fixes.ModifyArgsOffsetTransformer;
 import org.sinytra.adapter.patch.fixes.TypeAdapter;
+import org.sinytra.adapter.patch.transformer.ModifyArgsOffsetTransformer;
 import org.sinytra.adapter.patch.transformer.operation.param.InjectParameterTransform;
 import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformTarget;
 import org.sinytra.adapter.patch.transformer.operation.param.SwapParametersTransformer;
@@ -31,11 +29,6 @@ import static org.sinytra.adapter.patch.transformer.operation.param.ParamTransfo
 
 @Deprecated
 public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransformTarget targetType, boolean ignoreOffset) implements MethodTransform {
-    public static final Codec<ModifyMethodParams> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        SimpleParamsDiffSnapshot.CODEC.fieldOf("context").forGetter(ModifyMethodParams::context),
-        ParamTransformTarget.CODEC.optionalFieldOf("targetInjectionPoint", ParamTransformTarget.ALL).forGetter(ModifyMethodParams::targetType)
-    ).apply(instance, (context, targetInjectionPoint) -> new ModifyMethodParams(context, targetInjectionPoint, false)));
-
     public static Builder builder() {
         return new Builder();
     }
@@ -44,11 +37,6 @@ public record ModifyMethodParams(SimpleParamsDiffSnapshot context, ParamTransfor
         if (context.isEmpty()) {
             throw new IllegalArgumentException("Method parameter transformation contains no changes");
         }
-    }
-
-    @Override
-    public Codec<? extends MethodTransform> codec() {
-        return CODEC;
     }
 
     @Override

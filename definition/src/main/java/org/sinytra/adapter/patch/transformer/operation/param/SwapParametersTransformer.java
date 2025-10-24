@@ -1,8 +1,6 @@
 package org.sinytra.adapter.patch.transformer.operation.param;
 
 import com.mojang.logging.LogUtils;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.api.MethodContext;
@@ -19,11 +17,6 @@ import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
 public record SwapParametersTransformer(int from, int to) implements ParameterTransformer {
     private static final Logger LOGGER = LogUtils.getLogger();
-
-    static final Codec<SwapParametersTransformer> CODEC = RecordCodecBuilder.create(in -> in.group(
-        Codec.intRange(0, 255).fieldOf("from").forGetter(SwapParametersTransformer::from),
-        Codec.intRange(0, 255).fieldOf("to").forGetter(SwapParametersTransformer::to)
-    ).apply(in, SwapParametersTransformer::new));
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, List<Type> parameters, int offset) {
@@ -56,11 +49,6 @@ public record SwapParametersTransformer(int from, int to) implements ParameterTr
             .accept(null);
 
         return Patch.Result.COMPUTE_FRAMES;
-    }
-
-    @Override
-    public Codec<? extends ParameterTransformer> codec() {
-        return CODEC;
     }
 
     public static Consumer<Void> swapLVT(MethodNode methodNode, int from, int to) {

@@ -12,7 +12,7 @@ import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
-import org.sinytra.adapter.patch.fixes.MethodUpgrader;
+import org.sinytra.adapter.patch.transformer.MethodUpgrader;
 import org.sinytra.adapter.patch.fixes.TypeAdapter;
 import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformationUtil;
 import org.sinytra.adapter.patch.transformer.operation.CompoundMethodTransform;

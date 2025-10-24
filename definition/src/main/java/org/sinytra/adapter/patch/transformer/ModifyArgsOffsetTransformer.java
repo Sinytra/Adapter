@@ -1,4 +1,4 @@
-package org.sinytra.adapter.patch.fixes;
+package org.sinytra.adapter.patch.transformer;
 
 import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;

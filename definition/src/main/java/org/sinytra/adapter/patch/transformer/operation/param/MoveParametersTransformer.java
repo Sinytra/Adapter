@@ -1,18 +1,16 @@
 package org.sinytra.adapter.patch.transformer.operation.param;
 
 import com.mojang.logging.LogUtils;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.ParameterNode;
+import org.sinytra.adapter.patch.analysis.locals.LVTSnapshot;
 import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchContext;
-import org.sinytra.adapter.patch.analysis.locals.LVTSnapshot;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.slf4j.Logger;
 
@@ -21,11 +19,6 @@ import java.util.List;
 import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
 public record MoveParametersTransformer(int from, int to) implements ParameterTransformer {
-    static final Codec<MoveParametersTransformer> CODEC = RecordCodecBuilder.create(in -> in.group(
-        Codec.intRange(0, 255).fieldOf("from").forGetter(MoveParametersTransformer::from),
-        Codec.intRange(0, 255).fieldOf("to").forGetter(MoveParametersTransformer::to)
-    ).apply(in, MoveParametersTransformer::new));
-
     private static final Logger LOGGER = LogUtils.getLogger();
 
     @Override
@@ -57,10 +50,5 @@ public record MoveParametersTransformer(int from, int to) implements ParameterTr
         parameters.add(this.to > paramIndex ? this.to - 1 : this.to, type);
 
         return Patch.Result.COMPUTE_FRAMES;
-    }
-
-    @Override
-    public Codec<? extends ParameterTransformer> codec() {
-        return CODEC;
     }
 }

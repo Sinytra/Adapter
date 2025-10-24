@@ -1,20 +1,16 @@
 package org.sinytra.adapter.patch;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.DataResult;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.patch.api.ClassTransform;
-import org.sinytra.adapter.patch.api.MethodTransform;
-import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.PatchEnvironment;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.analysis.selector.InjectionPointMatcher;
 import org.sinytra.adapter.patch.analysis.selector.MethodMatcher;
-import org.sinytra.adapter.patch.transformer.serialization.MethodTransformSerialization;
+import org.sinytra.adapter.patch.api.ClassTransform;
+import org.sinytra.adapter.patch.api.MethodTransform;
+import org.sinytra.adapter.patch.api.MixinConstants;
+import org.sinytra.adapter.patch.api.PatchEnvironment;
 import org.sinytra.adapter.patch.transformer.operation.unit.DisableMixin;
 import org.sinytra.adapter.patch.transformer.operation.unit.DivertRedirectorTransform;
 import org.sinytra.adapter.patch.transformer.operation.unit.ModifyInjectionPoint;
@@ -22,37 +18,17 @@ import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.*;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 public final class ClassPatchInstance extends PatchInstance {
-    public static final Codec<ClassPatchInstance> CODEC = RecordCodecBuilder
-        .<ClassPatchInstance>create(instance -> instance.group(
-            Codec.STRING.listOf().optionalFieldOf("targetClasses", List.of()).forGetter(p -> p.targetClasses),
-            MethodMatcher.CODEC.listOf().optionalFieldOf("targetMethods", List.of()).forGetter(p -> p.targetMethods),
-            InjectionPointMatcher.CODEC.listOf().optionalFieldOf("targetInjectionPoints", List.of()).forGetter(p -> p.targetInjectionPoints),
-            Codec.STRING.listOf().optionalFieldOf("targetAnnotations", List.of()).forGetter(p -> p.targetAnnotations),
-            MethodTransformSerialization.METHOD_TRANSFORM_CODEC.listOf().fieldOf("transforms").forGetter(p -> p.transforms)
-        ).apply(instance, ClassPatchInstance::new))
-        .flatComapMap(Function.identity(), obj -> obj.targetAnnotationValues != null ? DataResult.error(() -> "Cannot serialize targetAnnotationValues") : DataResult.success(obj));
-
     private final List<MethodMatcher> targetMethods;
     private final List<InjectionPointMatcher> targetInjectionPoints;
-
-    private ClassPatchInstance(List<String> targetClasses, List<MethodMatcher> targetMethods, List<InjectionPointMatcher> targetInjectionPoints, List<String> targetAnnotations, List<MethodTransform> transforms) {
-        this(targetClasses, targetMethods, targetInjectionPoints, targetAnnotations, map -> true, List.of(), transforms);
-    }
 
     private ClassPatchInstance(List<String> targetClasses, List<MethodMatcher> targetMethods, List<InjectionPointMatcher> targetInjectionPoints, List<String> targetAnnotations, Predicate<AnnotationHandle> targetAnnotationValues, List<ClassTransform> classTransforms, List<MethodTransform> transforms) {
         super(targetClasses, targetAnnotations, targetAnnotationValues, classTransforms, transforms);
 
         this.targetMethods = targetMethods;
         this.targetInjectionPoints = targetInjectionPoints;
-    }
-
-    @Override
-    public Codec<? extends PatchInstance> codec() {
-        return CODEC;
     }
 
     @Override

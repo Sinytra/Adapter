@@ -1,23 +1,17 @@
 package org.sinytra.adapter.patch.util;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.DataResult;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
-import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nullable String desc) {
     public static final Pattern METHOD_QUALIFIER_PATTERN = Pattern.compile("^(?<owner>L.+?;)?(?<name>[^(:]+)?(?<desc>\\((?:\\[*[ZCBSIFJD]|\\[*L[a-zA-Z0-9/_$]+;)*\\)(?:\\[*[VZCBSIFJD]|\\[?L[a-zA-Z0-9/_;$]+))?$");
-    public static final Codec<MethodQualifier> CODEC = Codec.STRING.comapFlatMap(
-        str -> create(str).map(DataResult::success).orElseGet(() -> DataResult.error(() -> "Invalid method qualifier string " + str)),
-        qualifier -> Objects.requireNonNullElse(qualifier.name(), "") + Objects.requireNonNullElse(qualifier.desc(), ""));
 
     public MethodQualifier(@Nullable String name, @Nullable String desc) {
         this(null, name, desc);

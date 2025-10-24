@@ -1,7 +1,6 @@
 package org.sinytra.adapter.patch.util;
 
 import com.mojang.logging.LogUtils;
-import com.mojang.serialization.Codec;
 import it.unimi.dsi.fastutil.ints.Int2IntFunction;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -29,7 +28,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public final class AdapterUtil {
-    public static final Codec<Type> TYPE_CODEC = Codec.STRING.xmap(Type::getType, Type::getDescriptor);
     public static final String LAMBDA_PREFIX = "lambda$";
     private static final Pattern FIELD_REF_PATTERN = Pattern.compile("^(?<owner>L.+?;)?(?<name>[^:]+)?:(?<desc>.+)?$");
     public static final Type CI_TYPE = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfo");

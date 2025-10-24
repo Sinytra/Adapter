@@ -1,30 +1,18 @@
 package org.sinytra.adapter.patch.transformer.operation.unit;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.api.*;
-import org.sinytra.adapter.patch.fixes.MethodUpgrader;
+import org.sinytra.adapter.patch.transformer.MethodUpgrader;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.List;
 
 public record ModifyInjectionTarget(List<String> replacementMethods, Action action) implements MethodTransform {
-    public static final Codec<ModifyInjectionTarget> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        Codec.STRING.listOf().fieldOf("replacementMethods").forGetter(ModifyInjectionTarget::replacementMethods),
-        Action.CODEC.optionalFieldOf("action", Action.OVERWRITE).forGetter(ModifyInjectionTarget::action)
-    ).apply(instance, ModifyInjectionTarget::new));
-
     public ModifyInjectionTarget(List<String> replacementMethods) {
         this(replacementMethods, Action.OVERWRITE);
-    }
-
-    @Override
-    public Codec<? extends MethodTransform> codec() {
-        return CODEC;
     }
 
     @Override
@@ -70,7 +58,6 @@ public record ModifyInjectionTarget(List<String> replacementMethods, Action acti
         }),
         OVERWRITE((handle, targets, replacements) -> handle.set(replacements));
 
-        private static final Codec<Action> CODEC = Codec.STRING.xmap(Action::valueOf, Action::name);
         private final TargetHandler handler;
 
         Action(TargetHandler handler) {

@@ -1,6 +1,5 @@
 package org.sinytra.adapter.patch.api;
 
-import com.mojang.serialization.Codec;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.ClassNode;
@@ -13,7 +12,6 @@ import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 
 public interface Patch {
     static ClassPatchBuilder builder() {
@@ -25,8 +23,6 @@ public interface Patch {
     }
 
     Result apply(ClassNode classNode, PatchEnvironment environment);
-
-    Codec<? extends Patch> codec();
 
     enum Result {
         PASS,

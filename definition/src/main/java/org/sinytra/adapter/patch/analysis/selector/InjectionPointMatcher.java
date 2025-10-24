@@ -1,7 +1,5 @@
 package org.sinytra.adapter.patch.analysis.selector;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.jetbrains.annotations.Nullable;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
@@ -10,15 +8,6 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 public record InjectionPointMatcher(@Nullable String value, TargetMatcher target) {
-    public static final Codec<InjectionPointMatcher> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        Codec.STRING.optionalFieldOf("value").forGetter(i -> Optional.ofNullable(i.value())),
-        Codec.STRING.fieldOf("target").forGetter(m -> m.target().target())
-    ).apply(instance, InjectionPointMatcher::new));
-
-    public InjectionPointMatcher(Optional<String> value, String target) {
-        this(value.orElse(null), target);
-    }
-
     public InjectionPointMatcher(@Nullable String value, String target) {
         this(value, TargetMatcher.create(target));
     }

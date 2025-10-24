@@ -1,13 +1,8 @@
 package org.sinytra.adapter.patch.analysis.selector;
 
-import com.mojang.serialization.Codec;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Objects;
-
 public class MethodMatcher {
-    public static final Codec<MethodMatcher> CODEC = Codec.STRING.xmap(MethodMatcher::new, matcher -> matcher.name + Objects.requireNonNullElse(matcher.desc, ""));
-
     private final String name;
     @Nullable
     private final String desc;

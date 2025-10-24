@@ -1,8 +1,6 @@
 package org.sinytra.adapter.patch.transformer;
 
 import com.mojang.datafixers.util.Pair;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.InheritanceHandler;
@@ -11,7 +9,6 @@ import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
 import org.sinytra.adapter.patch.transformer.operation.param.TransformParameters;
-import org.sinytra.adapter.patch.transformer.serialization.MethodTransformSerialization;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
@@ -20,16 +17,6 @@ import java.util.List;
 import java.util.Set;
 
 public record SoftMethodParamsPatch(String replacementTarget, MethodTransform targetTransform) implements MethodTransform {
-    public static final Codec<SoftMethodParamsPatch> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        Codec.STRING.fieldOf("replacementTarget").forGetter(SoftMethodParamsPatch::replacementTarget),
-        MethodTransformSerialization.METHOD_TRANSFORM_CODEC.fieldOf("targetTransform").forGetter(SoftMethodParamsPatch::targetTransform)
-    ).apply(instance, SoftMethodParamsPatch::new));
-
-    @Override
-    public Codec<? extends MethodTransform> codec() {
-        return CODEC;
-    }
-
     @Override
     public Collection<String> getAcceptedAnnotations() {
         return Set.of(MixinConstants.INJECT, MixinConstants.REDIRECT);

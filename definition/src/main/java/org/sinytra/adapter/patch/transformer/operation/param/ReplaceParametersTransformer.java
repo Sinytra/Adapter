@@ -1,8 +1,6 @@
 package org.sinytra.adapter.patch.transformer.operation.param;
 
 import com.mojang.logging.LogUtils;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -12,7 +10,6 @@ import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchContext;
 import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
 import org.sinytra.adapter.patch.fixes.TypeAdapter;
-import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.slf4j.Logger;
 
 import java.util.List;
@@ -22,11 +19,6 @@ import static org.sinytra.adapter.patch.transformer.operation.param.ParamTransfo
 
 // TODO Just add @Coerce if the types are inherited
 public record ReplaceParametersTransformer(int index, Type type, boolean upgradeUsage) implements ParameterTransformer {
-    static final Codec<ReplaceParametersTransformer> CODEC = RecordCodecBuilder.create(in -> in.group(
-        Codec.intRange(0, 255).fieldOf("index").forGetter(ReplaceParametersTransformer::index),
-        AdapterUtil.TYPE_CODEC.fieldOf("type").forGetter(ReplaceParametersTransformer::type)
-    ).apply(in, ReplaceParametersTransformer::new));
-
     private static final Logger LOGGER = LogUtils.getLogger();
 
     public ReplaceParametersTransformer(int index, Type type) {
@@ -91,10 +83,5 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
         }
 
         return Patch.Result.COMPUTE_FRAMES;
-    }
-
-    @Override
-    public Codec<? extends ParameterTransformer> codec() {
-        return CODEC;
     }
 }

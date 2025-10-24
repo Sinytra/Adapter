@@ -1,8 +1,7 @@
 package org.sinytra.adapter.patch.transformer.operation.param;
 
-import com.mojang.serialization.Codec;
-import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
+import org.sinytra.adapter.patch.api.MixinConstants;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -15,8 +14,6 @@ public enum ParamTransformTarget {
     METHOD(MixinConstants.INJECT, MixinConstants.OVERWRITE, MixinConstants.MODIFY_VAR),
     INJECTION_POINT(MixinConstants.REDIRECT, MixinConstants.MODIFY_ARG, MixinConstants.MODIFY_ARGS, MixinConstants.WRAP_OPERATION),
     METHOD_EXT(MixinConstants.INJECT, MixinConstants.REDIRECT, MixinConstants.OVERWRITE, MixinConstants.MODIFY_VAR);
-
-    public static final Codec<ParamTransformTarget> CODEC = Codec.STRING.xmap(ParamTransformTarget::from, ParamTransformTarget::name);
 
     private final Set<String> targetMixinTypes;
 

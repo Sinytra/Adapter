@@ -1,12 +1,8 @@
 package org.sinytra.adapter.patch.transformer.operation;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.api.*;
-import org.sinytra.adapter.patch.transformer.serialization.MethodTransformFilterSerialization;
-import org.sinytra.adapter.patch.transformer.serialization.MethodTransformSerialization;
 import org.sinytra.adapter.patch.util.MethodTransformBuilderImpl;
 
 import java.util.ArrayList;
@@ -16,43 +12,22 @@ import java.util.function.Supplier;
 
 // TODO Convert into universal operations interface to avoid using raw constructors
 public class CompoundMethodTransform implements MethodTransform {
-    public static final Codec<CompoundMethodTransform> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        MethodTransformSerialization.METHOD_TRANSFORM_CODEC.listOf().fieldOf("transforms").forGetter(m -> m.transforms),
-        MethodTransformFilterSerialization.METHOD_TRANSFORM_FILTER_CODEC.listOf().optionalFieldOf("filters", List.of()).forGetter(m -> m.filters)
-    ).apply(instance, CompoundMethodTransform::new));
-
     private final List<MethodTransform> transforms;
     private final List<Supplier<MethodTransform>> onSuccess;
     private final List<Supplier<MethodTransform>> onFail;
-    private final List<MethodTransformFilter> filters;
 
     private CompoundMethodTransform(List<MethodTransform> transforms) {
         this(transforms, List.of(), List.of(), List.of());
-    }
-
-    private CompoundMethodTransform(List<MethodTransform> transforms, List<MethodTransformFilter> filters) {
-        this(transforms, List.of(), List.of(), filters);
     }
 
     private CompoundMethodTransform(List<MethodTransform> transforms, List<Supplier<MethodTransform>> onSuccess, List<Supplier<MethodTransform>> onFail, List<MethodTransformFilter> filters) {
         this.transforms = transforms;
         this.onSuccess = onSuccess;
         this.onFail = onFail;
-        this.filters = filters;
-    }
-
-    @Override
-    public Codec<? extends MethodTransform> codec() {
-        return CODEC;
     }
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
-        for (MethodTransformFilter filter : filters) {
-            if (!filter.test(methodContext)) {
-                return Patch.Result.PASS;
-            }
-        }
         Patch.Result result = this.transforms.stream()
             .reduce(Patch.Result.PASS, (a, b) -> a.or(b.apply(methodContext)), Patch.Result::or);
         for (Supplier<MethodTransform> supplier : result == Patch.Result.PASS ? this.onFail : this.onSuccess) {
@@ -105,13 +80,6 @@ public class CompoundMethodTransform implements MethodTransform {
 
         public Builder onFail(Supplier<MethodTransform> onFail) {
             this.onFail.add(onFail);
-            return this;
-        }
-
-        public Builder onFail(Consumer<MethodTransformBuilder<?>> consumer) {
-            BundleBuilder builder = new BundleBuilder();
-            consumer.accept(builder);
-            this.onFail.add(() -> new CompoundMethodTransform(builder.build()));
             return this;
         }
 

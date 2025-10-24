@@ -1,20 +1,17 @@
 package org.sinytra.adapter.patch.transformer.operation.param;
 
 import com.mojang.datafixers.util.Pair;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.TypeReference;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.patch.analysis.locals.LVTSnapshot;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchContext;
-import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.analysis.locals.LVTSnapshot;
-import org.sinytra.adapter.patch.fixes.ModifyArgsOffsetTransformer;
-import org.sinytra.adapter.patch.util.AdapterUtil;
+import org.sinytra.adapter.patch.transformer.ModifyArgsOffsetTransformer;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,11 +21,6 @@ import static org.sinytra.adapter.patch.transformer.operation.param.ParamTransfo
 import static org.sinytra.adapter.patch.transformer.operation.param.ParamTransformationUtil.extractWrapOperation;
 
 public record InjectParameterTransform(int index, Type type, boolean upgradeWrapOperation) implements ParameterTransformer {
-    static final Codec<InjectParameterTransform> CODEC = RecordCodecBuilder.create(in -> in.group(
-        Codec.intRange(0, 255).fieldOf("index").forGetter(InjectParameterTransform::index),
-        AdapterUtil.TYPE_CODEC.fieldOf("parameterType").forGetter(InjectParameterTransform::type)
-    ).apply(in, InjectParameterTransform::new));
-
     public InjectParameterTransform(int index, Type type) {
         this(index, type, true);
     }
@@ -78,11 +70,6 @@ public record InjectParameterTransform(int index, Type type, boolean upgradeWrap
         }
 
         return Patch.Result.APPLY;
-    }
-
-    @Override
-    public Codec<? extends ParameterTransformer> codec() {
-        return CODEC;
     }
 
     public static void offsetParameters(MethodNode methodNode, int paramIndex) {

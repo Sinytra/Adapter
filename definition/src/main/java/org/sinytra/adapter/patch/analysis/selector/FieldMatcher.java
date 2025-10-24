@@ -1,13 +1,8 @@
 package org.sinytra.adapter.patch.analysis.selector;
 
-import com.mojang.serialization.Codec;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Objects;
-
 public class FieldMatcher {
-    public static final Codec<FieldMatcher> CODEC = Codec.STRING.xmap(FieldMatcher::new, field -> field.name + Objects.requireNonNullElse(field.desc, ""));
-
     private final String name;
     @Nullable
     private final String desc;

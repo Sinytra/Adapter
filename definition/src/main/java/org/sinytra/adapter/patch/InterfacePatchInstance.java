@@ -1,54 +1,31 @@
 package org.sinytra.adapter.patch;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.DataResult;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
+import org.sinytra.adapter.patch.analysis.selector.FieldMatcher;
 import org.sinytra.adapter.patch.api.ClassTransform;
 import org.sinytra.adapter.patch.api.MethodTransform;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.PatchEnvironment;
-import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.analysis.selector.FieldMatcher;
-import org.sinytra.adapter.patch.transformer.serialization.MethodTransformSerialization;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 public final class InterfacePatchInstance extends PatchInstance {
     public static final Collection<String> KNOWN_INTERFACE_MIXIN_TYPES = Set.of(MixinConstants.ACCESSOR);
 
-    public static final Codec<InterfacePatchInstance> CODEC = RecordCodecBuilder
-        .<InterfacePatchInstance>create(instance -> instance.group(
-            Codec.STRING.listOf().optionalFieldOf("targetClasses", List.of()).forGetter(p -> p.targetClasses),
-            FieldMatcher.CODEC.listOf().optionalFieldOf("targetFields", List.of()).forGetter(p -> p.targetFields),
-            Codec.STRING.listOf().optionalFieldOf("targetAnnotations", List.of()).forGetter(p -> p.targetAnnotations),
-            MethodTransformSerialization.METHOD_TRANSFORM_CODEC.listOf().fieldOf("transforms").forGetter(p -> p.transforms)
-        ).apply(instance, InterfacePatchInstance::new))
-        .flatComapMap(Function.identity(), obj -> obj.targetAnnotationValues != null ? DataResult.error(() -> "Cannot serialize targetAnnotationValues") : DataResult.success(obj));
-
     private final List<FieldMatcher> targetFields;
-
-    private InterfacePatchInstance(List<String> targetClasses, List<FieldMatcher> targetFields, List<String> targetAnnotations, List<MethodTransform> transforms) {
-        this(targetClasses, targetFields, targetAnnotations, map -> true, List.of(), transforms);
-    }
 
     private InterfacePatchInstance(List<String> targetClasses, List<FieldMatcher> targetFields, List<String> targetAnnotations, Predicate<AnnotationHandle> targetAnnotationValues, List<ClassTransform> classTransforms, List<MethodTransform> transforms) {
         super(targetClasses, targetAnnotations, targetAnnotationValues, classTransforms, transforms);
 
         this.targetFields = targetFields;
-    }
-
-    @Override
-    public Codec<? extends PatchInstance> codec() {
-        return CODEC;
     }
 
     @Override

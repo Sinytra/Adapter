@@ -17,7 +17,7 @@ import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchAuditTrail;
-import org.sinytra.adapter.patch.fixes.MethodUpgrader;
+import org.sinytra.adapter.patch.transformer.MethodUpgrader;
 import org.sinytra.adapter.patch.transformer.operation.CompoundMethodTransform;
 import org.sinytra.adapter.patch.transformer.operation.param.*;
 import org.sinytra.adapter.patch.transformer.operation.unit.ModifyInjectionPoint;

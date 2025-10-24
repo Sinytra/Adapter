@@ -1,14 +1,13 @@
 package org.sinytra.adapter.patch.transformer.operation.param;
 
-import com.mojang.serialization.Codec;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.patch.analysis.locals.LVTSnapshot;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchContext;
-import org.sinytra.adapter.patch.analysis.locals.LVTSnapshot;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 
 import java.util.List;
@@ -16,10 +15,6 @@ import java.util.List;
 import static org.sinytra.adapter.patch.transformer.operation.param.ParamTransformationUtil.extractWrapOperation;
 
 public record RemoveParameterTransformer(int index, boolean upgradeWrapOperation) implements ParameterTransformer {
-    public static final Codec<RemoveParameterTransformer> CODEC = Codec.intRange(0, 255)
-        .fieldOf("index").xmap(RemoveParameterTransformer::new, RemoveParameterTransformer::index)
-        .codec();
-
     public RemoveParameterTransformer(int index) {
         this(index, true);
     }
@@ -51,10 +46,5 @@ public record RemoveParameterTransformer(int index, boolean upgradeWrapOperation
         parameters.remove(target);
 
         return Patch.Result.COMPUTE_FRAMES;
-    }
-
-    @Override
-    public Codec<? extends ParameterTransformer> codec() {
-        return CODEC;
     }
 }

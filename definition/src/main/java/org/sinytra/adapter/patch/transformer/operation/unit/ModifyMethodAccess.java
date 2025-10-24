@@ -1,7 +1,5 @@
 package org.sinytra.adapter.patch.transformer.operation.unit;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -12,21 +10,7 @@ import java.util.Arrays;
 import java.util.List;
 
 public record ModifyMethodAccess(List<AccessChange> changes) implements MethodTransform {
-    public static final Codec<ModifyMethodAccess> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        AccessChange.CODEC.listOf().fieldOf("changes").forGetter(ModifyMethodAccess::changes)
-    ).apply(instance, ModifyMethodAccess::new));
-
-    public record AccessChange(boolean add, int modifier) {
-        public static final Codec<AccessChange> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Codec.BOOL.fieldOf("add").forGetter(AccessChange::add),
-            Codec.INT.fieldOf("modifier").forGetter(AccessChange::modifier)
-        ).apply(instance, AccessChange::new));
-    }
-
-    @Override
-    public Codec<? extends MethodTransform> codec() {
-        return CODEC;
-    }
+    public record AccessChange(boolean add, int modifier) {}
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
