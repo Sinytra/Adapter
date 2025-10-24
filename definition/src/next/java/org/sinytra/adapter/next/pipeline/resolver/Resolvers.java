@@ -1,6 +1,7 @@
 package org.sinytra.adapter.next.pipeline.resolver;
 
 import org.sinytra.adapter.next.env.OrderedRegistry;
+import org.sinytra.adapter.next.pipeline.resolver.target.SplitTargetMethodSubResolver;
 
 public class Resolvers extends OrderedRegistry<Resolver> {
 
@@ -9,7 +10,10 @@ public class Resolvers extends OrderedRegistry<Resolver> {
     }
 
     private void registerDefaultResolvers() {
-        add(new TargetMethodResolver());
+        TargetMethodResolver targetMethodResolver = new TargetMethodResolver();
+        targetMethodResolver.addSubResolver(new SplitTargetMethodSubResolver());
+        add(targetMethodResolver);
+
         add(new InjectionTargetResolver());
     }
 }

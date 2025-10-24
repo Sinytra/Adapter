@@ -168,24 +168,4 @@ public class ParameterComparisonTest {
         diff.removals().forEach(param -> System.out.println("AT " + param));
         assertTrue(diff.removals().isEmpty());
     }
-
-    // TODO Handle this case
-//    @Test
-//    public void testCompareComplexParameters() {
-//        Type[] original = new Type[]{Type.getType(String.class), Type.INT_TYPE, Type.getType(Object.class)};
-//        Type[] modified = new Type[]{Type.getType(String.class), Type.FLOAT_TYPE, Type.getType(Set.class), Type.DOUBLE_TYPE, Type.getType(Object.class), Type.INT_TYPE};
-//
-//        ParametersDiff diff = ParametersDiff.compareTypeParameters(original, modified);
-//        System.out.println("Original originalCount: " + original.length);
-//        System.out.println("Actual originalCount: " + diff.originalCount());
-//        assertEquals(original.length, diff.originalCount());
-//
-//        System.out.println("Insertions:");
-//        diff.insertions().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
-//        assertEquals(2, diff.insertions().size());
-//
-//        System.out.println("Replacements:");
-//        diff.replacements().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
-//        assertEquals(1, diff.replacements().size());
-//    }
 }

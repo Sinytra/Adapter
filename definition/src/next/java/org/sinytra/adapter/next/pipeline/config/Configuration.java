@@ -18,5 +18,7 @@ public interface Configuration {
     
     Type getReturnType();
 
+    boolean hasProperty(String key);
+
     <T> Optional<T> getProperty(String key);
 }

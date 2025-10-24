@@ -19,12 +19,26 @@ public class EntityMixin {
     }
 
     // https://github.com/Maxmani/arcadian-dream/blob/46aef7b6c35790ccc4b7a9236aa25907cc743d94/src/main/java/net/reimaden/arcadiandream/mixin/EntityMixin.java#L28
-    @ModifyExpressionValue(method = "updateFluidHeightAndDoFluidPushing(Lnet/minecraft/tags/TagKey;D)Z", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/phys/Vec3;length()D", ordinal = 0))
+    @ModifyExpressionValue(
+        method = "updateFluidHeightAndDoFluidPushing(Lnet/minecraft/tags/TagKey;D)Z",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/world/phys/Vec3;length()D",
+            ordinal = 0
+        )
+    )
     private double preventPushFromFluids(double original) {
         return original;
     }
 
-    @ModifyExpressionValue(method = "lambda$updateFluidHeightAndDoFluidPushing$22(Lnet/neoforged/neoforge/fluids/FluidType;Lnet/minecraft/world/entity/Entity$1InterimCalculation;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/phys/Vec3;length()D", ordinal = 0))
+    @ModifyExpressionValue(
+        method = "lambda$updateFluidHeightAndDoFluidPushing$22(Lnet/neoforged/neoforge/fluids/FluidType;Lnet/minecraft/world/entity/Entity$1InterimCalculation;)V",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/world/phys/Vec3;length()D",
+            ordinal = 0
+        )
+    )
     private double preventPushFromFluidsExpected(double original) {
         return original;
     }

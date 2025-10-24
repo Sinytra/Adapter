@@ -7,4 +7,5 @@ public class MixinAnnotationConstants {
     public static final String AT_SHIFT = "shift";
 
     public static final String PROPERTY_ORDINAL = "ordinal";
+    public static final String PROPERTY_INDEX = "index";
 }

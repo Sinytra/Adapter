@@ -22,7 +22,8 @@ import java.util.function.UnaryOperator;
 public class DynFixArbitraryInjectionPoint implements DynamicFixer<DynFixArbitraryInjectionPoint.Data> {
     private static final Set<String> ACCEPTED_ANNOTATIONS = Set.of(MixinConstants.INJECT, MixinConstants.MODIFY_ARG, MixinConstants.MODIFY_EXPR_VAL);
 
-    public record Data(MethodContext.TargetPair dirtyTarget, AbstractInsnNode cleanInjectionInsn) {}
+    public record Data(MethodContext.TargetPair dirtyTarget, AbstractInsnNode cleanInjectionInsn) {
+    }
 
     @Nullable
     @Override
@@ -62,6 +63,14 @@ public class DynFixArbitraryInjectionPoint implements DynamicFixer<DynFixArbitra
         }
 
         if (targetMethodCall != null) {
+            if (targetMethodCall.owner.equals(data.dirtyTarget().classNode().name)) {
+                MethodNode target = MethodCallAnalyzer.findMethodByName(data.dirtyTarget().classNode(), targetMethodCall.name, targetMethodCall.desc).orElseThrow();
+                List<AbstractInsnNode> insns = methodContext.findInjectionTargetInsns(new MethodContext.TargetPair(data.dirtyTarget.classNode(), target));
+                if (insns.isEmpty()) {
+                    return null;
+                }
+            }
+
             // New method is in the same class? It's possible our target injection point was moved there
             if (targetMethodCall.owner.equals(data.dirtyTarget().classNode().name) && !methodContext.methodAnnotation().matchesDesc(MixinConstants.INJECT)) {
                 return tryMoveTargetMethod(targetMethodCall, methodContext);

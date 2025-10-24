@@ -27,7 +27,6 @@ public class ModifyExpressionValueMixin implements MixinType<ModifyExpressionVal
         clean.setParameters(MethodParameters.create(context.methodNode().desc, List.of(SINGLE_ANY, CAPTURED_PARAMS)));
     }
 
-    // TODO Find universal way of handling captured method params
     @Override
     public void postProcess(ModifyExpressionValueMixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
         if (dirty.getTargetMethod() == null) return;

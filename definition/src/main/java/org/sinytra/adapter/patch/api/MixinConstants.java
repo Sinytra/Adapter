@@ -31,10 +31,11 @@ public class MixinConstants {
     // Misc
     public static final String MIXIN = "Lorg/spongepowered/asm/mixin/Mixin;";
     public static final String AT = "Lorg/spongepowered/asm/mixin/injection/At;";
-    public static final String AT_SHIFT = "Lorg/spongepowered/asm/mixin/injection/At$Shift;";
     public static final String UNIQUE = "Lorg/spongepowered/asm/mixin/Unique;";
     public static final String SHADOW = "Lorg/spongepowered/asm/mixin/Shadow;";
     public static final String COERCE = "Lorg/spongepowered/asm/mixin/injection/Coerce;";
     public static final String CONSTANT = "Lorg/spongepowered/asm/mixin/injection/Constant;";
     public static final List<Integer> LVT_COMPATIBILITY_LEVELS = List.of(FabricUtil.COMPATIBILITY_0_10_0, FabricUtil.COMPATIBILITY_0_9_2);
+
+    public static final String DEPRECATED = "Ljava/lang/Deprecated;";
 }

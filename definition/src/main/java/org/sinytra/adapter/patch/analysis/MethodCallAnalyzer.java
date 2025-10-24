@@ -8,7 +8,10 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.*;
+import org.sinytra.adapter.patch.api.MixinConstants;
+import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
+import org.sinytra.adapter.patch.util.OpcodeUtil;
 
 import java.util.*;
 import java.util.function.BiPredicate;
@@ -19,6 +22,31 @@ public class MethodCallAnalyzer {
     public static final UnaryOperator<AbstractInsnNode> FORWARD = AbstractInsnNode::getNext;
     public static final UnaryOperator<AbstractInsnNode> BACKWARDS = AbstractInsnNode::getPrevious;
     public static final String LAMBDA_PREFIX = "lambda$";
+
+    public static boolean isDirtyDeprecatedMethod(MethodNode clean, MethodNode dirty) {
+        return !AdapterUtil.hasAnnotation(clean.visibleAnnotations, MixinConstants.DEPRECATED) && AdapterUtil.hasAnnotation(dirty.visibleAnnotations, MixinConstants.DEPRECATED);
+    }
+
+    @Nullable
+    public static List<MethodNode> collectMethodInvocations(ClassNode cls, MethodNode mtd) {
+        // Iterate over isns, leave out first and last elements
+        // Collect method invocations
+        // All labels must be finalized by a method invocation to pass
+        List<MethodNode> invocations = new ArrayList<>();
+        for (int i = 1; i < mtd.instructions.size() - 1; i++) {
+            AbstractInsnNode insn = mtd.instructions.get(i);
+            if (insn instanceof LabelNode) {
+                AbstractInsnNode previous = insn.getPrevious();
+                if (previous instanceof MethodInsnNode methodInsn && methodInsn.owner.equals(cls.name)) {
+                    MethodNode method = cls.methods.stream().filter(m -> m.name.equals(methodInsn.name) && m.desc.equals(methodInsn.desc)).findFirst().orElseThrow();
+                    invocations.add(method);
+                } else if (previous == null || !OpcodeUtil.isReturnOpcode(previous.getOpcode())) {
+                    return null;
+                }
+            }
+        }
+        return invocations;
+    }
 
     public static List<String> findLambdasInMethod(ClassNode cls, MethodNode method, @Nullable Multimap<String, MethodNode> methods) {
         List<String> list = new ArrayList<>();
@@ -50,7 +78,7 @@ public class MethodCallAnalyzer {
         return Optional.of(methods.getFirst());
     }
 
-    public static Optional<MethodNode> findMethodByNameOrThrow(ClassNode cls, String name, @Nullable String desc) {
+    public static Optional<MethodNode> findMethodByName(ClassNode cls, String name, @Nullable String desc) {
         return cls.methods.stream()
             .filter(m -> m.name.equals(name) && (desc == null || m.desc.equals(desc)))
             .findFirst();
@@ -161,7 +189,7 @@ public class MethodCallAnalyzer {
         List<AbstractInsnNode> insns = findMethodCallParamInsns(methodNode, minsn);
         if (minsn != null) {
             List<AbstractInsnNode> fullInsns = new ArrayList<>();
-            for (AbstractInsnNode i = insns.getFirst(); i != null ; i = i.getNext()) {
+            for (AbstractInsnNode i = insns.getFirst(); i != null; i = i.getNext()) {
                 if (i == minsn) {
                     break;
                 }
@@ -170,10 +198,6 @@ public class MethodCallAnalyzer {
             return fullInsns;
         }
         return null;
-    }
-
-    public static <T> List<T> analyzeMethod(MethodNode methodNode, NaryOperationHandler<T> handler) {
-        return analyzeMethod(methodNode, (insn, values) -> true, handler);
     }
 
     public static <T> List<T> analyzeMethod(MethodNode methodNode, BiPredicate<MethodInsnNode, List<? extends SourceValue>> filter, NaryOperationHandler<T> handler) {

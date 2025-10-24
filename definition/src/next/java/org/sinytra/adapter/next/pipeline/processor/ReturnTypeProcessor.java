@@ -4,8 +4,6 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.objectweb.asm.tree.analysis.Analyzer;
-import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.SourceInterpreter;
 import org.objectweb.asm.tree.analysis.SourceValue;
 import org.sinytra.adapter.next.env.MixinContext;
@@ -13,6 +11,7 @@ import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.TxResult;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
+import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.fixes.TypeAdapter;
 
 import java.util.ArrayList;
@@ -33,15 +32,7 @@ public class ReturnTypeProcessor implements Processor {
             return TxResult.PASS;
         }
 
-        // TODO API
-        ReturnInterpreter inter = new ReturnInterpreter();
-        Analyzer<?> analyzer = new Analyzer<>(inter);
-        try {
-            analyzer.analyze(context.methodNode().name, context.methodNode());
-        } catch (AnalyzerException e) {
-            throw new RuntimeException(e);
-        }
-
+        ReturnInterpreter inter = MethodCallAnalyzer.analyzeInterpretMethod(context.methodNode(), new ReturnInterpreter());
         for (AbstractInsnNode insn : inter.insns) {
             if (insn.getOpcode() != Opcodes.ACONST_NULL) {
                 adapter.apply(context.methodNode().instructions, insn);

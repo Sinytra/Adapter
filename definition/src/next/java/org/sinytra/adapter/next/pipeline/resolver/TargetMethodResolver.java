@@ -21,6 +21,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TargetMethodResolver implements Resolver {
+    private static final String DEPRECATED = "Ljava/lang/Deprecated;";
+
+    private final List<Resolver> subResolvers = new ArrayList<>();
+
+    public void addSubResolver(Resolver subResolver) {
+        this.subResolvers.add(subResolver);
+    }
+
     @Override
     public TxResult resolve(MixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
         // Conditions
@@ -39,7 +47,14 @@ public class TargetMethodResolver implements Resolver {
             || handleMovedIntoLambda(context, cleanQualifier, dirty)
         )
             return TxResult.SUCCESS;
-        
+
+        for (Resolver subResolver : this.subResolvers) {
+            TxResult result = subResolver.resolve(mixin, context, clean, dirty, recipe);
+            if (result != TxResult.PASS) {
+                return result;
+            }
+        }
+
         // Fallback to original if the method exists
         if (target != null) {
             dirty.inheritTargetMethod();
@@ -100,6 +115,12 @@ public class TargetMethodResolver implements Resolver {
         return false;
     }
 
+    public static boolean isDirtyDeprecatedMethod(MixinContext context, MethodNode dirty) {
+        MethodContext.TargetPair pair = context.methods().findOwnMethodPair(context.cleanLookup(), MethodQualifier.create(dirty));
+        return (pair == null || !AdapterUtil.hasAnnotation(pair.methodNode().visibleAnnotations, DEPRECATED))
+            && !AdapterUtil.hasAnnotation(dirty.visibleAnnotations, DEPRECATED);
+    }
+
     @Nullable
     private static MethodNode resolveReplacementCandidate(MixinContext context, ClassNode classNode, List<MethodNode> methods) {
         if (methods.size() == 1) {
@@ -117,7 +138,7 @@ public class TargetMethodResolver implements Resolver {
         }
 
         List<MethodNode> nonDeprecated = methods.stream()
-            .filter(m -> !AdapterUtil.hasAnnotation(m.visibleAnnotations, "Ljava/lang/Deprecated;"))
+            .filter(m -> !isDirtyDeprecatedMethod(context, m))
             .toList();
         if (nonDeprecated.size() == 1) {
             return nonDeprecated.getFirst();

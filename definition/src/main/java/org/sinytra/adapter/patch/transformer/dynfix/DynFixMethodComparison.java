@@ -128,8 +128,8 @@ public class DynFixMethodComparison implements DynamicFixer<DynFixMethodComparis
             if (dirtyMethod == null) {
                 return null;
             }
-            if (DynFixSplitMethod.isDirtyDeprecatedMethod(cleanMethod, dirtyMethod)) {
-                List<MethodNode> invocations = DynFixSplitMethod.collectMethodInvocations(dirtyTarget.classNode(), dirtyMethod);
+            if (MethodCallAnalyzer.isDirtyDeprecatedMethod(cleanMethod, dirtyMethod)) {
+                List<MethodNode> invocations = MethodCallAnalyzer.collectMethodInvocations(dirtyTarget.classNode(), dirtyMethod);
                 if (invocations != null) {
                     MethodNode last = invocations.getLast();
                     if (last.desc.equals(dirtyMethod.desc)) {

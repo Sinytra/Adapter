@@ -133,7 +133,7 @@ public class GuiMixin {
     }
 
     @ModifyVariable(
-        method = "Lnet/minecraft/client/gui/Gui;renderPlayerHealth(Lnet/minecraft/client/gui/GuiGraphics;)V",
+        method = "renderPlayerHealth(Lnet/minecraft/client/gui/GuiGraphics;)V",
         at = @At("STORE"),
         ordinal = 11
     )

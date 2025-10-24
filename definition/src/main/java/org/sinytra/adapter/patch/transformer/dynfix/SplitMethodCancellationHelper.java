@@ -7,6 +7,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
 import org.objectweb.asm.commons.Method;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinClassGenerator;
 import org.sinytra.adapter.patch.api.MixinConstants;
@@ -22,14 +23,14 @@ public final class SplitMethodCancellationHelper {
         ClassNode originalClassTarget = originalTarget.classNode();
         MethodNode originalMethodTarget = originalTarget.methodNode();
 
-        if (!DynFixSplitMethod.isDirtyDeprecatedMethod(methodContext.findCleanInjectionTarget().methodNode(), originalMethodTarget) || Type.getReturnType(originalMethodTarget.desc) != Type.VOID_TYPE) {
+        if (!MethodCallAnalyzer.isDirtyDeprecatedMethod(methodContext.findCleanInjectionTarget().methodNode(), originalMethodTarget) || Type.getReturnType(originalMethodTarget.desc) != Type.VOID_TYPE) {
             return;
         }
 
         MixinClassGenerator generator = methodContext.patchContext().environment().classGenerator();
         ClassNode generatedTarget = generator.getOrGenerateMixinClass(methodContext.getMixinClass(), originalClassTarget.name, null);
 
-        List<MethodNode> invocations = DynFixSplitMethod.collectMethodInvocations(originalClassTarget, originalMethodTarget);
+        List<MethodNode> invocations = MethodCallAnalyzer.collectMethodInvocations(originalClassTarget, originalMethodTarget);
         if (invocations == null) {
             return;
         }

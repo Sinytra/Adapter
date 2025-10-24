@@ -133,6 +133,11 @@ public class ConfigurationImpl implements MutableConfiguration {
         this.returnType.set(returnType);
     }
 
+    @Override
+    public boolean hasProperty(String key) {
+        return this.properties.containsKey(key);
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public <T> Optional<T> getProperty(String key) {
