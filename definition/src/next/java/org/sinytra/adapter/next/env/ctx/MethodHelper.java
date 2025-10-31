@@ -56,6 +56,13 @@ public class MethodHelper {
     }
 
     @Nullable
+    public MethodNode findOwnMethod(ClassLookup lookup, MethodQualifier qualifier) {
+        return Optional.ofNullable(findOwnMethodPair(lookup, qualifier))
+            .map(TargetPair::methodNode)
+            .orElse(null);
+    }
+
+    @Nullable
     public TargetPair findMethodPair(ClassLookup lookup, MethodQualifier qualifier) {
         return this.methodFinder.findMethod(lookup, qualifier, 0);
     }
@@ -90,8 +97,8 @@ public class MethodHelper {
         // Evaluate parameter difference, capture additional params when necessary
         if (!cleanCaptured.isEmpty()) {
             // TODO Clean up boilerplate
-            MethodNode cleanTarget = findMethod(this.context.cleanLookup(), clean.getTargetMethod());
-            MethodNode dirtyTarget = findMethod(this.context.dirtyLookup(), dirty.getTargetMethod());
+            MethodNode cleanTarget = findOwnMethod(this.context.cleanLookup(), clean.getTargetMethod());
+            MethodNode dirtyTarget = findOwnMethod(this.context.dirtyLookup(), dirty.getTargetMethod());
             if (cleanTarget == null || dirtyTarget == null) return dirtyCaptured;
 
             LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.compareMethodParameters(cleanTarget, dirtyTarget);

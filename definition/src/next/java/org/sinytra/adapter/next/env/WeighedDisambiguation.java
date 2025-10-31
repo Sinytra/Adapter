@@ -1,4 +1,4 @@
-package org.sinytra.adapter.next.analysis;
+package org.sinytra.adapter.next.env;
 
 import org.jetbrains.annotations.Nullable;
 import org.sinytra.adapter.patch.util.AdapterUtil;

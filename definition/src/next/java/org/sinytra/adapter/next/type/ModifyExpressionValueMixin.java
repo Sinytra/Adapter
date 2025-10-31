@@ -24,7 +24,7 @@ public class ModifyExpressionValueMixin implements MixinType<ModifyExpressionVal
 
     @Override
     public void preProcess(ModifyExpressionValueMixinData mixin, MixinContext context, MutableConfiguration clean, Recipe recipe) {
-        clean.setParameters(MethodParameters.create(context.methodNode().desc, List.of(SINGLE_ANY, CAPTURED_PARAMS)));
+        clean.setParameters(MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY, CAPTURED_PARAMS)));
     }
 
     @Override

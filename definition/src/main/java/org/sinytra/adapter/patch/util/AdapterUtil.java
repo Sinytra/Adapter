@@ -193,6 +193,20 @@ public final class AdapterUtil {
         return list;
     }
 
+    public static boolean isParamAnnotated(MethodNode method, int index, String annotationDesc) {
+        if (method.invisibleParameterAnnotations != null && method.invisibleParameterAnnotations.length > index) {
+            List<AnnotationNode> parameterAnnotations = method.invisibleParameterAnnotations[index];
+            if (parameterAnnotations != null) {
+                for (AnnotationNode paramAnn : parameterAnnotations) {
+                    if (annotationDesc.equals(paramAnn.desc)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     @Nullable
     public static CapturedLocals getCapturedLocals(MethodNode methodNode, MethodContext methodContext) {
         AnnotationHandle annotation = methodContext.methodAnnotation();

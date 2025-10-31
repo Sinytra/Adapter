@@ -28,7 +28,7 @@ public class WrapOperationMixin implements MixinType<WrapOperationMixinData> {
 
     @Override
     public void preProcess(WrapOperationMixinData mixin, MixinContext context, MutableConfiguration clean, Recipe recipe) {
-        clean.setParameters(MethodParameters.create(context.methodNode().desc, List.of(METHOD_PARAMS, OPERATION, CAPTURED_PARAMS)));
+        clean.setParameters(MethodParameters.create(context.methodNode(), List.of(METHOD_PARAMS, OPERATION, CAPTURED_PARAMS, LOCALS)));
     }
 
     @Override
@@ -52,6 +52,7 @@ public class WrapOperationMixin implements MixinType<WrapOperationMixinData> {
             .put(METHOD_PARAMS, callTypes)
             .put(OPERATION, AdapterUtil.OPERATION_TYPE)
             .put(CAPTURED_PARAMS, dirtyCaptured)
+            .put(LOCALS, clean.getParameters().get(LOCALS))
             .build();
 
         dirty.setParameters(params);

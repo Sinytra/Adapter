@@ -29,7 +29,7 @@ public class ModifyArgMixin implements MixinType<ModifyArgMixinData> {
 
     @Override
     public void preProcess(ModifyArgMixinData mixin, MixinContext context, MutableConfiguration clean, Recipe recipe) {
-        clean.setParameters(MethodParameters.create(context.methodNode().desc, List.of(SINGLE_ANY)));
+        clean.setParameters(MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY)));
         mixin.index().ifPresent(i -> clean.setProperty(PROPERTY_INDEX, i));
     }
 
@@ -41,7 +41,7 @@ public class ModifyArgMixin implements MixinType<ModifyArgMixinData> {
 
         Type type = findArgType(context, recipe.clean().getAtData(), dirty.getAtData(), dirty);
         if (type != null) {
-            MethodParameters parameters = MethodParameters.create(context.methodNode().desc, List.of(SINGLE_ANY));
+            MethodParameters parameters = MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY));
             parameters.set(SINGLE_ANY, List.of(type));
             dirty.setParameters(parameters);
             dirty.setReturnType(type);

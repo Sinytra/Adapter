@@ -32,7 +32,7 @@ public class ModifyVariableMixin implements MixinType<ModifyVariableMixinData> {
 
     @Override
     public void preProcess(ModifyVariableMixinData mixin, MixinContext context, MutableConfiguration clean, Recipe recipe) {
-        clean.setParameters(MethodParameters.create(context.methodNode().desc, List.of(SINGLE_ANY, LOCALS)));
+        clean.setParameters(MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY, LOCALS)));
 
         recipe.resolvers().getOrThrow(InjectionTargetResolver.class).addSubResolver(new ModifyVarInjectionTargetSubResolver());
     }
@@ -49,7 +49,7 @@ public class ModifyVariableMixin implements MixinType<ModifyVariableMixinData> {
 
             TypeAdapter adapter = context.getTypeAdapter(cleanVarType, dirtyVarType);
             if (adapter != null) {
-                MethodParameters newParams = MethodParameters.create(context.methodNode().desc, List.of(SINGLE_ANY, LOCALS));
+                MethodParameters newParams = MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY, LOCALS));
                 newParams.get(SINGLE_ANY).set(0, dirtyVarType);
 
                 dirty.setParameters(newParams);
