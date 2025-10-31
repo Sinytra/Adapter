@@ -70,6 +70,6 @@ public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nu
         if (this.owner != null) {
             result += this.owner;
         }
-        return result + this.name + this.desc;
+        return result + this.name + (this.desc != null ? this.desc : "");
     }
 }

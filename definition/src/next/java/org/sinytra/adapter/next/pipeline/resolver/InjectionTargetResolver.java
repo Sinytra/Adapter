@@ -1,27 +1,28 @@
 package org.sinytra.adapter.next.pipeline.resolver;
 
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.next.analysis.WeighedDisambiguation;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.AtData;
 import org.sinytra.adapter.next.env.ann.MixinData;
+import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.TxResult;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
-import org.sinytra.adapter.patch.analysis.InsnComparator;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
 
@@ -41,11 +42,11 @@ public class InjectionTargetResolver implements Resolver {
         MethodQualifier dirtyQualifier = dirty.getTargetMethod();
         if (dirtyQualifier == null) return TxResult.FAIL;
 
-        MethodContext.TargetPair pair = context.methods().findOwnMethodPair(context.dirtyLookup(), dirtyQualifier);
-        if (pair == null) return TxResult.FAIL;
+        MethodContext.TargetPair dirtyPair = context.methods().findOwnMethodPair(context.dirtyLookup(), dirtyQualifier);
+        if (dirtyPair == null) return TxResult.FAIL;
 
         // Try reusing the original
-        List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(pair);
+        List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(dirtyPair);
         if (!insns.isEmpty()) {
             dirty.inheritAtData();
             return TxResult.SUCCESS;
@@ -65,14 +66,14 @@ public class InjectionTargetResolver implements Resolver {
         }
 
         // Find replacements
-        if (findReplacedType(context, clean.getTargetMethod(), pair.methodNode(), clean.getAtData(), dirty)) {
+        if (findReplacedType(context, clean.getTargetMethod(), dirtyPair.methodNode(), dirtyPair, clean.getAtData(), dirty)) {
             return TxResult.SUCCESS;
         }
 
         return TxResult.FAIL;
     }
 
-    private static boolean findReplacedType(MixinContext context, MethodQualifier cleanQualifier, MethodNode dirtyMethod, AtData original, MutableConfiguration dirty) {
+    private static boolean findReplacedType(MixinContext context, MethodQualifier cleanQualifier, MethodNode dirtyMethod, MethodContext.TargetPair dirtyPair, AtData original, MutableConfiguration dirty) {
         // Find single clean target minsn
         MethodContext.TargetPair cleanPair = context.methods().findOwnMethodPair(context.cleanLookup(), cleanQualifier);
         List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(cleanPair);
@@ -86,36 +87,60 @@ public class InjectionTargetResolver implements Resolver {
             .map(i -> MethodCallAnalyzer.findSurroundingInstructions(i, INSN_RANGE))
             .toList();
 
-        MethodInsnNode replacement = findBestMatch(context, cleanInsn, cleanMatcher, dirtyMatchers);
+        WeighedDisambiguation<MethodQualifier> magicBlackBox = WeighedDisambiguation.<MethodQualifier>builder()
+            .match(() -> testMatchers(context, cleanInsn, cleanMatcher, dirtyMatchers, false))
+            .match(() -> testMatchers(context, cleanInsn, cleanMatcher, dirtyMatchers, true))
+            .match(() -> testOverloadedMethods(context, cleanInsn, cleanPair))
+            .resultsEqual(MethodQualifier::equals)
+            .build();
+
+        MethodQualifier replacement = magicBlackBox.findBestMatch();
         if (replacement != null) {
-            String target = MethodQualifier.create(replacement).asDescriptor();
-            dirty.setAtData(original.withTarget(target));
+            dirty.setAtData(original.withTarget(replacement.asDescriptor()));
             return true;
         }
 
         return false;
     }
 
-    private static MethodInsnNode findBestMatch(MixinContext context, MethodInsnNode cleanInsn, InstructionMatcher cleanMatcher, List<InstructionMatcher> dirtyMatchers) {
-        Multimap<Integer, MethodInsnNode> matches = HashMultimap.create();
-        for (InstructionMatcher m : dirtyMatchers) {
-            boolean before = cleanMatcher.testBefore(m);
-            boolean after = cleanMatcher.testAfter(m);
-            int priority = before && after ? 2 : before || after ? 1 : 0;
+    private static List<MethodQualifier> testMatchers(MixinContext context, MethodInsnNode cleanInsn, InstructionMatcher cleanMatcher, List<InstructionMatcher> dirtyMatchers, boolean partial) {
+        return dirtyMatchers.stream()
+            .map(m -> {
+                boolean before = cleanMatcher.testBefore(m);
+                boolean after = cleanMatcher.testAfter(m);
+                boolean match = partial ? before || after : before && after;
 
-            MethodInsnNode dirtyInsn = (MethodInsnNode) m.insn();
-            if (priority > 0 && matchesMethodCall(context, cleanInsn, dirtyInsn)) {
-                matches.put(priority, dirtyInsn);
-            }
+                MethodInsnNode dirtyInsn = (MethodInsnNode) m.insn();
+                if (match && matchesMethodCall(context, cleanInsn, dirtyInsn)) {
+                    return dirtyInsn;
+                }
+                return null;
+            })
+            .filter(Objects::nonNull)
+            .map(MethodQualifier::create)
+            .toList();
+    }
+
+    private static List<MethodQualifier> testOverloadedMethods(MixinContext context, MethodInsnNode cleanInsn, MethodContext.TargetPair cleanPair) {
+        ClassNode dirtyClass = context.dirtyLookup().getClass(cleanInsn.owner).orElse(null);
+        if (dirtyClass == null) {
+            return List.of();
         }
-        for (int i = 2; i > 0; --i) {
-            if (matches.containsKey(i)) {
-                return matches.get(i).size() == 1 || AdapterUtil.allElementsEqual(matches.get(i), InsnComparator::insnEqual)
-                    ? matches.get(i).iterator().next()
-                    : null;
-            }
-        }
-        return null;
+
+        List<Type> cleanParams = MethodParameters.getParameterTypes(cleanInsn.desc);
+        List<MethodNode> methods = dirtyClass.methods.stream()
+            .filter(m -> {
+                if (cleanPair.classNode().methods.stream()
+                    .noneMatch(c -> c.name.equals(m.name)
+                        && c.desc.equals(m.desc)) && m.name.equals(cleanInsn.name)
+                ) {
+                    List<Type> dirtyParams = MethodParameters.getParameterTypes(m.desc);
+                    return dirtyParams.size() > cleanParams.size() && dirtyParams.subList(0, cleanParams.size()).equals(cleanParams);
+                }
+                return false;
+            })
+            .toList();
+        return methods.size() == 1 ? List.of(MethodQualifier.create(methods.getFirst())) : List.of();
     }
 
     private static boolean matchesMethodCall(MixinContext context, MethodInsnNode cleanInsn, MethodInsnNode dirtyInsn) {

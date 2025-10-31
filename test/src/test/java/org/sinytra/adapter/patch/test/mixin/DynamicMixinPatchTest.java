@@ -88,7 +88,18 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/pipeline/ServerEntityMixin",
             "modifyCreationData",
-            assertTargetMethod()
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
+    void testChangeInjectMethodParamsInPipeline2() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/ServerboundCustomPayloadPacketMixin",
+            "modifyCodec",
+            assertTargetMethod(),
+            assertInjectionPoint()
         );
     }
 
