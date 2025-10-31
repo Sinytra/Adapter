@@ -140,7 +140,7 @@ public class InjectionTargetResolver implements Resolver {
                 return false;
             })
             .toList();
-        return methods.size() == 1 ? List.of(MethodQualifier.create(methods.getFirst())) : List.of();
+        return methods.size() == 1 ? List.of(MethodQualifier.create(dirtyClass, methods.getFirst())) : List.of();
     }
 
     private static boolean matchesMethodCall(MixinContext context, MethodInsnNode cleanInsn, MethodInsnNode dirtyInsn) {
