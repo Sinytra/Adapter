@@ -146,6 +146,10 @@ public class MethodCallAnalyzer {
         return Type.getObjectType(insn.owner).getDescriptor() + insn.name + insn.desc;
     }
 
+    public static boolean containsMethodCall(MethodNode methodNode, MethodQualifier qualifier) {
+        return !getInvocationInsns(methodNode, qualifier).isEmpty();
+    }
+
     public static List<List<AbstractInsnNode>> getInvocationInsns(MethodNode methodNode, MethodQualifier qualifier) {
         return analyzeMethod(methodNode, (insn, values) -> qualifier.matches(insn) && values.size() > 1, (insn, values) -> {
             List<AbstractInsnNode> insns = new ArrayList<>();

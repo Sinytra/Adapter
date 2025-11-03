@@ -8,6 +8,7 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.next.env.MixinContext;
+import org.sinytra.adapter.next.env.ann.AtData;
 import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.TxResult;
@@ -18,7 +19,9 @@ import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 public class TargetMethodResolver implements Resolver {
     private static final String DEPRECATED = "Ljava/lang/Deprecated;";
@@ -43,7 +46,7 @@ public class TargetMethodResolver implements Resolver {
         }
 
         // Find replacement
-        if (handleChangedMethodParams(context, cleanQualifier, dirty)
+        if (handleChangedMethodParams(mixin, context, clean, dirty, recipe, cleanQualifier)
             || handleMovedIntoLambda(context, cleanQualifier, dirty)
         )
             return TxResult.SUCCESS;
@@ -72,12 +75,12 @@ public class TargetMethodResolver implements Resolver {
      * <br>
      * DIRTY: <code>Lnet/minecraft/server/level/ServerEntity;sendPairingData(Lnet/minecraft/server/level/ServerPlayer;Lnet/neoforged/neoforge/network/bundle/PacketAndPayloadAcceptor;)V</code>
      */
-    private boolean handleChangedMethodParams(MixinContext context, MethodQualifier cleanQualifier, MutableConfiguration dirty) {
+    private boolean handleChangedMethodParams(MixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe, MethodQualifier cleanQualifier) {
         Pair<ClassNode, List<MethodNode>> candidates = context.methods().findOwnMethodsByName(context.dirtyLookup(), cleanQualifier);
         if (candidates == null) return false;
 
         // Find single matching candidate
-        MethodNode resolved = resolveReplacementCandidate(context, candidates.getFirst(), candidates.getSecond());
+        MethodNode resolved = resolveReplacementCandidate(mixin, context, clean, dirty, recipe, candidates.getFirst(), candidates.getSecond());
         if (resolved == null) return false;
 
         // Only apply single candidate change when the target desc has changed
@@ -122,22 +125,36 @@ public class TargetMethodResolver implements Resolver {
     }
 
     @Nullable
-    private static MethodNode resolveReplacementCandidate(MixinContext context, ClassNode classNode, List<MethodNode> methods) {
+    private static MethodNode resolveReplacementCandidate(MixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe, ClassNode classNode, List<MethodNode> methods) {
         if (methods.size() == 1) {
             return methods.getFirst();
         }
 
-        List<MethodNode> valid = new ArrayList<>();
-        for (MethodNode method : methods) {
-            if (!context.methods().findInjectionTargetInsns(new MethodContext.TargetPair(classNode, method)).isEmpty()) {
-                valid.add(method);
-            }
-        }
+        InjectionTargetResolver resolver = recipe.resolvers().get(InjectionTargetResolver.class);
+        
+        List<Pair<MethodNode, AtData>> valid = methods.stream()
+            .sorted(Comparator.<MethodNode, String>comparing(m -> m.desc).reversed())
+            .map(m -> {
+                MethodContext.TargetPair pair = new MethodContext.TargetPair(classNode, m);
+                TxResult result = resolver.resolveForTargetMethod(mixin, context, clean, dirty, recipe, pair);
+                if (result == TxResult.SUCCESS) {
+                    AtData data = dirty.getAtData();
+                    dirty.setAtData(null);
+                    return Pair.of(m, data);
+                }
+                return null;
+            })
+            .filter(Objects::nonNull)
+            .toList();
+
         if (valid.size() == 1) {
-            return valid.getFirst();
+            // TODO Return "patches" from methods that can be applied to configs
+            dirty.setAtData(valid.getFirst().getSecond());
+            return valid.getFirst().getFirst();
         }
 
-        List<MethodNode> nonDeprecated = methods.stream()
+        List<MethodNode> nonDeprecated = valid.stream()
+            .map(Pair::getFirst)
             .filter(m -> !isDirtyDeprecatedMethod(context, m))
             .toList();
         if (nonDeprecated.size() == 1) {

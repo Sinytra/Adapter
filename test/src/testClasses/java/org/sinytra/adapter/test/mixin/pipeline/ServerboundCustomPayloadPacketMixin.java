@@ -12,7 +12,7 @@ public class ServerboundCustomPayloadPacketMixin {
         method = "<clinit>",
         at = @At(
             value = "INVOKE",
-            target = "codec(Lnet/minecraft/network/protocol/common/custom/CustomPacketPayload$FallbackProvider;Ljava/util/List;)Lnet/minecraft/network/codec/StreamCodec;"
+            target = "Lnet/minecraft/network/protocol/common/custom/CustomPacketPayload;codec(Lnet/minecraft/network/protocol/common/custom/CustomPacketPayload$FallbackProvider;Ljava/util/List;)Lnet/minecraft/network/codec/StreamCodec;"
         )
     )
     private static StreamCodec modifyCodec(StreamCodec codec) {
@@ -23,7 +23,7 @@ public class ServerboundCustomPayloadPacketMixin {
         method = "<clinit>",
         at = @At(
             value = "INVOKE",
-            target = "codec(Lnet/minecraft/network/protocol/common/custom/CustomPacketPayload$FallbackProvider;Ljava/util/List;Lnet/minecraft/network/ConnectionProtocol;Lnet/minecraft/network/protocol/PacketFlow;)Lnet/minecraft/network/codec/StreamCodec;"
+            target = "Lnet/minecraft/network/protocol/common/custom/CustomPacketPayload;codec(Lnet/minecraft/network/protocol/common/custom/CustomPacketPayload$FallbackProvider;Ljava/util/List;Lnet/minecraft/network/ConnectionProtocol;Lnet/minecraft/network/protocol/PacketFlow;)Lnet/minecraft/network/codec/StreamCodec;"
         )
     )
     private static StreamCodec modifyCodecExpected(StreamCodec codec) {

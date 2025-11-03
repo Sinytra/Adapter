@@ -42,16 +42,20 @@ public class InjectionTargetResolver implements Resolver {
         MethodQualifier dirtyQualifier = dirty.getTargetMethod();
         if (dirtyQualifier == null) return TxResult.FAIL;
 
-        MethodContext.TargetPair dirtyPair = context.methods().findOwnMethodPair(context.dirtyLookup(), dirtyQualifier);
-        if (dirtyPair == null) return TxResult.FAIL;
+        MethodContext.TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), dirtyQualifier);
+        if (dirtyTarget == null) return TxResult.FAIL;
 
         // Try reusing the original
-        List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(dirtyPair);
+        List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(dirtyTarget);
         if (!insns.isEmpty()) {
             dirty.inheritAtData();
             return TxResult.SUCCESS;
         }
 
+        return resolveForTargetMethod(mixin, context, clean, dirty, recipe, dirtyTarget);
+    }
+
+    public TxResult resolveForTargetMethod(MixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe, MethodContext.TargetPair dirtyTarget) {
         for (Resolver subResolver : this.subResolvers) {
             TxResult result = subResolver.resolve(mixin, context, clean, dirty, recipe);
             if (result != TxResult.PASS) {
@@ -66,7 +70,7 @@ public class InjectionTargetResolver implements Resolver {
         }
 
         // Find replacements
-        if (findReplacedType(context, clean.getTargetMethod(), dirtyPair.methodNode(), dirtyPair, clean.getAtData(), dirty)) {
+        if (findReplacedType(context, clean.getTargetMethod(), dirtyTarget.methodNode(), dirtyTarget, clean.getAtData(), dirty)) {
             return TxResult.SUCCESS;
         }
 
@@ -90,7 +94,7 @@ public class InjectionTargetResolver implements Resolver {
         WeighedDisambiguation<MethodQualifier> magicBlackBox = WeighedDisambiguation.<MethodQualifier>builder()
             .match(() -> testMatchers(context, cleanInsn, cleanMatcher, dirtyMatchers, false))
             .match(() -> testMatchers(context, cleanInsn, cleanMatcher, dirtyMatchers, true))
-            .match(() -> testOverloadedMethods(context, cleanInsn, cleanPair))
+            .match(() -> testOverloadedMethods(context, cleanInsn, cleanPair, dirtyPair))
             .resultsEqual(MethodQualifier::equals)
             .build();
 
@@ -121,7 +125,7 @@ public class InjectionTargetResolver implements Resolver {
             .toList();
     }
 
-    private static List<MethodQualifier> testOverloadedMethods(MixinContext context, MethodInsnNode cleanInsn, MethodContext.TargetPair cleanPair) {
+    private static List<MethodQualifier> testOverloadedMethods(MixinContext context, MethodInsnNode cleanInsn, MethodContext.TargetPair cleanPair, MethodContext.TargetPair dirtyPair) {
         ClassNode dirtyClass = context.dirtyLookup().getClass(cleanInsn.owner).orElse(null);
         if (dirtyClass == null) {
             return List.of();
@@ -139,6 +143,7 @@ public class InjectionTargetResolver implements Resolver {
                 }
                 return false;
             })
+            .filter(m -> MethodCallAnalyzer.containsMethodCall(dirtyPair.methodNode(), MethodQualifier.create(m)))
             .toList();
         return methods.size() == 1 ? List.of(MethodQualifier.create(dirtyClass, methods.getFirst())) : List.of();
     }

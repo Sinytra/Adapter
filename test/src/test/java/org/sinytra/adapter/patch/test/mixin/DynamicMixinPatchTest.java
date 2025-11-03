@@ -104,6 +104,16 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     }
 
     @Test
+    void testTargetMethodAndInjectionPointChangedInPipeline() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/ClientLanguageMixin",
+            "saveSeparately",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
     void testChangeInjectionTargetInPipeline() throws Exception {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/pipeline/ServerEntityMixin",
