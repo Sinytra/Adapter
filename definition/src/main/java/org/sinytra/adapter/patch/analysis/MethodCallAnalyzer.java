@@ -33,10 +33,14 @@ public class MethodCallAnalyzer {
         // Collect method invocations
         // All labels must be finalized by a method invocation to pass
         List<MethodNode> invocations = new ArrayList<>();
-        for (int i = 1; i < mtd.instructions.size() - 1; i++) {
+        for (int i = 1; i < mtd.instructions.size(); i++) {
             AbstractInsnNode insn = mtd.instructions.get(i);
             if (insn instanceof LabelNode) {
                 AbstractInsnNode previous = insn.getPrevious();
+                if (OpcodeUtil.isReturnOpcode(previous.getOpcode())) {
+                    previous = previous.getPrevious();
+                }
+
                 if (previous instanceof MethodInsnNode methodInsn && methodInsn.owner.equals(cls.name)) {
                     MethodNode method = cls.methods.stream().filter(m -> m.name.equals(methodInsn.name) && m.desc.equals(methodInsn.desc)).findFirst().orElseThrow();
                     invocations.add(method);

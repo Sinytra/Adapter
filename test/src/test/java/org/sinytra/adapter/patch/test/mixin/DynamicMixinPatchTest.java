@@ -66,6 +66,15 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     }
 
     @Test
+    void testChangedTargetMethodWrapOperation2() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/PlayerMixin",
+            "testGetDestroySpeed",
+            assertTargetMethod()
+        );
+    }
+
+    @Test
     void testChangedTargetMethodModifyExpressionValue() throws Exception {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/pipeline/CropBlockMixin",
