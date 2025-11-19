@@ -9,9 +9,9 @@ import org.sinytra.adapter.patch.util.MethodQualifier;
 
 public class TargetMethodResolver extends CompoundResolver {
     public TargetMethodResolver() {
+        addSubResolver(new SplitTargetMethodSubResolver());
         addSubResolver(TargetMethodSubResolvers.CHANGED_METHOD_PARAMS);
         addSubResolver(TargetMethodSubResolvers.MOVED_INTO_LAMBDA);
-        addSubResolver(new SplitTargetMethodSubResolver());
     }
 
     @Override
@@ -23,7 +23,7 @@ public class TargetMethodResolver extends CompoundResolver {
     protected Configuration tryReuse(MixinContext context, Configuration clean, Configuration dirty) {
         MethodQualifier cleanQualifier = clean.getTargetMethod();
         MethodContext.TargetPair target = context.methods().findOwnMethodPair(context.dirtyLookup(), cleanQualifier);
-        if (target != null && !context.methods().findInjectionTargetInsns(target).isEmpty()) {
+        if (target != null && context.methods().hasInjectionTargetInsns(target)) {
             return dirty.subConfig()
                 .inheritTargetMethod();
         }

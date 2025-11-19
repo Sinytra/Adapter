@@ -37,13 +37,16 @@ public class MethodCallAnalyzer {
             AbstractInsnNode insn = mtd.instructions.get(i);
             if (insn instanceof LabelNode) {
                 AbstractInsnNode previous = insn.getPrevious();
+                AbstractInsnNode effectivePrevious = previous;
                 if (OpcodeUtil.isReturnOpcode(previous.getOpcode())) {
-                    previous = previous.getPrevious();
+                    effectivePrevious = previous.getPrevious();
                 }
 
-                if (previous instanceof MethodInsnNode methodInsn && methodInsn.owner.equals(cls.name)) {
-                    MethodNode method = cls.methods.stream().filter(m -> m.name.equals(methodInsn.name) && m.desc.equals(methodInsn.desc)).findFirst().orElseThrow();
-                    invocations.add(method);
+                if (effectivePrevious instanceof MethodInsnNode methodInsn && methodInsn.owner.equals(cls.name)) {
+                    cls.methods.stream()
+                        .filter(m -> m.name.equals(methodInsn.name) && m.desc.equals(methodInsn.desc))
+                        .findFirst()
+                        .ifPresent(invocations::add);
                 } else if (previous == null || !OpcodeUtil.isReturnOpcode(previous.getOpcode())) {
                     return null;
                 }

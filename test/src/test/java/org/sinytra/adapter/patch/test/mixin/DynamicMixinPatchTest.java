@@ -133,6 +133,16 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     }
 
     @Test
+    void testChangeInjectionTargetInPipelineMEV() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/ElytraLayerMixin",
+            "canRenderElytra",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
     void testUpdatedInjectionPointAtAssignment() throws Exception {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/EffectRenderingInventoryScreenMixin",

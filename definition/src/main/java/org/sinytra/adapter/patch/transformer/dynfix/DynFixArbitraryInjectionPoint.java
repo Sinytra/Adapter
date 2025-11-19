@@ -48,6 +48,7 @@ public class DynFixArbitraryInjectionPoint implements DynamicFixer<DynFixArbitra
     public FixResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchAuditTrail auditTrail, Data data) {
         MethodNode dirtyTargetMethod = data.dirtyTarget().methodNode();
         AbstractInsnNode cleanInjectionInsn = data.cleanInjectionInsn();
+        Type returnType = Type.getReturnType(methodNode.desc);
 
         AbstractInsnNode nextCallCandidate = findCandidates(MethodCallAnalyzer.findBackwardsInstructions(cleanInjectionInsn, 5).inverse(), dirtyTargetMethod, List::getLast);
         MethodInsnNode targetMethodCall;
@@ -67,7 +68,14 @@ public class DynFixArbitraryInjectionPoint implements DynamicFixer<DynFixArbitra
                 MethodNode target = MethodCallAnalyzer.findMethodByName(data.dirtyTarget().classNode(), targetMethodCall.name, targetMethodCall.desc).orElseThrow();
                 List<AbstractInsnNode> insns = methodContext.findInjectionTargetInsns(new MethodContext.TargetPair(data.dirtyTarget.classNode(), target));
                 if (insns.isEmpty()) {
-                    return null;
+                    Type dirtyReturnType = Type.getReturnType(target.desc);
+                    // For MEV it's enough that the return types match
+                    if (methodContext.methodAnnotation().matchesDesc(MixinConstants.MODIFY_EXPR_VAL) && returnType.equals(dirtyReturnType)) {
+                        String newInjectionPoint = Type.getObjectType(targetMethodCall.owner).getDescriptor() + targetMethodCall.name + targetMethodCall.desc;
+                        return FixResult.of(new ModifyInjectionPoint("INVOKE", newInjectionPoint, true, false).apply(methodContext), PatchAuditTrail.Match.PARTIAL);
+                    } else {
+                        return null;
+                    }
                 }
             }
 

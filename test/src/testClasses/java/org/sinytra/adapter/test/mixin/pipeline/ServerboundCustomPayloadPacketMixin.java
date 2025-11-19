@@ -20,7 +20,7 @@ public class ServerboundCustomPayloadPacketMixin {
     }
 
     @ModifyExpressionValue(
-        method = "<clinit>",
+        method = "<clinit>()V",
         at = @At(
             value = "INVOKE",
             target = "Lnet/minecraft/network/protocol/common/custom/CustomPacketPayload;codec(Lnet/minecraft/network/protocol/common/custom/CustomPacketPayload$FallbackProvider;Ljava/util/List;Lnet/minecraft/network/ConnectionProtocol;Lnet/minecraft/network/protocol/PacketFlow;)Lnet/minecraft/network/codec/StreamCodec;"

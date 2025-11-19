@@ -77,6 +77,10 @@ public class MethodHelper {
         return this.methodFinder.findMethods(lookup, qualifier, MethodFinder.Flags.FALLBACK_OWNER | MethodFinder.Flags.IGNORE_DESC);
     }
 
+    public boolean hasInjectionTargetInsns(@Nullable MethodContext.TargetPair target) {
+        return !findInjectionTargetInsns(target).isEmpty();
+    }
+
     public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable MethodContext.TargetPair target) {
         return this.targetInstructionsCache.computeIfAbsent(target, this::computeInjectionTargetInsns);
     }
