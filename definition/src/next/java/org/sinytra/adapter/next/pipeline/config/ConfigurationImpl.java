@@ -22,6 +22,8 @@ import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 public class ConfigurationImpl implements MutableConfiguration {
     private static final Logger LOGGER = LogUtils.getLogger();
 
+    @Nullable
+    private final Configuration parent;
     private final ConfigAttribute<String> targetClass;
     private final ConfigAttribute<MethodQualifier> targetMethod;
     private final ConfigAttribute<AtData> atData;
@@ -35,6 +37,8 @@ public class ConfigurationImpl implements MutableConfiguration {
     }
 
     public ConfigurationImpl(@Nullable Configuration parent) {
+        this.parent = parent;
+
         this.targetClass = new ConfigAttribute<>("target_class", true, parent != null ? parent::getTargetClass : null);
         this.targetMethod = new ConfigAttribute<>("target_method", true, parent != null ? parent::getTargetMethod : null);
         this.atData = new ConfigAttribute<>("at_data", true, parent != null ? parent::getAtData : null);
@@ -59,13 +63,15 @@ public class ConfigurationImpl implements MutableConfiguration {
     }
 
     @Override
-    public void inheritTargetMethod() {
+    public MutableConfiguration inheritTargetMethod() {
         this.targetMethod.setDefault();
+        return this;
     }
 
     @Override
-    public void inheritAtData() {
+    public MutableConfiguration inheritAtData() {
         this.atData.setDefault();
+        return this;
     }
 
     @Override
@@ -114,13 +120,15 @@ public class ConfigurationImpl implements MutableConfiguration {
     }
 
     @Override
-    public void setTargetMethod(MethodNode methodNode) {
+    public MutableConfiguration setTargetMethod(MethodNode methodNode) {
         setTargetMethod(MethodQualifier.create(methodNode));
+        return this;
     }
 
     @Override
-    public void setAtData(AtData atData) {
+    public MutableConfiguration setAtData(AtData atData) {
         this.atData.set(atData);
+        return this;
     }
 
     @Override
@@ -145,7 +153,48 @@ public class ConfigurationImpl implements MutableConfiguration {
     }
 
     @Override
-    public <T> void setProperty(String key, T value) {
+    public Map<String, Object> getProperties() {
+        return this.properties;
+    }
+
+    @Override
+    public <T> MutableConfiguration setProperty(String key, T value) {
         this.properties.put(key, value);
+        return this;
+    }
+
+    @Override
+    public MutableConfiguration subConfig() {
+        return new ConfigurationImpl(this.parent);
+    }
+
+    @Override
+    public MutableConfiguration copy() {
+        MutableConfiguration copy = new ConfigurationImpl(this.parent);
+
+        copy.setTargetClass(this.targetClass.get());
+        copy.setTargetMethod(this.targetMethod.get());
+        copy.setAtData(this.atData.get());
+        copy.setParameters(this.parameters.get());
+        copy.setReturnType(this.returnType.get());
+        // TODO Properties
+
+        return copy;
+    }
+
+    @Override
+    public void mergeFrom(Configuration other) {
+        if (other.getTargetClass() != null)
+            this.targetClass.set(other.getTargetClass());
+        if (other.getTargetMethod() != null)
+            this.targetMethod.set(other.getTargetMethod());
+        if (other.getAtData() != null)
+            this.atData.set(other.getAtData());
+        if (other.getParameters() != null)
+            this.parameters.set(other.getParameters());
+        if (other.getReturnType() != null)
+            this.returnType.set(other.getReturnType());
+
+        this.properties.putAll(other.getProperties());
     }
 }

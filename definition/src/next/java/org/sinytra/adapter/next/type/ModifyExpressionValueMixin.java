@@ -29,7 +29,7 @@ public class ModifyExpressionValueMixin implements MixinType<ModifyExpressionVal
 
     @Override
     public void postProcess(ModifyExpressionValueMixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
-        if (dirty.getTargetMethod() == null) return;
+        if (dirty.getTargetMethod() == null || dirty.getAtData() == null) return;
 
         MethodQualifier targetDesc = dirty.getAtData().getTarget().flatMap(MethodQualifier::create).orElse(null);
         if (targetDesc == null) return;

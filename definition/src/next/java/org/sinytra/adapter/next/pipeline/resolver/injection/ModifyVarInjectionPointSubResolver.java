@@ -1,5 +1,6 @@
-package org.sinytra.adapter.next.pipeline.resolver;
+package org.sinytra.adapter.next.pipeline.resolver.injection;
 
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.LocalVariableNode;
@@ -8,9 +9,8 @@ import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.env.ann.ModifyVariableMixinData;
 import org.sinytra.adapter.next.pipeline.Recipe;
-import org.sinytra.adapter.next.pipeline.TxResult;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
-import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
+import org.sinytra.adapter.next.pipeline.resolver.SubResolver;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.locals.LocalVarAnalyzer;
 import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
@@ -21,26 +21,22 @@ import java.util.List;
 import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_STORE;
 import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.PROPERTY_ORDINAL;
 
-public class ModifyVarInjectionTargetSubResolver implements Resolver {
+public class ModifyVarInjectionPointSubResolver implements SubResolver {
 
+    @Nullable
     @Override
-    public TxResult resolve(MixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
+    public Configuration resolve(MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe) {
         if (!(mixin instanceof ModifyVariableMixinData mvdata) || !clean.getAtData().getValue().equals(AT_VAL_STORE)) {
-            return TxResult.PASS;
+            return null;
         }
-
         MethodContext.TargetPair pair = context.methods().findOwnMethodPair(context.dirtyLookup(), dirty.getTargetMethod());
-
         // Find replacement
-        if (findComparableReplacement(mvdata, context, clean, pair, dirty)) {
-            return TxResult.SUCCESS;
-        }
-
-        return TxResult.PASS;
+        return findComparableReplacement(mvdata, context, clean, pair, dirty);
     }
 
-    private static boolean findComparableReplacement(ModifyVariableMixinData mixin, MixinContext context, Configuration clean, MethodContext.TargetPair dirtyPair, MutableConfiguration dirty) {
-        if (mixin.ordinal().isEmpty()) return false;
+    private static Configuration findComparableReplacement(ModifyVariableMixinData mixin, MixinContext context, Configuration clean, MethodContext.TargetPair dirtyPair, Configuration dirty) {
+        if (mixin.ordinal().isEmpty()) return null;
+
         int ordinal = mixin.ordinal().getAsInt();
         Type varType = Type.getReturnType(context.methodNode().desc);
 
@@ -63,12 +59,13 @@ public class ModifyVarInjectionTargetSubResolver implements Resolver {
                 .toList();
             if (lvs.size() == 1) {
                 int dirtyOrdinal = dirtyLookup.getOrdinal(lvs.getFirst());
-                dirty.setProperty(PROPERTY_ORDINAL, dirtyOrdinal);
-                dirty.setTargetMethod(method);
-                dirty.inheritAtData();
-                return true;
+
+                return dirty.subConfig()
+                    .setProperty(PROPERTY_ORDINAL, dirtyOrdinal)
+                    .setTargetMethod(method)
+                    .inheritAtData();
             }
         }
-        return false;
+        return null;
     }
 }

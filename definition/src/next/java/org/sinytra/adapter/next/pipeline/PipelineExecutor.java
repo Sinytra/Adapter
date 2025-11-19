@@ -69,8 +69,10 @@ public class PipelineExecutor {
         // 3. Run Resolvers
         resolvers.freeze();
         for (Resolver resolver : resolvers.getAll()) {
-            TxResult res = resolver.resolve(data, this.context, cleanConfig, dirtyConfig, recipe);
-            if (res == TxResult.FAIL) {
+            TxResultInstance res = resolver.resolve(data, this.context, cleanConfig, dirtyConfig, recipe);
+            if (res.type() == TxResult.SUCCESS) {
+                dirtyConfig.mergeFrom(res.patch());
+            } else if (res.type() == TxResult.FAIL) {
                 LOGGER.debug(MIXINPATCH, "Skipping mixin {} due to failed RESOLVER {}", mixinId, resolver.getClass().getSimpleName());
                 return Patch.Result.PASS;
             }

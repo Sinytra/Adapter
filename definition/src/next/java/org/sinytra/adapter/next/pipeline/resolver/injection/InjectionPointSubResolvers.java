@@ -1,4 +1,4 @@
-package org.sinytra.adapter.next.pipeline.resolver;
+package org.sinytra.adapter.next.pipeline.resolver.injection;
 
 import com.google.common.collect.Multimap;
 import org.objectweb.asm.Type;
@@ -6,15 +6,14 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.next.env.WeighedDisambiguation;
 import org.sinytra.adapter.next.env.MixinContext;
-import org.sinytra.adapter.next.env.ann.AtData;
+import org.sinytra.adapter.next.env.WeighedDisambiguation;
 import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.next.pipeline.Recipe;
-import org.sinytra.adapter.next.pipeline.TxResult;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
+import org.sinytra.adapter.next.pipeline.resolver.SubResolver;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.api.MethodContext;
@@ -26,67 +25,27 @@ import java.util.Objects;
 
 import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
 
-public class InjectionTargetResolver implements Resolver {
+public class InjectionPointSubResolvers {
     private static final int INSN_RANGE = 5;
 
-    private final List<Resolver> subResolvers = new ArrayList<>();
+    public static final SubResolver REPLACED_TYPE = (MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe) -> {
+        if (!clean.getAtData().getValue().equals(AT_VAL_INVOKE)) return null;
 
-    public void addSubResolver(Resolver subResolver) {
-        this.subResolvers.add(subResolver);
-    }
-
-    @Override
-    public TxResult resolve(MixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
-        if (dirty.getAtData() != null) return TxResult.PASS;
-
+        MethodQualifier cleanQualifier = clean.getTargetMethod();
         MethodQualifier dirtyQualifier = dirty.getTargetMethod();
-        if (dirtyQualifier == null) return TxResult.FAIL;
 
         MethodContext.TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), dirtyQualifier);
-        if (dirtyTarget == null) return TxResult.FAIL;
+        if (dirtyTarget == null) return null;
 
-        // Try reusing the original
-        List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(dirtyTarget);
-        if (!insns.isEmpty()) {
-            dirty.inheritAtData();
-            return TxResult.SUCCESS;
-        }
-
-        return resolveForTargetMethod(mixin, context, clean, dirty, recipe, dirtyTarget);
-    }
-
-    public TxResult resolveForTargetMethod(MixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe, MethodContext.TargetPair dirtyTarget) {
-        for (Resolver subResolver : this.subResolvers) {
-            TxResult result = subResolver.resolve(mixin, context, clean, dirty, recipe);
-            if (result != TxResult.PASS) {
-                return result;
-            }
-        }
-
-        // Only support INVOKE for now
-        if (!clean.getAtData().getValue().equals(AT_VAL_INVOKE)) {
-            dirty.inheritAtData();
-            return TxResult.SUCCESS;
-        }
-
-        // Find replacements
-        if (findReplacedType(context, clean.getTargetMethod(), dirtyTarget.methodNode(), dirtyTarget, clean.getAtData(), dirty)) {
-            return TxResult.SUCCESS;
-        }
-
-        return TxResult.FAIL;
-    }
-
-    private static boolean findReplacedType(MixinContext context, MethodQualifier cleanQualifier, MethodNode dirtyMethod, MethodContext.TargetPair dirtyPair, AtData original, MutableConfiguration dirty) {
         // Find single clean target minsn
         MethodContext.TargetPair cleanPair = context.methods().findOwnMethodPair(context.cleanLookup(), cleanQualifier);
         List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(cleanPair);
         if (insns.isEmpty() || !(insns.getFirst() instanceof MethodInsnNode cleanInsn)) {
-            return false;
+            return null;
         }
 
         InstructionMatcher cleanMatcher = MethodCallAnalyzer.findSurroundingInstructions(cleanInsn, INSN_RANGE);
-        Multimap<String, MethodInsnNode> dirtyCalls = MethodCallAnalyzer.getMethodCalls(dirtyMethod, new ArrayList<>());
+        Multimap<String, MethodInsnNode> dirtyCalls = MethodCallAnalyzer.getMethodCalls(dirtyTarget.methodNode(), new ArrayList<>());
         List<InstructionMatcher> dirtyMatchers = dirtyCalls.values().stream()
             .map(i -> MethodCallAnalyzer.findSurroundingInstructions(i, INSN_RANGE))
             .toList();
@@ -94,18 +53,18 @@ public class InjectionTargetResolver implements Resolver {
         WeighedDisambiguation<MethodQualifier> magicBlackBox = WeighedDisambiguation.<MethodQualifier>builder()
             .match(() -> testMatchers(context, cleanInsn, cleanMatcher, dirtyMatchers, false))
             .match(() -> testMatchers(context, cleanInsn, cleanMatcher, dirtyMatchers, true))
-            .match(() -> testOverloadedMethods(context, cleanInsn, cleanPair, dirtyPair))
+            .match(() -> testOverloadedMethods(context, cleanInsn, cleanPair, dirtyTarget))
             .resultsEqual(MethodQualifier::equals)
             .build();
 
         MethodQualifier replacement = magicBlackBox.findBestMatch();
         if (replacement != null) {
-            dirty.setAtData(original.withTarget(replacement.asDescriptor()));
-            return true;
+            return MutableConfiguration.create()
+                .setAtData(clean.getAtData().withTarget(replacement.asDescriptor()));
         }
 
-        return false;
-    }
+        return null;
+    };
 
     private static List<MethodQualifier> testMatchers(MixinContext context, MethodInsnNode cleanInsn, InstructionMatcher cleanMatcher, List<InstructionMatcher> dirtyMatchers, boolean partial) {
         return dirtyMatchers.stream()
@@ -135,8 +94,7 @@ public class InjectionTargetResolver implements Resolver {
         List<MethodNode> methods = dirtyClass.methods.stream()
             .filter(m -> {
                 if (cleanPair.classNode().methods.stream()
-                    .noneMatch(c -> c.name.equals(m.name)
-                        && c.desc.equals(m.desc)) && m.name.equals(cleanInsn.name)
+                    .noneMatch(c -> c.name.equals(m.name) && c.desc.equals(m.desc)) && m.name.equals(cleanInsn.name)
                 ) {
                     List<Type> dirtyParams = MethodParameters.getParameterTypes(m.desc);
                     return dirtyParams.size() > cleanParams.size() && dirtyParams.subList(0, cleanParams.size()).equals(cleanParams);

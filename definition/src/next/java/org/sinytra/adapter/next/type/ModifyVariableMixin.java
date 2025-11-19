@@ -9,8 +9,8 @@ import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
-import org.sinytra.adapter.next.pipeline.resolver.InjectionTargetResolver;
-import org.sinytra.adapter.next.pipeline.resolver.ModifyVarInjectionTargetSubResolver;
+import org.sinytra.adapter.next.pipeline.resolver.injection.InjectionPointResolver;
+import org.sinytra.adapter.next.pipeline.resolver.injection.ModifyVarInjectionPointSubResolver;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.fixes.TypeAdapter;
@@ -34,7 +34,7 @@ public class ModifyVariableMixin implements MixinType<ModifyVariableMixinData> {
     public void preProcess(ModifyVariableMixinData mixin, MixinContext context, MutableConfiguration clean, Recipe recipe) {
         clean.setParameters(MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY, LOCALS)));
 
-        recipe.resolvers().getOrThrow(InjectionTargetResolver.class).addSubResolver(new ModifyVarInjectionTargetSubResolver());
+        recipe.resolvers().getOrThrow(InjectionPointResolver.class).addSubResolver(new ModifyVarInjectionPointSubResolver());
     }
 
     @Override

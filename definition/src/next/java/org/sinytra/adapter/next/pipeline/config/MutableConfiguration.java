@@ -7,15 +7,19 @@ import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 public interface MutableConfiguration extends Configuration {
+    static MutableConfiguration create() {
+        return new ConfigurationImpl();
+    }
+
     void inheritTargetClass();
     void setTargetClass(String targetClass);
 
-    void inheritTargetMethod();
+    MutableConfiguration inheritTargetMethod();
     void setTargetMethod(MethodQualifier targetMethod);
-    void setTargetMethod(MethodNode methodNode);
+    MutableConfiguration setTargetMethod(MethodNode methodNode);
 
-    void inheritAtData();
-    void setAtData(AtData atData);
+    MutableConfiguration inheritAtData();
+    MutableConfiguration setAtData(AtData atData);
 
     void inheritParameters();
     void setParameters(MethodParameters parameters);
@@ -23,5 +27,7 @@ public interface MutableConfiguration extends Configuration {
     void inheritReturnType();
     void setReturnType(Type returnType);
 
-    <T> void setProperty(String key, T value);
+    <T> MutableConfiguration setProperty(String key, T value);
+
+    void mergeFrom(Configuration other);
 }

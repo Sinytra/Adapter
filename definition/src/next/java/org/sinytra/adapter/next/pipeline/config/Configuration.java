@@ -5,6 +5,7 @@ import org.sinytra.adapter.next.env.ann.AtData;
 import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
+import java.util.Map;
 import java.util.Optional;
 
 public interface Configuration {
@@ -21,4 +22,10 @@ public interface Configuration {
     boolean hasProperty(String key);
 
     <T> Optional<T> getProperty(String key);
+
+    Map<String, Object> getProperties();
+
+    MutableConfiguration subConfig();
+
+    MutableConfiguration copy();
 }

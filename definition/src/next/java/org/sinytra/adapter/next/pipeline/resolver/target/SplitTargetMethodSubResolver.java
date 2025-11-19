@@ -8,10 +8,9 @@ import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.pipeline.Recipe;
-import org.sinytra.adapter.next.pipeline.TxResult;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
-import org.sinytra.adapter.next.pipeline.resolver.Resolver;
+import org.sinytra.adapter.next.pipeline.resolver.SubResolver;
 import org.sinytra.adapter.patch.analysis.InsnComparator;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
@@ -25,14 +24,12 @@ import java.util.*;
  * Handle cases where a single method is split into multiple smaller pieces.
  * For an example, see <code>net.minecraft.client.gui.Gui#renderPlayerHealth</code>
  */
-public class SplitTargetMethodSubResolver implements Resolver {
+public class SplitTargetMethodSubResolver implements SubResolver {
     @Override
-    public TxResult resolve(MixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
+    public Configuration resolve(MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe) {
         MethodContext.TargetPair cleanTarget = context.methods().findOwnMethodPair(context.cleanLookup(), clean.getTargetMethod());
         MethodContext.TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), clean.getTargetMethod());
-        if (dirtyTarget == null) {
-            return TxResult.PASS;
-        }
+        if (dirtyTarget == null) return null;
 
         List<CandidateMethod> candidates = disambiguate(locateCandidates(context, dirtyTarget), context, cleanTarget);
 
@@ -45,11 +42,11 @@ public class SplitTargetMethodSubResolver implements Resolver {
                 SplitMethodCancellationHelper.handle(this, context.legacy(), method);
             }
 
-            dirty.setTargetMethod(method);
-            return TxResult.SUCCESS;
+            return MutableConfiguration.create()
+                .setTargetMethod(method);
         }
 
-        return TxResult.PASS;
+        return null;
     }
 
     private static List<CandidateMethod> locateCandidates(MixinContext context, MethodContext.TargetPair dirtyTarget) {
