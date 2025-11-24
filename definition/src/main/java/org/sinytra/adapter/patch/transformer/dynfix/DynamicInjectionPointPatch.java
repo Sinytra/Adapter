@@ -19,12 +19,9 @@ public class DynamicInjectionPointPatch implements MethodTransform {
     private static final List<DynamicFixer<?>> FIXES = List.of(
         new DynFixSliceBoundary(),
         new DynFixAtVariableAssignStore(),
-//        new DynFixSplitMethod(),
         new DynFixParameterTypeAdapter(),
         new DynFixMethodComparison(),
-        new DynFixSyntheticInstanceof(),
-        // Have this one always come last
-        new DynFixArbitraryInjectionPoint()
+        new DynFixSyntheticInstanceof()
     );
 
     @Override

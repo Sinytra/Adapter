@@ -68,6 +68,9 @@ public abstract sealed class PatchInstance implements Patch permits ClassPatchIn
                         if (accepted.isEmpty() || accepted.contains(methodContext.methodAnnotation().getDesc())) {
                             Patch.Result txResult = transform.apply(classNode, method, methodContext, context);
                             result = result.or(txResult);
+                            if (txResult == Result.APPLY && environment.auditTrail().getMatch(methodContext) == PatchAuditTrail.Match.FULL) {
+                                break;
+                            }
                         }
                     }
                 }

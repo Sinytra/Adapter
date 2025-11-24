@@ -15,7 +15,7 @@ public interface MutableConfiguration extends Configuration {
     void setTargetClass(String targetClass);
 
     MutableConfiguration inheritTargetMethod();
-    void setTargetMethod(MethodQualifier targetMethod);
+    MutableConfiguration setTargetMethod(MethodQualifier targetMethod);
     MutableConfiguration setTargetMethod(MethodNode methodNode);
 
     MutableConfiguration inheritAtData();

@@ -115,8 +115,9 @@ public class ConfigurationImpl implements MutableConfiguration {
     }
 
     @Override
-    public void setTargetMethod(MethodQualifier targetMethod) {
+    public MutableConfiguration setTargetMethod(MethodQualifier targetMethod) {
         this.targetMethod.set(targetMethod);
+        return this;
     }
 
     @Override

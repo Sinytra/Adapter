@@ -15,6 +15,7 @@ public class InjectionPointResolver extends CompoundResolver {
 
     public InjectionPointResolver() {
         addSubResolver(InjectionPointSubResolvers.REPLACED_TYPE);
+        addSubResolver(new ArbitraryInjectionPointSubResolver());
     }
 
     @Override

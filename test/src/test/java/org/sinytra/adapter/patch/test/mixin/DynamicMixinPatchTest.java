@@ -143,6 +143,16 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     }
 
     @Test
+    void testChangeTargetToLambdaInPipeline() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/TitleScreenMixin",
+            "onRender",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
     void testUpdatedInjectionPointAtAssignment() throws Exception {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/EffectRenderingInventoryScreenMixin",

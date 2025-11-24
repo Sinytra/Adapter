@@ -35,6 +35,12 @@ public class ModifyArgMixin implements MixinType<ModifyArgMixinData> {
 
     @Override
     public void postProcess(ModifyArgMixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
+        if (clean.getAtData().equals(dirty.getAtData())) {
+            dirty.inheritParameters();
+            dirty.inheritReturnType();
+            return;
+        }
+
         if (clean.hasProperty(PROPERTY_INDEX) && !dirty.hasProperty(PROPERTY_INDEX)) {
             dirty.setProperty(PROPERTY_INDEX, clean.getProperty(PROPERTY_INDEX).orElseThrow());
         }

@@ -52,6 +52,18 @@ public class AtData {
         return new AtData(this.value, target, this.ordinal);
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        AtData atData = (AtData) o;
+        return Objects.equals(value, atData.value) && Objects.equals(target, atData.target) && Objects.equals(ordinal, atData.ordinal);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(value, target, ordinal);
+    }
+
     public static Optional<AtData> parse(AnnotationHandle annotation, MixinContext context) {
         String value = annotation.<String>getValue("value").map(AnnotationValueHandle::get).orElse(null);
         if (value == null) {
