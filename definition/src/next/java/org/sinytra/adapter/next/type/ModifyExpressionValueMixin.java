@@ -32,7 +32,12 @@ public class ModifyExpressionValueMixin implements MixinType<ModifyExpressionVal
         if (dirty.getTargetMethod() == null || dirty.getAtData() == null) return;
 
         MethodQualifier targetDesc = dirty.getAtData().getTarget().flatMap(MethodQualifier::create).orElse(null);
-        if (targetDesc == null) return;
+        if (targetDesc == null) {
+            // Best effort
+            dirty.inheritParameters();
+            dirty.inheritReturnType();
+            return;
+        }
 
         List<Type> dirtyCaptured = context.methods().resolveCapturedMethodParams(recipe.clean(), recipe.dirty());
         Type modifyingType = Type.getReturnType(targetDesc.desc());
