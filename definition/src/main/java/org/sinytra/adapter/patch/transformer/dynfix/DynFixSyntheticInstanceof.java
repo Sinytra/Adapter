@@ -37,7 +37,10 @@ public class DynFixSyntheticInstanceof implements DynamicFixer<DynFixSyntheticIn
             && methodContext.hasInjectionPointValue("INVOKE")
             && methodContext.findCleanInjectionTarget() != null && methodContext.findDirtyInjectionTarget() != null
         ) {
-            List<AbstractInsnNode> insns = methodContext.findInjectionTargetInsns(methodContext.findCleanInjectionTarget()); 
+            List<AbstractInsnNode> insns = methodContext.findInjectionTargetInsns(methodContext.findCleanInjectionTarget());
+            if (insns.isEmpty()) {
+                return null;
+            }
             return new Data(insns.getFirst());
         }
         return null;
