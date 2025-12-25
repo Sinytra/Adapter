@@ -32,6 +32,16 @@ public record ParametersDiff(
         }
     }
 
+    public LayeredParamsDiffSnapshot toSnapshot() {
+        return LayeredParamsDiffSnapshot.builder()
+            .insertions(this.insertions)
+            .replacements(this.replacements)
+            .swaps(this.swaps)
+            .removals(this.removals)
+            .moves(this.moves)
+            .build();
+    }
+
     public static ParametersDiff compareTypeParameters(Type[] parameterTypes, Type[] newParameterTypes) {
         List<MethodParameter> cleanParameters = Stream.of(parameterTypes)
             .map(type -> new MethodParameter(null, type))

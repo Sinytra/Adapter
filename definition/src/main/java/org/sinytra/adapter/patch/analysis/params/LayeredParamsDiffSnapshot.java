@@ -175,11 +175,29 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
             .toList();
     }
 
+    @Override
+    public List<Pair<Integer, Integer>> substitutes() {
+        return this.modifications.stream()
+            .map(p -> p instanceof SubstituteParam param ? param : null)
+            .filter(Objects::nonNull)
+            .map(p -> Pair.of(p.target(), p.substitute()))
+            .toList();
+    }
+
     public List<Pair<Integer, Integer>> moves() {
         return this.modifications.stream()
             .map(p -> p instanceof MoveParam param ? param : null)
             .filter(Objects::nonNull)
             .map(p -> Pair.of(p.from(), p.to()))
+            .toList();
+    }
+
+    @Override
+    public List<Pair<Integer, Consumer<InstructionAdapter>>> inlines() {
+        return this.modifications.stream()
+            .map(p -> p instanceof InlineParam param ? param : null)
+            .filter(Objects::nonNull)
+            .map(p -> Pair.of(p.target(), p.adapter()))
             .toList();
     }
 
@@ -299,12 +317,12 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
         }
 
         @Override
-        public Builder merge(SimpleParamsDiffSnapshot diff) {
+        public Builder merge(ParamsDiffSnapshot diff) {
             return merge(diff, 0);
         }
 
         @Override
-        public Builder merge(SimpleParamsDiffSnapshot diff, int indexOffset) {
+        public Builder merge(ParamsDiffSnapshot diff, int indexOffset) {
             diff.insertions().forEach(p -> insert(p.getFirst() + indexOffset, p.getSecond()));
             diff.replacements().forEach(p -> replace(p.getFirst() + indexOffset, p.getSecond()));
             diff.swaps().forEach(p -> swap(p.getFirst() + indexOffset, p.getSecond() + indexOffset));

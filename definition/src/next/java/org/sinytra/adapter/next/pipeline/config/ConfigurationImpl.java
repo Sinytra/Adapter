@@ -3,6 +3,7 @@ package org.sinytra.adapter.next.pipeline.config;
 import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.next.env.ann.AtData;
 import org.sinytra.adapter.next.env.param.MethodParameters;
@@ -112,6 +113,12 @@ public class ConfigurationImpl implements MutableConfiguration {
     @Override
     public void setTargetClass(String targetClass) {
         this.targetClass.set(targetClass);
+    }
+
+    @Override
+    public MutableConfiguration setTargetMethod(MethodInsnNode insn) {
+        setTargetMethod(MethodQualifier.create(insn));
+        return this;
     }
 
     @Override

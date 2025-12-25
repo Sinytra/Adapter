@@ -46,7 +46,7 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
                 .flatMap(q -> methodContext.patchContext().environment().dirtyClassLookup().findMethod(q.internalOwnerName(), q.name(), q.desc()))
                 .orElse(null);
             if (targetMethod != null) {
-                return ((targetMethod.access & Opcodes.ACC_STATIC) == 0 ? 1 : 0) + Type.getArgumentTypes(targetMethod.desc).length; 
+                return ((targetMethod.access & Opcodes.ACC_STATIC) == 0 ? 1 : 0) + Type.getArgumentTypes(targetMethod.desc).length;
             }
         }
         // If it's a redirect, the first local variable (index 1) is the object instance
@@ -91,8 +91,18 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
             return transform(new SwapParametersTransformer(from, to));
         }
 
+        public Builder swaps(List<Pair<Integer, Integer>> swaps) {
+            swaps.forEach(p -> swap(p.getFirst(), p.getSecond()));
+            return this;
+        }
+
         public Builder substitute(int target, int substitute) {
             return transform(new SubstituteParameterTransformer(target, substitute));
+        }
+
+        public Builder substitutes(List<Pair<Integer, Integer>> substitutes) {
+            substitutes.forEach(p -> swap(p.getFirst(), p.getSecond()));
+            return this;
         }
 
         public Builder inline(int target, Consumer<InstructionAdapter> adapter) {
@@ -101,6 +111,11 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
 
         public Builder remove(int index) {
             return transform(new RemoveParameterTransformer(index));
+        }
+
+        public Builder removals(List<Integer> removals) {
+            removals.forEach(this::remove);
+            return this;
         }
 
         public Builder withOffset() {

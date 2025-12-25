@@ -4,7 +4,7 @@ import com.mojang.datafixers.util.Pair;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
-import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
+import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
 
 import java.util.*;
 
@@ -35,7 +35,7 @@ public class EnhancedParamsDiffTest {
             Type.BOOLEAN_TYPE
         );
 
-        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(clean, dirty);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(clean, dirty);
         assertEquals(1, diff.insertions().size());
         assertTrue(diff.replacements().isEmpty());
         assertTrue(diff.removals().isEmpty());
@@ -58,7 +58,7 @@ public class EnhancedParamsDiffTest {
             Type.getObjectType("com/llamalad7/mixinextras/sugar/ref/LocalRef")
         );
 
-        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(clean, dirty);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(clean, dirty);
         assertTrue(diff.insertions().isEmpty());
         assertEquals(2, diff.replacements().size());
         assertTrue(diff.removals().isEmpty());
@@ -79,7 +79,7 @@ public class EnhancedParamsDiffTest {
             Type.getType("Lnet/minecraft/world/item/Item;")
         );
 
-        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(clean, dirty);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(clean, dirty);
         assertTrue(diff.insertions().isEmpty());
         assertTrue(diff.replacements().isEmpty());
         assertEquals(1, diff.removals().size());
@@ -103,7 +103,7 @@ public class EnhancedParamsDiffTest {
             Type.getObjectType("net/minecraft/world/item/ItemStack")
         );
 
-        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(original, modified);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
         assertTrue(diff.insertions().isEmpty());
         assertTrue(diff.replacements().isEmpty());
         assertTrue(diff.removals().isEmpty());
@@ -126,7 +126,7 @@ public class EnhancedParamsDiffTest {
             Type.getType(Object.class)
         );
 
-        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(original, modified);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
         assertEquals(2, diff.insertions().size());
         assertTrue(diff.replacements().isEmpty());
         assertTrue(diff.removals().isEmpty());
@@ -150,7 +150,7 @@ public class EnhancedParamsDiffTest {
             Type.getType(Object.class)
         );
 
-        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(original, modified);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
         assertEquals(1, diff.insertions().size());
         assertEquals(2, diff.insertions().getFirst().getFirst());
         assertTrue(diff.replacements().isEmpty());
@@ -184,7 +184,7 @@ public class EnhancedParamsDiffTest {
             Pair.of(7, Type.INT_TYPE)
         );
 
-        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(original, modified);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
         assertEquals(6, diff.insertions().size());
         assertEquals(expectedInsertions, diff.insertions());
         assertTrue(diff.replacements().isEmpty());
@@ -228,7 +228,7 @@ public class EnhancedParamsDiffTest {
             Pair.of(12, Type.getType(String.class))
         );
 
-        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(original, modified);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
         assertEquals(9, diff.insertions().size());
         assertEquals(expectedInsertions, diff.insertions());
         assertTrue(diff.replacements().isEmpty());
@@ -269,7 +269,7 @@ public class EnhancedParamsDiffTest {
             Type.INT_TYPE
         );
 
-        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(original, modified);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
         assertEquals(5, diff.insertions().size());
         assertEquals(1, diff.insertions().get(0).getFirst());
         assertEquals(9, diff.insertions().get(1).getFirst());
@@ -295,7 +295,7 @@ public class EnhancedParamsDiffTest {
             Type.getType(List.class)
         );
 
-        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(original, modified);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
         assertTrue(diff.insertions().isEmpty());
         assertEquals(1, diff.replacements().size());
         assertTrue(diff.removals().isEmpty());
@@ -316,7 +316,7 @@ public class EnhancedParamsDiffTest {
             Type.getType(List.class)
         );
 
-        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(original, modified);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
         assertTrue(diff.insertions().isEmpty());
         assertEquals(1, diff.replacements().size());
         assertTrue(diff.removals().isEmpty());
@@ -337,7 +337,7 @@ public class EnhancedParamsDiffTest {
             Type.getObjectType("com/llamalad7/mixinextras/injector/wrapoperation/Operation")
         );
 
-        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(original, modified);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
         assertTrue(diff.insertions().isEmpty());
         assertEquals(1, diff.replacements().size());
         assertTrue(diff.removals().isEmpty());
@@ -360,7 +360,7 @@ public class EnhancedParamsDiffTest {
             Type.DOUBLE_TYPE
         );
 
-        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(original, modified);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
         assertEquals(2, diff.insertions().size());
         assertEquals(1, diff.replacements().size());
         assertTrue(diff.removals().isEmpty());
@@ -384,7 +384,7 @@ public class EnhancedParamsDiffTest {
             Type.DOUBLE_TYPE
         );
 
-        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(original, modified);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
         assertEquals(3, diff.insertions().size());
         assertEquals(Pair.of(1, Type.FLOAT_TYPE), diff.insertions().get(0));
         assertEquals(Pair.of(4, Type.FLOAT_TYPE), diff.insertions().get(1));
@@ -410,7 +410,7 @@ public class EnhancedParamsDiffTest {
             Type.DOUBLE_TYPE
         );
 
-        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(original, modified);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
         assertEquals(1, diff.insertions().size());
         assertEquals(Pair.of(3, Type.DOUBLE_TYPE), diff.insertions().getFirst());
         assertTrue(diff.replacements().isEmpty());
@@ -439,7 +439,7 @@ public class EnhancedParamsDiffTest {
             Type.getType(Set.class)
         );
 
-        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(original, modified);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
         assertEquals(1, diff.insertions().size());
         assertEquals(Pair.of(2, Type.getType(Deque.class)), diff.insertions().getFirst());
         assertTrue(diff.replacements().isEmpty());

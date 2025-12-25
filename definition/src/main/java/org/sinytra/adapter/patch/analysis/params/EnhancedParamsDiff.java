@@ -17,16 +17,6 @@ public class EnhancedParamsDiff {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final boolean DEBUG = Boolean.getBoolean("adapter.definition.paramdiff.debug");
 
-    public static SimpleParamsDiffSnapshot create(Type[] clean, Type[] dirty) {
-        return create(List.of(clean), List.of(dirty));
-    }
-
-    public static SimpleParamsDiffSnapshot create(List<Type> clean, List<Type> dirty) {
-        SimpleParamsDiffSnapshot.Builder builder = SimpleParamsDiffSnapshot.builder();
-        buildDiff(builder, clean, dirty);
-        return builder.build();
-    }
-
     public static LayeredParamsDiffSnapshot createLayered(List<Type> clean, List<Type> dirty) {
         LayeredParamsDiffSnapshot.Builder builder = LayeredParamsDiffSnapshot.builder();
         buildDiff(builder, clean, dirty);
@@ -278,7 +268,7 @@ public class EnhancedParamsDiff {
         List<TypeWithContext> rearrangeClean = new ArrayList<>(clean);
         List<TypeWithContext> rearrangeDirty = new ArrayList<>(dirty);
         List<TypeWithContext> removeDirty = new ArrayList<>();
-        SimpleParamsDiffSnapshot.Builder tempDiff = SimpleParamsDiffSnapshot.builder();
+        LayeredParamsDiffSnapshot.Builder tempDiff = LayeredParamsDiffSnapshot.builder();
         // Remove inserted parameters
         if (diff.entriesOnlyOnLeft().isEmpty() && !diff.entriesOnlyOnRight().isEmpty()) {
             for (Map.Entry<Type, Integer> entry : diff.entriesOnlyOnRight().entrySet()) {
@@ -397,7 +387,7 @@ public class EnhancedParamsDiff {
             LOGGER.info("Comparison results:\n\tInserted: {}\n\tReplaced: {}\n\tSwapped:  {}\n\tRemoved:  {}", diff.insertions(), diff.removals(), diff.swaps(), diff.removals());
         }
         int indexOffset = !dirty.isEmpty() ? dirty.getFirst().pos() : 0;
-        builder.merge(SimpleParamsDiffSnapshot.create(diff), indexOffset);
+        builder.merge(diff.toSnapshot(), indexOffset);
     }
 
     private static List<TypeWithContext> createPositionedList(List<Type> list) {

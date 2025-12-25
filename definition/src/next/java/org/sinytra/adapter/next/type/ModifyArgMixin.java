@@ -10,6 +10,8 @@ import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
+import org.sinytra.adapter.next.pipeline.resolver.injection.ArbitraryInjectionPointSubResolver;
+import org.sinytra.adapter.next.pipeline.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.fixes.TypeAdapter;
@@ -29,6 +31,8 @@ public class ModifyArgMixin implements MixinType<ModifyArgMixinData> {
 
     @Override
     public void preProcess(ModifyArgMixinData mixin, MixinContext context, MutableConfiguration clean, Recipe recipe) {
+        recipe.resolvers().getOrThrow(InjectionPointResolver.class).addSubResolver(new ArbitraryInjectionPointSubResolver());
+
         clean.setParameters(MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY)));
         mixin.index().ifPresent(i -> clean.setProperty(PROPERTY_INDEX, i));
     }

@@ -1,6 +1,7 @@
 package org.sinytra.adapter.next.pipeline.config;
 
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.next.env.ann.AtData;
 import org.sinytra.adapter.next.env.param.MethodParameters;
@@ -15,6 +16,7 @@ public interface MutableConfiguration extends Configuration {
     void setTargetClass(String targetClass);
 
     MutableConfiguration inheritTargetMethod();
+    MutableConfiguration setTargetMethod(MethodInsnNode insn);
     MutableConfiguration setTargetMethod(MethodQualifier targetMethod);
     MutableConfiguration setTargetMethod(MethodNode methodNode);
 

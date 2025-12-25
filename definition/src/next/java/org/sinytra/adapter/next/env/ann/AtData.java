@@ -2,9 +2,11 @@ package org.sinytra.adapter.next.env.ann;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.objectweb.asm.tree.MethodInsnNode;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
+import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -17,6 +19,14 @@ public class AtData {
     private final String target;
     @Nullable
     private final Integer ordinal;
+
+    public AtData(@NotNull String value, @Nullable MethodInsnNode target) {
+        this(value, target != null ? MethodQualifier.create(target) : null);
+    }
+
+    public AtData(@NotNull String value, @Nullable MethodQualifier target) {
+        this(value, target != null ? target.asDescriptor() : null, null);
+    }
 
     public AtData(@NotNull String value, @Nullable String target, @Nullable Integer ordinal) {
         this.value = Objects.requireNonNull(value, "Value must not be null");
@@ -39,13 +49,17 @@ public class AtData {
     public OptionalInt getOrdinal() {
         return this.ordinal != null ? OptionalInt.of(this.ordinal) : OptionalInt.empty();
     }
-    
+
     public void apply(AnnotationHandle handle) {
         handle.setOrAppendNonNull("value", this.value);
         handle.setOrAppendNonNull("target", this.target);
         if (this.ordinal != null) {
             handle.setOrAppendNonNull("ordinal", this.ordinal);
         }
+    }
+
+    public AtData withTarget(MethodQualifier target) {
+        return withTarget(target.asDescriptor());
     }
 
     public AtData withTarget(String target) {

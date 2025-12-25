@@ -7,7 +7,6 @@ import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.patch.analysis.params.ParametersDiff;
-import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
 import org.sinytra.adapter.patch.test.mixin.MinecraftMixinPatchTest;
 import org.sinytra.adapter.patch.transformer.dynamic.DynamicLVTPatch;
 
@@ -150,7 +149,7 @@ public class ParameterComparisonTest {
         Type[] original = new Type[]{Type.getType(String.class), Type.getType(List.class), Type.BOOLEAN_TYPE, Type.BOOLEAN_TYPE, Type.getType(Set.class), Type.getType(Map.class)};
         Type[] modified = new Type[]{Type.getType(String.class), Type.getType(List.class), Type.getType(Deque.class), Type.getType(Map.class), Type.BOOLEAN_TYPE, Type.BOOLEAN_TYPE, Type.getType(Set.class)};
 
-        SimpleParamsDiffSnapshot diff = DynamicLVTPatch.rearrangeParameters(List.of(original), List.of(modified));
+        LayeredParamsDiffSnapshot diff = DynamicLVTPatch.rearrangeParameters(List.of(original), List.of(modified));
 
         System.out.println("Insertions:");
         diff.insertions().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));

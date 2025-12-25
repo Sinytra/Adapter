@@ -22,6 +22,7 @@ public class MethodCallAnalyzer {
     public static final UnaryOperator<AbstractInsnNode> FORWARD = AbstractInsnNode::getNext;
     public static final UnaryOperator<AbstractInsnNode> BACKWARDS = AbstractInsnNode::getPrevious;
     public static final String LAMBDA_PREFIX = "lambda$";
+    private static final int INSN_RANGE = 5;
 
     public static boolean isDirtyDeprecatedMethod(MethodNode clean, MethodNode dirty) {
         return !AdapterUtil.hasAnnotation(clean.visibleAnnotations, MixinConstants.DEPRECATED) && AdapterUtil.hasAnnotation(dirty.visibleAnnotations, MixinConstants.DEPRECATED);
@@ -102,6 +103,10 @@ public class MethodCallAnalyzer {
         }
         return calls.build();
     }
+    
+    public static InstructionMatcher findSurroundingInstructions(AbstractInsnNode insn) {
+        return findSurroundingInstructions(insn, INSN_RANGE);
+    }
 
     public static InstructionMatcher findSurroundingInstructions(AbstractInsnNode insn, int range) {
         LabelNode previousLabel = findFirstInsn(insn, LabelNode.class, BACKWARDS);
@@ -112,6 +117,10 @@ public class MethodCallAnalyzer {
 
         return new InstructionMatcher(insn, previousInsns, nextInsns);
     }
+    
+    public static InstructionMatcher findBackwardsInstructions(AbstractInsnNode insn) {
+        return findBackwardsInstructions(insn, INSN_RANGE);
+    }
 
     public static InstructionMatcher findBackwardsInstructions(AbstractInsnNode insn, int range) {
         LabelNode previousLabel = findFirstInsn(insn, LabelNode.class, BACKWARDS);
@@ -119,12 +128,20 @@ public class MethodCallAnalyzer {
 
         return new InstructionMatcher(insn, previousInsns, List.of());
     }
+    
+    public static InstructionMatcher findForwardInstructions(AbstractInsnNode insn) {
+        return findForwardInstructions(insn, INSN_RANGE);
+    }
 
     public static InstructionMatcher findForwardInstructions(AbstractInsnNode insn, int range) {
         LabelNode nextLabel = findFirstInsn(insn, LabelNode.class, FORWARD);
         List<AbstractInsnNode> nextInsns = getInsns(nextLabel, range, FORWARD);
 
         return new InstructionMatcher(insn, List.of(), nextInsns);
+    }
+    
+    public static InstructionMatcher findForwardInstructionsDirect(AbstractInsnNode insn) {
+        return findForwardInstructionsDirect(insn, INSN_RANGE);
     }
 
     public static InstructionMatcher findForwardInstructionsDirect(AbstractInsnNode insn, int range) {

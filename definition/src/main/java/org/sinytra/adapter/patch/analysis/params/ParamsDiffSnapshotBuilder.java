@@ -39,9 +39,9 @@ public interface ParamsDiffSnapshotBuilder {
 
     ParamsDiffSnapshotBuilder inlines(List<Pair<Integer, Consumer<InstructionAdapter>>> inlines);
 
-    ParamsDiffSnapshotBuilder merge(SimpleParamsDiffSnapshot diff);
+    ParamsDiffSnapshotBuilder merge(ParamsDiffSnapshot diff);
 
-    ParamsDiffSnapshotBuilder merge(SimpleParamsDiffSnapshot diff, int indexOffset);
+    ParamsDiffSnapshotBuilder merge(ParamsDiffSnapshot diff, int indexOffset);
 
     @CheckReturnValue
     List<Integer> getRemovals();

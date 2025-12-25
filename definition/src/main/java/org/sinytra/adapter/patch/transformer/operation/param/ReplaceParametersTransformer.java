@@ -4,8 +4,10 @@ import com.mojang.logging.LogUtils;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.patch.api.MethodContext;
+import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchContext;
 import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
@@ -56,9 +58,18 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
                     int nextOp = insn.getNext().getOpcode();
                     if (bfu != null && nextOp != Opcodes.IFNULL && nextOp != Opcodes.IFNONNULL) {
                         TypeAdapter typeFix = bfu.getTypeAdapter(type, originalType);
+                        // If this is a wrap operation, make an educated guess and try adapting the instance type
+                        if (typeFix == null && methodContext.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
+                            List<Type> params = MethodParameters.getParameterTypes(methodNode.desc);
+                            if (!params.isEmpty()) {
+                                typeFix = bfu.getTypeAdapter(params.getFirst(), originalType);
+                                if (typeFix != null) {
+                                    varInsn.var = lvtLookup.getByParameterOrdinal(0).index;
+                                }
+                            }
+                        }
                         if (typeFix != null) {
                             typeFix.apply(methodNode.instructions, varInsn);
-                            break;
                         }
                     }
                 }

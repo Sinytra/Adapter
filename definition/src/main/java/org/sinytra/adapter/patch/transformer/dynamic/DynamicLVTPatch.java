@@ -14,8 +14,8 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.locals.LocalVarAnalyzer;
 import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
+import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.patch.analysis.params.ParamsDiffSnapshot;
-import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.api.*;
@@ -24,7 +24,10 @@ import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.FabricUtil;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
@@ -131,7 +134,7 @@ public class DynamicLVTPatch implements MethodTransform {
         // Replacements are only partially supported, as most would require LVT fixups and converters
         if (!diff.replacements().isEmpty() && areReplacedParamsUsed(diff.replacements(), methodNode)) {
             // Check if we can rearrange parameters
-            SimpleParamsDiffSnapshot rearrange = rearrangeParameters(capturedLocals.expected(), info.availableTypes());
+            LayeredParamsDiffSnapshot rearrange = rearrangeParameters(capturedLocals.expected(), info.availableTypes());
             if (rearrange == null) {
                 LOGGER.debug(MIXINPATCH, "Tried to replace local variables in mixin method {}.{} using {}", classNode.name, methodNode.name + methodNode.desc, diff.replacements());
                 return null;
@@ -194,7 +197,7 @@ public class DynamicLVTPatch implements MethodTransform {
     // TODO Replace by LocalVarRearrangement#getRearrangedParameters ?
     @VisibleForTesting
     @Nullable
-    public static SimpleParamsDiffSnapshot rearrangeParameters(List<Type> parameterTypes, List<Type> newParameterTypes) {
+    public static LayeredParamsDiffSnapshot rearrangeParameters(List<Type> parameterTypes, List<Type> newParameterTypes) {
         Object2IntMap<Type> typeCount = new Object2IntOpenHashMap<>();
         ListMultimap<Type, Integer> typeIndices = ArrayListMultimap.create();
         for (int i = 0; i < parameterTypes.size(); i++) {
@@ -243,7 +246,7 @@ public class DynamicLVTPatch implements MethodTransform {
         List<Pair<Integer, Integer>> swapsList = new ArrayList<>();
         swaps.forEach((from, to) -> swapsList.add(Pair.of(from, to)));
 
-        return SimpleParamsDiffSnapshot.builder()
+        return LayeredParamsDiffSnapshot.builder()
             .insertions(insertions)
             .swaps(swapsList)
             .build();

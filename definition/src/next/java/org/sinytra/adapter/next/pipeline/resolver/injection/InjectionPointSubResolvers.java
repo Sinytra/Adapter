@@ -26,28 +26,19 @@ import java.util.Objects;
 import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
 
 public class InjectionPointSubResolvers {
-    private static final int INSN_RANGE = 5;
-
     public static final SubResolver REPLACED_TYPE = (MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe) -> {
         if (!clean.getAtData().getValue().equals(AT_VAL_INVOKE)) return null;
 
-        MethodQualifier cleanQualifier = clean.getTargetMethod();
-        MethodQualifier dirtyQualifier = dirty.getTargetMethod();
-
-        MethodContext.TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), dirtyQualifier);
-        if (dirtyTarget == null) return null;
-
+        MethodContext.TargetPair cleanPair = context.methods().findOwnMethodPair(context.cleanLookup(), clean.getTargetMethod());
+        MethodContext.TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), dirty.getTargetMethod());
         // Find single clean target minsn
-        MethodContext.TargetPair cleanPair = context.methods().findOwnMethodPair(context.cleanLookup(), cleanQualifier);
         List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(cleanPair);
-        if (insns.isEmpty() || !(insns.getFirst() instanceof MethodInsnNode cleanInsn)) {
-            return null;
-        }
+        if (insns.isEmpty() || !(insns.getFirst() instanceof MethodInsnNode cleanInsn)) return null;
 
-        InstructionMatcher cleanMatcher = MethodCallAnalyzer.findSurroundingInstructions(cleanInsn, INSN_RANGE);
+        InstructionMatcher cleanMatcher = MethodCallAnalyzer.findSurroundingInstructions(cleanInsn);
         Multimap<String, MethodInsnNode> dirtyCalls = MethodCallAnalyzer.getMethodCalls(dirtyTarget.methodNode(), new ArrayList<>());
         List<InstructionMatcher> dirtyMatchers = dirtyCalls.values().stream()
-            .map(i -> MethodCallAnalyzer.findSurroundingInstructions(i, INSN_RANGE))
+            .map(MethodCallAnalyzer::findSurroundingInstructions)
             .toList();
 
         WeighedDisambiguation<MethodQualifier> magicBlackBox = WeighedDisambiguation.<MethodQualifier>builder()
@@ -60,7 +51,7 @@ public class InjectionPointSubResolvers {
         MethodQualifier replacement = magicBlackBox.findBestMatch();
         if (replacement != null) {
             return MutableConfiguration.create()
-                .setAtData(clean.getAtData().withTarget(replacement.asDescriptor()));
+                .setAtData(clean.getAtData().withTarget(replacement));
         }
 
         return null;

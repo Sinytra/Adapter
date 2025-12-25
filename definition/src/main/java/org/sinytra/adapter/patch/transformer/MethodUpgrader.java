@@ -10,7 +10,7 @@ import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.analysis.locals.LocalVarAnalyzer;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
-import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
+import org.sinytra.adapter.patch.analysis.params.ParamsDiffSnapshot;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.api.MethodContext;
@@ -74,7 +74,7 @@ public final class MethodUpgrader {
             .addAll(modifiedTargetDesc.subList(0, modifiedTargetDesc.size() - popParams))
             .build();
         // Create diff
-        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(originalDesc, modifiedDesc);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(originalDesc, modifiedDesc);
         if (!diff.isEmpty()) {
             MethodTransform patch = diff.asParameterTransformer(ParamTransformTarget.ALL, false, Set.of());
             patch.apply(methodContext);
@@ -154,9 +154,9 @@ public final class MethodUpgrader {
             .addAll(originalDesc.subList(1 + originalTargetDesc.size(), originalDesc.size()))
             .build();
         // Create diff
-        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(originalDesc, modifiedDesc);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(originalDesc, modifiedDesc);
         if (!diff.isEmpty()) {
-            MethodTransform patch = diff.asParameterTransformer(ParamTransformTarget.ALL, false, Set.of());
+            MethodTransform patch = diff.asParameterTransformer(ParamTransformTarget.ALL, false, Set.of(ParamsDiffSnapshot.Flags.UPGRADE_WRAP_OP));
             patch.apply(methodContext);
         }
     }

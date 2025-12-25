@@ -81,6 +81,12 @@ public class MethodHelper {
         return !findInjectionTargetInsns(target).isEmpty();
     }
 
+    @Nullable
+    public AbstractInsnNode findInjectionTargetInsn(@Nullable MethodContext.TargetPair target) {
+        List<AbstractInsnNode> cleanInsns = findInjectionTargetInsns(target);
+        return cleanInsns.size() != 1 ? null : cleanInsns.getFirst();
+    }
+
     public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable MethodContext.TargetPair target) {
         return this.targetInstructionsCache.computeIfAbsent(target, this::computeInjectionTargetInsns);
     }

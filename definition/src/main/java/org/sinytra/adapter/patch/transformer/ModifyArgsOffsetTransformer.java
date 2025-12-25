@@ -6,9 +6,10 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.InsnNode;
 import org.objectweb.asm.tree.IntInsnNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
+import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
-import org.sinytra.adapter.patch.analysis.params.SimpleParamsDiffSnapshot;
+import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
+import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
@@ -20,9 +21,9 @@ public class ModifyArgsOffsetTransformer {
     private static final MethodQualifier ARGS_SET = new MethodQualifier("Lorg/spongepowered/asm/mixin/injection/invoke/arg/Args;", "set", "(ILjava/lang/Object;)V");
 
     public static void handleModifiedDesc(MethodNode methodNode, String cleanDesc, String dirtyDesc) {
-        Type[] cleanArgs = Type.getArgumentTypes(cleanDesc);
-        Type[] dirtyArgs = Type.getArgumentTypes(dirtyDesc);
-        SimpleParamsDiffSnapshot diff = EnhancedParamsDiff.create(cleanArgs, dirtyArgs);
+        List<Type> cleanArgs = MethodParameters.getParameterTypes(cleanDesc);
+        List<Type> dirtyArgs = MethodParameters.getParameterTypes(dirtyDesc);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(cleanArgs, dirtyArgs);
         if (!diff.insertions().isEmpty()) {
             modify(methodNode, diff.insertions());
         }

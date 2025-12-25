@@ -14,13 +14,6 @@ public class MethodTransformBuilderImpl<T extends MethodTransformBuilder<T>> imp
     protected final List<MethodTransform> transforms = new ArrayList<>();
 
     @Override
-    public T modifyParams(Consumer<ModifyMethodParams.Builder> consumer) {
-        ModifyMethodParams.Builder builder = ModifyMethodParams.builder();
-        consumer.accept(builder);
-        return transform(builder.build());
-    }
-
-    @Override
     public T transformParams(Consumer<TransformParameters.Builder> consumer) {
         TransformParameters.Builder builder = new TransformParameters.Builder();
         consumer.accept(builder);
