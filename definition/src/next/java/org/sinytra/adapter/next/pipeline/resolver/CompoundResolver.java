@@ -4,7 +4,6 @@ import org.jetbrains.annotations.Nullable;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.pipeline.Recipe;
-import org.sinytra.adapter.next.pipeline.TxResultInstance;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 
 import java.util.ArrayList;
@@ -30,28 +29,28 @@ public abstract class CompoundResolver implements Resolver {
     }
 
     @Override
-    public TxResultInstance resolve(MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe) {
+    public ResolutionResult resolve(MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe) {
         if (!canApply(mixin, clean, dirty)) {
-            return TxResultInstance.pass();
+            return ResolutionResult.pass();
         }
 
         Configuration resused = tryReuse(context, clean, dirty); 
         if (resused != null) {
-            return TxResultInstance.success(resused);
+            return ResolutionResult.success(resused);
         }
 
         for (SubResolver subResolver : this.subResolvers) {
             Configuration result = subResolver.resolve(mixin, context, clean, dirty, recipe);
             if (result != null) {
-                return TxResultInstance.success(result);
+                return ResolutionResult.success(result);
             }
         }
 
         Configuration fallback = useFallback(context, clean, dirty); 
         if (fallback != null) {
-            return TxResultInstance.success(fallback);
+            return ResolutionResult.success(fallback);
         }
 
-        return TxResultInstance.fail();
+        return ResolutionResult.fail();
     }
 }

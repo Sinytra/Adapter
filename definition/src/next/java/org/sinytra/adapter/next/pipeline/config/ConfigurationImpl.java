@@ -25,11 +25,13 @@ public class ConfigurationImpl implements MutableConfiguration {
 
     @Nullable
     private final Configuration parent;
+    private final ConfigAttribute<String> mixinType;
     private final ConfigAttribute<String> targetClass;
     private final ConfigAttribute<MethodQualifier> targetMethod;
     private final ConfigAttribute<AtData> atData;
     private final ConfigAttribute<MethodParameters> parameters;
     private final ConfigAttribute<Type> returnType;
+    private final ConfigAttribute<Boolean> delete;
 
     private final Map<String, Object> properties = new HashMap<>();
 
@@ -40,15 +42,17 @@ public class ConfigurationImpl implements MutableConfiguration {
     public ConfigurationImpl(@Nullable Configuration parent) {
         this.parent = parent;
 
+        this.mixinType = new ConfigAttribute<>("mixin_type", true, parent != null ? parent::getMixinType : null);
         this.targetClass = new ConfigAttribute<>("target_class", true, parent != null ? parent::getTargetClass : null);
         this.targetMethod = new ConfigAttribute<>("target_method", true, parent != null ? parent::getTargetMethod : null);
         this.atData = new ConfigAttribute<>("at_data", true, parent != null ? parent::getAtData : null);
         this.parameters = new ConfigAttribute<>("parameters", true, parent != null ? parent::getParameters : null);
         this.returnType = new ConfigAttribute<>("return_type", true, parent != null ? parent::getReturnType : null);
+        this.delete = new ConfigAttribute<>("delete", false, parent != null ? parent::shouldDelete : () -> false);
     }
 
     public boolean validate() {
-        List<ConfigAttribute<?>> attrs = List.of(targetClass, targetMethod, atData, parameters, returnType);
+        List<ConfigAttribute<?>> attrs = List.of(mixinType, targetClass, targetMethod, atData, parameters, returnType, delete);
         for (ConfigAttribute<?> attr : attrs) {
             if (!attr.validate()) {
                 LOGGER.debug(MIXINPATCH, "Missing required config attribute: {}", attr.getKey());
@@ -59,8 +63,21 @@ public class ConfigurationImpl implements MutableConfiguration {
     }
 
     @Override
-    public void inheritTargetClass() {
+    public MutableConfiguration inheritMixinType() {
+        this.mixinType.setDefault();
+        return this;
+    }
+
+    @Override
+    public MutableConfiguration setMixinType(String mixinType) {
+        this.mixinType.set(mixinType);
+        return this;
+    }
+
+    @Override
+    public MutableConfiguration inheritTargetClass() {
         this.targetClass.setDefault();
+        return this;
     }
 
     @Override
@@ -76,13 +93,20 @@ public class ConfigurationImpl implements MutableConfiguration {
     }
 
     @Override
-    public void inheritParameters() {
+    public MutableConfiguration inheritParameters() {
         this.parameters.setDefault();
+        return this;
     }
 
     @Override
-    public void inheritReturnType() {
+    public MutableConfiguration inheritReturnType() {
         this.returnType.setDefault();
+        return this;
+    }
+
+    @Override
+    public String getMixinType() {
+        return this.mixinType.get();
     }
 
     @Override
@@ -150,6 +174,24 @@ public class ConfigurationImpl implements MutableConfiguration {
     }
 
     @Override
+    public boolean shouldDelete() {
+        Boolean boxed = this.delete.get();
+        return boxed != null && boxed.booleanValue();
+    }
+
+    @Override
+    public MutableConfiguration inheritShouldDelete() {
+        this.delete.setDefault();
+        return this;
+    }
+
+    @Override
+    public MutableConfiguration setShouldDelete(boolean delete) {
+        this.delete.set(delete);
+        return this;
+    }
+
+    @Override
     public boolean hasProperty(String key) {
         return this.properties.containsKey(key);
     }
@@ -176,15 +218,18 @@ public class ConfigurationImpl implements MutableConfiguration {
         return new ConfigurationImpl(this.parent);
     }
 
+    // TODO Remove hardcoding in copy and merge
     @Override
     public MutableConfiguration copy() {
         MutableConfiguration copy = new ConfigurationImpl(this.parent);
 
+        copy.setMixinType(this.mixinType.get());
         copy.setTargetClass(this.targetClass.get());
         copy.setTargetMethod(this.targetMethod.get());
         copy.setAtData(this.atData.get());
         copy.setParameters(this.parameters.get());
         copy.setReturnType(this.returnType.get());
+        copy.setShouldDelete(shouldDelete());
         // TODO Properties
 
         return copy;
@@ -192,6 +237,8 @@ public class ConfigurationImpl implements MutableConfiguration {
 
     @Override
     public void mergeFrom(Configuration other) {
+        if (other.getMixinType() != null)
+            this.mixinType.set(other.getMixinType());
         if (other.getTargetClass() != null)
             this.targetClass.set(other.getTargetClass());
         if (other.getTargetMethod() != null)
@@ -202,6 +249,9 @@ public class ConfigurationImpl implements MutableConfiguration {
             this.parameters.set(other.getParameters());
         if (other.getReturnType() != null)
             this.returnType.set(other.getReturnType());
+        if (other.shouldDelete()) {
+            this.delete.set(other.shouldDelete());
+        }
 
         this.properties.putAll(other.getProperties());
     }

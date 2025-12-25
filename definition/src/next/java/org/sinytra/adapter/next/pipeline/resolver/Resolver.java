@@ -1,11 +1,44 @@
 package org.sinytra.adapter.next.pipeline.resolver;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.pipeline.Recipe;
-import org.sinytra.adapter.next.pipeline.TxResultInstance;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 
+import java.util.Optional;
+
 public interface Resolver {
-    TxResultInstance resolve(MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe);
+    enum ResultType {
+        FINALIZE,
+        SUCCESS,
+        PASS,
+        FAIL
+    }
+
+    record ResolutionResult(ResultType type, @Nullable Configuration patch) {
+        public static ResolutionResult fail() {
+            return new ResolutionResult(ResultType.FAIL, null);
+        }
+
+        public static ResolutionResult pass() {
+            return new ResolutionResult(ResultType.PASS, null);
+        }
+
+        public static ResolutionResult success(Configuration patch) {
+            return new ResolutionResult(ResultType.SUCCESS, patch);
+        }
+
+        public static ResolutionResult finalize(Configuration patch) {
+            return new ResolutionResult(ResultType.FINALIZE, patch);
+        }
+
+        public Optional<Configuration> maybePatch() {
+            return Optional.ofNullable(this.patch);
+        }
+    }
+
+    @NotNull
+    ResolutionResult resolve(MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe);
 }

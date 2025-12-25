@@ -409,6 +409,25 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    @Test
+    void testSyntheticInstanceof() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/ItemInHandRendererMixin",
+            "renderFirstPersonItem"
+        );
+    }
+
+    @Test
+    void testSyntheticInstanceofMEV() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/ItemInHandRendererMixin",
+            "renderFirstPersonItemMEV",
+            assertType(),
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
     @Override
     protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
         final ClassNode patched = loadClass(className);

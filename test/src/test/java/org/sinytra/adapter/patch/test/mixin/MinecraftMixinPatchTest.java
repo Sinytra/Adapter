@@ -51,10 +51,13 @@ public abstract class MinecraftMixinPatchTest {
         final LoadResult result = load(className, List.of(testName));
         final MethodNode patched = result.patched.methods
             .stream().filter(m -> m.name.equals(testName))
-            .findFirst().orElseThrow();
+            .findFirst().orElse(null);
         final MethodNode expected = result.expected.methods
             .stream().filter(m -> m.name.equals(testName + "Expected"))
-            .findFirst().orElseThrow();
+            .findFirst().orElse(null);
+        if (patched == null && expected == null) {
+            return;
+        }
 
         LOGGER.info("Patched node: \n{}", AdapterUtil.methodNodeToString(patched));
 
@@ -196,6 +199,17 @@ public abstract class MinecraftMixinPatchTest {
         return (patched, expected, env) -> {
             MixinClassGenerator.GeneratedClass generatedClass = env.classGenerator().getGeneratedMixinClasses().get(targetClass);
             assertNotNull(generatedClass, "Missing generated class for " + targetClass);
+        };
+    }
+
+    protected AssertCallback assertType() {
+        return (patched, expected, env) -> {
+            AnnotationNode patchedMethodAnn = patched.visibleAnnotations.getFirst();
+            AnnotationNode expectedMethodAnn = expected.visibleAnnotations.getFirst();
+
+            Assertions.assertThat(patchedMethodAnn.desc)
+                .as("Method Mixin Type")
+                .isEqualTo(expectedMethodAnn.desc);
         };
     }
 

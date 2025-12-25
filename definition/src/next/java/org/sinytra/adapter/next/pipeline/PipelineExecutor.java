@@ -11,12 +11,16 @@ import org.sinytra.adapter.next.pipeline.config.ConfigurationImpl;
 import org.sinytra.adapter.next.pipeline.processor.Processor;
 import org.sinytra.adapter.next.pipeline.processor.Processors;
 import org.sinytra.adapter.next.pipeline.resolver.Resolver;
+import org.sinytra.adapter.next.pipeline.resolver.Resolver.ResolutionResult;
+import org.sinytra.adapter.next.pipeline.resolver.Resolver.ResultType;
 import org.sinytra.adapter.next.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.next.type.MixinType;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.slf4j.Logger;
+
+import java.util.Objects;
 
 import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
@@ -46,6 +50,7 @@ public class PipelineExecutor {
 
         // 1. Create clean config
         ConfigurationImpl cleanConfig = new ConfigurationImpl();
+        cleanConfig.setMixinType(this.context.methodAnnotation().getDesc());
         cleanConfig.setTargetClass(data.getTargetClass());
         cleanConfig.setTargetMethod(data.getTargetMethod());
         cleanConfig.setAtData(data.at());
@@ -53,6 +58,7 @@ public class PipelineExecutor {
 
         // 1.1. Create dirty config
         ConfigurationImpl dirtyConfig = new ConfigurationImpl(cleanConfig);
+        dirtyConfig.inheritMixinType();
         dirtyConfig.inheritTargetClass();
 
         Recipe recipe = new Recipe(cleanConfig, dirtyConfig, resolvers, processors);
@@ -69,10 +75,15 @@ public class PipelineExecutor {
         // 3. Run Resolvers
         resolvers.freeze();
         for (Resolver resolver : resolvers.getAll()) {
-            TxResultInstance res = resolver.resolve(data, this.context, cleanConfig, dirtyConfig, recipe);
-            if (res.type() == TxResult.SUCCESS) {
+            ResolutionResult res = resolver.resolve(data, this.context, cleanConfig, dirtyConfig, recipe);
+            Objects.requireNonNull(res, "BUG: Received null from resolver " + resolver.getClass());
+
+            if (res.type() == ResultType.SUCCESS || res.type() == ResultType.FINALIZE) {
                 dirtyConfig.mergeFrom(res.patch());
-            } else if (res.type() == TxResult.FAIL) {
+                if (res.type() == ResultType.FINALIZE) {
+                    break;
+                }
+            } else if (res.type() == ResultType.FAIL) {
                 LOGGER.debug(MIXINPATCH, "Skipping mixin {} due to failed RESOLVER {}", mixinId, resolver.getClass().getSimpleName());
                 return Patch.Result.PASS;
             }
@@ -91,6 +102,9 @@ public class PipelineExecutor {
         processors.freeze();
         for (Processor processor : processors.getAll()) {
             TxResult res = processor.process(data, this.context, dirtyConfig, recipe);
+            if (res == TxResult.FINALIZE) {
+                break;
+            }
             if (res == TxResult.FAIL) {
                 LOGGER.debug(MIXINPATCH, "Skipping mixin {} due to failed PROCESSOR {}", mixinId, processor.getClass().getSimpleName());
                 return Patch.Result.PASS;

@@ -11,11 +11,13 @@ import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
 import org.sinytra.adapter.next.pipeline.resolver.injection.ArbitraryInjectionPointSubResolver;
 import org.sinytra.adapter.next.pipeline.resolver.injection.InjectionPointResolver;
+import org.sinytra.adapter.next.pipeline.resolver.special.ResolverSyntheticInstanceof;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.List;
 
+import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
 import static org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup.*;
 
 public class ModifyExpressionValueMixin implements MixinType<ModifyExpressionValueMixinData> {
@@ -27,13 +29,14 @@ public class ModifyExpressionValueMixin implements MixinType<ModifyExpressionVal
     @Override
     public void preProcess(ModifyExpressionValueMixinData mixin, MixinContext context, MutableConfiguration clean, Recipe recipe) {
         recipe.resolvers().getOrThrow(InjectionPointResolver.class).addSubResolver(new ArbitraryInjectionPointSubResolver());
+        recipe.resolvers().addBefore(InjectionPointResolver.class, new ResolverSyntheticInstanceof(true));
 
         clean.setParameters(MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY, CAPTURED_PARAMS)));
     }
 
     @Override
     public void postProcess(ModifyExpressionValueMixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
-        if (dirty.getTargetMethod() == null || dirty.getAtData() == null) return;
+        if (dirty.getTargetMethod() == null || dirty.getAtData() == null || !dirty.getAtData().getValue().equals(AT_VAL_INVOKE)) return;
 
         MethodQualifier targetDesc = dirty.getAtData().getTarget().flatMap(MethodQualifier::create).orElse(null);
         if (targetDesc == null) {

@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.Optional;
 
 public interface Configuration {
+    String getMixinType();
+
     String getTargetClass();
 
     MethodQualifier getTargetMethod();
@@ -19,6 +21,9 @@ public interface Configuration {
     
     Type getReturnType();
 
+    boolean shouldDelete();
+
+    // TODO Common PropertyContainer for configs and AtData
     boolean hasProperty(String key);
 
     <T> Optional<T> getProperty(String key);

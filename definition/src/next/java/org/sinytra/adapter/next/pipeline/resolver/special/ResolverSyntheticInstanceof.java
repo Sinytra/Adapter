@@ -1,19 +1,25 @@
-package org.sinytra.adapter.patch.transformer.dynfix;
+package org.sinytra.adapter.next.pipeline.resolver.special;
 
-import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.next.env.MixinContext;
+import org.sinytra.adapter.next.env.ann.AtData;
+import org.sinytra.adapter.next.env.ann.MixinData;
+import org.sinytra.adapter.next.pipeline.Recipe;
+import org.sinytra.adapter.next.pipeline.config.Configuration;
+import org.sinytra.adapter.next.pipeline.resolver.Resolver;
 import org.sinytra.adapter.patch.analysis.InsnComparator;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
-import org.sinytra.adapter.patch.api.*;
-import org.sinytra.adapter.patch.transformer.operation.unit.DisableMixin;
-import org.sinytra.adapter.patch.transformer.operation.unit.ModifyMixinType;
+import org.sinytra.adapter.patch.api.MethodContext;
+import org.sinytra.adapter.patch.api.MixinConstants;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+
+import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
+import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_SINYTRA_INSTANCEOF;
 
 /**
  * <p>
@@ -24,58 +30,48 @@ import java.util.Set;
  * <p/>
  * Reference: <code>stack.isOf(Items.CROSSBOW)</code> -> <code>stack.getItem() instanceof CrossbowItem</code> in <code>HeldItemRenderer#renderFirstPersonItem</code>
  */
-public class DynFixSyntheticInstanceof implements DynamicFixer<DynFixSyntheticInstanceof.Data> {
-    private static final Set<String> ACCEPTED_ANNOTATIONS = Set.of(MixinConstants.REDIRECT, MixinConstants.MODIFY_EXPR_VAL);
-    private static final int RANGE = 4;
-
-    public record Data(AbstractInsnNode cleanInjectionInsn) {}
+public record ResolverSyntheticInstanceof(boolean skipInsnComparison) implements Resolver {
 
     @Override
-    @Nullable
-    public Data prepare(MethodContext methodContext) {
-        if (methodContext.methodAnnotation().matchesAny(ACCEPTED_ANNOTATIONS)
-            && methodContext.hasInjectionPointValue("INVOKE")
-            && methodContext.findCleanInjectionTarget() != null && methodContext.findDirtyInjectionTarget() != null
-        ) {
-            List<AbstractInsnNode> insns = methodContext.findInjectionTargetInsns(methodContext.findCleanInjectionTarget()); 
-            return new Data(insns.getFirst());
-        }
-        return null;
-    }
+    public ResolutionResult resolve(MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe) {
+        if (!context.legacy().hasInjectionPointValue(AT_VAL_INVOKE)) return ResolutionResult.pass();
 
-    @Override
-    @Nullable
-    public FixResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchAuditTrail auditTrail, Data data) {
-        AbstractInsnNode targetInsn = data.cleanInjectionInsn();
+        MethodContext.TargetPair cleanTarget = context.methods().findOwnMethodPair(context.cleanLookup(), clean.getTargetMethod());
+        MethodContext.TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), dirty.getTargetMethod());
+        AbstractInsnNode targetInsn = context.methods().findInjectionTargetInsn(cleanTarget);
+        if (targetInsn == null) return ResolutionResult.pass();
+
         List<AbstractInsnNode> labelInsns = findLabelInsns(targetInsn);
         AbstractInsnNode jumpInsn = labelInsns.getLast();
         // Ensure label contain an if statement
-        if (!(jumpInsn instanceof JumpInsnNode)) {
-            return null;
-        }
-        InstructionMatcher cleanMatcher = MethodCallAnalyzer.findForwardInstructions(targetInsn, RANGE);
+        if (!(jumpInsn instanceof JumpInsnNode)) return ResolutionResult.pass();
+
+        InstructionMatcher cleanMatcher = MethodCallAnalyzer.findForwardInstructions(targetInsn);
         int firstOp = cleanMatcher.after().getFirst().getOpcode();
         // Find equivalent dirty code point
-        InsnList dirtyInsns = methodContext.findDirtyInjectionTarget().methodNode().instructions;
+        InsnList dirtyInsns = dirtyTarget.methodNode().instructions;
         for (AbstractInsnNode insn : dirtyInsns) {
             if (insn.getOpcode() == firstOp) {
                 AbstractInsnNode nextLabel = findInsnAfterLabel(insn);
-                InstructionMatcher dirtyMatcher = MethodCallAnalyzer.findForwardInstructions(nextLabel, RANGE);
+                InstructionMatcher dirtyMatcher = MethodCallAnalyzer.findForwardInstructions(nextLabel);
                 if (cleanMatcher.test(dirtyMatcher)) {
                     // ModifyExpressionValue doesn't include the original instanceof call, so we can skip comparing instructions
-                    if (methodContext.methodAnnotation().matchesDesc(MixinConstants.MODIFY_EXPR_VAL)) {
+                    if (this.skipInsnComparison) {
                         TypeInsnNode instanceOfInsn = (TypeInsnNode) findLabelInsns(insn).stream().filter(i -> i.getOpcode() == Opcodes.INSTANCEOF).findFirst().orElse(null);
                         if (instanceOfInsn == null) {
-                            return null;
+                            return ResolutionResult.pass();
                         }
-                        MethodTransform transform = new ModifyMixinType(MixinConstants.MODIFY_INSTANCEOF_VAL, b -> {
-                            b.sameTarget().injectionPoint("sinytra:INSTANCEOF", instanceOfInsn.desc);
-                            int ordinal = getInstanceofOrdinal(dirtyInsns, instanceOfInsn);
-                            if (ordinal != 0) {
-                                b.putValue("ordinal", ordinal);
-                            }
-                        });
-                        return FixResult.of(transform.apply(methodContext), PatchAuditTrail.Match.FULL);
+
+                        int ordinal = getInstanceofOrdinal(dirtyInsns, instanceOfInsn);
+                        Configuration config = dirty.subConfig()
+                            .setMixinType(MixinConstants.MODIFY_INSTANCEOF_VAL)
+                            .inheritTargetClass()
+                            .inheritTargetMethod()
+                            .setAtData(new AtData(AT_VAL_SINYTRA_INSTANCEOF, instanceOfInsn.desc, ordinal != 0 ? ordinal : null))
+                            .inheritParameters()
+                            .inheritReturnType();
+
+                        return ResolutionResult.finalize(config);
                     }
 
                     // Found the code point, now determine the contents of the updated if statement
@@ -83,7 +79,7 @@ public class DynFixSyntheticInstanceof implements DynamicFixer<DynFixSyntheticIn
 
                     // Create a normalized method body insn list
                     List<AbstractInsnNode> modLabelInsns = new ArrayList<>();
-                    for (AbstractInsnNode ins : methodNode.instructions) {
+                    for (AbstractInsnNode ins : context.methodNode().instructions) {
                         if (ins instanceof LineNumberNode || ins instanceof FrameNode) {
                             continue;
                         }
@@ -103,13 +99,19 @@ public class DynFixSyntheticInstanceof implements DynamicFixer<DynFixSyntheticIn
 
                     // Disable mixin. Goodbye.
                     if (finalCleanMatcher.test(finalDirtyMatcher, InsnComparator.IGNORE_VAR_INDEX)) {
-                        return FixResult.of(new DisableMixin().apply(methodContext), PatchAuditTrail.Match.PARTIAL);
+                        // TODO Come up with a voting system for validation so that we can skip checks for unused props when delete is enabled
+                        return ResolutionResult.finalize(dirty.subConfig()
+                            .inheritTargetMethod()
+                            .inheritAtData()
+                            .inheritParameters()
+                            .inheritReturnType()
+                            .setShouldDelete(true));
                     }
                 }
             }
         }
 
-        return null;
+        return ResolutionResult.pass();
     }
 
     private static AbstractInsnNode findInsnAfterLabel(AbstractInsnNode insn) {

@@ -20,8 +20,7 @@ public class DynamicInjectionPointPatch implements MethodTransform {
         new DynFixSliceBoundary(),
         new DynFixAtVariableAssignStore(),
         new DynFixParameterTypeAdapter(),
-        new DynFixMethodComparison(),
-        new DynFixSyntheticInstanceof()
+        new DynFixMethodComparison()
     );
 
     @Override

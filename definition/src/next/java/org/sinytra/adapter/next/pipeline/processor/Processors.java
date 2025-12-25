@@ -9,6 +9,8 @@ public class Processors extends OrderedRegistry<Processor> {
     }
 
     private void registerDefaultProcessors() {
+        add(new DisableMixinProcessor());
+        add(new MixinTypeProcessor());
         add(new TargetMethodProcessor());
         add(new InjectionTargetProcessor());
         add(new MixinMethodParametersProcessor());

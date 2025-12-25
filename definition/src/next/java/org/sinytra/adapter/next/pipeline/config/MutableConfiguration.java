@@ -12,7 +12,10 @@ public interface MutableConfiguration extends Configuration {
         return new ConfigurationImpl();
     }
 
-    void inheritTargetClass();
+    MutableConfiguration inheritMixinType();
+    MutableConfiguration setMixinType(String mixinType);
+
+    MutableConfiguration inheritTargetClass();
     void setTargetClass(String targetClass);
 
     MutableConfiguration inheritTargetMethod();
@@ -23,11 +26,14 @@ public interface MutableConfiguration extends Configuration {
     MutableConfiguration inheritAtData();
     MutableConfiguration setAtData(AtData atData);
 
-    void inheritParameters();
+    MutableConfiguration inheritParameters();
     void setParameters(MethodParameters parameters);
 
-    void inheritReturnType();
+    MutableConfiguration inheritReturnType();
     void setReturnType(Type returnType);
+
+    MutableConfiguration inheritShouldDelete();
+    MutableConfiguration setShouldDelete(boolean delete);
 
     <T> MutableConfiguration setProperty(String key, T value);
 
