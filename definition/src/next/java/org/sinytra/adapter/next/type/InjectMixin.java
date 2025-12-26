@@ -11,6 +11,7 @@ import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
 import org.sinytra.adapter.next.pipeline.resolver.injection.ArbitraryInjectionPointSubResolver;
+import org.sinytra.adapter.next.pipeline.resolver.injection.AtVariableAssignStoreSubResolver;
 import org.sinytra.adapter.next.pipeline.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.util.MethodQualifier;
@@ -31,7 +32,9 @@ public class InjectMixin implements MixinType<InjectMixinData> {
 
     @Override
     public void preProcess(InjectMixinData mixin, MixinContext context, MutableConfiguration clean, Recipe recipe) {
-        recipe.resolvers().getOrThrow(InjectionPointResolver.class).addSubResolver(new ArbitraryInjectionPointSubResolver());
+        recipe.resolvers().getOrThrow(InjectionPointResolver.class)
+            .addSubResolver(new AtVariableAssignStoreSubResolver())
+            .addSubResolver(new ArbitraryInjectionPointSubResolver());
 
         clean.setParameters(MethodParameters.create(context.methodNode(), List.of(METHOD_PARAMS, CI_CIR, LOCALS)));
 

@@ -62,9 +62,7 @@ public class ParamDiffResolver {
                     state.set(from, dirty);
                     state.set(to, clean);
                 }
-                case MoveParam(int from, int to) -> {
-                    state.add(to, state.remove(from));
-                }
+                case MoveParam(int from, int to) -> state.add(to, state.remove(from));
                 case RemoveParam(int index) -> state.remove(index);
                 case InlineParam inline -> state.remove(inline.target());
                 case SubstituteParam substitute -> state.remove(substitute.target());

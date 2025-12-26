@@ -11,6 +11,8 @@ import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
+import org.sinytra.adapter.next.pipeline.resolver.injection.AtVariableAssignStoreSubResolver;
+import org.sinytra.adapter.next.pipeline.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
@@ -28,6 +30,9 @@ public class WrapOperationMixin implements MixinType<WrapOperationMixinData> {
 
     @Override
     public void preProcess(WrapOperationMixinData mixin, MixinContext context, MutableConfiguration clean, Recipe recipe) {
+        recipe.resolvers().getOrThrow(InjectionPointResolver.class)
+            .addSubResolver(new AtVariableAssignStoreSubResolver());
+
         clean.setParameters(MethodParameters.create(context.methodNode(), List.of(METHOD_PARAMS, OPERATION, CAPTURED_PARAMS, LOCALS)));
     }
 

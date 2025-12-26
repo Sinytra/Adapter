@@ -289,7 +289,11 @@ public class EnhancedParamsDiff {
                 Integer count = entry.getValue();
                 if (count == 1) {
                     TypeWithContext inserted = clean.stream().filter(t -> t.type().equals(type)).findFirst().orElseThrow();
-                    tempDiff.remove(inserted.pos());
+                    int offset = rearrangeClean.indexOf(inserted);
+                    if (offset == -1) {
+                        throw new IllegalStateException("Missing inserted from clean list, bug?");
+                    }
+                    tempDiff.remove(offset);
                     cleanGroup.remove(type);
                     rearrangeClean.remove(inserted);
                 }

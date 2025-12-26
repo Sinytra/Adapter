@@ -12,8 +12,9 @@ import java.util.List;
 public abstract class CompoundResolver implements Resolver {
     protected final List<SubResolver> subResolvers = new ArrayList<>();
 
-    public void addSubResolver(SubResolver subResolver) {
+    public CompoundResolver addSubResolver(SubResolver subResolver) {
         this.subResolvers.add(subResolver);
+        return this;
     }
 
     protected abstract boolean canApply(MixinData mixin, Configuration clean, Configuration dirty);
