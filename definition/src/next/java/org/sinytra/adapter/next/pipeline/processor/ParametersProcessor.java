@@ -13,7 +13,7 @@ import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformTarge
 
 import java.util.List;
 
-public class MixinMethodParametersProcessor implements Processor {
+public class ParametersProcessor implements Processor {
     @Override
     public TxResult process(MixinData mixin, MixinContext context, Configuration dirty, Recipe recipe) {
         if (dirty.getParameters() == null) return TxResult.FAIL;

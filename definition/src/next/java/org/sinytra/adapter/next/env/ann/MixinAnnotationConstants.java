@@ -2,6 +2,8 @@ package org.sinytra.adapter.next.env.ann;
 
 public class MixinAnnotationConstants {
     public static final String AT_METHOD = "method";
+    public static final String AT_TARGET = "target";
+    public static final String AT_VALUE = "value";
     public static final String AT_VAL_INVOKE = "INVOKE";
     public static final String AT_VAL_STORE = "STORE";
     public static final String AT_VAL_SINYTRA_INSTANCEOF = "sinytra:INSTANCEOF";
@@ -9,4 +11,8 @@ public class MixinAnnotationConstants {
 
     public static final String PROPERTY_ORDINAL = "ordinal";
     public static final String PROPERTY_INDEX = "index";
+    public static final String PROPERTY_SLICE = "slice";
+    
+    public static final String SLICE_FROM = "from";
+    public static final String SLICE_TO = "to";
 }

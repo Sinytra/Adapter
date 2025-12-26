@@ -17,12 +17,13 @@ import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.List;
 
+import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.PROPERTY_SLICE;
 import static org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup.*;
 
 public class InjectMixin implements MixinType<InjectMixinData> {
     @Override
     public InjectMixinData parse(MixinContext context, ClassTarget targetClass, MethodQualifier targetMethod, AtData atData, AnnotationHandle handle) {
-        List<SliceData> slice = handle.getNestedList("slice").stream()
+        List<SliceData> slice = handle.getNestedList(PROPERTY_SLICE).stream()
             .map(s -> SliceData.parse(s, context))
             .toList();
         return new InjectMixinData(targetClass, targetMethod, atData, slice);
@@ -35,7 +36,7 @@ public class InjectMixin implements MixinType<InjectMixinData> {
         clean.setParameters(MethodParameters.create(context.methodNode(), List.of(METHOD_PARAMS, CI_CIR, LOCALS)));
 
         if (!mixin.getSlice().isEmpty()) {
-            clean.setProperty("slice", mixin.getSlice());
+//            clean.setProperty("slice", mixin.getSlice()); TODO Handle multile and single slices using one interface
         }
     }
 

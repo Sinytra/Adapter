@@ -86,6 +86,8 @@ public interface MethodContext {
 
     boolean isNotRequired();
 
+    boolean hasValidSlice(TargetPair target);
+
     void recordAudit(Object transform, String message, Object... args);
 
     record LocalVariable(int index, Type type) {}

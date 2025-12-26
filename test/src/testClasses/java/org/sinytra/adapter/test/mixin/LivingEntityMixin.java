@@ -16,7 +16,7 @@ public class LivingEntityMixin {
         method = "travel",
         at = @At(
             value = "INVOKE_ASSIGN",
-            target = "Lnet/minecraft/world/entity/Entity;onGround()Z"
+            target = "Lnet/minecraft/world/entity/LivingEntity;onGround()Z"
         ),
         slice = @Slice(
             from = @At(
@@ -33,7 +33,7 @@ public class LivingEntityMixin {
         method = "travel",
         at = @At(
             value = "INVOKE_ASSIGN",
-            target = "Lnet/minecraft/world/entity/Entity;onGround()Z"
+            target = "Lnet/minecraft/world/entity/LivingEntity;onGround()Z"
         ),
         slice = @Slice(
             from = @At(

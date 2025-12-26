@@ -208,9 +208,19 @@ public class ConfigurationImpl implements MutableConfiguration {
     }
 
     @Override
-    public <T> MutableConfiguration setProperty(String key, T value) {
+    public <T> MutableConfiguration setProperty(String key, @Nullable T value) {
         this.properties.put(key, value);
         return this;
+    }
+    
+    @Override
+    public void inheritProperyIfAbsent(String key) {
+        if (this.parent == null) {
+            throw new IllegalStateException("Missing parent, cannot inherit property " + key);
+        }
+        if (!hasProperty(key)) {
+            this.parent.getProperty(key).ifPresent(o -> setProperty(key, o));
+        }
     }
 
     @Override
@@ -249,9 +259,8 @@ public class ConfigurationImpl implements MutableConfiguration {
             this.parameters.set(other.getParameters());
         if (other.getReturnType() != null)
             this.returnType.set(other.getReturnType());
-        if (other.shouldDelete()) {
+        if (other.shouldDelete()) 
             this.delete.set(other.shouldDelete());
-        }
 
         this.properties.putAll(other.getProperties());
     }

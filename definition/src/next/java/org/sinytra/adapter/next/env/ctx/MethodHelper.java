@@ -31,6 +31,7 @@ import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_SHIFT;
+import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.PROPERTY_SLICE;
 import static org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup.CAPTURED_PARAMS;
 
 public class MethodHelper {
@@ -174,7 +175,7 @@ public class MethodHelper {
     }
 
     private InsnList getSlicedInsns(AnnotationHandle parentAnnotation, ClassNode classNode, MethodNode injectorMethod, ClassNode targetClass, MethodNode targetMethod, PatchContext context, Target mixinTarget) {
-        return parentAnnotation.<AnnotationNode>getValue("slice")
+        return parentAnnotation.<AnnotationNode>getValue(PROPERTY_SLICE)
             .map(handle -> {
                 Object value = handle.get();
                 return value instanceof List<?> list ? (AnnotationNode) list.getFirst() : (AnnotationNode) value;

@@ -2,15 +2,19 @@ package org.sinytra.adapter.next.env.ann;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
+import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+
+import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.*;
 
 public class AtData {
     @NotNull
@@ -56,6 +60,20 @@ public class AtData {
         if (this.ordinal != null) {
             handle.setOrAppendNonNull("ordinal", this.ordinal);
         }
+    }
+
+    public AnnotationNode toAnnotationNode() {
+        AnnotationNode node = new AnnotationNode(MixinConstants.AT);
+        node.visit(AT_VALUE, Objects.requireNonNull(this.value));
+        node.visit(AT_TARGET, Objects.requireNonNull(this.target));
+        if (this.ordinal != null) {
+            node.visit(PROPERTY_ORDINAL, this.ordinal);
+        }
+        return node;
+    }
+
+    public AtData withTarget(MethodInsnNode insn) {
+        return withTarget(MethodQualifier.create(insn));
     }
 
     public AtData withTarget(MethodQualifier target) {

@@ -22,7 +22,9 @@ public class PipelineLegacyMethodTransformer implements MethodTransform {
 
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
-        if (methodContext.findCleanInjectionTarget() == null || !methodContext.failsDirtyInjectionCheck()) {
+        if (methodContext.findCleanInjectionTarget() == null
+            || !methodContext.failsDirtyInjectionCheck() && methodContext.hasValidSlice(methodContext.findDirtyInjectionTarget())
+        ) {
             return Patch.Result.PASS;
         }
 

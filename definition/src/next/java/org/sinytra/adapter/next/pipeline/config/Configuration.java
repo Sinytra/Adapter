@@ -30,6 +30,8 @@ public interface Configuration {
 
     Map<String, Object> getProperties();
 
+    void inheritProperyIfAbsent(String key);
+
     MutableConfiguration subConfig();
 
     MutableConfiguration copy();

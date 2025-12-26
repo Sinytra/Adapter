@@ -252,6 +252,41 @@ public final class MethodContextImpl implements MethodContext {
     }
 
     @Override
+    public boolean hasValidSlice(TargetPair target) {
+        if (target == null) {
+            return false;
+        }
+
+        AnnotationHandle ann = this.methodAnnotation.<AnnotationNode>getValue("slice")
+            .map(handle -> {
+                Object value = handle.get();
+                return value instanceof List<?> list ? (AnnotationNode) list.getFirst() : (AnnotationNode) value;
+            })
+            .map(AnnotationHandle::new)
+            .orElse(null);
+        if (ann == null) {
+            return true;
+        }
+
+        AnnotationNode from = ann.getNested("from").map(AnnotationHandle::unwrap).orElse(null);
+        if (from != null && !validateAtNode(from, target)) {
+            return false;
+        }
+
+        AnnotationNode to = ann.getNested("to").map(AnnotationHandle::unwrap).orElse(null);
+        return to == null || validateAtNode(to, target);
+    }
+
+    private boolean validateAtNode(AnnotationNode at, TargetPair target) {
+        List<AbstractInsnNode> insns = computeInjectionTargetInsns(
+            target,
+            this::injectionPointAnnotation,
+            (ctx, h) -> InjectionPoint.parse(ctx, this.methodNode, methodAnnotation().unwrap(), at)
+        );
+        return !insns.isEmpty();
+    }
+
+    @Override
     public void recordAudit(Object transform, String message, Object... args) {
         this.patchContext.environment().auditTrail().recordAudit(transform, this, message, args);
     }

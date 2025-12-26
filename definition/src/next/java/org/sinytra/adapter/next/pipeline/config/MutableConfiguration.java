@@ -1,5 +1,6 @@
 package org.sinytra.adapter.next.pipeline.config;
 
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -35,7 +36,7 @@ public interface MutableConfiguration extends Configuration {
     MutableConfiguration inheritShouldDelete();
     MutableConfiguration setShouldDelete(boolean delete);
 
-    <T> MutableConfiguration setProperty(String key, T value);
+    <T> MutableConfiguration setProperty(String key, @Nullable T value);
 
     void mergeFrom(Configuration other);
 }
