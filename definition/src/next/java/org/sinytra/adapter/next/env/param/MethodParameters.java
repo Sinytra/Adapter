@@ -36,6 +36,10 @@ public class MethodParameters {
         this.order = order;
     }
 
+    public boolean has(ParamGroup group) {
+        return this.groups.containsKey(group);
+    }
+
     public List<Type> get(ParamGroup group) {
         return Objects.requireNonNull(this.groups.get(group), "Group %s is not available".formatted(group.name()));
     }

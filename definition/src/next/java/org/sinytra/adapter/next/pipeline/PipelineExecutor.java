@@ -89,6 +89,8 @@ public class PipelineExecutor {
             }
         }
 
+        // TODO Check and make sure resolvers don't modify the method/class (maybe with a propert switch to skip these in prod)
+
         // 4. Complete dirty config
         this.mixinType.postProcess(data, this.context, cleanConfig, dirtyConfig, recipe);
 

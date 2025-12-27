@@ -10,6 +10,8 @@ import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
+import org.sinytra.adapter.next.pipeline.processor.ParameterUsageProcessor;
+import org.sinytra.adapter.next.pipeline.processor.ParametersProcessor;
 import org.sinytra.adapter.next.pipeline.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.next.pipeline.resolver.special.ResolverSyntheticInstanceof;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
@@ -30,6 +32,7 @@ public class RedirectMixin implements MixinType<RedirectMixinData> {
     @Override
     public void preProcess(RedirectMixinData mixin, MixinContext context, MutableConfiguration clean, Recipe recipe) {
         recipe.resolvers().addBefore(InjectionPointResolver.class, new ResolverSyntheticInstanceof(false));
+        recipe.processors().addAfter(ParametersProcessor.class, new ParameterUsageProcessor());
 
         if (clean.getAtData() == null || !MixinAnnotationConstants.AT_VAL_INVOKE.equals(clean.getAtData().getValue()))
             return;
