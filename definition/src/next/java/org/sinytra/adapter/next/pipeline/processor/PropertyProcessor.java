@@ -2,26 +2,26 @@ package org.sinytra.adapter.next.pipeline.processor;
 
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.MixinData;
-import org.sinytra.adapter.next.env.ann.SliceData;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.TxResult;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.PROPERTY_ORDINAL;
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.PROPERTY_SLICE;
+import static org.sinytra.adapter.next.pipeline.config.Configuration.Keys.ORDINAL;
+import static org.sinytra.adapter.next.pipeline.config.Configuration.Keys.SLICE;
 
 public class PropertyProcessor implements Processor {
     @Override
     public TxResult process(MixinData mixin, MixinContext context, Configuration dirty, Recipe recipe) {
         if (dirty.getAtData() == null) return TxResult.FAIL;
 
+        // TODO Auto append all props
         AnnotationHandle handle = context.methodAnnotation();
-        dirty.<Integer>getProperty(PROPERTY_ORDINAL)
-            .ifPresent(o -> handle.setOrAppendNonNull(PROPERTY_ORDINAL, o));
+        dirty.getProperty(ORDINAL)
+            .ifPresent(o -> handle.setOrAppendNonNull(ORDINAL.name(), o));
 
-        dirty.<SliceData>getProperty(PROPERTY_SLICE)
-            .ifPresent(s -> handle.setOrAppendNonNull(PROPERTY_SLICE, s.toAnnotationNode()));
+        dirty.getProperty(SLICE)
+            .ifPresent(s -> handle.setOrAppendNonNull(SLICE.name(), s.toAnnotationNode()));
 
         return TxResult.SUCCESS;
     }

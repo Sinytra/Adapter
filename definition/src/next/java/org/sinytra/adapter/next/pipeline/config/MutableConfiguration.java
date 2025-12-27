@@ -8,35 +8,44 @@ import org.sinytra.adapter.next.env.ann.AtData;
 import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
-public interface MutableConfiguration extends Configuration {
+public interface MutableConfiguration extends Configuration, MutablePropertyContainer {
     static MutableConfiguration create() {
         return new ConfigurationImpl();
     }
 
     MutableConfiguration inheritMixinType();
+
     MutableConfiguration setMixinType(String mixinType);
 
     MutableConfiguration inheritTargetClass();
+
     void setTargetClass(String targetClass);
 
     MutableConfiguration inheritTargetMethod();
+
     MutableConfiguration setTargetMethod(MethodInsnNode insn);
+
     MutableConfiguration setTargetMethod(MethodQualifier targetMethod);
+
     MutableConfiguration setTargetMethod(MethodNode methodNode);
 
     MutableConfiguration inheritAtData();
+
     MutableConfiguration setAtData(AtData atData);
 
     MutableConfiguration inheritParameters();
-    void setParameters(MethodParameters parameters);
+
+    MutableConfiguration setParameters(MethodParameters parameters);
 
     MutableConfiguration inheritReturnType();
-    void setReturnType(Type returnType);
+
+    MutableConfiguration setReturnType(Type returnType);
 
     MutableConfiguration inheritShouldDelete();
+
     MutableConfiguration setShouldDelete(boolean delete);
 
-    <T> MutableConfiguration setProperty(String key, @Nullable T value);
+    <T> MutableConfiguration setProperty(PropertyKey<T> key, @Nullable T value);
 
-    void mergeFrom(Configuration other);
+    void inheritProperyIfAbsent(PropertyKey<?> key);
 }

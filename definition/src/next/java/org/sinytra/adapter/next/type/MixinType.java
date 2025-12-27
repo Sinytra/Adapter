@@ -7,6 +7,7 @@ import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
+import org.sinytra.adapter.next.pipeline.config.PropertyContainerTemplate;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
@@ -14,6 +15,8 @@ import org.sinytra.adapter.patch.util.MethodQualifier;
  * Handles configuration and behavior specific to a Mixin type
  */
 public interface MixinType<T extends MixinData> {
+    PropertyContainerTemplate getConfigurationTemplate();
+
     T parse(MixinContext context, ClassTarget targetClass, MethodQualifier targetMethod, AtData atData, AnnotationHandle handle);
 
     // TODO Return success flag

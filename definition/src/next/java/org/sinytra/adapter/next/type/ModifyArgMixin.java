@@ -2,6 +2,7 @@ package org.sinytra.adapter.next.type;
 
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
+import org.sinytra.adapter.next.env.ConfigurationTemplates;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.AtData;
 import org.sinytra.adapter.next.env.ann.ClassTarget;
@@ -10,6 +11,7 @@ import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
+import org.sinytra.adapter.next.pipeline.config.PropertyContainerTemplate;
 import org.sinytra.adapter.next.pipeline.resolver.injection.ArbitraryInjectionPointSubResolver;
 import org.sinytra.adapter.next.pipeline.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
@@ -19,10 +21,15 @@ import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.List;
 
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.PROPERTY_INDEX;
 import static org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup.SINGLE_ANY;
+import static org.sinytra.adapter.next.pipeline.config.Configuration.Keys.INDEX;
 
 public class ModifyArgMixin implements MixinType<ModifyArgMixinData> {
+    @Override
+    public PropertyContainerTemplate getConfigurationTemplate() {
+        return ConfigurationTemplates.MIXIN_AT;
+    }
+
     @Override
     public ModifyArgMixinData parse(MixinContext context, ClassTarget targetClass, MethodQualifier targetMethod, AtData atData, AnnotationHandle handle) {
         Integer index = handle.<Integer>getValue("index").map(AnnotationValueHandle::get).orElse(null);
@@ -34,7 +41,7 @@ public class ModifyArgMixin implements MixinType<ModifyArgMixinData> {
         recipe.resolvers().getOrThrow(InjectionPointResolver.class).addSubResolver(new ArbitraryInjectionPointSubResolver());
 
         clean.setParameters(MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY)));
-        mixin.index().ifPresent(i -> clean.setProperty(PROPERTY_INDEX, i));
+        mixin.index().ifPresent(i -> clean.setProperty(INDEX, i));
     }
 
     @Override
@@ -45,8 +52,8 @@ public class ModifyArgMixin implements MixinType<ModifyArgMixinData> {
             return;
         }
 
-        if (clean.hasProperty(PROPERTY_INDEX) && !dirty.hasProperty(PROPERTY_INDEX)) {
-            dirty.setProperty(PROPERTY_INDEX, clean.getProperty(PROPERTY_INDEX).orElseThrow());
+        if (clean.hasProperty(INDEX) && !dirty.hasProperty(INDEX)) {
+            dirty.setProperty(INDEX, clean.getProperty(INDEX).orElseThrow());
         }
 
         Type type = findArgType(context, recipe.clean().getAtData(), dirty.getAtData(), dirty);
@@ -66,8 +73,8 @@ public class ModifyArgMixin implements MixinType<ModifyArgMixinData> {
             List<Type> cleanArgs = MethodParameters.getParameterTypes(cleanQualifier.desc());
             List<Type> dirtyArgs = MethodParameters.getParameterTypes(dirtyQualifier.desc());
 
-            if (dirty.hasProperty(PROPERTY_INDEX)) {
-                int dirtyIndex = dirty.<Integer>getProperty(PROPERTY_INDEX).orElseThrow();
+            if (dirty.hasProperty(INDEX)) {
+                int dirtyIndex = dirty.getProperty(INDEX).orElseThrow();
                 return dirtyIndex < dirtyArgs.size() ? dirtyArgs.get(dirtyIndex) : null;
             }
 

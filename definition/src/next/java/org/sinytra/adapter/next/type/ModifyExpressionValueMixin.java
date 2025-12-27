@@ -1,6 +1,7 @@
 package org.sinytra.adapter.next.type;
 
 import org.objectweb.asm.Type;
+import org.sinytra.adapter.next.env.ConfigurationTemplates;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.AtData;
 import org.sinytra.adapter.next.env.ann.ClassTarget;
@@ -9,6 +10,7 @@ import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
+import org.sinytra.adapter.next.pipeline.config.PropertyContainerTemplate;
 import org.sinytra.adapter.next.pipeline.resolver.injection.ArbitraryInjectionPointSubResolver;
 import org.sinytra.adapter.next.pipeline.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.next.pipeline.resolver.special.ResolverSyntheticInstanceof;
@@ -21,6 +23,11 @@ import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_I
 import static org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup.*;
 
 public class ModifyExpressionValueMixin implements MixinType<ModifyExpressionValueMixinData> {
+    @Override
+    public PropertyContainerTemplate getConfigurationTemplate() {
+        return ConfigurationTemplates.MIXIN_AT;
+    }
+
     @Override
     public ModifyExpressionValueMixinData parse(MixinContext context, ClassTarget targetClass, MethodQualifier targetMethod, AtData atData, AnnotationHandle handle) {
         return new ModifyExpressionValueMixinData(targetClass, targetMethod, atData);

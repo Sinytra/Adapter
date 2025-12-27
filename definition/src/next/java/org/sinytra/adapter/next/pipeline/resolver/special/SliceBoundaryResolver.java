@@ -27,13 +27,14 @@ import java.util.Optional;
 
 import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
 import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.PROPERTY_SLICE;
+import static org.sinytra.adapter.next.pipeline.config.Configuration.Keys.SLICE;
 
 public class SliceBoundaryResolver implements Resolver {
     @Override
     public ResolutionResult resolve(MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe) {
         MethodContext.TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), dirty.getTargetMethod());
 
-        SliceData slice = clean.<SliceData>getProperty(PROPERTY_SLICE).orElse(null);
+        SliceData slice = clean.getProperty(SLICE).orElse(null);
         if (slice == null || passesSliceCheck(slice, context, dirtyTarget))
             return ResolutionResult.pass();
 
@@ -42,7 +43,7 @@ public class SliceBoundaryResolver implements Resolver {
             return ResolutionResult.pass();
 
         Configuration patch = MutableConfiguration.create()
-            .setProperty(PROPERTY_SLICE, fixedSlice);
+            .setProperty(SLICE, fixedSlice);
 
         return ResolutionResult.success(patch);
     }

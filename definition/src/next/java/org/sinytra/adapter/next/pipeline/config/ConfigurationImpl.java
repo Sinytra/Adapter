@@ -1,6 +1,5 @@
 package org.sinytra.adapter.next.pipeline.config;
 
-import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.MethodInsnNode;
@@ -8,146 +7,117 @@ import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.next.env.ann.AtData;
 import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.patch.util.MethodQualifier;
-import org.slf4j.Logger;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
-import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
 
 /**
  * Contains a single recipe state with mixin parameters and custom variables
  */
-public class ConfigurationImpl implements MutableConfiguration {
-    private static final Logger LOGGER = LogUtils.getLogger();
-
+public class ConfigurationImpl extends BasePropertyContainer implements MutableConfiguration {
     @Nullable
     private final Configuration parent;
-    private final ConfigAttribute<String> mixinType;
-    private final ConfigAttribute<String> targetClass;
-    private final ConfigAttribute<MethodQualifier> targetMethod;
-    private final ConfigAttribute<AtData> atData;
-    private final ConfigAttribute<MethodParameters> parameters;
-    private final ConfigAttribute<Type> returnType;
-    private final ConfigAttribute<Boolean> delete;
-
-    private final Map<String, Object> properties = new HashMap<>();
 
     public ConfigurationImpl() {
-        this(null);
+        this(null, null);
     }
 
-    public ConfigurationImpl(@Nullable Configuration parent) {
+    public ConfigurationImpl(@Nullable PropertyContainerTemplate template) {
+        this(template, null);
+    }
+
+    public ConfigurationImpl(@Nullable PropertyContainerTemplate template, @Nullable Configuration parent) {
+        super(template);
         this.parent = parent;
-
-        this.mixinType = new ConfigAttribute<>("mixin_type", true, parent != null ? parent::getMixinType : null);
-        this.targetClass = new ConfigAttribute<>("target_class", true, parent != null ? parent::getTargetClass : null);
-        this.targetMethod = new ConfigAttribute<>("target_method", true, parent != null ? parent::getTargetMethod : null);
-        this.atData = new ConfigAttribute<>("at_data", true, parent != null ? parent::getAtData : null);
-        this.parameters = new ConfigAttribute<>("parameters", true, parent != null ? parent::getParameters : null);
-        this.returnType = new ConfigAttribute<>("return_type", true, parent != null ? parent::getReturnType : null);
-        this.delete = new ConfigAttribute<>("delete", false, parent != null ? parent::shouldDelete : () -> false);
     }
 
-    public boolean validate() {
-        List<ConfigAttribute<?>> attrs = List.of(mixinType, targetClass, targetMethod, atData, parameters, returnType, delete);
-        for (ConfigAttribute<?> attr : attrs) {
-            if (!attr.validate()) {
-                LOGGER.debug(MIXINPATCH, "Missing required config attribute: {}", attr.getKey());
-                return false;
-            }
-        }
-        return true;
+    @Override
+    public <T> MutableConfiguration setProperty(PropertyKey<T> key, @Nullable T value) {
+        return (MutableConfiguration) super.setProperty(key, value);
     }
 
     @Override
     public MutableConfiguration inheritMixinType() {
-        this.mixinType.setDefault();
-        return this;
-    }
-
-    @Override
-    public MutableConfiguration setMixinType(String mixinType) {
-        this.mixinType.set(mixinType);
-        return this;
+        return inheritProperty(Keys.MIXIN_TYPE);
     }
 
     @Override
     public MutableConfiguration inheritTargetClass() {
-        this.targetClass.setDefault();
-        return this;
+        return inheritProperty(Keys.TARGET_CLASS);
     }
 
     @Override
     public MutableConfiguration inheritTargetMethod() {
-        this.targetMethod.setDefault();
-        return this;
+        return inheritProperty(Keys.TARGET_METHOD);
     }
 
     @Override
     public MutableConfiguration inheritAtData() {
-        this.atData.setDefault();
-        return this;
+        return inheritProperty(Keys.TARGET_AT);
     }
 
     @Override
     public MutableConfiguration inheritParameters() {
-        this.parameters.setDefault();
-        return this;
+        return inheritProperty(Keys.PARAMETERS);
     }
 
     @Override
     public MutableConfiguration inheritReturnType() {
-        this.returnType.setDefault();
-        return this;
+        return inheritProperty(Keys.RETURN_TYPE);
+    }
+    
+    @Override
+    public MutableConfiguration inheritShouldDelete() {
+        return inheritProperty(Keys.DELETE);
     }
 
     @Override
     public String getMixinType() {
-        return this.mixinType.get();
+        return getPropertyOrNull(Keys.MIXIN_TYPE);
     }
 
     @Override
     public String getTargetClass() {
-        return this.targetClass.get();
+        return getPropertyOrNull(Keys.TARGET_CLASS);
     }
 
     @Override
     public MethodQualifier getTargetMethod() {
-        return this.targetMethod.get();
+        return getPropertyOrNull(Keys.TARGET_METHOD);
     }
 
     @Override
     public AtData getAtData() {
-        return this.atData.get();
+        return getPropertyOrNull(Keys.TARGET_AT);
     }
 
     @Override
     public MethodParameters getParameters() {
-        return this.parameters.get();
+        return getPropertyOrNull(Keys.PARAMETERS);
     }
 
     @Override
     public Type getReturnType() {
-        return this.returnType.get();
+        return getPropertyOrNull(Keys.RETURN_TYPE);
+    }
+
+    @Override
+    public boolean shouldDelete() {
+        Boolean boxed = getProperty(Keys.DELETE).orElse(null);
+        return boxed != null && boxed.booleanValue();
     }
 
     @Override
     public void setTargetClass(String targetClass) {
-        this.targetClass.set(targetClass);
+        setProperty(Keys.TARGET_CLASS, targetClass);
+    }
+
+    @Override
+    public MutableConfiguration setMixinType(String mixinType) {
+        setProperty(Keys.MIXIN_TYPE, mixinType);
+        return this;
     }
 
     @Override
     public MutableConfiguration setTargetMethod(MethodInsnNode insn) {
         setTargetMethod(MethodQualifier.create(insn));
-        return this;
-    }
-
-    @Override
-    public MutableConfiguration setTargetMethod(MethodQualifier targetMethod) {
-        this.targetMethod.set(targetMethod);
         return this;
     }
 
@@ -158,110 +128,70 @@ public class ConfigurationImpl implements MutableConfiguration {
     }
 
     @Override
-    public MutableConfiguration setAtData(AtData atData) {
-        this.atData.set(atData);
+    public MutableConfiguration setTargetMethod(MethodQualifier targetMethod) {
+        setProperty(Keys.TARGET_METHOD, targetMethod);
         return this;
     }
 
     @Override
-    public void setParameters(MethodParameters parameters) {
-        this.parameters.set(parameters);
+    public MutableConfiguration setAtData(AtData atData) {
+        setProperty(Keys.TARGET_AT, atData);
+        return this;
     }
 
     @Override
-    public void setReturnType(Type returnType) {
-        this.returnType.set(returnType);
+    public MutableConfiguration setParameters(MethodParameters parameters) {
+        setProperty(Keys.PARAMETERS, parameters);
+        return this;
     }
 
     @Override
-    public boolean shouldDelete() {
-        Boolean boxed = this.delete.get();
-        return boxed != null && boxed.booleanValue();
-    }
-
-    @Override
-    public MutableConfiguration inheritShouldDelete() {
-        this.delete.setDefault();
+    public MutableConfiguration setReturnType(Type returnType) {
+        setProperty(Keys.RETURN_TYPE, returnType);
         return this;
     }
 
     @Override
     public MutableConfiguration setShouldDelete(boolean delete) {
-        this.delete.set(delete);
+        setProperty(Keys.DELETE, delete);
         return this;
     }
 
     @Override
-    public boolean hasProperty(String key) {
-        return this.properties.containsKey(key);
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public <T> Optional<T> getProperty(String key) {
-        return Optional.ofNullable((T) this.properties.get(key));
-    }
-
-    @Override
-    public Map<String, Object> getProperties() {
-        return this.properties;
-    }
-
-    @Override
-    public <T> MutableConfiguration setProperty(String key, @Nullable T value) {
-        this.properties.put(key, value);
-        return this;
-    }
-    
-    @Override
-    public void inheritProperyIfAbsent(String key) {
+    public void inheritProperyIfAbsent(PropertyKey<?> key) {
         if (this.parent == null) {
             throw new IllegalStateException("Missing parent, cannot inherit property " + key);
         }
         if (!hasProperty(key)) {
-            this.parent.getProperty(key).ifPresent(o -> setProperty(key, o));
+            inheritProperty(key);
         }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private ConfigurationImpl inheritProperty(PropertyKey<?> key) {
+        if (this.parent != null) {
+            this.parent.getProperty(key).ifPresent(o -> setProperty((PropertyKey) key, o));
+        }
+        return this;
+    }
+
+    @Nullable
+    private <T> T getPropertyOrNull(PropertyKey<T> key) {
+        return getProperty(key).orElse(null);
     }
 
     @Override
     public MutableConfiguration subConfig() {
-        return new ConfigurationImpl(this.parent);
+        return new ConfigurationImpl(this.template, this.parent);
     }
 
-    // TODO Remove hardcoding in copy and merge
+    @Override
+    protected MutablePropertyContainer createCopyImpl() {
+        return subConfig();
+    }
+
     @Override
     public MutableConfiguration copy() {
-        MutableConfiguration copy = new ConfigurationImpl(this.parent);
-
-        copy.setMixinType(this.mixinType.get());
-        copy.setTargetClass(this.targetClass.get());
-        copy.setTargetMethod(this.targetMethod.get());
-        copy.setAtData(this.atData.get());
-        copy.setParameters(this.parameters.get());
-        copy.setReturnType(this.returnType.get());
-        copy.setShouldDelete(shouldDelete());
-        // TODO Properties
-
-        return copy;
-    }
-
-    @Override
-    public void mergeFrom(Configuration other) {
-        if (other.getMixinType() != null)
-            this.mixinType.set(other.getMixinType());
-        if (other.getTargetClass() != null)
-            this.targetClass.set(other.getTargetClass());
-        if (other.getTargetMethod() != null)
-            this.targetMethod.set(other.getTargetMethod());
-        if (other.getAtData() != null)
-            this.atData.set(other.getAtData());
-        if (other.getParameters() != null)
-            this.parameters.set(other.getParameters());
-        if (other.getReturnType() != null)
-            this.returnType.set(other.getReturnType());
-        if (other.shouldDelete()) 
-            this.delete.set(other.shouldDelete());
-
-        this.properties.putAll(other.getProperties());
+        return (MutableConfiguration) super.copy();
     }
 }

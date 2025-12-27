@@ -1,6 +1,7 @@
 package org.sinytra.adapter.next.type;
 
 import org.objectweb.asm.Type;
+import org.sinytra.adapter.next.env.ConfigurationTemplates;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.AtData;
 import org.sinytra.adapter.next.env.ann.ClassTarget;
@@ -10,6 +11,7 @@ import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
+import org.sinytra.adapter.next.pipeline.config.PropertyContainerTemplate;
 import org.sinytra.adapter.next.pipeline.resolver.injection.ArbitraryInjectionPointSubResolver;
 import org.sinytra.adapter.next.pipeline.resolver.injection.AtVariableAssignStoreSubResolver;
 import org.sinytra.adapter.next.pipeline.resolver.injection.InjectionPointResolver;
@@ -22,6 +24,11 @@ import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.PROPERTY
 import static org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup.*;
 
 public class InjectMixin implements MixinType<InjectMixinData> {
+    @Override
+    public PropertyContainerTemplate getConfigurationTemplate() {
+        return ConfigurationTemplates.MIXIN_AT;
+    }
+
     @Override
     public InjectMixinData parse(MixinContext context, ClassTarget targetClass, MethodQualifier targetMethod, AtData atData, AnnotationHandle handle) {
         List<SliceData> slice = handle.getNestedList(PROPERTY_SLICE).stream()

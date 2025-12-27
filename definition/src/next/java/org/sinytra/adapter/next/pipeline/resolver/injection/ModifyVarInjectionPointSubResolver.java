@@ -19,7 +19,7 @@ import org.sinytra.adapter.patch.api.MethodContext;
 import java.util.List;
 
 import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_STORE;
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.PROPERTY_ORDINAL;
+import static org.sinytra.adapter.next.pipeline.config.Configuration.Keys.ORDINAL;
 
 public class ModifyVarInjectionPointSubResolver implements SubResolver {
 
@@ -61,7 +61,7 @@ public class ModifyVarInjectionPointSubResolver implements SubResolver {
                 int dirtyOrdinal = dirtyLookup.getOrdinal(lvs.getFirst());
 
                 return dirty.subConfig()
-                    .setProperty(PROPERTY_ORDINAL, dirtyOrdinal)
+                    .setProperty(ORDINAL, dirtyOrdinal)
                     .setTargetMethod(method)
                     .inheritAtData();
             }

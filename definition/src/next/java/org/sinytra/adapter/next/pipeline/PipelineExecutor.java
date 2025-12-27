@@ -8,6 +8,7 @@ import org.sinytra.adapter.next.env.ann.AtData;
 import org.sinytra.adapter.next.env.ann.ClassTarget;
 import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.pipeline.config.ConfigurationImpl;
+import org.sinytra.adapter.next.pipeline.config.PropertyContainerTemplate;
 import org.sinytra.adapter.next.pipeline.processor.Processor;
 import org.sinytra.adapter.next.pipeline.processor.Processors;
 import org.sinytra.adapter.next.pipeline.resolver.Resolver;
@@ -47,9 +48,10 @@ public class PipelineExecutor {
 
         Resolvers resolvers = new Resolvers();
         Processors processors = new Processors();
+        PropertyContainerTemplate template = Objects.requireNonNull(this.mixinType.getConfigurationTemplate());
 
         // 1. Create clean config
-        ConfigurationImpl cleanConfig = new ConfigurationImpl();
+        ConfigurationImpl cleanConfig = new ConfigurationImpl(template);
         cleanConfig.setMixinType(this.context.methodAnnotation().getDesc());
         cleanConfig.setTargetClass(data.getTargetClass());
         cleanConfig.setTargetMethod(data.getTargetMethod());
@@ -57,7 +59,7 @@ public class PipelineExecutor {
         cleanConfig.setReturnType(Type.getReturnType(context.methodNode().desc));
 
         // 1.1. Create dirty config
-        ConfigurationImpl dirtyConfig = new ConfigurationImpl(cleanConfig);
+        ConfigurationImpl dirtyConfig = new ConfigurationImpl(template, cleanConfig);
         dirtyConfig.inheritMixinType();
         dirtyConfig.inheritTargetClass();
 

@@ -1,6 +1,7 @@
 package org.sinytra.adapter.next.type;
 
 import org.objectweb.asm.Type;
+import org.sinytra.adapter.next.env.ConfigurationTemplates;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.AtData;
 import org.sinytra.adapter.next.env.ann.ClassTarget;
@@ -10,6 +11,7 @@ import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
+import org.sinytra.adapter.next.pipeline.config.PropertyContainerTemplate;
 import org.sinytra.adapter.next.pipeline.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.next.pipeline.resolver.injection.ModifyVarInjectionPointSubResolver;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
@@ -23,8 +25,13 @@ import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.PROPERTY
 import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.PROPERTY_SLICE;
 import static org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup.LOCALS;
 import static org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup.SINGLE_ANY;
+import static org.sinytra.adapter.next.pipeline.config.Configuration.Keys.SLICE;
 
 public class ModifyVariableMixin implements MixinType<ModifyVariableMixinData> {
+    @Override
+    public PropertyContainerTemplate getConfigurationTemplate() {
+        return ConfigurationTemplates.MIXIN_AT;
+    }
 
     @Override
     public ModifyVariableMixinData parse(MixinContext context, ClassTarget targetClass, MethodQualifier targetMethod, AtData atData, AnnotationHandle handle) {
@@ -39,14 +46,14 @@ public class ModifyVariableMixin implements MixinType<ModifyVariableMixinData> {
     @Override
     public void preProcess(ModifyVariableMixinData mixin, MixinContext context, MutableConfiguration clean, Recipe recipe) {
         clean.setParameters(MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY, LOCALS)));
-        clean.setProperty(PROPERTY_SLICE, mixin.slice());
+        clean.setProperty(SLICE, mixin.slice());
 
         recipe.resolvers().getOrThrow(InjectionPointResolver.class).addSubResolver(new ModifyVarInjectionPointSubResolver());
     }
 
     @Override
     public void postProcess(ModifyVariableMixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
-        dirty.inheritProperyIfAbsent(PROPERTY_SLICE);
+        dirty.inheritProperyIfAbsent(SLICE);
 
         if (mixin.argsOnly() && dirty.getTargetMethod() != null && !dirty.getTargetMethod().desc().equals(clean.getTargetMethod().desc())) {
             Type cleanVarType = clean.getParameters().get(SINGLE_ANY).getFirst();
