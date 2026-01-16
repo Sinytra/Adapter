@@ -3,11 +3,12 @@ package org.sinytra.adapter.patch.transformer.dynamic;
 import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
+import org.sinytra.adapter.patch.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.transformer.operation.unit.ModifyMixinType;
+import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.MockMixinRuntime;
 import org.spongepowered.asm.mixin.injection.modify.LocalVariableDiscriminator;
 import org.spongepowered.asm.mixin.injection.struct.InjectionInfo;
@@ -103,7 +104,7 @@ public class DynamicModifyVarAtReturnPatch implements MethodTransform {
             return Patch.Result.PASS;
         }
         // Get method call argument instructions
-        List<AbstractInsnNode> args = MethodCallAnalyzer.findMethodCallParamInsns(dirtyTarget.methodNode(), dirtyMinsn);
+        List<AbstractInsnNode> args = MethodCallAnalyzer.getMethodCallSrcInsns(dirtyTarget.methodNode(), dirtyMinsn);
         if (args == null) {
             return Patch.Result.PASS;
         }
@@ -116,7 +117,7 @@ public class DynamicModifyVarAtReturnPatch implements MethodTransform {
                     // Cannot apply twice
                     return Patch.Result.PASS;
                 }
-                String qualifier = MethodCallAnalyzer.getCallQualifier(dirtyMinsn);
+                String qualifier = MethodQualifier.create(dirtyMinsn).asDescriptor();
                 final int index = i;
                 methodContext.recordAudit(this, "Redirect RETURN variable modifier to parameter %s of method call to %s", i, qualifier);
                 MethodTransform transform = new ModifyMixinType(MixinConstants.MODIFY_ARG, b -> b.sameTarget()

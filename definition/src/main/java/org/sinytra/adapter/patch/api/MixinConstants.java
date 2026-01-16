@@ -1,5 +1,6 @@
 package org.sinytra.adapter.patch.api;
 
+import org.objectweb.asm.Type;
 import org.spongepowered.asm.mixin.FabricUtil;
 
 import java.util.List;
@@ -24,6 +25,7 @@ public class MixinConstants {
     public static final String WRAP_OPERATION_INTERNAL_NAME = "com/llamalad7/mixinextras/injector/wrapoperation/WrapOperation";
     public static final String WRAP_WITH_CONDITION = "Lcom/llamalad7/mixinextras/injector/WrapWithCondition;";
     public static final String OPERATION_INTERNAL_NAME = "com/llamalad7/mixinextras/injector/wrapoperation/Operation";
+    public static final Type OPERATION_TYPE = Type.getObjectType(OPERATION_INTERNAL_NAME);
     public static final String LOCAL = "Lcom/llamalad7/mixinextras/sugar/Local;";
     public static final String SHARE = "Lcom/llamalad7/mixinextras/sugar/Share;";
     // Adapter custom mixin injectors
@@ -39,4 +41,9 @@ public class MixinConstants {
     public static final List<Integer> LVT_COMPATIBILITY_LEVELS = List.of(FabricUtil.COMPATIBILITY_0_10_0, FabricUtil.COMPATIBILITY_0_9_2);
 
     public static final String DEPRECATED = "Ljava/lang/Deprecated;";
+
+    // Types
+    public static final Type CI_TYPE = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfo");
+    public static final Type CIR_TYPE = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable");
+    public static final Type OBJECT_TYPE = Type.getType(Object.class);
 }

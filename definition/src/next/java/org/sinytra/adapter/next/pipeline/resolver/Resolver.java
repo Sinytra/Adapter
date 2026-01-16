@@ -11,7 +11,7 @@ import java.util.Optional;
 
 public interface Resolver {
     enum ResultType {
-        FINALIZE,
+        REPLACE,
         SUCCESS,
         PASS,
         FAIL
@@ -30,8 +30,8 @@ public interface Resolver {
             return new ResolutionResult(ResultType.SUCCESS, patch);
         }
 
-        public static ResolutionResult finalize(Configuration patch) {
-            return new ResolutionResult(ResultType.FINALIZE, patch);
+        public static ResolutionResult replace(Configuration patch) {
+            return new ResolutionResult(ResultType.REPLACE, patch);
         }
 
         public Optional<Configuration> maybePatch() {
@@ -40,5 +40,5 @@ public interface Resolver {
     }
 
     @NotNull
-    ResolutionResult resolve(MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe);
+    ResolutionResult resolve(MixinData mixin, MixinContext context, Recipe recipe);
 }

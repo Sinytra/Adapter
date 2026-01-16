@@ -55,6 +55,12 @@ public class BasePropertyContainer implements MutablePropertyContainer {
     }
 
     @Override
+    public <T> MutablePropertyContainer removeProperty(PropertyKey<T> key) {
+        this.properties.remove(key);
+        return this;
+    }
+
+    @Override
     public Map<PropertyKey<?>, Object> getProperties() {
         return ImmutableMap.copyOf(this.properties);
     }

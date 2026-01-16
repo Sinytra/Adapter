@@ -24,14 +24,14 @@ import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_I
 public class AtVariableAssignStoreSubResolver implements SubResolver {
     @Nullable
     @Override
-    public Configuration resolve(MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe) {
-        if (!clean.getAtData().getValue().equals(AT_VAL_INVOKE)) return null;
+    public Configuration resolve(MixinData mixin, MixinContext context, Recipe recipe) {
+        if (!recipe.clean().getAtData().getValue().equals(AT_VAL_INVOKE)) return null;
 
-        MethodContext.TargetPair cleanPair = context.methods().findOwnMethodPair(context.cleanLookup(), clean.getTargetMethod());
+        MethodContext.TargetPair cleanPair = recipe.getCleanTarget();
         AbstractInsnNode cleanInsn = context.methods().findInjectionTargetInsn(cleanPair);
         if (cleanInsn == null) return null;
 
-        MethodContext.TargetPair dirtyPair = context.methods().findOwnMethodPair(context.dirtyLookup(), dirty.getTargetMethod());
+        MethodContext.TargetPair dirtyPair = recipe.getDirtyTarget();
         if (dirtyPair == null) return null;
 
         // Check that the following instruction is a store operation
@@ -76,7 +76,7 @@ public class AtVariableAssignStoreSubResolver implements SubResolver {
 
         // All checks have passed, proceed to patch method
         return MutableConfiguration.create()
-            .setAtData(clean.getAtData().withTarget(previousMethodCall));
+            .setAtData(recipe.clean().getAtData().withTarget(previousMethodCall));
     }
 
     private static List<AbstractInsnNode> findStoreInsns(InsnList insns, int index) {

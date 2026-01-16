@@ -7,8 +7,8 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.next.env.MixinContext;
-import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.next.env.param.ParamDiffResolver;
+import org.sinytra.adapter.next.env.param.Parameters;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
@@ -30,8 +30,7 @@ import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_SHIFT;
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.PROPERTY_SLICE;
+import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.*;
 import static org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup.CAPTURED_PARAMS;
 
 public class MethodHelper {
@@ -50,8 +49,8 @@ public class MethodHelper {
     }
 
     @Nullable
-    public MethodNode findMethod(ClassLookup lookup, MethodQualifier qualifier) {
-        return Optional.ofNullable(findMethodPair(lookup, qualifier))
+    public MethodNode findInheritedMethod(ClassLookup lookup, MethodQualifier qualifier) {
+        return Optional.ofNullable(this.methodFinder.findInheritedMethod(lookup, qualifier))
             .map(TargetPair::methodNode)
             .orElse(null);
     }
@@ -89,31 +88,42 @@ public class MethodHelper {
     }
 
     public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable MethodContext.TargetPair target) {
-        return this.targetInstructionsCache.computeIfAbsent(target, this::computeInjectionTargetInsns);
+        return findInjectionTargetInsns(target, false);
     }
 
-    private List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable MethodContext.TargetPair target) {
+    public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable MethodContext.TargetPair target, boolean ignoreOrdinal) {
+        return this.targetInstructionsCache.computeIfAbsent(target, t -> computeInjectionTargetInsns(t, ignoreOrdinal));
+    }
+
+    private List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable MethodContext.TargetPair target, boolean ignoreOrdinal) {
         return computeInjectionTargetInsns(
             target,
             this.context::injectionPointAnnotation,
-            (ctx, h) -> InjectionPoint.parse(ctx, this.context.methodNode(), this.context.methodAnnotation().unwrap(), h.unwrap()),
+            (ctx, h) -> {
+                AnnotationHandle atAnn = h;
+                if (ignoreOrdinal) {
+                    atAnn = atAnn.copy();
+                    atAnn.removeValues(PROPERTY_ORDINAL);
+                }
+
+                return InjectionPoint.parse(ctx, this.context.methodNode(), this.context.methodAnnotation().unwrap(), atAnn.unwrap());
+            },
             true
         );
     }
 
     public List<Type> resolveCapturedMethodParams(Configuration clean, Configuration dirty) {
-        List<Type> cleanCaptured = clean.getParameters().get(CAPTURED_PARAMS);
+        List<Type> cleanCaptured = clean.getParameters().getTypes(CAPTURED_PARAMS);
         List<Type> dirtyCaptured = new ArrayList<>();
 
         // Evaluate parameter difference, capture additional params when necessary
         if (!cleanCaptured.isEmpty()) {
-            // TODO Clean up boilerplate
             MethodNode cleanTarget = findOwnMethod(this.context.cleanLookup(), clean.getTargetMethod());
             MethodNode dirtyTarget = findOwnMethod(this.context.dirtyLookup(), dirty.getTargetMethod());
             if (cleanTarget == null || dirtyTarget == null) return dirtyCaptured;
 
             LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.compareMethodParameters(cleanTarget, dirtyTarget);
-            List<Type> cleanTargetParams = MethodParameters.getParameterTypes(cleanTarget.desc);
+            List<Type> cleanTargetParams = Parameters.getParameterTypes(cleanTarget.desc);
             // Use a sublist instead of cleanCaptured to be able to compare Type instances directly
             List<Type> capturedSublist = cleanTargetParams.subList(0, cleanCaptured.size());
             // Expect cleanTargetParams to begin with or be equal to cleanCaptured 
@@ -131,7 +141,7 @@ public class MethodHelper {
                 .orElse(-1);
 
             if (maxIndex != -1) {
-                List<Type> dirtyTargetParams = MethodParameters.getParameterTypes(dirtyTarget.desc);
+                List<Type> dirtyTargetParams = Parameters.getParameterTypes(dirtyTarget.desc);
                 dirtyCaptured = List.copyOf(dirtyTargetParams.subList(0, maxIndex + 1));
             }
         }

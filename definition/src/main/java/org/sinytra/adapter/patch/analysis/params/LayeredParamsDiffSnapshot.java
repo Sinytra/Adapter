@@ -55,7 +55,7 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
 
         @Override
         public ParameterTransformer asParameterTransformer(Set<Flags> flags) {
-            return new ReplaceParametersTransformer(this.index, this.type, flags.contains(Flags.UPGRADE_WRAP_OP));
+            return new ReplaceParametersTransformer(this.index, this.type);
         }
     }
 
@@ -106,7 +106,7 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
 
         @Override
         public ParameterTransformer asParameterTransformer(Set<Flags> flags) {
-            return new RemoveParameterTransformer(this.index);
+            return new RemoveParameterTransformer(this.index, flags.contains(Flags.REMOVED_VAR_GRAVE));
         }
     }
 
@@ -210,8 +210,22 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
     }
 
     @Override
+    public LayeredParamsDiffSnapshot offset(int offset) {
+        return new LayeredParamsDiffSnapshot(
+            this.modifications.stream()
+                .map(p -> p.offset(offset))
+                .toList()
+        );
+    }
+
+    @Override
     public LayeredParamsDiffSnapshot offset(int offset, int limit) {
-        return new LayeredParamsDiffSnapshot(this.modifications.stream().filter(p -> p.satisfiesIndexLimit(limit)).map(p -> p.offset(offset)).toList());
+        return new LayeredParamsDiffSnapshot(
+            this.modifications.stream()
+                .filter(p -> p.satisfiesIndexLimit(limit))
+                .map(p -> p.offset(offset))
+                .toList()
+        );
     }
 
     @Override

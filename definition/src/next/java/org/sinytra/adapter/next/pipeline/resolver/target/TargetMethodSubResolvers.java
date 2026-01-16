@@ -33,14 +33,14 @@ public class TargetMethodSubResolvers {
      * <br>
      * DIRTY: <code>Lnet/minecraft/server/level/ServerEntity;sendPairingData(Lnet/minecraft/server/level/ServerPlayer;Lnet/neoforged/neoforge/network/bundle/PacketAndPayloadAcceptor;)V</code>
      */
-    public static final SubResolver CHANGED_METHOD_PARAMS = (MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe) -> {
-        MethodQualifier cleanQualifier = clean.getTargetMethod();
+    public static final SubResolver CHANGED_METHOD_PARAMS = (MixinData mixin, MixinContext context, Recipe recipe) -> {
+        MethodQualifier cleanQualifier = recipe.clean().getTargetMethod();
 
         Pair<ClassNode, List<MethodNode>> candidates = context.methods().findOwnMethodsByName(context.dirtyLookup(), cleanQualifier);
         if (candidates == null) return null;
 
         // Find single matching candidate
-        Configuration resolved = resolveReplacementCandidate(mixin, context, clean, dirty, recipe, candidates.getFirst(), candidates.getSecond());
+        Configuration resolved = resolveReplacementCandidate(mixin, context, recipe, candidates.getSecond());
         if (resolved == null) return null;
 
         // Only apply single candidate change when the target desc has changed
@@ -54,8 +54,8 @@ public class TargetMethodSubResolvers {
     /**
      * Handle cases where the target instructions have been moved into a lambda inside the target method
      */
-    public static final SubResolver MOVED_INTO_LAMBDA = (MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe) -> {
-        MethodQualifier cleanQualifier = clean.getTargetMethod();
+    public static final SubResolver MOVED_INTO_LAMBDA = (MixinData mixin, MixinContext context, Recipe recipe) -> {
+        MethodQualifier cleanQualifier = recipe.clean().getTargetMethod();
 
         MethodContext.TargetPair target = context.methods().findOwnMethodPair(context.dirtyLookup(), cleanQualifier);
         if (target == null) return null;
@@ -79,7 +79,7 @@ public class TargetMethodSubResolvers {
     };
 
     @Nullable
-    private static Configuration resolveReplacementCandidate(MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe, ClassNode classNode, List<MethodNode> methods) {
+    private static Configuration resolveReplacementCandidate(MixinData mixin, MixinContext context, Recipe recipe, List<MethodNode> methods) {
         if (methods.size() == 1) {
             return MutableConfiguration.create()
                 .setTargetMethod(methods.getFirst());
@@ -89,12 +89,13 @@ public class TargetMethodSubResolvers {
 
         List<Pair<MethodNode, Configuration>> valid = methods.stream()
             .sorted(Comparator.<MethodNode, String>comparing(m -> m.desc).reversed())
-            .<Pair<MethodNode, Configuration>>flatMap(m ->
-                resolver.resolve(mixin, context, clean, dirty.copy().setTargetMethod(m), recipe)
+            .<Pair<MethodNode, Configuration>>flatMap(m -> {
+                Configuration dirtyCopy = recipe.dirty().copy().setTargetMethod(m);
+                return resolver.resolve(mixin, context, recipe.withDirtyConfig(dirtyCopy))
                     .maybePatch()
                     .stream()
-                    .map(c -> Pair.of(m, c.subConfig().setTargetMethod(m)))
-            )
+                    .map(c -> Pair.of(m, c.subConfig().setTargetMethod(m)));
+            })
             .toList();
         if (valid.size() == 1) {
             return valid.getFirst().getSecond();

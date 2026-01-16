@@ -2,6 +2,7 @@ package org.sinytra.adapter.next.pipeline.config;
 
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.next.env.ann.AtData;
@@ -10,7 +11,11 @@ import org.sinytra.adapter.patch.util.MethodQualifier;
 
 public interface MutableConfiguration extends Configuration, MutablePropertyContainer {
     static MutableConfiguration create() {
-        return new ConfigurationImpl();
+        return create(null);
+    }
+
+    static MutableConfiguration create(@Nullable PropertyContainerTemplate template) {
+        return new ConfigurationImpl(template);
     }
 
     MutableConfiguration inheritMixinType();
@@ -18,8 +23,12 @@ public interface MutableConfiguration extends Configuration, MutablePropertyCont
     MutableConfiguration setMixinType(String mixinType);
 
     MutableConfiguration inheritTargetClass();
+    
+    default MutableConfiguration setTargetClass(ClassNode targetClass) {
+        return setTargetClass(targetClass.name);
+    }
 
-    void setTargetClass(String targetClass);
+    MutableConfiguration setTargetClass(String targetClass);
 
     MutableConfiguration inheritTargetMethod();
 
@@ -46,6 +55,8 @@ public interface MutableConfiguration extends Configuration, MutablePropertyCont
     MutableConfiguration setShouldDelete(boolean delete);
 
     <T> MutableConfiguration setProperty(PropertyKey<T> key, @Nullable T value);
+
+    <T> MutableConfiguration removeProperty(PropertyKey<T> key);
 
     void inheritProperyIfAbsent(PropertyKey<?> key);
 }

@@ -4,7 +4,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.MethodInsnNode;
-import org.sinytra.adapter.next.env.MixinContext;
+import org.sinytra.adapter.next.env.ctx.RefMapper;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.api.MixinConstants;
@@ -84,6 +84,10 @@ public class AtData {
         return new AtData(this.value, target, this.ordinal);
     }
 
+    public AtData withOrdinal(Integer ordinal) {
+        return new AtData(this.value, target, ordinal);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
@@ -96,14 +100,14 @@ public class AtData {
         return Objects.hash(value, target, ordinal);
     }
 
-    public static Optional<AtData> parse(AnnotationHandle annotation, MixinContext context) {
+    public static Optional<AtData> parse(AnnotationHandle annotation, RefMapper mapper) {
         String value = annotation.<String>getValue("value").map(AnnotationValueHandle::get).orElse(null);
         if (value == null) {
             return Optional.empty();
         }
 
         String target = annotation.<String>getValue("target").map(AnnotationValueHandle::get)
-            .map(context::remap)
+            .map(mapper::remap)
             .orElse(null);
         Integer ordinal = annotation.<Integer>getValue("ordinal").map(AnnotationValueHandle::get).orElse(null);
 

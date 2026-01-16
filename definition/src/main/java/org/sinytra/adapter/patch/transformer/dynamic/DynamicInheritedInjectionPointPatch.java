@@ -2,7 +2,6 @@ package org.sinytra.adapter.patch.transformer.dynamic;
 
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.api.*;
@@ -42,7 +41,7 @@ public class DynamicInheritedInjectionPointPatch implements MethodTransform {
             if (insn instanceof MethodInsnNode minsn && minsn.name.equals(q.name()) && minsn.desc.equals(q.desc()) && !minsn.owner.equals(owner)
                 && (context.environment().inheritanceHandler().isClassInherited(minsn.owner, owner) || isFixedField(minsn, context))
             ) {
-                target.set(MethodCallAnalyzer.getCallQualifier(minsn));
+                target.set(MethodQualifier.create(minsn).asDescriptor());
                 if (methodContext.methodAnnotation().matchesDesc(MixinConstants.REDIRECT) && minsn.getOpcode() != Opcodes.INVOKESTATIC) {
                     methodNode.visitParameterAnnotation(0, MixinConstants.COERCE, false);
                 }

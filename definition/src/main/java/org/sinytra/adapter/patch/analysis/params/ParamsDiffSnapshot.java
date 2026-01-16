@@ -13,7 +13,7 @@ import java.util.function.Consumer;
 
 public interface ParamsDiffSnapshot {
     enum Flags {
-        UPGRADE_WRAP_OP
+        REMOVED_VAR_GRAVE
     }
 
     boolean isEmpty();
@@ -32,10 +32,12 @@ public interface ParamsDiffSnapshot {
 
     List<Pair<Integer, Consumer<InstructionAdapter>>> inlines();
 
+    ParamsDiffSnapshot offset(int offset);
+
     ParamsDiffSnapshot offset(int offset, int limit);
 
     default MethodTransform asParameterTransformer(ParamTransformTarget type, boolean withOffset) {
-        return asParameterTransformer(type, withOffset, EnumSet.of(Flags.UPGRADE_WRAP_OP));
+        return asParameterTransformer(type, withOffset, EnumSet.of(ParamsDiffSnapshot.Flags.REMOVED_VAR_GRAVE));
     }
 
     MethodTransform asParameterTransformer(ParamTransformTarget type, boolean withOffset, Set<Flags> flags);

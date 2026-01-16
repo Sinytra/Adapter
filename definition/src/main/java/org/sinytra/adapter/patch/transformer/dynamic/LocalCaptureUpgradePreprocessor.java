@@ -1,4 +1,4 @@
-package org.sinytra.adapter.patch.transformer.dynfix;
+package org.sinytra.adapter.patch.transformer.dynamic;
 
 import com.mojang.datafixers.util.Pair;
 import org.jetbrains.annotations.Nullable;
@@ -8,21 +8,35 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.analysis.locals.LocalVarAnalyzer;
-import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.Patch;
-import org.sinytra.adapter.patch.api.PatchAuditTrail;
+import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class DynFixLocalCaptureUpgrade implements DynamicFixer<DynFixLocalCaptureUpgrade.Data> {
-    public record Data(AdapterUtil.CapturedLocals capturedLocals, LocalVarAnalyzer.CapturedLocalsTransform transform) {}
-
+public class LocalCaptureUpgradePreprocessor implements MethodTransform {
     @Override
+    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
+        if (methodContext.findCleanInjectionTarget() == null) {
+            return Patch.Result.PASS;
+        }
+
+        Data data = prepare(methodContext);
+        if (data != null) {
+            PatchAuditTrail auditTrail = context.environment().auditTrail();
+            Patch.Result result = apply(methodNode, methodContext, auditTrail, data);
+            auditTrail.recordResult(methodContext, PatchAuditTrail.Match.FULL);
+            return result;
+        }
+
+        return Patch.Result.PASS;
+    }
+
+    public record Data(AdapterUtil.CapturedLocals capturedLocals, LocalVarAnalyzer.CapturedLocalsTransform transform) {
+    }
+
     @Nullable
-    public DynFixLocalCaptureUpgrade.Data prepare(MethodContext methodContext) {
+    public LocalCaptureUpgradePreprocessor.Data prepare(MethodContext methodContext) {
         if (methodContext.findDirtyInjectionTarget() == null) {
             return null;
         }
@@ -55,14 +69,13 @@ public class DynFixLocalCaptureUpgrade implements DynamicFixer<DynFixLocalCaptur
         return new Data(info.capturedLocals(), transform);
     }
 
-    @Override
     @Nullable
-    public FixResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchAuditTrail auditTrail, Data data) {
+    public Patch.Result apply(MethodNode methodNode, MethodContext methodContext, PatchAuditTrail auditTrail, Data data) {
         Patch.Result result = data.transform().remover().apply(methodContext);
         if (result == Patch.Result.PASS) {
             return null;
         }
-        
+
         int start = data.capturedLocals().paramLocalStart();
         Type[] args = Type.getArgumentTypes(methodNode.desc);
 
@@ -72,6 +85,6 @@ public class DynFixLocalCaptureUpgrade implements DynamicFixer<DynFixLocalCaptur
 
         auditTrail.recordAudit(this, methodContext, "Upgrade captured locals");
 
-        return FixResult.of(result, PatchAuditTrail.Match.FULL);
+        return result;
     }
 }

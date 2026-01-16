@@ -1,8 +1,12 @@
 package org.sinytra.adapter.next.pipeline.processor;
 
+import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.VarInsnNode;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.MixinData;
+import org.sinytra.adapter.next.env.param.MethodParameters;
+import org.sinytra.adapter.next.env.param.Parameters;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.TxResult;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
@@ -12,22 +16,52 @@ import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformTarget;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class ParametersProcessor implements Processor {
     @Override
     public TxResult process(MixinData mixin, MixinContext context, Configuration dirty, Recipe recipe) {
-        if (dirty.getParameters() == null) return TxResult.FAIL;
+        MethodParameters cleanParams = recipe.clean().getParameters();
+        MethodParameters dirtyParams = dirty.getParameters();
+        if (dirtyParams == null) return TxResult.FAIL;
 
-        List<Type> cleanParams = recipe.clean().getParameters().merge();
-        List<Type> dirtyParams = dirty.getParameters().merge();
-        ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(cleanParams, dirtyParams);
+        // Apply mappings of params that will be removed in dirty
+        Map<VarInsnNode, Pair<Integer, Type>> oldVarMap = Parameters.gatherVarMappings(context.methodNode(), cleanParams.merge(), dirtyParams.merge(), dirtyParams.getMapping());
 
-        if (!diff.isEmpty()) {
-            Patch.Result result = diff.asParameterTransformer(ParamTransformTarget.ALL, false)
-                .apply(context.legacy());
-            return result == Patch.Result.PASS ? TxResult.FAIL : TxResult.SUCCESS;
+        if (cleanParams.getOrder().equals(dirtyParams.getOrder())) {
+            List<MethodParameters.ParamGroup> order = dirtyParams.getOrder();
+            int offset = 0;
+            for (MethodParameters.ParamGroup group : order) {
+                List<Type> cleanList = cleanParams.getTypes(group);
+                List<Type> dirtyList = dirtyParams.getTypes(group);
+
+                if (!applyDiff(cleanList, dirtyList, context, offset)) {
+                    return TxResult.FAIL;
+                }
+                offset += dirtyList.size();
+            }
+        } else {
+            if (!applyDiff(cleanParams.mergeTypes(), dirtyParams.mergeTypes(), context, 0)) {
+                return TxResult.FAIL;
+            }
         }
 
-        return TxResult.PASS;
+        // Apply mappings of params that only exist in dirty
+        Parameters.applyVarMappings(context.methodNode(), Parameters.gatherVarMappings(context.methodNode(), dirtyParams.merge(), dirtyParams.merge(), dirtyParams.getMapping()));
+        Parameters.applyVarMappings(context.methodNode(), oldVarMap);
+        Parameters.applyAnnotations(context.methodNode(), dirtyParams.merge());
+
+        return TxResult.SUCCESS;
+    }
+
+    private boolean applyDiff(List<Type> clean, List<Type> dirty, MixinContext context, int offset) {
+        ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(clean, dirty);
+        if (!diff.isEmpty()) {
+            Patch.Result result = diff.offset(offset).asParameterTransformer(ParamTransformTarget.ALL, false, Set.of())
+                .apply(context.legacy());
+            return result != Patch.Result.PASS;
+        }
+        return true;
     }
 }

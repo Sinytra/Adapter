@@ -8,5 +8,5 @@ import org.sinytra.adapter.next.pipeline.config.Configuration;
 
 public interface SubResolver {
     @Nullable
-    Configuration resolve(MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe);
+    Configuration resolve(MixinData mixin, MixinContext context, Recipe recipe);
 }

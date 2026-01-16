@@ -8,6 +8,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.*;
+import org.objectweb.asm.tree.analysis.SourceValue;
 import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceMethodVisitor;
 import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
@@ -30,31 +31,16 @@ import java.util.stream.Stream;
 public final class AdapterUtil {
     public static final String LAMBDA_PREFIX = "lambda$";
     private static final Pattern FIELD_REF_PATTERN = Pattern.compile("^(?<owner>L.+?;)?(?<name>[^:]+)?:(?<desc>.+)?$");
-    public static final Type CI_TYPE = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfo");
-    public static final Type CIR_TYPE = Type.getObjectType("org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable");
-    public static final Type OPERATION_TYPE = Type.getObjectType(MixinConstants.OPERATION_INTERNAL_NAME);
     private static final Logger LOGGER = LogUtils.getLogger();
+
+    public static MethodNode copyMethod(MethodNode original) {
+        MethodNode copy = new MethodNode(original.access, original.name, original.desc, original.signature, original.exceptions.toArray(String[]::new));
+        original.accept(copy);
+        return copy;
+    }
 
     public static int getLVTOffsetForType(Type type) {
         return type.equals(Type.DOUBLE_TYPE) || type.equals(Type.LONG_TYPE) ? 2 : 1;
-    }
-
-    public static int getLVTIndexForParam(MethodNode method, int paramIndex, Type type) {
-        Type[] paramTypes = Type.getArgumentTypes(method.desc);
-        int ordinal = 0;
-        for (int i = paramIndex - 1; i > 0; i--) {
-            if (type.equals(paramTypes[i])) {
-                ordinal++;
-            }
-        }
-        List<LocalVariableNode> locals = method.localVariables.stream()
-            .sorted(Comparator.comparingInt(lvn -> lvn.index))
-            .filter(lvn -> lvn.desc.equals(type.getDescriptor()))
-            .toList();
-        if (locals.size() > ordinal) {
-            return locals.get(ordinal).index;
-        }
-        return -1;
     }
 
     public static String randomString(int length) {
@@ -135,11 +121,17 @@ public final class AdapterUtil {
         if (opcode == Opcodes.BIPUSH || opcode == Opcodes.SIPUSH) {
             return OptionalInt.of(((IntInsnNode) insn).operand);
         }
+        if (insn instanceof LdcInsnNode) {
+            Object cst = ((LdcInsnNode) insn).cst;
+            if (cst instanceof Integer) {
+                return OptionalInt.of((Integer) cst);
+            }
+        }
         return OptionalInt.empty();
     }
 
     public static AbstractInsnNode getIntConstInsn(int value) {
-        if (value >= 1 && value <= 5) {
+        if (value >= 0 && value <= 5) {
             return new InsnNode(Opcodes.ICONST_0 + value);
         } else if (value > 5 && value <= 127) {
             return new IntInsnNode(Opcodes.BIPUSH, value);
@@ -152,6 +144,11 @@ public final class AdapterUtil {
         InstructionAdapter adapter = new InstructionAdapter(dummy);
         consumer.accept(adapter);
         return dummy.instructions;
+    }
+
+    public static VarInsnNode loadType(Type type, int index) {
+        int opcode = OpcodeUtil.getLoadOpcode(type.getSort());
+        return new VarInsnNode(opcode, index);
     }
 
     public static boolean isShadowField(FieldNode field) {
@@ -193,20 +190,6 @@ public final class AdapterUtil {
         return list;
     }
 
-    public static boolean isParamAnnotated(MethodNode method, int index, String annotationDesc) {
-        if (method.invisibleParameterAnnotations != null && method.invisibleParameterAnnotations.length > index) {
-            List<AnnotationNode> parameterAnnotations = method.invisibleParameterAnnotations[index];
-            if (parameterAnnotations != null) {
-                for (AnnotationNode paramAnn : parameterAnnotations) {
-                    if (annotationDesc.equals(paramAnn.desc)) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-
     @Nullable
     public static CapturedLocals getCapturedLocals(MethodNode methodNode, MethodContext methodContext) {
         AnnotationHandle annotation = methodContext.methodAnnotation();
@@ -236,7 +219,7 @@ public final class AdapterUtil {
     private static OptionalInt getCapturedLocalStartingIndex(Type[] params) {
         for (int i = 0; i < params.length; i++) {
             Type param = params[i];
-            if ((param.equals(CI_TYPE) || param.equals(CIR_TYPE)) && i + 1 < params.length) {
+            if ((param.equals(MixinConstants.CI_TYPE) || param.equals(MixinConstants.CIR_TYPE)) && i + 1 < params.length) {
                 return OptionalInt.of(i + 1);
             }
         }
@@ -296,12 +279,16 @@ public final class AdapterUtil {
         return list;
     }
 
-    public static List<AbstractInsnNode> cloneInsns(Collection<AbstractInsnNode> insns) {
-        return insns.stream().map(i -> i.clone(Map.of())).toList();
+    public static List<AbstractInsnNode> subListInsnsExc(AbstractInsnNode from, AbstractInsnNode to) {
+        List<AbstractInsnNode> list = new ArrayList<>();
+        for (AbstractInsnNode insn = from; insn != null && insn != to; insn = insn.getNext()) {
+            list.add(insn);
+        }
+        return list;
     }
 
-    public static Type getMixinCallableReturnType(MethodNode method) {
-        return Type.getReturnType(method.desc) == Type.VOID_TYPE ? CI_TYPE : CIR_TYPE;
+    public static List<AbstractInsnNode> cloneInsns(Collection<AbstractInsnNode> insns) {
+        return insns.stream().map(i -> i.clone(Map.of())).toList();
     }
 
     public static <T> boolean allElementsEqual(Collection<T> list, BiPredicate<T, T> equalityFn) {
@@ -309,6 +296,33 @@ public final class AdapterUtil {
             .reduce((a, b) -> equalityFn.test(a, b) ? a : null)
             .map(x -> true)
             .orElse(true);
+    }
+
+    public static void replaceRangeInclusive(InsnList list, AbstractInsnNode start, AbstractInsnNode end, List<AbstractInsnNode> replacement) {
+        InsnList newInsns = AdapterUtil.insnList(replacement);
+        list.insertBefore(start, newInsns);
+
+        AbstractInsnNode current = start;
+        while (current != null) {
+            AbstractInsnNode next = current.getNext();
+            list.remove(current);
+
+            if (current == end) {
+                break;
+            }
+            current = next;
+        }
+    }
+
+    @Nullable
+    public static AbstractInsnNode getSingleInsn(SourceValue value) {
+        return value.insns.size() == 1 ? value.insns.iterator().next() : null;
+    }
+
+    @Nullable
+    public static AbstractInsnNode getSingleInsn(List<? extends SourceValue> values, int index) {
+        SourceValue value = values.get(index);
+        return getSingleInsn(value);
     }
 
     private AdapterUtil() {

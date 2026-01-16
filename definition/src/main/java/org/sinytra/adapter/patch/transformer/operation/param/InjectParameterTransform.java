@@ -1,6 +1,5 @@
 package org.sinytra.adapter.patch.transformer.operation.param;
 
-import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.TypeReference;
@@ -11,20 +10,15 @@ import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchContext;
-import org.sinytra.adapter.patch.transformer.ModifyArgsOffsetTransformer;
+import org.sinytra.adapter.patch.transformer.ModifyArgsOffsetUpgrader;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 import static org.sinytra.adapter.patch.transformer.operation.param.ParamTransformationUtil.calculateLVTIndex;
-import static org.sinytra.adapter.patch.transformer.operation.param.ParamTransformationUtil.extractWrapOperation;
 
-public record InjectParameterTransform(int index, Type type, boolean upgradeWrapOperation) implements ParameterTransformer {
-    public InjectParameterTransform(int index, Type type) {
-        this(index, type, true);
-    }
-
+public record InjectParameterTransform(int index, Type type) implements ParameterTransformer {
     @Override
     public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, List<Type> parameters, int offset) {
         boolean isNonStatic = (methodNode.access & Opcodes.ACC_STATIC) == 0;
@@ -46,7 +40,7 @@ public record InjectParameterTransform(int index, Type type, boolean upgradeWrap
         }
 
         if (annotation.matchesDesc(MixinConstants.MODIFY_ARGS)) {
-            ModifyArgsOffsetTransformer.modify(methodNode, List.of(Pair.of(this.index, this.type)));
+            ModifyArgsOffsetUpgrader.upgradeAfterParamInsert(methodNode, this.index);
             return Patch.Result.APPLY;
         }
 
@@ -63,11 +57,6 @@ public record InjectParameterTransform(int index, Type type, boolean upgradeWrap
 
             methodNode.localVariables.add(index + (isNonStatic ? 1 : 0), new LocalVariableNode(newParameter.name, type.getDescriptor(), null, self.start, self.end, lvtIndex));
         });
-
-        if (this.upgradeWrapOperation) {
-            extractWrapOperation(methodContext, methodNode, parameters, wrapOpModification -> wrapOpModification
-                .insertParameter(index, nodes -> nodes.add(new VarInsnNode(Opcodes.ALOAD, lvtIndex))));
-        }
 
         return Patch.Result.APPLY;
     }

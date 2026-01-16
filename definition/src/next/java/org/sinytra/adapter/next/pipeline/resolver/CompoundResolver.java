@@ -12,42 +12,47 @@ import java.util.List;
 public abstract class CompoundResolver implements Resolver {
     protected final List<SubResolver> subResolvers = new ArrayList<>();
 
+    public CompoundResolver addSubResolverFirst(SubResolver subResolver) {
+        this.subResolvers.addFirst(subResolver);
+        return this;
+    }
+
     public CompoundResolver addSubResolver(SubResolver subResolver) {
         this.subResolvers.add(subResolver);
         return this;
     }
 
-    protected abstract boolean canApply(MixinData mixin, Configuration clean, Configuration dirty);
+    protected abstract boolean canApply(MixinData mixin, Recipe recipe);
 
     @Nullable
-    protected Configuration tryReuse(MixinContext context, Configuration clean, Configuration dirty) {
+    protected Configuration tryReuse(MixinContext context, Recipe recipe) {
         return null;
     }
 
     @Nullable
-    protected Configuration useFallback(MixinContext context, Configuration clean, Configuration dirty) {
+    protected Configuration useFallback(MixinContext context, Recipe recipe) {
         return null;
     }
 
     @Override
-    public ResolutionResult resolve(MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe) {
-        if (!canApply(mixin, clean, dirty)) {
+    public ResolutionResult resolve(MixinData mixin, MixinContext context, Recipe recipe) {
+        if (!canApply(mixin, recipe)) {
             return ResolutionResult.pass();
         }
 
-        Configuration resused = tryReuse(context, clean, dirty); 
+        Configuration resused = tryReuse(context, recipe);
         if (resused != null) {
             return ResolutionResult.success(resused);
         }
 
         for (SubResolver subResolver : this.subResolvers) {
-            Configuration result = subResolver.resolve(mixin, context, clean, dirty, recipe);
+            Configuration result = subResolver.resolve(mixin, context, recipe);
             if (result != null) {
                 return ResolutionResult.success(result);
             }
         }
 
-        Configuration fallback = useFallback(context, clean, dirty); 
+        Configuration fallback = useFallback(context, recipe);
         if (fallback != null) {
             return ResolutionResult.success(fallback);
         }

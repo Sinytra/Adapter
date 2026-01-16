@@ -6,7 +6,7 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
+import org.sinytra.adapter.patch.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.patch.api.ClassTransform;
 import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchContext;
@@ -64,9 +64,9 @@ public class FieldTypeUsageTransformer implements ClassTransform {
                     }
                 }
                 // Search for method calls made on modified class fields and update their owners to match the new field types
-                List<Pair<FieldInsnNode, MethodInsnNode>> results = MethodCallAnalyzer.analyzeMethod(method, (m, v) -> m.getOpcode() == Opcodes.INVOKEVIRTUAL, (insn, values) -> {
+                List<Pair<FieldInsnNode, MethodInsnNode>> results = MethodAnalyzer.analyzeMethod(method, (m, v) -> m.getOpcode() == Opcodes.INVOKEVIRTUAL, (insn, values) -> {
                     if (!values.isEmpty()) {
-                        AbstractInsnNode valueInsn = MethodCallAnalyzer.getSingleInsn(values, 0);
+                        AbstractInsnNode valueInsn = AdapterUtil.getSingleInsn(values, 0);
                         if (valueInsn instanceof FieldInsnNode finsn) {
                             return Pair.of(finsn, insn);
                         }

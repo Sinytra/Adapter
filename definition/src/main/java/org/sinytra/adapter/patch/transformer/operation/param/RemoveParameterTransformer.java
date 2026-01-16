@@ -12,9 +12,7 @@ import org.sinytra.adapter.patch.util.AdapterUtil;
 
 import java.util.List;
 
-import static org.sinytra.adapter.patch.transformer.operation.param.ParamTransformationUtil.extractWrapOperation;
-
-public record RemoveParameterTransformer(int index, boolean upgradeWrapOperation) implements ParameterTransformer {
+public record RemoveParameterTransformer(int index, boolean invalidateUsage) implements ParameterTransformer {
     public RemoveParameterTransformer(int index) {
         this(index, true);
     }
@@ -24,11 +22,6 @@ public record RemoveParameterTransformer(int index, boolean upgradeWrapOperation
         final int target = this.index() + offset;
         final int lvtIndex = ParamTransformationUtil.calculateLVTIndex(parameters, !methodContext.isStatic(), target);
 
-        // Remove the use of the param in a wrapop first to avoid the new LVT messing with the outcome of that
-        if (this.upgradeWrapOperation) {
-            extractWrapOperation(methodContext, methodNode, parameters, op -> op.removeParameter(target));
-        }
-
         LVTSnapshot.with(methodNode, () -> {
             LocalVariableNode lvn = methodNode.localVariables.stream()
                 .filter(v -> v.index == lvtIndex)
@@ -36,7 +29,9 @@ public record RemoveParameterTransformer(int index, boolean upgradeWrapOperation
                 .orElse(null);
             if (lvn != null) {
                 methodNode.localVariables.remove(lvn);
-                AdapterUtil.replaceLVT(methodNode, idx -> idx == lvtIndex ? -1 : idx);
+                if (this.invalidateUsage) {
+                    AdapterUtil.replaceLVT(methodNode, idx -> idx == lvtIndex ? -1 : idx);
+                }
             }
         });
 

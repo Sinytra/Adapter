@@ -45,6 +45,10 @@ public class LocalVariableLookup {
         return this.sortedLocals.indexOf(node);
     }
 
+    public int getParameterOrdinal(LocalVariableNode node) {
+        return getOrdinal(node) + (this.isNonStatic ? 1 : 0);
+    }
+
     public LocalVariableNode getLast() {
         return this.sortedLocals.getLast();
     }

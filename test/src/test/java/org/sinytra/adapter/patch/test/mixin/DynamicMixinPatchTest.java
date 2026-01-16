@@ -10,7 +10,7 @@ import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchEnvironment;
 import org.sinytra.adapter.patch.api.RefmapHolder;
 import org.sinytra.adapter.patch.fixes.FieldTypeUsageTransformer;
-import org.sinytra.adapter.patch.transformer.dynfix.DynamicInjectionPointPatch;
+import org.sinytra.adapter.patch.transformer.dynamic.LocalCaptureUpgradePreprocessor;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.FabricUtil;
@@ -20,7 +20,7 @@ import java.util.List;
 public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     private static final List<Patch> DYNAMIC_PATCHES = List.of(
         Patch.builder()
-            .transform(new DynamicInjectionPointPatch())
+            .transform(new LocalCaptureUpgradePreprocessor())
             .transform(new PipelineLegacyMethodTransformer())
             .transform(new FieldTypeUsageTransformer())
             .build()

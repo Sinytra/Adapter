@@ -11,8 +11,9 @@ import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.TxResult;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
-import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
+import org.sinytra.adapter.patch.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.patch.fixes.TypeAdapter;
+import org.sinytra.adapter.patch.util.AdapterUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +33,7 @@ public class ReturnTypeProcessor implements Processor {
             return TxResult.PASS;
         }
 
-        ReturnInterpreter inter = MethodCallAnalyzer.analyzeInterpretMethod(context.methodNode(), new ReturnInterpreter());
+        ReturnInterpreter inter = MethodAnalyzer.analyzeInterpretMethod(context.methodNode(), new ReturnInterpreter());
         for (AbstractInsnNode insn : inter.insns) {
             if (insn.getOpcode() != Opcodes.ACONST_NULL) {
                 adapter.apply(context.methodNode().instructions, insn);
@@ -54,10 +55,11 @@ public class ReturnTypeProcessor implements Processor {
 
         @Override
         public void returnOperation(AbstractInsnNode insn, SourceValue value, SourceValue expected) {
-            if (value.getSize() != 1) {
+            AbstractInsnNode srcInsn = AdapterUtil.getSingleInsn(value);
+            if (srcInsn == null) {
                 throw new IllegalStateException();
             }
-            this.insns.add(value.insns.iterator().next());
+            this.insns.add(srcInsn);
         }
     }
 }

@@ -12,7 +12,7 @@ import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
 import org.sinytra.adapter.next.pipeline.resolver.SubResolver;
 import org.sinytra.adapter.patch.analysis.InsnComparator;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
-import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
+import org.sinytra.adapter.patch.analysis.method.MethodInsnMatcher;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.util.AdapterUtil;
@@ -28,10 +28,10 @@ import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_I
 public class ArbitraryInjectionPointSubResolver implements SubResolver {
     @Nullable
     @Override
-    public Configuration resolve(MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe) {
-        String injectionPointTarget = clean.getAtData().getTarget().orElseThrow();
-        MethodContext.TargetPair cleanTarget = context.methods().findOwnMethodPair(context.cleanLookup(), clean.getTargetMethod());
-        MethodContext.TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), dirty.getTargetMethod());
+    public Configuration resolve(MixinData mixin, MixinContext context, Recipe recipe) {
+        String injectionPointTarget = recipe.clean().getAtData().getTarget().orElseThrow();
+        MethodContext.TargetPair cleanTarget = recipe.getCleanTarget();
+        MethodContext.TargetPair dirtyTarget = recipe.getDirtyTarget();
         AbstractInsnNode cleanInsn = context.methods().findInjectionTargetInsn(cleanTarget);
         if (cleanInsn == null) {
             return null;
@@ -54,12 +54,12 @@ public class ArbitraryInjectionPointSubResolver implements SubResolver {
     }
 
     private MethodInsnNode resolveTargetCallInsn(MethodNode dirtyTargetMethod, AbstractInsnNode cleanInjectionInsn, MixinContext context, String injectionPointTarget) {
-        AbstractInsnNode nextCallCandidate = findCandidates(MethodCallAnalyzer.findBackwardsInstructions(cleanInjectionInsn).inverse(), dirtyTargetMethod, List::getLast);
+        AbstractInsnNode nextCallCandidate = findCandidates(MethodInsnMatcher.findBackwardsInstructions(cleanInjectionInsn).inverse(), dirtyTargetMethod, List::getLast);
 
         if (nextCallCandidate != null) {
             return findReplacementInjectionPoint(nextCallCandidate, AbstractInsnNode::getNext, context, injectionPointTarget);
         } else {
-            AbstractInsnNode previousCallCandidate = findCandidates(MethodCallAnalyzer.findForwardInstructions(cleanInjectionInsn), dirtyTargetMethod, List::getFirst);
+            AbstractInsnNode previousCallCandidate = findCandidates(MethodInsnMatcher.findForwardInstructions(cleanInjectionInsn), dirtyTargetMethod, List::getFirst);
             if (previousCallCandidate != null) {
                 return findReplacementInjectionPoint(previousCallCandidate, AbstractInsnNode::getPrevious, context, injectionPointTarget);
             }
@@ -79,7 +79,7 @@ public class ArbitraryInjectionPointSubResolver implements SubResolver {
                 continue;
             }
 
-            InstructionMatcher dirtyMatcher = MethodCallAnalyzer.findForwardInstructionsDirect(insn);
+            InstructionMatcher dirtyMatcher = MethodInsnMatcher.findForwardInstructionsDirect(insn);
             if (cleanMatcher.test(dirtyMatcher, InsnComparator.IGNORE_VAR_INDEX)) {
                 // Find first method call past matched instruction
                 AbstractInsnNode lastInsn = selector.apply(dirtyMatcher.after());

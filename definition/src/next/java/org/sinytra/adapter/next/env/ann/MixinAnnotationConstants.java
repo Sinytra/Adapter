@@ -9,8 +9,9 @@ public class MixinAnnotationConstants {
     public static final String AT_VAL_SINYTRA_INSTANCEOF = "sinytra:INSTANCEOF";
     public static final String AT_SHIFT = "shift";
 
+    public static final String PROPERTY_AT = "at";
+    public static final String PROPERTY_CONSTANT = "constant";
     public static final String PROPERTY_ORDINAL = "ordinal";
-    public static final String PROPERTY_INDEX = "index";
     public static final String PROPERTY_SLICE = "slice";
     
     public static final String SLICE_FROM = "from";

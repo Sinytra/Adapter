@@ -194,7 +194,6 @@ public class DynamicLVTPatch implements MethodTransform {
         return maxIndex;
     }
 
-    // TODO Replace by LocalVarRearrangement#getRearrangedParameters ?
     @VisibleForTesting
     @Nullable
     public static LayeredParamsDiffSnapshot rearrangeParameters(List<Type> parameterTypes, List<Type> newParameterTypes) {

@@ -49,8 +49,8 @@ public class PipelineLegacyMethodTransformer implements MethodTransform {
         auditTrail.recordResult(methodContext, PatchAuditTrail.Match.NONE);
 
         MixinContext mixinContext = new MixinContext(classNode, methodNode, methodContext);
-        PipelineExecutor pipeline = new PipelineExecutor(mixinType, classTarget, mixinContext);
-        Patch.Result result = pipeline.execute();
+        PipelineExecutor pipeline = new PipelineExecutor(classTarget, mixinContext);
+        Patch.Result result = pipeline.execute(mixinType);
         if (result != Patch.Result.PASS) {
             auditTrail.recordResult(methodContext, PatchAuditTrail.Match.FULL);
             return result;

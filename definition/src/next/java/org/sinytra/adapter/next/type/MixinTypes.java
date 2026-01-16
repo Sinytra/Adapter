@@ -12,14 +12,21 @@ import java.util.Map;
 
 public class MixinTypes {
     private static final Map<String, MixinType<?>> MIXIN_TYPES = new HashMap<>();
+    
+    public static final MixinType<?> INJECT = new InjectMixin();
+    public static final MixinType<?> MODIFY_VAR = new ModifyVariableMixin();
+    public static final MixinType<?> MODIFY_ARG = new ModifyArgMixin();
+    public static final MixinType<?> REDIRECT = new RedirectMixin();
+    public static final MixinType<?> WRAP_OP = new WrapOperationMixin();
+    public static final MixinType<?> MODIFY_EXPR_VAL = new ModifyExpressionValueMixin();
 
     static {
-        registerMixinType(Inject.class, new InjectMixin());
-        registerMixinType(ModifyVariable.class, new ModifyVariableMixin());
-        registerMixinType(ModifyArg.class, new ModifyArgMixin());
-        registerMixinType(Redirect.class, new RedirectMixin());
-        registerMixinType(MixinConstants.WRAP_OPERATION_INTERNAL_NAME, new WrapOperationMixin());
-        registerMixinType(MixinConstants.MODIFY_EXPR_VAL_INTERNAL_NAME, new ModifyExpressionValueMixin());
+        registerMixinType(Inject.class, INJECT);
+        registerMixinType(ModifyVariable.class, MODIFY_VAR);
+        registerMixinType(ModifyArg.class, MODIFY_ARG);
+        registerMixinType(Redirect.class, REDIRECT);
+        registerMixinType(MixinConstants.WRAP_OPERATION_INTERNAL_NAME, WRAP_OP);
+        registerMixinType(MixinConstants.MODIFY_EXPR_VAL_INTERNAL_NAME, MODIFY_EXPR_VAL);
     }
 
     @Nullable

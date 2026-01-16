@@ -1,7 +1,6 @@
 package org.sinytra.adapter.patch.api;
 
 import org.sinytra.adapter.patch.transformer.operation.param.TransformParameters;
-import org.sinytra.adapter.patch.transformer.operation.unit.ModifyInjectionTarget;
 import org.sinytra.adapter.patch.transformer.operation.unit.ModifyMethodAccess;
 import org.sinytra.adapter.patch.transformer.operation.unit.ModifyMixinType;
 
@@ -12,8 +11,6 @@ public interface MethodTransformBuilder<T extends MethodTransformBuilder<T>> {
     T transformParams(Consumer<TransformParameters.Builder> consumer);
 
     T modifyTarget(String... methods);
-
-    T modifyTarget(ModifyInjectionTarget.Action action, String... methods);
 
     T modifyMethodAccess(ModifyMethodAccess.AccessChange... changes);
 
@@ -35,8 +32,6 @@ public interface MethodTransformBuilder<T extends MethodTransformBuilder<T>> {
         }
 
         T modifyInjectionPoint(String value, String target, boolean resetValues);
-
-        T modifyInjectionPoint(String value, String target, boolean resetValues, boolean dontUpgrade);
 
         default T modifyInjectionPoint(String target) {
             return modifyInjectionPoint(null, target);

@@ -9,6 +9,8 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.*;
 import org.sinytra.adapter.patch.analysis.locals.LocalVarAnalyzer;
 import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
+import org.sinytra.adapter.patch.analysis.method.MethodAnalyzer;
+import org.sinytra.adapter.patch.analysis.method.MethodInsnMatcher;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.api.*;
@@ -128,8 +130,8 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
             String target = context.target();
             int ordinal = context.ordinal();
 
-            Multimap<String, MethodInsnNode> cleanCallsMap = MethodCallAnalyzer.getMethodCalls(cleanTarget.methodNode(), new ArrayList<>());
-            Multimap<String, MethodInsnNode> dirtyCallsMap = MethodCallAnalyzer.getMethodCalls(dirtyTarget.methodNode(), new ArrayList<>());
+            Multimap<String, MethodInsnNode> cleanCallsMap = MethodAnalyzer.getMethodCalls(cleanTarget.methodNode(), new ArrayList<>());
+            Multimap<String, MethodInsnNode> dirtyCallsMap = MethodAnalyzer.getMethodCalls(dirtyTarget.methodNode(), new ArrayList<>());
 
             PatchContext patchContext = methodContext.patchContext();
             String cleanValue = patchContext.remap(target);
@@ -139,8 +141,8 @@ public class DynamicInjectorOrdinalPatch implements MethodTransform {
 
             if (cleanCalls.size() != dirtyCalls.size()) {
                 int insnRange = 5;
-                List<InstructionMatcher> cleanMatchers = cleanCalls.stream().map(i -> MethodCallAnalyzer.findSurroundingInstructions(i, insnRange)).toList();
-                List<InstructionMatcher> dirtyMatchers = dirtyCalls.stream().map(i -> MethodCallAnalyzer.findSurroundingInstructions(i, insnRange)).toList();
+                List<InstructionMatcher> cleanMatchers = cleanCalls.stream().map(i -> MethodInsnMatcher.findSurroundingInstructions(i, insnRange)).toList();
+                List<InstructionMatcher> dirtyMatchers = dirtyCalls.stream().map(i -> MethodInsnMatcher.findSurroundingInstructions(i, insnRange)).toList();
 
                 if (ordinal >= 0 && ordinal < cleanMatchers.size()) {
                     InstructionMatcher original = cleanMatchers.get(ordinal);

@@ -1,4 +1,4 @@
-package org.sinytra.adapter.patch.transformer.dynfix;
+package org.sinytra.adapter.next.pipeline.processor.extract;
 
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.Opcodes;
@@ -6,10 +6,11 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
 import org.objectweb.asm.commons.Method;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
+import org.sinytra.adapter.patch.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.api.*;
-import org.sinytra.adapter.patch.transformer.operation.CompoundMethodTransform;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyInjectionTarget;
 import org.sinytra.adapter.patch.util.AdapterUtil;
+import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.OpcodeUtil;
 
 import java.util.ArrayList;
@@ -33,7 +34,7 @@ public record MirrorableExtractMixin(String destinationClass, MethodInsnNode des
             return Patch.Result.PASS;
         }
 
-        List<AbstractInsnNode> callInsns = MethodCallAnalyzer.findMethodCallParamInsns(methodContext.findDirtyInjectionTarget().methodNode(), this.destinationMethodInvocation);
+        List<AbstractInsnNode> callInsns = MethodCallAnalyzer.getMethodCallSrcInsns(methodContext.findDirtyInjectionTarget().methodNode(), this.destinationMethodInvocation);
         if (callInsns == null || callInsns.size() <= selfIndex) {
             return Patch.Result.PASS;
         }
@@ -48,7 +49,7 @@ public record MirrorableExtractMixin(String destinationClass, MethodInsnNode des
         MethodNode originalMixinMethod = methodContext.getMixinMethod();
         String name = originalMixinMethod.name + "$adapter$mirror$" + AdapterUtil.randomString(5);
         List<Type> originalParams = List.of(Type.getArgumentTypes(originalMixinMethod.desc));
-        List<Type> newParams = ImmutableList.<Type>builder().add(Type.getArgumentTypes(this.destinationMethodInvocation.desc)).add(AdapterUtil.CI_TYPE).build();
+        List<Type> newParams = ImmutableList.<Type>builder().add(Type.getArgumentTypes(this.destinationMethodInvocation.desc)).add(MixinConstants.CI_TYPE).build();
         // Make sure we have all required params
         if (!new HashSet<>(newParams).containsAll(originalParams)) {
             return Patch.Result.PASS;
@@ -56,9 +57,11 @@ public record MirrorableExtractMixin(String destinationClass, MethodInsnNode des
 
         String desc = Type.getMethodDescriptor(Type.VOID_TYPE, newParams.toArray(Type[]::new));
         // Change target
-        CompoundMethodTransform.builder(b -> b
-                .modifyTarget(this.destinationMethodInvocation.name + this.destinationMethodInvocation.desc))
-            .apply(methodContext);
+        Patch.Result result = new ModifyInjectionTarget(List.of(MethodQualifier.create(destinationMethodInvocation).asDescriptor())).apply(methodContext);
+        if (result == Patch.Result.PASS) {
+            return Patch.Result.PASS;
+        }
+
         MethodNode invokerMixinMethod = (MethodNode) generatedTarget.visitMethod(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, name, desc, null, null);
         invokerMixinMethod.visibleAnnotations = new ArrayList<>(originalMixinMethod.visibleAnnotations);
         // Make original mixin a unique public method

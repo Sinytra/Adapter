@@ -10,6 +10,9 @@ public final class ConfigurationTemplates {
     public static final PropertyContainerTemplate MIXIN_AT = MIXIN_BASE.extend()
         .require(Keys.TARGET_AT)
         .build();
+    public static final PropertyContainerTemplate DELETE = PropertyContainerTemplate.builder()
+        .require(Keys.DELETE)
+        .build();
 
     private ConfigurationTemplates() {
     }

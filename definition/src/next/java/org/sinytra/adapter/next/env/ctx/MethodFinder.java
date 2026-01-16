@@ -7,12 +7,15 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.patch.analysis.InheritanceHandler;
 import org.sinytra.adapter.patch.api.MethodContext.TargetPair;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 import org.slf4j.Logger;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.stream.Stream;
 
 public class MethodFinder {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -27,6 +30,21 @@ public class MethodFinder {
 
     public MethodFinder(String fallbackOwner) {
         this.fallbackOwner = fallbackOwner;
+    }
+
+    @Nullable
+    public TargetPair findInheritedMethod(ClassLookup lookup, MethodQualifier qualifier) {
+        ClassNode node = lookup.getClass(qualifier.internalOwnerName()).orElse(null);
+        if (node == null) return null;
+
+        // TODO Unify
+        Collection<String> parents = new InheritanceHandler(lookup).getClassParents(node.name);
+
+        return Stream.concat(Stream.of(node.name), parents.stream())
+            .flatMap(cls -> lookup.findMethod(cls, qualifier.name(), qualifier.desc()).stream()
+                .map(m -> new TargetPair(lookup.getClass(cls).orElseThrow(), m)))
+            .findFirst()
+            .orElse(null);
     }
 
     @Nullable

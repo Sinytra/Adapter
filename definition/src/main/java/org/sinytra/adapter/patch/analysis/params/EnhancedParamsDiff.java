@@ -2,6 +2,7 @@ package org.sinytra.adapter.patch.analysis.params;
 
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
+import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
@@ -20,6 +21,7 @@ public class EnhancedParamsDiff {
     public static LayeredParamsDiffSnapshot createLayered(List<Type> clean, List<Type> dirty) {
         LayeredParamsDiffSnapshot.Builder builder = LayeredParamsDiffSnapshot.builder();
         buildDiff(builder, clean, dirty);
+        // TODO Sanity check
         return builder.build();
     }
 
@@ -258,6 +260,26 @@ public class EnhancedParamsDiff {
 
     private record SwapResult(List<TypeWithContext> removeDirty) {
     }
+    
+    private static <T> Comparator<T> maybeInverse(Comparator<T> comparator, boolean inverse) {
+        return inverse ? comparator.reversed() : comparator;
+    }
+
+    private static List<Pair<Type, TypeWithContext>> sortMapDiff(Map<Type, Integer> map, List<TypeWithContext> context, boolean descending) {
+        return map.entrySet().stream()
+            .map(e -> {
+                Type type = e.getKey();
+                Integer count = e.getValue();
+                if (count == 1) {
+                    TypeWithContext inserted = context.stream().filter(t -> t.type().equals(type)).findFirst().orElseThrow();
+                    return Pair.of(type, inserted);
+                }
+                return null;
+            })
+            .filter(Objects::nonNull)
+            .sorted(maybeInverse(Comparator.comparingInt(p -> p.getSecond().pos()), descending))
+            .toList();
+    }
 
     @Nullable
     private static SwapResult checkForSwaps(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
@@ -271,32 +293,27 @@ public class EnhancedParamsDiff {
         LayeredParamsDiffSnapshot.Builder tempDiff = LayeredParamsDiffSnapshot.builder();
         // Remove inserted parameters
         if (diff.entriesOnlyOnLeft().isEmpty() && !diff.entriesOnlyOnRight().isEmpty()) {
-            for (Map.Entry<Type, Integer> entry : diff.entriesOnlyOnRight().entrySet()) {
-                Type type = entry.getKey();
-                Integer count = entry.getValue();
-                if (count == 1) {
-                    TypeWithContext inserted = dirty.stream().filter(t -> t.type().equals(type)).findFirst().orElseThrow();
-                    dirtyGroup.remove(type);
-                    rearrangeDirty.remove(inserted);
-                    removeDirty.add(inserted);
-                    int offset = inserted.pos() + (int) builder.getRemovals().stream().filter(i -> i < inserted.pos()).count();
-                    tempDiff.insert(offset, inserted.type());
-                }
+            // Sort by insertion order first
+            for (Pair<Type, TypeWithContext> p : sortMapDiff(diff.entriesOnlyOnRight(), dirty, false)) {
+                Type type = p.getFirst();
+                TypeWithContext inserted = p.getSecond();
+
+                dirtyGroup.remove(type);
+                rearrangeDirty.remove(inserted);
+                removeDirty.add(inserted);
+                int offset = inserted.pos() + (int) builder.getRemovals().stream().filter(i -> i < inserted.pos()).count();
+                tempDiff.insert(offset, inserted.type());
             }
         } else if (!diff.entriesOnlyOnLeft().isEmpty() && diff.entriesOnlyOnRight().isEmpty()) {
-            for (Map.Entry<Type, Integer> entry : diff.entriesOnlyOnLeft().entrySet()) {
-                Type type = entry.getKey();
-                Integer count = entry.getValue();
-                if (count == 1) {
-                    TypeWithContext inserted = clean.stream().filter(t -> t.type().equals(type)).findFirst().orElseThrow();
-                    int offset = rearrangeClean.indexOf(inserted);
-                    if (offset == -1) {
-                        throw new IllegalStateException("Missing inserted from clean list, bug?");
-                    }
-                    tempDiff.remove(offset);
-                    cleanGroup.remove(type);
-                    rearrangeClean.remove(inserted);
-                }
+            // Sort by insertion order first
+            for (Pair<Type, TypeWithContext> p : sortMapDiff(diff.entriesOnlyOnLeft(), clean, true)) {
+                Type type = p.getFirst();
+                TypeWithContext inserted = p.getSecond();
+
+                int offset = inserted.pos() - (int) builder.getRemovals().stream().filter(i -> i < inserted.pos()).count();
+                tempDiff.remove(offset);
+                cleanGroup.remove(type);
+                rearrangeClean.remove(inserted);
             }
         }
 

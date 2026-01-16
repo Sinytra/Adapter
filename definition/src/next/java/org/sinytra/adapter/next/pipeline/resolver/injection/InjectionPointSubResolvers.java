@@ -9,13 +9,13 @@ import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.WeighedDisambiguation;
 import org.sinytra.adapter.next.env.ann.MixinData;
-import org.sinytra.adapter.next.env.param.MethodParameters;
+import org.sinytra.adapter.next.env.param.Parameters;
 import org.sinytra.adapter.next.pipeline.Recipe;
-import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
 import org.sinytra.adapter.next.pipeline.resolver.SubResolver;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
-import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
+import org.sinytra.adapter.patch.analysis.method.MethodAnalyzer;
+import org.sinytra.adapter.patch.analysis.method.MethodInsnMatcher;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
@@ -26,19 +26,19 @@ import java.util.Objects;
 import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
 
 public class InjectionPointSubResolvers {
-    public static final SubResolver REPLACED_TYPE = (MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe) -> {
-        if (!clean.getAtData().getValue().equals(AT_VAL_INVOKE)) return null;
+    public static final SubResolver REPLACED_TYPE = (MixinData mixin, MixinContext context, Recipe recipe) -> {
+        if (!recipe.clean().getAtData().getValue().equals(AT_VAL_INVOKE)) return null;
 
-        MethodContext.TargetPair cleanPair = context.methods().findOwnMethodPair(context.cleanLookup(), clean.getTargetMethod());
-        MethodContext.TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), dirty.getTargetMethod());
+        MethodContext.TargetPair cleanPair = recipe.getCleanTarget();
+        MethodContext.TargetPair dirtyTarget = recipe.getDirtyTarget();
         // Find single clean target minsn
         List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(cleanPair);
         if (insns.isEmpty() || !(insns.getFirst() instanceof MethodInsnNode cleanInsn)) return null;
 
-        InstructionMatcher cleanMatcher = MethodCallAnalyzer.findSurroundingInstructions(cleanInsn);
-        Multimap<String, MethodInsnNode> dirtyCalls = MethodCallAnalyzer.getMethodCalls(dirtyTarget.methodNode(), new ArrayList<>());
+        InstructionMatcher cleanMatcher = MethodInsnMatcher.findSurroundingInstructions(cleanInsn);
+        Multimap<String, MethodInsnNode> dirtyCalls = MethodAnalyzer.getMethodCalls(dirtyTarget.methodNode(), new ArrayList<>());
         List<InstructionMatcher> dirtyMatchers = dirtyCalls.values().stream()
-            .map(MethodCallAnalyzer::findSurroundingInstructions)
+            .map(MethodInsnMatcher::findSurroundingInstructions)
             .toList();
 
         WeighedDisambiguation<MethodQualifier> magicBlackBox = WeighedDisambiguation.<MethodQualifier>builder()
@@ -51,7 +51,7 @@ public class InjectionPointSubResolvers {
         MethodQualifier replacement = magicBlackBox.findBestMatch();
         if (replacement != null) {
             return MutableConfiguration.create()
-                .setAtData(clean.getAtData().withTarget(replacement));
+                .setAtData(recipe.clean().getAtData().withTarget(replacement));
         }
 
         return null;
@@ -81,18 +81,18 @@ public class InjectionPointSubResolvers {
             return List.of();
         }
 
-        List<Type> cleanParams = MethodParameters.getParameterTypes(cleanInsn.desc);
+        List<Type> cleanParams = Parameters.getParameterTypes(cleanInsn.desc);
         List<MethodNode> methods = dirtyClass.methods.stream()
             .filter(m -> {
                 if (cleanPair.classNode().methods.stream()
                     .noneMatch(c -> c.name.equals(m.name) && c.desc.equals(m.desc)) && m.name.equals(cleanInsn.name)
                 ) {
-                    List<Type> dirtyParams = MethodParameters.getParameterTypes(m.desc);
+                    List<Type> dirtyParams = Parameters.getParameterTypes(m.desc);
                     return dirtyParams.size() > cleanParams.size() && dirtyParams.subList(0, cleanParams.size()).equals(cleanParams);
                 }
                 return false;
             })
-            .filter(m -> MethodCallAnalyzer.containsMethodCall(dirtyPair.methodNode(), MethodQualifier.create(m)))
+            .filter(m -> MethodAnalyzer.containsMethodCall(dirtyPair.methodNode(), MethodQualifier.create(m)))
             .toList();
         return methods.size() == 1 ? List.of(MethodQualifier.create(dirtyClass, methods.getFirst())) : List.of();
     }

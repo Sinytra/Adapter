@@ -5,6 +5,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.next.env.ann.AtData;
+import org.sinytra.adapter.next.env.param.Copiable;
 import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
@@ -31,6 +32,11 @@ public class ConfigurationImpl extends BasePropertyContainer implements MutableC
     @Override
     public <T> MutableConfiguration setProperty(PropertyKey<T> key, @Nullable T value) {
         return (MutableConfiguration) super.setProperty(key, value);
+    }
+
+    @Override
+    public <T> MutableConfiguration removeProperty(PropertyKey<T> key) {
+        return (MutableConfiguration) super.removeProperty(key);
     }
 
     @Override
@@ -105,8 +111,9 @@ public class ConfigurationImpl extends BasePropertyContainer implements MutableC
     }
 
     @Override
-    public void setTargetClass(String targetClass) {
+    public MutableConfiguration setTargetClass(String targetClass) {
         setProperty(Keys.TARGET_CLASS, targetClass);
+        return this;
     }
 
     @Override
@@ -170,7 +177,10 @@ public class ConfigurationImpl extends BasePropertyContainer implements MutableC
     @SuppressWarnings({"unchecked", "rawtypes"})
     private ConfigurationImpl inheritProperty(PropertyKey<?> key) {
         if (this.parent != null) {
-            this.parent.getProperty(key).ifPresent(o -> setProperty((PropertyKey) key, o));
+            this.parent.getProperty(key).ifPresent(o -> {
+                Object entry = o instanceof Copiable c ? c.copy() : o;
+                setProperty((PropertyKey) key, entry);
+            });
         }
         return this;
     }
@@ -183,6 +193,11 @@ public class ConfigurationImpl extends BasePropertyContainer implements MutableC
     @Override
     public MutableConfiguration subConfig() {
         return new ConfigurationImpl(this.template, this.parent);
+    }
+
+    @Override
+    public MutableConfiguration subConfig(PropertyContainerTemplate template) {
+        return new ConfigurationImpl(template, this.parent);
     }
 
     @Override

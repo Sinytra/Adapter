@@ -26,15 +26,14 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.PROPERTY_SLICE;
 import static org.sinytra.adapter.next.pipeline.config.Configuration.Keys.SLICE;
 
 public class SliceBoundaryResolver implements Resolver {
     @Override
-    public ResolutionResult resolve(MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe) {
-        MethodContext.TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), dirty.getTargetMethod());
+    public ResolutionResult resolve(MixinData mixin, MixinContext context, Recipe recipe) {
+        MethodContext.TargetPair dirtyTarget = recipe.getDirtyTarget();
 
-        SliceData slice = clean.getProperty(SLICE).orElse(null);
+        SliceData slice = recipe.clean().getProperty(SLICE).orElse(null);
         if (slice == null || passesSliceCheck(slice, context, dirtyTarget))
             return ResolutionResult.pass();
 

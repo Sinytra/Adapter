@@ -24,21 +24,7 @@ public class InheritanceHandler {
         return childNode != null && parentNode != null && getClassParents(child).contains(parent);
     }
 
-    public boolean isMethodOverriden(String cls, String name, String desc) {
-        for (String parent : getClassParents(cls)) {
-            ClassNode node = this.classProvider.getClass(parent).orElse(null);
-            if (node != null) {
-                for (MethodNode method : node.methods) {
-                    if (method.name.equals(name) && method.desc.equals(desc) && (method.access & Opcodes.ACC_PRIVATE) == 0 && (method.access & Opcodes.ACC_FINAL) == 0) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-
-    private Collection<String> getClassParents(String name) {
+    public Collection<String> getClassParents(String name) {
         Collection<String> parents = this.parentCache.get(name);
         if (parents == null) {
             parents = computeClassParents(name);

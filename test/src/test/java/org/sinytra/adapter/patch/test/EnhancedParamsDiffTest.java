@@ -446,4 +446,39 @@ public class EnhancedParamsDiffTest {
         assertTrue(diff.removals().isEmpty());
         assertEquals(1, diff.moves().size());
     }
+
+    @Test
+    void testCompareComplexChanges() {
+        List<Type> original = List.of(
+            Type.getType(String.class),
+            Type.getType(List.class)
+        );
+        List<Type> modified = List.of(
+            Type.getType(Object.class)
+        );
+
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
+        assertEquals(1, diff.replacements().size());
+        assertEquals(Pair.of(0, Type.getType(Object.class)), diff.replacements().getFirst());
+        assertEquals(1, diff.removals().size());
+        assertEquals(1, diff.removals().getFirst());
+    }
+
+    @Test
+    void testRemovedParamsOrder() {
+        List<Type> original = List.of(
+            Type.getType(String.class),
+            Type.FLOAT_TYPE,
+            Type.FLOAT_TYPE,
+            Type.getType(Object.class),
+            Type.getType(List.class),
+            Type.INT_TYPE
+        );
+        List<Type> modified = List.of(
+            Type.getType(String.class)
+        );
+
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
+        assertEquals(List.of(1, 4, 3, 2, 1), diff.removals());
+    }
 }

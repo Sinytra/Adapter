@@ -7,7 +7,6 @@ import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.MixinData;
-import org.sinytra.adapter.next.env.ann.ModifyVariableMixinData;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.resolver.SubResolver;
@@ -25,22 +24,18 @@ public class ModifyVarInjectionPointSubResolver implements SubResolver {
 
     @Nullable
     @Override
-    public Configuration resolve(MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe) {
-        if (!(mixin instanceof ModifyVariableMixinData mvdata) || !clean.getAtData().getValue().equals(AT_VAL_STORE)) {
-            return null;
-        }
-        MethodContext.TargetPair pair = context.methods().findOwnMethodPair(context.dirtyLookup(), dirty.getTargetMethod());
+    public Configuration resolve(MixinData mixin, MixinContext context, Recipe recipe) {
+        if (!recipe.clean().getAtData().getValue().equals(AT_VAL_STORE)) return null;
+        MethodContext.TargetPair dirtyPair = recipe.getDirtyTarget();
+        if (dirtyPair == null) return null;
+        
         // Find replacement
-        return findComparableReplacement(mvdata, context, clean, pair, dirty);
-    }
+        Integer ordinal = mixin.getProperty(ORDINAL).orElse(null);
+        if (ordinal == null) return null;
 
-    private static Configuration findComparableReplacement(ModifyVariableMixinData mixin, MixinContext context, Configuration clean, MethodContext.TargetPair dirtyPair, Configuration dirty) {
-        if (mixin.ordinal().isEmpty()) return null;
-
-        int ordinal = mixin.ordinal().getAsInt();
         Type varType = Type.getReturnType(context.methodNode().desc);
 
-        MethodContext.TargetPair cleanPair = context.methods().findOwnMethodPair(context.cleanLookup(), clean.getTargetMethod());
+        MethodContext.TargetPair cleanPair = recipe.getCleanTarget();
         LocalVariableLookup lookup = new LocalVariableLookup(cleanPair.methodNode());
         LocalVariableNode desired = lookup.getByTypedOrdinal(varType, ordinal).orElseThrow();
 
@@ -60,7 +55,7 @@ public class ModifyVarInjectionPointSubResolver implements SubResolver {
             if (lvs.size() == 1) {
                 int dirtyOrdinal = dirtyLookup.getOrdinal(lvs.getFirst());
 
-                return dirty.subConfig()
+                return recipe.dirty().subConfig()
                     .setProperty(ORDINAL, dirtyOrdinal)
                     .setTargetMethod(method)
                     .inheritAtData();

@@ -4,7 +4,10 @@ import org.sinytra.adapter.patch.api.MethodTransform;
 import org.sinytra.adapter.patch.api.MethodTransformBuilder;
 import org.sinytra.adapter.patch.transformer.ModifyVarUpgradeToModifyExprVal;
 import org.sinytra.adapter.patch.transformer.operation.param.TransformParameters;
-import org.sinytra.adapter.patch.transformer.operation.unit.*;
+import org.sinytra.adapter.patch.transformer.operation.unit.ExtractMixin;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyInjectionTarget;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyMethodAccess;
+import org.sinytra.adapter.patch.transformer.operation.unit.ModifyMixinType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,11 +26,6 @@ public class MethodTransformBuilderImpl<T extends MethodTransformBuilder<T>> imp
     @Override
     public T modifyTarget(String... methods) {
         return transform(new ModifyInjectionTarget(List.of(methods)));
-    }
-
-    @Override
-    public T modifyTarget(ModifyInjectionTarget.Action action, String... methods) {
-        return transform(new ModifyInjectionTarget(List.of(methods), action));
     }
 
     @Override
@@ -72,17 +70,5 @@ public class MethodTransformBuilderImpl<T extends MethodTransformBuilder<T>> imp
     @SuppressWarnings("unchecked")
     private T coerce() {
         return (T) this;
-    }
-
-    public static class ClassImpl<T extends MethodTransformBuilder.Class<T>> extends MethodTransformBuilderImpl<T> implements MethodTransformBuilder.Class<T> {
-        @Override
-        public T modifyInjectionPoint(String value, String target, boolean resetValues) {
-            return modifyInjectionPoint(value, target, resetValues, false);
-        }
-
-        @Override
-        public T modifyInjectionPoint(String value, String target, boolean resetValues, boolean dontUpgrade) {
-            return transform(new ModifyInjectionPoint(value, target, resetValues, dontUpgrade));
-        }
     }
 }

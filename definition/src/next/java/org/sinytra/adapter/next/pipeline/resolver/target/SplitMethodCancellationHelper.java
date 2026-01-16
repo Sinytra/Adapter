@@ -1,4 +1,4 @@
-package org.sinytra.adapter.patch.transformer.dynfix;
+package org.sinytra.adapter.next.pipeline.resolver.target;
 
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Label;
@@ -7,7 +7,9 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
 import org.objectweb.asm.commons.Method;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
+import org.sinytra.adapter.next.env.MixinContext;
+import org.sinytra.adapter.next.pipeline.Recipe;
+import org.sinytra.adapter.patch.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinClassGenerator;
 import org.sinytra.adapter.patch.api.MixinConstants;
@@ -18,19 +20,21 @@ import java.util.List;
 
 public final class SplitMethodCancellationHelper {
 
-    public static void handle(Object transform, MethodContext methodContext, MethodNode newTarget) {
-        MethodContext.TargetPair originalTarget = methodContext.findDirtyInjectionTarget();
+    public static void handle(Object transform, MixinContext context, Recipe recipe, MethodNode newTarget) {
+        MethodContext.TargetPair cleanTarget = recipe.getCleanTarget();
+        MethodContext.TargetPair originalTarget = recipe.getDirtyTarget();
+
         ClassNode originalClassTarget = originalTarget.classNode();
         MethodNode originalMethodTarget = originalTarget.methodNode();
 
-        if (!MethodCallAnalyzer.isDirtyDeprecatedMethod(methodContext.findCleanInjectionTarget().methodNode(), originalMethodTarget) || Type.getReturnType(originalMethodTarget.desc) != Type.VOID_TYPE) {
+        if (!MethodAnalyzer.isDirtyDeprecatedMethod(cleanTarget.methodNode(), originalMethodTarget) || Type.getReturnType(originalMethodTarget.desc) != Type.VOID_TYPE) {
             return;
         }
 
-        MixinClassGenerator generator = methodContext.patchContext().environment().classGenerator();
-        ClassNode generatedTarget = generator.getOrGenerateMixinClass(methodContext.getMixinClass(), originalClassTarget.name, null);
+        MixinClassGenerator generator = context.patchContext().environment().classGenerator();
+        ClassNode generatedTarget = generator.getOrGenerateMixinClass(context.classNode(), originalClassTarget.name, null);
 
-        List<MethodNode> invocations = MethodCallAnalyzer.collectMethodInvocations(originalClassTarget, originalMethodTarget);
+        List<MethodNode> invocations = MethodAnalyzer.collectMethodInvocations(originalClassTarget, originalMethodTarget);
         if (invocations == null) {
             return;
         }
@@ -41,16 +45,16 @@ public final class SplitMethodCancellationHelper {
         FieldNode trackerField = (FieldNode) generatedTarget.visitField(Opcodes.ACC_PRIVATE, fieldName, Type.BOOLEAN_TYPE.getDescriptor(), null, null);
 
         for (int i = index + 1; i < invocations.size(); i++) {
-            generateCancellerMethod(generatedTarget, trackerField, originalClassTarget, invocations.get(i), methodContext, i == invocations.size() - 1);
+            generateCancellerMethod(generatedTarget, trackerField, originalClassTarget, invocations.get(i), context, i == invocations.size() - 1);
         }
 
-        methodContext.recordAudit(transform, "Generate cancellation handler mixin");
+//        context.recordAudit(transform, "Generate cancellation handler mixin");
     }
 
-    private static void generateCancellerMethod(ClassNode generatedTarget, FieldNode trackerField, ClassNode originalClassTarget, MethodNode newTarget, MethodContext methodContext, boolean reset) {
-        String name = methodContext.getMixinMethod().name + "$adapter$canceller$" + AdapterUtil.randomString(5);
-        String desc = Type.getMethodDescriptor(Type.VOID_TYPE, AdapterUtil.CI_TYPE);
-        MethodNode invokerMixinMethod = (MethodNode) generatedTarget.visitMethod(Opcodes.ACC_PRIVATE | (methodContext.isStatic() ? Opcodes.ACC_STATIC : 0), name, desc, null, null);
+    private static void generateCancellerMethod(ClassNode generatedTarget, FieldNode trackerField, ClassNode originalClassTarget, MethodNode newTarget, MixinContext context, boolean reset) {
+        String name = context.methodNode().name + "$adapter$canceller$" + AdapterUtil.randomString(5);
+        String desc = Type.getMethodDescriptor(Type.VOID_TYPE, MixinConstants.CI_TYPE);
+        MethodNode invokerMixinMethod = (MethodNode) generatedTarget.visitMethod(Opcodes.ACC_PRIVATE | (context.isStatic() ? Opcodes.ACC_STATIC : 0), name, desc, null, null);
         {
             AnnotationVisitor injectAnn = invokerMixinMethod.visitAnnotation(MixinConstants.INJECT, true);
             {
@@ -86,15 +90,15 @@ public final class SplitMethodCancellationHelper {
             }
             gen.newLabel();
             gen.loadArg(0);
-            gen.invokeVirtual(AdapterUtil.CI_TYPE, new Method("cancel", "()V"));
+            gen.invokeVirtual(MixinConstants.CI_TYPE, new Method("cancel", "()V"));
         }
         gen.visitLabel(endLabel);
         gen.returnValue();
         gen.newLabel();
         gen.endMethod();
         // Modify mixin to set the field value
-        MethodQualifier qualifier = new MethodQualifier(AdapterUtil.CI_TYPE.getDescriptor(), "cancel", "()V");
-        InsnList methodInsns = methodContext.getMixinMethod().instructions;
+        MethodQualifier qualifier = new MethodQualifier(MixinConstants.CI_TYPE.getDescriptor(), "cancel", "()V");
+        InsnList methodInsns = context.methodNode().instructions;
         for (AbstractInsnNode insn : methodInsns) {
             if (insn instanceof MethodInsnNode minsn && qualifier.matches(minsn)) {
                 InsnList list = new InsnList();

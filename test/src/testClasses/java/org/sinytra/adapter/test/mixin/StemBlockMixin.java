@@ -29,7 +29,7 @@ public class StemBlockMixin {
         method = "randomTick(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/BlockPos;Lnet/minecraft/util/RandomSource;)V",
         constant = @Constant(classValue = FarmBlock.class)
     )
-    private static boolean isOnFarmlandExpected(Object instance, Operation<Boolean> original, @Local(ordinal = 1) BlockState adapter_injected_3) {
-        return Blocks.FARMLAND.equals(instance) || adapter_injected_3.isAir() || original.call(instance);
+    private static boolean isOnFarmlandExpected(Object instance, Operation<Boolean> original, @Local(ordinal = 1) BlockState adapter_injected_2) {
+        return Blocks.FARMLAND.equals(instance) || adapter_injected_2.isAir() || original.call(instance);
     }
 }

@@ -3,11 +3,9 @@ package org.sinytra.adapter.next.env.ann;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.tree.AnnotationNode;
-import org.sinytra.adapter.next.env.MixinContext;
+import org.sinytra.adapter.next.env.ctx.RefMapper;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.api.MixinConstants;
-
-import javax.management.AttributeNotFoundException;
 
 import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.SLICE_FROM;
 import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.SLICE_TO;
@@ -33,7 +31,7 @@ public class SliceData {
         return this.to;
     }
 
-    public static SliceData parse(AnnotationHandle handle, MixinContext context) {
+    public static SliceData parse(AnnotationHandle handle, RefMapper context) {
         AtData from = handle.getNested(SLICE_FROM)
             .flatMap(s -> AtData.parse(s, context))
             .orElse(null);

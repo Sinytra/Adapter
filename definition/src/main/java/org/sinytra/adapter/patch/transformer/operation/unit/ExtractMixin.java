@@ -333,8 +333,7 @@ public record ExtractMixin(String targetClass, boolean remove) implements Method
         // Load parameters
         for (int i = 0; i < paramLocalStart + 1; i++) {
             Type type = Type.getType(table.getByIndex(i).desc);
-            int opcode = OpcodeUtil.getLoadOpcode(type.getSort());
-            replacementInsns.add(new VarInsnNode(opcode, i));
+            replacementInsns.add(AdapterUtil.loadType(type, i));
         }
         // Load recreated locals
         used.forEach(ordinal -> {

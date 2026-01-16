@@ -1,83 +1,125 @@
 package org.sinytra.adapter.next.env.param;
 
+import com.google.common.collect.ImmutableMap;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.util.AdapterUtil;
 
 import java.util.*;
 import java.util.function.Predicate;
 
-public class MethodParameters {
+public class MethodParameters implements Copiable<MethodParameters> {
+
     public enum ParamGroupType {
         SINGLE,
         VARIABLE
     }
 
-    public record ParamInfo(Type type, boolean isLocal) {
-    }
-
-    public record ParamGroup(ParamGroupType type, String name, Predicate<ParamInfo> predicate) {
+    public record ParamGroup(ParamGroupType type, String name, Predicate<Parameter> predicate) {
         public static final ParamGroup METHOD_PARAMS = new ParamGroup(ParamGroupType.VARIABLE, "method_params", i -> true);
         public static final ParamGroup CAPTURED_PARAMS = new ParamGroup(ParamGroupType.VARIABLE, "captured_params", i -> !i.isLocal());
 
         public static final ParamGroup SINGLE_ANY = new ParamGroup(ParamGroupType.SINGLE, "single_any", i -> true);
-        public static final ParamGroup CI_CIR = new ParamGroup(ParamGroupType.SINGLE, "ci_cir", i -> i.type().equals(AdapterUtil.CI_TYPE) || i.type().equals(AdapterUtil.CIR_TYPE));
-        public static final ParamGroup OPERATION = new ParamGroup(ParamGroupType.SINGLE, "operation", i -> i.type().equals(AdapterUtil.OPERATION_TYPE));
+        public static final ParamGroup CI_CIR = new ParamGroup(ParamGroupType.SINGLE, "ci_cir", i -> i.getType().equals(MixinConstants.CI_TYPE) || i.getType().equals(MixinConstants.CIR_TYPE));
+        public static final ParamGroup OPERATION = new ParamGroup(ParamGroupType.SINGLE, "operation", i -> i.getType().equals(MixinConstants.OPERATION_TYPE));
 
-        public static final ParamGroup LOCALS = new ParamGroup(ParamGroupType.VARIABLE, "locals", ParamInfo::isLocal);
+        public static final ParamGroup LOCALS = new ParamGroup(ParamGroupType.VARIABLE, "locals", Parameter::isLocal);
     }
 
-    private final Map<ParamGroup, List<Type>> groups;
+    private final Map<ParamGroup, List<Parameter>> groups;
     private final List<ParamGroup> order;
+    private final Map<Parameter, Parameter> mapping;
 
-    private MethodParameters(Map<ParamGroup, List<Type>> groups, List<ParamGroup> order) {
-        this.groups = new HashMap<>(groups);
+    private MethodParameters(Map<ParamGroup, List<Parameter>> groups, List<ParamGroup> order) {
+        this(groups, order, new HashMap<>());
+    }
+
+    private MethodParameters(Map<ParamGroup, List<Parameter>> groups, List<ParamGroup> order, Map<Parameter, Parameter> mapping) {
+        this.groups = new HashMap<>();
+        groups.forEach((k,v) -> this.groups.put(k, new ArrayList<>(v)));
+        
         this.order = order;
+        this.mapping = mapping;
+    }
+
+    public List<ParamGroup> getOrder() {
+        return this.order;
+    }
+
+    public void mapParameter(Parameter old, Parameter replacement) {
+        this.mapping.put(old, replacement);
     }
 
     public boolean has(ParamGroup group) {
         return this.groups.containsKey(group);
     }
 
-    public List<Type> get(ParamGroup group) {
+    public List<Type> getTypes(ParamGroup group) {
+        return get(group).stream()
+            .map(Parameter::getType)
+            .toList();
+    }
+
+    public List<Parameter> get(ParamGroup group) {
         return Objects.requireNonNull(this.groups.get(group), "Group %s is not available".formatted(group.name()));
     }
 
-    public void set(ParamGroup group, List<Type> params) {
+    public void add(ParamGroup group, Parameter param) {
+        if (this.groups.containsKey(group)) {
+            this.groups.get(group).add(param);
+        }
+    }
+
+    public void set(ParamGroup group, Parameter param) {
+        set(group, List.of(param));
+    }
+
+    public void setTypes(ParamGroup group, List<Type> params) {
+        set(group, params.stream().map(Parameter::simple).toList());
+    }
+
+    public void set(ParamGroup group, List<Parameter> params) {
         if (!this.groups.containsKey(group)) {
             throw new IllegalArgumentException("Group %s is not available".formatted(group.name()));
         }
-        this.groups.put(group, params);
+        this.groups.put(group, new ArrayList<>(params));
     }
 
-    public List<Type> merge() {
-        List<Type> result = new ArrayList<>();
+    public List<Type> mergeTypes() {
+        return merge().stream()
+            .map(Parameter::getType)
+            .toList();
+    }
+
+    public List<Parameter> merge() {
+        List<Parameter> result = new ArrayList<>();
         for (ParamGroup group : this.order) {
-            result.addAll(this.groups.get(group));
+            result.addAll(get(group));
         }
         return result;
     }
 
-    public static List<Type> getParameterTypes(String desc) {
-        return Arrays.asList(Type.getArgumentTypes(desc));
+    public Map<Parameter, Parameter> getMapping() {
+        return ImmutableMap.copyOf(this.mapping);
     }
 
-    private static List<ParamInfo> getParamInfo(MethodNode method) {
-        List<Type> params = getParameterTypes(method.desc);
-        List<ParamInfo> infos = new ArrayList<>();
-        for (int i = 0; i < params.size(); i++) {
-            infos.add(new ParamInfo(params.get(i), AdapterUtil.isParamAnnotated(method, i, MixinConstants.LOCAL)));
-        }
-        return infos;
+    @Override
+    public MethodParameters copy() {
+        Map<ParamGroup, List<Parameter>> groups = new HashMap<>();
+        this.groups.forEach((group, params) -> groups.put(group, new ArrayList<>(params)));
+
+        List<ParamGroup> order = new ArrayList<>(this.order);
+        Map<Parameter, Parameter> mapping = new HashMap<>(this.mapping);
+        return new MethodParameters(groups, order, mapping);
     }
 
     public static MethodParameters create(MethodNode method, List<ParamGroup> groups) {
-        return create(getParamInfo(method), groups);
+        List<Parameter> parameters = Parameters.parse(method);
+        return create(parameters, groups);
     }
 
-    private static MethodParameters create(List<ParamInfo> params, List<ParamGroup> groups) {
-        Map<ParamGroup, List<Type>> results = new HashMap<>();
+    private static MethodParameters create(List<Parameter> params, List<ParamGroup> groups) {
+        Map<ParamGroup, List<Parameter>> results = new HashMap<>();
         for (ParamGroup type : groups) {
             results.put(type, new ArrayList<>());
         }
@@ -88,15 +130,15 @@ public class MethodParameters {
             ParamGroup group = groups.get(groupIndex);
             ParamGroup nextGroup = groupIndex + 1 < groups.size() ? groups.get(groupIndex + 1) : null;
 
-            ParamInfo param = params.get(paramIndex);
-            List<Type> output = results.get(group);
+            Parameter param = params.get(paramIndex);
+            List<Parameter> output = results.get(group);
 
             if (group.type() == ParamGroupType.SINGLE) {
                 if (!group.predicate().test(param)) {
                     throw new IllegalStateException("Unexpected single parameter: " + param);
                 }
 
-                output.add(param.type());
+                output.add(param);
                 paramIndex++;
                 groupIndex++;
             } else if (group.type() == ParamGroupType.VARIABLE) {
@@ -109,11 +151,11 @@ public class MethodParameters {
                         // Two subsequent groups cannot both match a parameter
                         else {
                             throw new IllegalStateException("Ambiguous match for param %s in groups %s and %s"
-                                .formatted(param.type(), group.name(), groups.get(groupIndex + 1).name()));
+                                .formatted(param.getType(), group.name(), groups.get(groupIndex + 1).name()));
                         }
                     }
 
-                    output.add(param.type());
+                    output.add(param);
                     paramIndex++;
                 } else {
                     groupIndex++;
@@ -129,14 +171,22 @@ public class MethodParameters {
     }
 
     public static class Builder {
-        private final Map<ParamGroup, List<Type>> groups = new HashMap<>();
+        private final Map<ParamGroup, List<Parameter>> groups = new HashMap<>();
         private final List<ParamGroup> order = new ArrayList<>();
 
-        public Builder put(ParamGroup group, Type param) {
+        public Builder putType(ParamGroup group, Type param) {
+            return put(group, Parameter.simple(param));
+        }
+
+        public Builder put(ParamGroup group, Parameter param) {
             return put(group, List.of(param));
         }
 
-        public Builder put(ParamGroup group, List<Type> params) {
+        public Builder putTypes(ParamGroup group, List<Type> params) {
+            return put(group, params.stream().map(Parameter::simple).toList());
+        }
+
+        public Builder put(ParamGroup group, List<Parameter> params) {
             if (this.order.contains(group)) {
                 throw new IllegalStateException("Duplicate group " + group);
             }

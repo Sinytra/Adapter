@@ -4,7 +4,8 @@ import com.mojang.logging.LogUtils;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.next.env.param.MethodParameters;
+import org.sinytra.adapter.next.env.param.Parameters;
+import org.sinytra.adapter.patch.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
@@ -60,7 +61,7 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
                         TypeAdapter typeFix = bfu.getTypeAdapter(type, originalType);
                         // If this is a wrap operation, make an educated guess and try adapting the instance type
                         if (typeFix == null && methodContext.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
-                            List<Type> params = MethodParameters.getParameterTypes(methodNode.desc);
+                            List<Type> params = Parameters.getParameterTypes(methodNode.desc);
                             if (!params.isEmpty()) {
                                 typeFix = bfu.getTypeAdapter(params.getFirst(), originalType);
                                 if (typeFix != null) {
@@ -75,19 +76,12 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
                 }
 
                 if (insn instanceof MethodInsnNode minsn && minsn.owner.equals(originalType.getInternalName())) {
+                    List<AbstractInsnNode> insns = MethodCallAnalyzer.getMethodCallInsns(methodNode, minsn);
                     // Find var load instruction
-                    AbstractInsnNode previous = minsn.getPrevious();
-                    if (previous != null) {
-                        do {
-                            // Limit scope to the current label / line only
-                            if (previous instanceof LabelNode || previous instanceof LineNumberNode) {
-                                break;
-                            }
-                            if (previous instanceof VarInsnNode varinsn && varinsn.var == localVar.index) {
-                                minsn.owner = type.getInternalName();
-                                break;
-                            }
-                        } while ((previous = previous.getPrevious()) != null);
+                    for (AbstractInsnNode callInsn : insns) {
+                        if (callInsn instanceof VarInsnNode varinsn && varinsn.var == localVar.index) {
+                            minsn.owner = this.type.getInternalName();
+                        }
                     }
                 }
             }

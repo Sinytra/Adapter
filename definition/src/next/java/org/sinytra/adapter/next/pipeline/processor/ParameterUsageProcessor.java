@@ -12,15 +12,10 @@ import org.sinytra.adapter.patch.util.MethodQualifier;
 public class ParameterUsageProcessor implements Processor {
     @Override
     public TxResult process(MixinData mixin, MixinContext context, Configuration dirty, Recipe recipe) {
-//        Configuration clean = recipe.clean();
         String cleanTarget = recipe.clean().getAtData().getTarget().orElse(null);
         if (cleanTarget == null) return TxResult.PASS;
         String dirtyTarget = dirty.getAtData().getTarget().orElse(null);
         if (dirtyTarget == null) return TxResult.PASS;
-
-//        if (cleanTarget.equals(dirtyTarget) || !clean.getParameters().has(ParamGroup.METHOD_PARAMS)
-//            || !dirty.getParameters().has(ParamGroup.METHOD_PARAMS)
-//        ) return TxResult.PASS;
 
         MethodQualifier cleanTargetQual = MethodQualifier.create(cleanTarget).orElseThrow();
         MethodQualifier dirtyTargetQual = MethodQualifier.create(dirtyTarget).orElseThrow();

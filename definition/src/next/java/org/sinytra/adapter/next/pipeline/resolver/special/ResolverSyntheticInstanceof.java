@@ -2,6 +2,7 @@ package org.sinytra.adapter.next.pipeline.resolver.special;
 
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.next.env.Configurations;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.AtData;
 import org.sinytra.adapter.next.env.ann.MixinData;
@@ -10,7 +11,7 @@ import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.resolver.Resolver;
 import org.sinytra.adapter.patch.analysis.InsnComparator;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
-import org.sinytra.adapter.patch.analysis.MethodCallAnalyzer;
+import org.sinytra.adapter.patch.analysis.method.MethodInsnMatcher;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
 
@@ -33,11 +34,12 @@ import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_S
 public record ResolverSyntheticInstanceof(boolean skipInsnComparison) implements Resolver {
 
     @Override
-    public ResolutionResult resolve(MixinData mixin, MixinContext context, Configuration clean, Configuration dirty, Recipe recipe) {
-        if (!context.legacy().hasInjectionPointValue(AT_VAL_INVOKE)) return ResolutionResult.pass();
+    public ResolutionResult resolve(MixinData mixin, MixinContext context, Recipe recipe) {
+        if (!context.legacy().hasInjectionPointValue(AT_VAL_INVOKE))
+            return ResolutionResult.pass();
 
-        MethodContext.TargetPair cleanTarget = context.methods().findOwnMethodPair(context.cleanLookup(), clean.getTargetMethod());
-        MethodContext.TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), dirty.getTargetMethod());
+        MethodContext.TargetPair cleanTarget = recipe.getCleanTarget();
+        MethodContext.TargetPair dirtyTarget = recipe.getDirtyTarget();
         AbstractInsnNode targetInsn = context.methods().findInjectionTargetInsn(cleanTarget);
         if (targetInsn == null) return ResolutionResult.pass();
 
@@ -46,14 +48,14 @@ public record ResolverSyntheticInstanceof(boolean skipInsnComparison) implements
         // Ensure label contain an if statement
         if (!(jumpInsn instanceof JumpInsnNode)) return ResolutionResult.pass();
 
-        InstructionMatcher cleanMatcher = MethodCallAnalyzer.findForwardInstructions(targetInsn);
+        InstructionMatcher cleanMatcher = MethodInsnMatcher.findForwardInstructions(targetInsn);
         int firstOp = cleanMatcher.after().getFirst().getOpcode();
         // Find equivalent dirty code point
         InsnList dirtyInsns = dirtyTarget.methodNode().instructions;
         for (AbstractInsnNode insn : dirtyInsns) {
             if (insn.getOpcode() == firstOp) {
                 AbstractInsnNode nextLabel = findInsnAfterLabel(insn);
-                InstructionMatcher dirtyMatcher = MethodCallAnalyzer.findForwardInstructions(nextLabel);
+                InstructionMatcher dirtyMatcher = MethodInsnMatcher.findForwardInstructions(nextLabel);
                 if (cleanMatcher.test(dirtyMatcher)) {
                     // ModifyExpressionValue doesn't include the original instanceof call, so we can skip comparing instructions
                     if (this.skipInsnComparison) {
@@ -63,7 +65,7 @@ public record ResolverSyntheticInstanceof(boolean skipInsnComparison) implements
                         }
 
                         int ordinal = getInstanceofOrdinal(dirtyInsns, instanceOfInsn);
-                        Configuration config = dirty.subConfig()
+                        Configuration config = recipe.dirty().subConfig()
                             .setMixinType(MixinConstants.MODIFY_INSTANCEOF_VAL)
                             .inheritTargetClass()
                             .inheritTargetMethod()
@@ -71,7 +73,7 @@ public record ResolverSyntheticInstanceof(boolean skipInsnComparison) implements
                             .inheritParameters()
                             .inheritReturnType();
 
-                        return ResolutionResult.finalize(config);
+                        return ResolutionResult.replace(config);
                     }
 
                     // Found the code point, now determine the contents of the updated if statement
@@ -99,13 +101,7 @@ public record ResolverSyntheticInstanceof(boolean skipInsnComparison) implements
 
                     // Disable mixin. Goodbye.
                     if (finalCleanMatcher.test(finalDirtyMatcher, InsnComparator.IGNORE_VAR_INDEX)) {
-                        // TODO Come up with a voting system for validation so that we can skip checks for unused props when delete is enabled
-                        return ResolutionResult.finalize(dirty.subConfig()
-                            .inheritTargetMethod()
-                            .inheritAtData()
-                            .inheritParameters()
-                            .inheritReturnType()
-                            .setShouldDelete(true));
+                        return ResolutionResult.replace(Configurations.DELETE);
                     }
                 }
             }

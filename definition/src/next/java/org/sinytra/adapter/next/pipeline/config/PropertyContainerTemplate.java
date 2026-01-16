@@ -1,5 +1,7 @@
 package org.sinytra.adapter.next.pipeline.config;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
@@ -7,8 +9,8 @@ import java.util.stream.Stream;
 public class PropertyContainerTemplate {
     private final List<Validator> constraints;
 
-    public PropertyContainerTemplate(List<Validator> constraints) {
-        this.constraints = constraints;
+    private PropertyContainerTemplate(List<Validator> constraints) {
+        this.constraints = ImmutableList.copyOf(constraints);
     }
 
     public boolean validate(PropertyContainer container) {

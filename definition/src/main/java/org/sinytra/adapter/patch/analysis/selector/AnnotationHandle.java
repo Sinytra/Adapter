@@ -28,11 +28,21 @@ public final class AnnotationHandle {
     public AnnotationNode unwrap() {
         return this.annotationNode;
     }
-    
+
     public AnnotationHandle copy() {
         AnnotationNode copy = new AnnotationNode(this.annotationNode.desc);
         this.annotationNode.accept(copy);
         return new AnnotationHandle(copy);
+    }
+
+    public AnnotationHandle getNestedOrAppend(String key, String desc) {
+        AnnotationHandle existing = getNested(key).orElse(null);
+        if (existing != null) {
+            return existing;
+        }
+        AnnotationNode node = new AnnotationNode(desc);
+        appendValue(key, node);
+        return getNested(key).orElseThrow();
     }
 
     public Optional<AnnotationHandle> getNested(String key) {
