@@ -7,7 +7,6 @@ import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.SourceInterpreter;
 import org.objectweb.asm.tree.analysis.SourceValue;
 import org.sinytra.adapter.next.env.MixinContext;
-import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.TxResult;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
@@ -20,7 +19,7 @@ import java.util.List;
 
 public class ReturnTypeProcessor implements Processor {
     @Override
-    public TxResult process(MixinData mixin, MixinContext context, Configuration dirty, Recipe recipe) {
+    public TxResult process(MixinContext context, Configuration dirty, Recipe recipe) {
         Type cleanType = recipe.clean().getReturnType();
         Type dirtyType = dirty.getReturnType();
 

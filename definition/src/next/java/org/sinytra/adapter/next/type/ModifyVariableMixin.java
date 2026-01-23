@@ -3,56 +3,58 @@ package org.sinytra.adapter.next.type;
 import org.objectweb.asm.Type;
 import org.sinytra.adapter.next.env.ConfigurationTemplates;
 import org.sinytra.adapter.next.env.MixinContext;
-import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.next.env.param.Parameter;
 import org.sinytra.adapter.next.env.param.Parameters;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.TxResult;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
-import org.sinytra.adapter.next.pipeline.config.Configuration.Keys;
+import org.sinytra.adapter.next.pipeline.config.Keys;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
 import org.sinytra.adapter.next.pipeline.config.PropertyContainerTemplate;
-import org.sinytra.adapter.next.pipeline.config.PropertyKey;
+import org.sinytra.adapter.next.pipeline.processor.Processors;
+import org.sinytra.adapter.next.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.next.pipeline.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.next.pipeline.resolver.injection.ModifyVarInjectionPointSubResolver;
+import org.sinytra.adapter.next.pipeline.resolver.special.InjectorOrdinalResolver;
+import org.sinytra.adapter.next.pipeline.resolver.special.ModifyVarAtReturnResolver;
+import org.sinytra.adapter.next.pipeline.resolver.special.ModifyVarUpgradeResolver;
 import org.sinytra.adapter.patch.fixes.TypeAdapter;
 
 import java.util.List;
-import java.util.Set;
 
 import static org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup.LOCALS;
 import static org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup.SINGLE_ANY;
 
-public class ModifyVariableMixin implements MixinType<MixinData> {
+public class ModifyVariableMixin implements MixinType {
+    private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
+        .keys(Keys.ARGS_ONLY, Keys.ORDINAL, Keys.INDEX, Keys.SLICE)
+        .build();
+
     @Override
     public PropertyContainerTemplate getConfigurationTemplate() {
-        return ConfigurationTemplates.MIXIN_AT;
+        return TEMPLATE;
     }
 
     @Override
-    public Set<PropertyKey<?>> requestProperties() {
-        return Set.of(Keys.ARGS_ONLY, Keys.ORDINAL, Keys.SLICE);
-    }
-
-    @Override
-    public TxResult preProcess(MixinData mixin, MixinContext context, MutableConfiguration clean, Recipe recipe) {
-        recipe.resolvers().getOrThrow(InjectionPointResolver.class)
+    public TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers, Processors processors) {
+        resolvers
+            .addFirst(new ModifyVarUpgradeResolver())
+            .addBefore(InjectionPointResolver.class, new InjectorOrdinalResolver())
+            .addBefore(InjectionPointResolver.class, new ModifyVarAtReturnResolver());
+        resolvers.getOrThrow(InjectionPointResolver.class)
             .addSubResolver(new ModifyVarInjectionPointSubResolver());
 
         clean.setParameters(MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY, LOCALS)));
-
-        mixin.getProperty(Keys.SLICE)
-            .ifPresent(p -> clean.setProperty(Keys.SLICE, p));
 
         return TxResult.SUCCESS;
     }
 
     @Override
-    public TxResult postProcess(MixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
+    public TxResult postProcess(MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
         dirty.inheritProperyIfAbsent(Keys.SLICE);
 
-        boolean argsOnly = mixin.getProperty(Keys.ARGS_ONLY).orElse(false);
+        boolean argsOnly = clean.getProperty(Keys.ARGS_ONLY).orElse(false);
         if (argsOnly && dirty.getTargetMethod() != null && !dirty.getTargetMethod().desc().equals(clean.getTargetMethod().desc())) {
             Type cleanVarType = clean.getParameters().getTypes(SINGLE_ANY).getFirst();
             List<Type> cleanTargetMethodParams = Parameters.getParameterTypes(clean.getTargetMethod().desc());

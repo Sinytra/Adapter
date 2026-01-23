@@ -6,8 +6,8 @@ import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.analysis.locals.LVTSnapshot;
 import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchContext;
+import org.sinytra.adapter.patch.api.PatchResult;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 
 import java.util.List;
@@ -18,7 +18,7 @@ public record RemoveParameterTransformer(int index, boolean invalidateUsage) imp
     }
 
     @Override
-    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, List<Type> parameters, int offset) {
+    public PatchResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, List<Type> parameters, int offset) {
         final int target = this.index() + offset;
         final int lvtIndex = ParamTransformationUtil.calculateLVTIndex(parameters, !methodContext.isStatic(), target);
 
@@ -40,6 +40,6 @@ public record RemoveParameterTransformer(int index, boolean invalidateUsage) imp
         methodNode.invisibleParameterAnnotations = AdapterUtil.removeArrayElement(methodNode.invisibleParameterAnnotations, this.index, List[]::new);
         parameters.remove(target);
 
-        return Patch.Result.COMPUTE_FRAMES;
+        return PatchResult.COMPUTE_FRAMES;
     }
 }

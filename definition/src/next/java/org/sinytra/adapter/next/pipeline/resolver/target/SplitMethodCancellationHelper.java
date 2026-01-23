@@ -10,9 +10,9 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.patch.analysis.method.MethodAnalyzer;
-import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinClassGenerator;
 import org.sinytra.adapter.patch.api.MixinConstants;
+import org.sinytra.adapter.patch.api.TargetPair;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
@@ -21,8 +21,8 @@ import java.util.List;
 public final class SplitMethodCancellationHelper {
 
     public static void handle(Object transform, MixinContext context, Recipe recipe, MethodNode newTarget) {
-        MethodContext.TargetPair cleanTarget = recipe.getCleanTarget();
-        MethodContext.TargetPair originalTarget = recipe.getDirtyTarget();
+        TargetPair cleanTarget = recipe.getCleanTarget();
+        TargetPair originalTarget = recipe.getDirtyTarget();
 
         ClassNode originalClassTarget = originalTarget.classNode();
         MethodNode originalMethodTarget = originalTarget.methodNode();

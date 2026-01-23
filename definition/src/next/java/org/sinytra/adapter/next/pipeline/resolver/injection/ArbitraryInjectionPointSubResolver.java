@@ -5,7 +5,6 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.AtData;
-import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
@@ -13,8 +12,8 @@ import org.sinytra.adapter.next.pipeline.resolver.SubResolver;
 import org.sinytra.adapter.patch.analysis.InsnComparator;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.method.MethodInsnMatcher;
-import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
+import org.sinytra.adapter.patch.api.TargetPair;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
@@ -28,10 +27,10 @@ import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_I
 public class ArbitraryInjectionPointSubResolver implements SubResolver {
     @Nullable
     @Override
-    public Configuration resolve(MixinData mixin, MixinContext context, Recipe recipe) {
+    public Configuration resolve(MixinContext context, Recipe recipe) {
         String injectionPointTarget = recipe.clean().getAtData().getTarget().orElseThrow();
-        MethodContext.TargetPair cleanTarget = recipe.getCleanTarget();
-        MethodContext.TargetPair dirtyTarget = recipe.getDirtyTarget();
+        TargetPair cleanTarget = recipe.getCleanTarget();
+        TargetPair dirtyTarget = recipe.getDirtyTarget();
         AbstractInsnNode cleanInsn = context.methods().findInjectionTargetInsn(cleanTarget);
         if (cleanInsn == null) {
             return null;
@@ -41,7 +40,7 @@ public class ArbitraryInjectionPointSubResolver implements SubResolver {
         if (targetMethodCall == null) return null;
 
         if (targetMethodCall.owner.equals(dirtyTarget.classNode().name)) {
-            MethodContext.TargetPair target = context.methods().findOwnMethodPair(context.dirtyLookup(), MethodQualifier.create(targetMethodCall));
+            TargetPair target = context.methods().findOwnMethodPair(context.dirtyLookup(), MethodQualifier.create(targetMethodCall));
             if (target == null) return null;
 
             // New method is in the same class? It's possible our target injection point was moved there
@@ -50,7 +49,7 @@ public class ArbitraryInjectionPointSubResolver implements SubResolver {
             }
         }
 
-        return MutableConfiguration.create().setAtData(new AtData(AT_VAL_INVOKE, targetMethodCall));
+        return MutableConfiguration.create().setAtData(AtData.create(AT_VAL_INVOKE, targetMethodCall));
     }
 
     private MethodInsnNode resolveTargetCallInsn(MethodNode dirtyTargetMethod, AbstractInsnNode cleanInjectionInsn, MixinContext context, String injectionPointTarget) {

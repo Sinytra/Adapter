@@ -18,5 +18,6 @@ public class Processors extends OrderedRegistry<Processor> {
         add(new ParametersProcessor());
         add(new ReturnTypeProcessor());
         add(new PropertyProcessor());
+        add(new StaticAccessProcessor());
     }
 }

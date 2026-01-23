@@ -7,13 +7,12 @@ import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.AtData;
-import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.env.ann.SliceData;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
 import org.sinytra.adapter.next.pipeline.resolver.Resolver;
-import org.sinytra.adapter.patch.api.MethodContext;
+import org.sinytra.adapter.patch.api.TargetPair;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.MockMixinRuntime;
 import org.spongepowered.asm.mixin.injection.code.ISliceContext;
@@ -26,12 +25,12 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
-import static org.sinytra.adapter.next.pipeline.config.Configuration.Keys.SLICE;
+import static org.sinytra.adapter.next.pipeline.config.Keys.SLICE;
 
 public class SliceBoundaryResolver implements Resolver {
     @Override
-    public ResolutionResult resolve(MixinData mixin, MixinContext context, Recipe recipe) {
-        MethodContext.TargetPair dirtyTarget = recipe.getDirtyTarget();
+    public ResolutionResult resolve(MixinContext context, Recipe recipe) {
+        TargetPair dirtyTarget = recipe.getDirtyTarget();
 
         SliceData slice = recipe.clean().getProperty(SLICE).orElse(null);
         if (slice == null || passesSliceCheck(slice, context, dirtyTarget))
@@ -86,7 +85,7 @@ public class SliceBoundaryResolver implements Resolver {
         return Optional.of(boundary.withTarget(insn));
     }
 
-    private static boolean passesSliceCheck(SliceData slice, MixinContext context, MethodContext.TargetPair dirtyTarget) {
+    private static boolean passesSliceCheck(SliceData slice, MixinContext context, TargetPair dirtyTarget) {
         Target mixinTarget = MockMixinRuntime.createMixinTarget(dirtyTarget);
         IMixinContext mixinContext = MockMixinRuntime.forClass(context.classNode().name, dirtyTarget.classNode().name, context.patchContext().environment());
         ISliceContext sliceContext = MockMixinRuntime.forSlice(mixinContext, context.methodNode());

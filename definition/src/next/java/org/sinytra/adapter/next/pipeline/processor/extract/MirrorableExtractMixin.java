@@ -7,8 +7,9 @@ import org.objectweb.asm.commons.GeneratorAdapter;
 import org.objectweb.asm.commons.Method;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.method.MethodCallAnalyzer;
-import org.sinytra.adapter.patch.api.*;
-import org.sinytra.adapter.patch.transformer.operation.unit.ModifyInjectionTarget;
+import org.sinytra.adapter.patch.api.MethodContext;
+import org.sinytra.adapter.patch.api.MixinConstants;
+import org.sinytra.adapter.patch.api.PatchResult;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.OpcodeUtil;
@@ -18,9 +19,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Stream;
 
-public record MirrorableExtractMixin(String destinationClass, MethodInsnNode destinationMethodInvocation) implements MethodTransform {
-    @Override
-    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
+import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_METHOD;
+
+// TODO Cleanup
+public record MirrorableExtractMixin(String destinationClass, MethodInsnNode destinationMethodInvocation) {
+    public PatchResult apply(MethodContext methodContext) {
         Type selfType = Type.getObjectType(methodContext.findDirtyInjectionTarget().classNode().name);
         Type[] params = Type.getArgumentTypes(this.destinationMethodInvocation.desc);
         int selfIndex = Stream.of(Stream.iterate(0, i -> i < params.length, i -> i + 1)
@@ -31,16 +34,16 @@ public record MirrorableExtractMixin(String destinationClass, MethodInsnNode des
             .findFirst()
             .orElse(-1);
         if (selfIndex == -1) {
-            return Patch.Result.PASS;
+            return PatchResult.PASS;
         }
 
         List<AbstractInsnNode> callInsns = MethodCallAnalyzer.getMethodCallSrcInsns(methodContext.findDirtyInjectionTarget().methodNode(), this.destinationMethodInvocation);
         if (callInsns == null || callInsns.size() <= selfIndex) {
-            return Patch.Result.PASS;
+            return PatchResult.PASS;
         }
         AbstractInsnNode selfParamInsn = callInsns.get(selfIndex);
         if (!(selfParamInsn instanceof VarInsnNode varInsn) || varInsn.getOpcode() != Opcodes.ALOAD || varInsn.var != 0) {
-            return Patch.Result.PASS;
+            return PatchResult.PASS;
         }
         // Cool, out instance is passed into the method. Now let's inject there and call the old mixin method
         ClassNode generatedTarget = methodContext.patchContext().environment().classGenerator().getOrGenerateMixinClass(methodContext.getMixinClass(), this.destinationClass, null);
@@ -52,15 +55,15 @@ public record MirrorableExtractMixin(String destinationClass, MethodInsnNode des
         List<Type> newParams = ImmutableList.<Type>builder().add(Type.getArgumentTypes(this.destinationMethodInvocation.desc)).add(MixinConstants.CI_TYPE).build();
         // Make sure we have all required params
         if (!new HashSet<>(newParams).containsAll(originalParams)) {
-            return Patch.Result.PASS;
+            return PatchResult.PASS;
         }
 
         String desc = Type.getMethodDescriptor(Type.VOID_TYPE, newParams.toArray(Type[]::new));
         // Change target
-        Patch.Result result = new ModifyInjectionTarget(List.of(MethodQualifier.create(destinationMethodInvocation).asDescriptor())).apply(methodContext);
-        if (result == Patch.Result.PASS) {
-            return Patch.Result.PASS;
-        }
+        methodContext.methodAnnotation()
+            .setOrAppendNonNull(AT_METHOD, List.of(
+                MethodQualifier.create(destinationMethodInvocation).asDescriptor()
+            ));
 
         MethodNode invokerMixinMethod = (MethodNode) generatedTarget.visitMethod(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, name, desc, null, null);
         invokerMixinMethod.visibleAnnotations = new ArrayList<>(originalMixinMethod.visibleAnnotations);
@@ -80,6 +83,6 @@ public record MirrorableExtractMixin(String destinationClass, MethodInsnNode des
         gen.returnValue();
         gen.newLabel();
         gen.endMethod();
-        return Patch.Result.APPLY;
+        return PatchResult.APPLY;
     }
 }

@@ -5,19 +5,16 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.next.env.param.Parameters;
-import org.sinytra.adapter.patch.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.Patch;
-import org.sinytra.adapter.patch.api.PatchContext;
+import org.sinytra.adapter.patch.analysis.method.MethodCallAnalyzer;
+import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
 import org.sinytra.adapter.patch.fixes.TypeAdapter;
 import org.slf4j.Logger;
 
 import java.util.List;
 
-import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
+import static org.sinytra.adapter.patch.util.AdapterUtil.MIXINPATCH;
 import static org.sinytra.adapter.patch.transformer.operation.param.ParamTransformationUtil.findWrapOperationOriginalCall;
 
 // TODO Just add @Coerce if the types are inherited
@@ -29,11 +26,11 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
     }
 
     @Override
-    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, List<Type> parameters, int offset) {
+    public PatchResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, List<Type> parameters, int offset) {
         final int paramIndex = this.index + offset;
 
         if (methodNode.parameters.size() <= paramIndex) {
-            return Patch.Result.PASS;
+            return PatchResult.PASS;
         }
 
         LOGGER.info(MIXINPATCH, "Replacing parameter {} with type {} in {}.{}", paramIndex, this.type, classNode.name, methodNode.name);
@@ -87,6 +84,6 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
             }
         }
 
-        return Patch.Result.COMPUTE_FRAMES;
+        return PatchResult.COMPUTE_FRAMES;
     }
 }

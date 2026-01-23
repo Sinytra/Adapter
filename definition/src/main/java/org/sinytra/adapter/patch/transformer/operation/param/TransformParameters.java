@@ -3,37 +3,40 @@ package org.sinytra.adapter.patch.transformer.operation.param;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.mojang.datafixers.util.Pair;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.api.*;
+import org.sinytra.adapter.patch.api.MethodContext;
+import org.sinytra.adapter.patch.api.MixinConstants;
+import org.sinytra.adapter.patch.api.PatchContext;
+import org.sinytra.adapter.patch.api.PatchResult;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.function.Consumer;
 
-public record TransformParameters(List<ParameterTransformer> transformers, boolean withOffset, ParamTransformTarget targetType) implements MethodTransform {
+public record TransformParameters(List<ParameterTransformer> transformers, boolean withOffset) {
 
-    @Override
-    public Collection<String> getAcceptedAnnotations() {
-        return this.targetType.getTargetMixinTypes();
-    }
-
-    @Override
-    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context) {
+    // TODO
+    public PatchResult apply(MethodContext methodContext) {
+        ClassNode classNode = methodContext.getMixinClass();
+        MethodNode methodNode = methodContext.getMixinMethod();
+        PatchContext context = methodContext.patchContext();
+        
         Type[] params = Type.getArgumentTypes(methodNode.desc);
         List<Type> newParameterTypes = new ArrayList<>(Arrays.asList(params));
-        Patch.Result result = Patch.Result.PASS;
+        PatchResult result = PatchResult.PASS;
 
         int offset = calculateOffset(methodContext);
         for (ParameterTransformer transform : transformers) {
             result = result.or(transform.apply(classNode, methodNode, methodContext, context, newParameterTypes, offset));
         }
 
-        if (result != Patch.Result.PASS) {
-            methodContext.updateDescription(this, newParameterTypes);
+        if (result != PatchResult.PASS) {
+            methodContext.updateDescription(newParameterTypes);
         }
 
         return result;
@@ -41,14 +44,6 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
 
     private int calculateOffset(MethodContext methodContext) {
         AnnotationHandle annotation = methodContext.methodAnnotation();
-        if (this.targetType == ParamTransformTarget.METHOD_EXT && annotation.matchesDesc(MixinConstants.REDIRECT)) {
-            MethodNode targetMethod = Optional.ofNullable(methodContext.getInjectionPointMethodQualifier())
-                .flatMap(q -> methodContext.patchContext().environment().dirtyClassLookup().findMethod(q.internalOwnerName(), q.name(), q.desc()))
-                .orElse(null);
-            if (targetMethod != null) {
-                return ((targetMethod.access & Opcodes.ACC_STATIC) == 0 ? 1 : 0) + Type.getArgumentTypes(targetMethod.desc).length;
-            }
-        }
         // If it's a redirect, the first local variable (index 1) is the object instance
         boolean needsLocalOffset = annotation.matchesDesc(MixinConstants.REDIRECT) || annotation.matchesDesc(MixinConstants.WRAP_OPERATION);
         return !methodContext.isStatic() && this.withOffset && needsLocalOffset ? 1 : 0;
@@ -62,7 +57,6 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
     public static class Builder {
         private final List<ParameterTransformer> transformers = new ArrayList<>();
         private boolean offset = false;
-        private ParamTransformTarget targetType = ParamTransformTarget.ALL;
 
         public Builder transform(ParameterTransformer transformer) {
             this.transformers.add(transformer);
@@ -128,11 +122,6 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
             return this;
         }
 
-        public Builder targetType(ParamTransformTarget targetType) {
-            this.targetType = targetType;
-            return this;
-        }
-
         public Builder chain(Consumer<Builder> consumer) {
             consumer.accept(this);
             return this;
@@ -140,7 +129,7 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
 
         @CheckReturnValue
         public TransformParameters build() {
-            return new TransformParameters(this.transformers, this.offset, this.targetType);
+            return new TransformParameters(this.transformers, this.offset);
         }
     }
 }

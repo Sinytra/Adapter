@@ -5,7 +5,6 @@ import com.google.errorprone.annotations.CheckReturnValue;
 import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
-import org.sinytra.adapter.patch.api.MethodTransform;
 import org.sinytra.adapter.patch.transformer.operation.param.*;
 
 import java.util.ArrayList;
@@ -229,9 +228,9 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
     }
 
     @Override
-    public MethodTransform asParameterTransformer(ParamTransformTarget type, boolean withOffset, Set<Flags> flags) {
+    public TransformParameters asParameterTransformer(boolean withOffset, Set<Flags> flags) {
         List<ParameterTransformer> transformers = this.modifications.stream().map(paramModification -> paramModification.asParameterTransformer(flags)).toList();
-        return TransformParameters.builder().transform(transformers).withOffset(withOffset).targetType(type).build();
+        return TransformParameters.builder().transform(transformers).withOffset(withOffset).build();
     }
 
     public static Builder builder() {

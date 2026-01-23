@@ -33,6 +33,12 @@ public class Parameter {
         return this.annotations.stream()
             .anyMatch(annotation -> annotation.getDesc().equals(desc));
     }
+    
+    public Builder extend() {
+        Builder builder = builder(this.type);
+        this.annotations.forEach(builder::annotate);
+        return builder;
+    }
 
     public static Parameter simple(Type type) {
         return new Parameter(type, List.of());

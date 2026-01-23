@@ -4,11 +4,11 @@ import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.next.transform.preprocess.CapturedLocalsPreProcessor;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.patch.analysis.params.ParametersDiff;
 import org.sinytra.adapter.patch.test.mixin.MinecraftMixinPatchTest;
-import org.sinytra.adapter.patch.transformer.dynamic.DynamicLVTPatch;
 
 import java.io.IOException;
 import java.util.Deque;
@@ -149,7 +149,7 @@ public class ParameterComparisonTest {
         Type[] original = new Type[]{Type.getType(String.class), Type.getType(List.class), Type.BOOLEAN_TYPE, Type.BOOLEAN_TYPE, Type.getType(Set.class), Type.getType(Map.class)};
         Type[] modified = new Type[]{Type.getType(String.class), Type.getType(List.class), Type.getType(Deque.class), Type.getType(Map.class), Type.BOOLEAN_TYPE, Type.BOOLEAN_TYPE, Type.getType(Set.class)};
 
-        LayeredParamsDiffSnapshot diff = DynamicLVTPatch.rearrangeParameters(List.of(original), List.of(modified));
+        LayeredParamsDiffSnapshot diff = CapturedLocalsPreProcessor.rearrangeParameters(List.of(original), List.of(modified));
 
         System.out.println("Insertions:");
         diff.insertions().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));

@@ -8,14 +8,13 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.next.env.MixinContext;
-import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
-import org.sinytra.adapter.next.pipeline.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.next.pipeline.resolver.Resolver;
 import org.sinytra.adapter.next.pipeline.resolver.SubResolver;
-import org.sinytra.adapter.patch.api.MethodContext;
+import org.sinytra.adapter.next.pipeline.resolver.injection.InjectionPointResolver;
+import org.sinytra.adapter.patch.api.TargetPair;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
@@ -33,14 +32,14 @@ public class TargetMethodSubResolvers {
      * <br>
      * DIRTY: <code>Lnet/minecraft/server/level/ServerEntity;sendPairingData(Lnet/minecraft/server/level/ServerPlayer;Lnet/neoforged/neoforge/network/bundle/PacketAndPayloadAcceptor;)V</code>
      */
-    public static final SubResolver CHANGED_METHOD_PARAMS = (MixinData mixin, MixinContext context, Recipe recipe) -> {
+    public static final SubResolver CHANGED_METHOD_PARAMS = (MixinContext context, Recipe recipe) -> {
         MethodQualifier cleanQualifier = recipe.clean().getTargetMethod();
 
         Pair<ClassNode, List<MethodNode>> candidates = context.methods().findOwnMethodsByName(context.dirtyLookup(), cleanQualifier);
         if (candidates == null) return null;
 
         // Find single matching candidate
-        Configuration resolved = resolveReplacementCandidate(mixin, context, recipe, candidates.getSecond());
+        Configuration resolved = resolveReplacementCandidate(context, recipe, candidates.getSecond());
         if (resolved == null) return null;
 
         // Only apply single candidate change when the target desc has changed
@@ -54,16 +53,16 @@ public class TargetMethodSubResolvers {
     /**
      * Handle cases where the target instructions have been moved into a lambda inside the target method
      */
-    public static final SubResolver MOVED_INTO_LAMBDA = (MixinData mixin, MixinContext context, Recipe recipe) -> {
+    public static final SubResolver MOVED_INTO_LAMBDA = (MixinContext context, Recipe recipe) -> {
         MethodQualifier cleanQualifier = recipe.clean().getTargetMethod();
 
-        MethodContext.TargetPair target = context.methods().findOwnMethodPair(context.dirtyLookup(), cleanQualifier);
+        TargetPair target = context.methods().findOwnMethodPair(context.dirtyLookup(), cleanQualifier);
         if (target == null) return null;
 
         for (AbstractInsnNode insn : target.methodNode().instructions) {
             // Find lambda invocations and search for target insns inside the lambda
             if (insn instanceof InvokeDynamicInsnNode indy && indy.bsmArgs.length > 1 && indy.bsmArgs[1] instanceof Handle handle) {
-                MethodContext.TargetPair lambda = MethodQualifier.create(handle.getName())
+                TargetPair lambda = MethodQualifier.create(handle.getName())
                     .map(q -> context.methods().findOwnMethodPair(context.dirtyLookup(), q))
                     .orElse(null);
                 if (lambda == null) return null;
@@ -79,7 +78,7 @@ public class TargetMethodSubResolvers {
     };
 
     @Nullable
-    private static Configuration resolveReplacementCandidate(MixinData mixin, MixinContext context, Recipe recipe, List<MethodNode> methods) {
+    private static Configuration resolveReplacementCandidate(MixinContext context, Recipe recipe, List<MethodNode> methods) {
         if (methods.size() == 1) {
             return MutableConfiguration.create()
                 .setTargetMethod(methods.getFirst());
@@ -91,10 +90,10 @@ public class TargetMethodSubResolvers {
             .sorted(Comparator.<MethodNode, String>comparing(m -> m.desc).reversed())
             .<Pair<MethodNode, Configuration>>flatMap(m -> {
                 Configuration dirtyCopy = recipe.dirty().copy().setTargetMethod(m);
-                return resolver.resolve(mixin, context, recipe.withDirtyConfig(dirtyCopy))
+                return resolver.resolve(context, recipe.withDirtyConfig(dirtyCopy))
                     .maybePatch()
                     .stream()
-                    .map(c -> Pair.of(m, c.subConfig().setTargetMethod(m)));
+                    .map(c -> Pair.of(m, c.copyClean().setTargetMethod(m)));
             })
             .toList();
         if (valid.size() == 1) {
@@ -114,7 +113,7 @@ public class TargetMethodSubResolvers {
     }
 
     public static boolean isDirtyDeprecatedMethod(MixinContext context, MethodNode dirty) {
-        MethodContext.TargetPair pair = context.methods().findOwnMethodPair(context.cleanLookup(), MethodQualifier.create(dirty));
+        TargetPair pair = context.methods().findOwnMethodPair(context.cleanLookup(), MethodQualifier.create(dirty));
         return (pair == null || !AdapterUtil.hasAnnotation(pair.methodNode().visibleAnnotations, DEPRECATED))
             && !AdapterUtil.hasAnnotation(dirty.visibleAnnotations, DEPRECATED);
     }

@@ -4,7 +4,6 @@ import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.VarInsnNode;
 import org.sinytra.adapter.next.env.MixinContext;
-import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.next.env.param.Parameters;
 import org.sinytra.adapter.next.pipeline.Recipe;
@@ -12,8 +11,7 @@ import org.sinytra.adapter.next.pipeline.TxResult;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.patch.analysis.params.ParamsDiffSnapshot;
-import org.sinytra.adapter.patch.api.Patch;
-import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformTarget;
+import org.sinytra.adapter.patch.api.PatchResult;
 
 import java.util.List;
 import java.util.Map;
@@ -21,7 +19,7 @@ import java.util.Set;
 
 public class ParametersProcessor implements Processor {
     @Override
-    public TxResult process(MixinData mixin, MixinContext context, Configuration dirty, Recipe recipe) {
+    public TxResult process(MixinContext context, Configuration dirty, Recipe recipe) {
         MethodParameters cleanParams = recipe.clean().getParameters();
         MethodParameters dirtyParams = dirty.getParameters();
         if (dirtyParams == null) return TxResult.FAIL;
@@ -58,9 +56,9 @@ public class ParametersProcessor implements Processor {
     private boolean applyDiff(List<Type> clean, List<Type> dirty, MixinContext context, int offset) {
         ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(clean, dirty);
         if (!diff.isEmpty()) {
-            Patch.Result result = diff.offset(offset).asParameterTransformer(ParamTransformTarget.ALL, false, Set.of())
+            PatchResult result = diff.offset(offset).asParameterTransformer(false, Set.of())
                 .apply(context.legacy());
-            return result != Patch.Result.PASS;
+            return result != PatchResult.PASS;
         }
         return true;
     }

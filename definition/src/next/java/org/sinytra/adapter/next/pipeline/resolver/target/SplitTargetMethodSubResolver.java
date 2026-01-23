@@ -6,7 +6,6 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.next.env.MixinContext;
-import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
@@ -15,10 +14,13 @@ import org.sinytra.adapter.patch.analysis.InsnComparator;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.patch.analysis.method.MethodInsnMatcher;
-import org.sinytra.adapter.patch.api.MethodContext;
+import org.sinytra.adapter.patch.api.TargetPair;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * Handle cases where a single method is split into multiple smaller pieces.
@@ -26,9 +28,9 @@ import java.util.*;
  */
 public class SplitTargetMethodSubResolver implements SubResolver {
     @Override
-    public Configuration resolve(MixinData mixin, MixinContext context, Recipe recipe) {
-        MethodContext.TargetPair cleanTarget = recipe.getCleanTarget();
-        MethodContext.TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), recipe.clean().getTargetMethod());
+    public Configuration resolve(MixinContext context, Recipe recipe) {
+        TargetPair cleanTarget = recipe.getCleanTarget();
+        TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), recipe.clean().getTargetMethod());
         if (cleanTarget == null || dirtyTarget == null) return null;
 
         List<CandidateMethod> candidates = disambiguate(locateCandidates(context, cleanTarget, dirtyTarget), context, cleanTarget);
@@ -38,7 +40,7 @@ public class SplitTargetMethodSubResolver implements SubResolver {
 //            methodContext.recordAudit(this, "Adjusting split method target to %s", newTarget);
 
             // TODO Move to processor
-            if (mixin.isCancellable()) {
+            if (recipe.clean().isCancellable()) {
                 SplitMethodCancellationHelper.handle(this, context, recipe, method);
             }
 
@@ -49,7 +51,7 @@ public class SplitTargetMethodSubResolver implements SubResolver {
         return null;
     }
 
-    private static List<CandidateMethod> locateCandidates(MixinContext context, MethodContext.TargetPair cleanTarget, MethodContext.TargetPair dirtyTarget) {
+    private static List<CandidateMethod> locateCandidates(MixinContext context, TargetPair cleanTarget, TargetPair dirtyTarget) {
         MethodNode cleanTargetMethod = cleanTarget.methodNode();
         ClassNode dirtyTargetClass = dirtyTarget.classNode();
         MethodNode dirtyTargetMethod = dirtyTarget.methodNode();
@@ -65,11 +67,11 @@ public class SplitTargetMethodSubResolver implements SubResolver {
         }
 
         List<CandidateMethod> candidates = findInsnsCalls(invocations.stream()
-            .map(m -> new MethodContext.TargetPair(dirtyTargetClass, m)).toList(), context);
+            .map(m -> new TargetPair(dirtyTargetClass, m)).toList(), context);
 
         // Attempt to find matching insns in lambdas
         if (candidates.isEmpty()) {
-            List<MethodContext.TargetPair> nestedLambdas = invocations.stream()
+            List<TargetPair> nestedLambdas = invocations.stream()
                 .flatMap(m -> MethodAnalyzer.findLambdasInMethod(dirtyTarget.classNode(), m, null).stream())
                 .flatMap(s -> MethodQualifier.create(s).stream())
                 .map(s -> context.methods().findOwnMethodPair(context.dirtyLookup(), s))
@@ -86,7 +88,7 @@ public class SplitTargetMethodSubResolver implements SubResolver {
         Multimap<String, MethodInsnNode> cleanMethodCalls = MethodAnalyzer.getMethodCalls(cleanTargetMethod, new ArrayList<>());
         Multimap<String, MethodInsnNode> dirtyMethodCalls = MethodAnalyzer.getMethodCalls(dirtyTargetMethod, new ArrayList<>());
 
-        List<MethodContext.TargetPair> dirtyOnlyCalls = dirtyMethodCalls.entries().stream()
+        List<TargetPair> dirtyOnlyCalls = dirtyMethodCalls.entries().stream()
             .filter(e -> !cleanMethodCalls.containsKey(e.getKey()) && e.getValue().owner.equals(dirtyTargetClass.name))
             .map(Map.Entry::getValue)
             .map(i -> context.methods().findOwnMethodPair(context.dirtyLookup(), MethodQualifier.create(i)))
@@ -97,7 +99,7 @@ public class SplitTargetMethodSubResolver implements SubResolver {
     }
 
     // If multiple candidates have been found, try comparing the surrounding method instructions to find one match
-    private static List<CandidateMethod> disambiguate(List<CandidateMethod> candidates, MixinContext context, MethodContext.TargetPair cleanTarget) {
+    private static List<CandidateMethod> disambiguate(List<CandidateMethod> candidates, MixinContext context, TargetPair cleanTarget) {
         if (candidates.size() <= 1) {
             return candidates;
         }
@@ -124,7 +126,7 @@ public class SplitTargetMethodSubResolver implements SubResolver {
         return candidates;
     }
 
-    private static List<CandidateMethod> findInsnsCalls(List<MethodContext.TargetPair> methods, MixinContext context) {
+    private static List<CandidateMethod> findInsnsCalls(List<TargetPair> methods, MixinContext context) {
         return methods.stream()
             .map(pair -> {
                 List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(pair);

@@ -1,10 +1,15 @@
 package org.sinytra.adapter.next.env.ann;
 
 public class MixinAnnotationConstants {
+    public static final String MIXIN_VALUE = "value";
+    public static final String MIXIN_TARGETS = "targets";
+    
     public static final String AT_METHOD = "method";
     public static final String AT_TARGET = "target";
     public static final String AT_VALUE = "value";
     public static final String AT_VAL_INVOKE = "INVOKE";
+    public static final String AT_VAL_INVOKE_ASSIGN = "INVOKE_ASSIGN";
+    public static final String AT_VAL_RETURN = "RETURN";
     public static final String AT_VAL_STORE = "STORE";
     public static final String AT_VAL_SINYTRA_INSTANCEOF = "sinytra:INSTANCEOF";
     public static final String AT_SHIFT = "shift";

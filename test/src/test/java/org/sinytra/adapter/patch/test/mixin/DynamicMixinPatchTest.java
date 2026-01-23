@@ -5,12 +5,11 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.tree.ClassNode;
-import org.sinytra.adapter.next.PipelineLegacyMethodTransformer;
-import org.sinytra.adapter.patch.api.Patch;
+import org.sinytra.adapter.next.flow.DynamicPatches;
+import org.sinytra.adapter.next.flow.Patcher;
 import org.sinytra.adapter.patch.api.PatchEnvironment;
 import org.sinytra.adapter.patch.api.RefmapHolder;
 import org.sinytra.adapter.patch.fixes.FieldTypeUsageTransformer;
-import org.sinytra.adapter.patch.transformer.dynamic.LocalCaptureUpgradePreprocessor;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.FabricUtil;
@@ -18,15 +17,9 @@ import org.spongepowered.asm.mixin.FabricUtil;
 import java.util.List;
 
 public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
-    private static final List<Patch> DYNAMIC_PATCHES = List.of(
-        Patch.builder()
-            .transform(new LocalCaptureUpgradePreprocessor())
-            .transform(new PipelineLegacyMethodTransformer())
-            .transform(new FieldTypeUsageTransformer())
-            .build()
-    );
     private static final Logger LOGGER = LogUtils.getLogger();
 
+    private static Patcher patcher;
     private static PatchEnvironment patchEnvironment;
 
     @BeforeAll
@@ -48,6 +41,12 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
             dirtyLookup,
             new BytecodeFixerUpperTestFrontend(cleanLookup, dirtyLookup).unwrap(),
             FabricUtil.COMPATIBILITY_LATEST
+        );
+        patcher = new Patcher(
+            patchEnvironment,
+            List.of(new FieldTypeUsageTransformer()),
+            DynamicPatches.methodTransformers(List.of()),
+            List.of()
         );
     }
 
@@ -430,9 +429,9 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
 
     @Override
     protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
-        final ClassNode patched = loadClass(className);
+        ClassNode patched = loadClass(className);
         patched.methods.removeIf(m -> !allowedMethods.contains(m.name));
-        DYNAMIC_PATCHES.forEach(p -> p.apply(patched, patchEnvironment));
+        patcher.apply(patched);
         return new LoadResult(patchEnvironment, patched, loadClass(className));
     }
 }

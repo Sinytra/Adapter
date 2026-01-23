@@ -1,8 +1,8 @@
 package org.sinytra.adapter.patch.util;
 
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.PatchEnvironment;
+import org.sinytra.adapter.patch.api.TargetPair;
 import org.spongepowered.asm.mixin.MixinEnvironment;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfig;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
@@ -59,7 +59,7 @@ public class MockMixinRuntime {
         }
     }
 
-    public static Target createMixinTarget(MethodContext.TargetPair pair) {
+    public static Target createMixinTarget(TargetPair pair) {
         ClassInfo info = ClassInfo.forName(pair.classNode().name);
         try {
             return (Target) TARGET_CTR.invoke(info, pair.classNode(), pair.methodNode());

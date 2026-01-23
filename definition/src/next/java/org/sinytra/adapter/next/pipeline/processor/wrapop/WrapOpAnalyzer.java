@@ -6,7 +6,6 @@ import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.Frame;
 import org.objectweb.asm.tree.analysis.SourceValue;
-import org.sinytra.adapter.patch.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.analysis.selector.FrameUtil;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 
@@ -61,7 +60,6 @@ public class WrapOpAnalyzer {
 
         for (int i = 0; i <= maxIndex; i++) {
             AbstractInsnNode endNode = indexToStoreNode.get(i);
-
             List<AbstractInsnNode> currentGroup = new ArrayList<>();
 
             if (endNode != null) {
@@ -90,6 +88,7 @@ public class WrapOpAnalyzer {
                 return index;
             }
         }
-        return null; // Could not resolve to a static constant
+        // Could not resolve to a static constant
+        return null;
     }
 }

@@ -13,9 +13,8 @@ import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.api.MethodContext.TargetPair;
 import org.sinytra.adapter.patch.api.PatchContext;
+import org.sinytra.adapter.patch.api.TargetPair;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.MockMixinRuntime;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
@@ -77,25 +76,25 @@ public class MethodHelper {
         return this.methodFinder.findMethods(lookup, qualifier, MethodFinder.Flags.FALLBACK_OWNER | MethodFinder.Flags.IGNORE_DESC);
     }
 
-    public boolean hasInjectionTargetInsns(@Nullable MethodContext.TargetPair target) {
+    public boolean hasInjectionTargetInsns(@Nullable TargetPair target) {
         return !findInjectionTargetInsns(target).isEmpty();
     }
 
     @Nullable
-    public AbstractInsnNode findInjectionTargetInsn(@Nullable MethodContext.TargetPair target) {
+    public AbstractInsnNode findInjectionTargetInsn(@Nullable TargetPair target) {
         List<AbstractInsnNode> cleanInsns = findInjectionTargetInsns(target);
         return cleanInsns.size() != 1 ? null : cleanInsns.getFirst();
     }
 
-    public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable MethodContext.TargetPair target) {
+    public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable TargetPair target) {
         return findInjectionTargetInsns(target, false);
     }
 
-    public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable MethodContext.TargetPair target, boolean ignoreOrdinal) {
+    public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable TargetPair target, boolean ignoreOrdinal) {
         return this.targetInstructionsCache.computeIfAbsent(target, t -> computeInjectionTargetInsns(t, ignoreOrdinal));
     }
 
-    private List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable MethodContext.TargetPair target, boolean ignoreOrdinal) {
+    private List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable TargetPair target, boolean ignoreOrdinal) {
         return computeInjectionTargetInsns(
             target,
             this.context::injectionPointAnnotation,
@@ -150,7 +149,7 @@ public class MethodHelper {
     }
 
     @Nullable
-    private List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable MethodContext.TargetPair target, Supplier<AnnotationHandle> atNodeSupplier, BiFunction<IMixinContext, AnnotationHandle, InjectionPoint> injectionPointParser, boolean ignoreShift) {
+    private List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable TargetPair target, Supplier<AnnotationHandle> atNodeSupplier, BiFunction<IMixinContext, AnnotationHandle, InjectionPoint> injectionPointParser, boolean ignoreShift) {
         if (target == null) {
             return List.of();
         }

@@ -5,7 +5,6 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.next.env.MixinContext;
-import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.next.env.param.Parameter;
 import org.sinytra.adapter.next.pipeline.Recipe;
@@ -27,7 +26,7 @@ public class WrapOpParamsProcessor implements Processor {
     private static final MethodQualifier WO_ORIGINAL_CALL = new MethodQualifier("Lcom/llamalad7/mixinextras/injector/wrapoperation/Operation;", "call", "([Ljava/lang/Object;)Ljava/lang/Object;");
 
     @Override
-    public TxResult process(MixinData mixin, MixinContext context, Configuration dirty, Recipe recipe) {
+    public TxResult process(MixinContext context, Configuration dirty, Recipe recipe) {
         if (dirty.getParameters() == null) return TxResult.FAIL;
 
         // Find original.call(...)

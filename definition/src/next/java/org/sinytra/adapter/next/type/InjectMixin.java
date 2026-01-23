@@ -3,40 +3,39 @@ package org.sinytra.adapter.next.type;
 import org.objectweb.asm.Type;
 import org.sinytra.adapter.next.env.ConfigurationTemplates;
 import org.sinytra.adapter.next.env.MixinContext;
-import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.env.param.MethodParameters;
+import org.sinytra.adapter.next.env.param.Parameter;
 import org.sinytra.adapter.next.env.param.Parameters;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.TxResult;
-import org.sinytra.adapter.next.pipeline.config.Configuration;
-import org.sinytra.adapter.next.pipeline.config.Configuration.Keys;
-import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
-import org.sinytra.adapter.next.pipeline.config.PropertyContainerTemplate;
-import org.sinytra.adapter.next.pipeline.config.PropertyKey;
+import org.sinytra.adapter.next.pipeline.config.*;
+import org.sinytra.adapter.next.pipeline.processor.Processors;
+import org.sinytra.adapter.next.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.next.pipeline.resolver.injection.ArbitraryInjectionPointSubResolver;
 import org.sinytra.adapter.next.pipeline.resolver.injection.AtVariableAssignStoreSubResolver;
 import org.sinytra.adapter.next.pipeline.resolver.injection.ComparingInjectionPointResolver;
 import org.sinytra.adapter.next.pipeline.resolver.injection.InjectionPointResolver;
+import org.sinytra.adapter.next.pipeline.resolver.special.InjectorOrdinalResolver;
 
 import java.util.List;
-import java.util.Set;
 
 import static org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup.*;
 
-public class InjectMixin implements MixinType<MixinData> {
+public class InjectMixin implements MixinType {
+    private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
+        .keys(Keys.SLICES, Keys.CANCELLABLE)
+        .build();
+
     @Override
     public PropertyContainerTemplate getConfigurationTemplate() {
-        return ConfigurationTemplates.MIXIN_AT;
+        return TEMPLATE;
     }
 
     @Override
-    public Set<PropertyKey<?>> requestProperties() {
-        return Set.of(Keys.SLICES, Keys.CANCELLABLE);
-    }
-
-    @Override
-    public TxResult preProcess(MixinData mixin, MixinContext context, MutableConfiguration clean, Recipe recipe) {
-        recipe.resolvers().getOrThrow(InjectionPointResolver.class)
+    public TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers, Processors processors) {
+        resolvers
+            .addBefore(InjectionPointResolver.class, new InjectorOrdinalResolver());
+        resolvers.getOrThrow(InjectionPointResolver.class)
             .addSubResolver(new AtVariableAssignStoreSubResolver())
             .addSubResolver(new ComparingInjectionPointResolver.Inject())
             .addSubResolver(new ArbitraryInjectionPointSubResolver());
@@ -51,7 +50,7 @@ public class InjectMixin implements MixinType<MixinData> {
     }
 
     @Override
-    public TxResult postProcess(MixinData mixin, MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
+    public TxResult postProcess(MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
         dirty.setReturnType(Type.VOID_TYPE);
         if (dirty.getTargetMethod() == null) {
             return TxResult.SUCCESS;
@@ -68,6 +67,19 @@ public class InjectMixin implements MixinType<MixinData> {
                 dirty.setParameters(newParams);
             } else {
                 dirty.inheritParameters();
+            }
+        }
+
+        // Process static modifier
+        if (!clean.getProperty(SpecialKeys.STATIC).orElse(false) && dirty.getProperty(SpecialKeys.STATIC).orElse(false)) {
+            List<Type> types = context.targetTypes();
+            if (types.size() == 1) {
+                MethodParameters params = dirty.getParameters();
+                List<Parameter> methodParams = params.get(METHOD_PARAMS);
+                Type targetType = types.getFirst();
+                methodParams.addFirst(Parameter.simple(targetType));
+            } else {
+                throw new IllegalStateException("Cannot automatically determine target instance type for mixin " + context.classNode().name);
             }
         }
 

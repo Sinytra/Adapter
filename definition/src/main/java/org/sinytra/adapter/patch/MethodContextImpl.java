@@ -10,10 +10,7 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
-import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.api.MethodTransform;
-import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.PatchContext;
+import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.MockMixinRuntime;
@@ -41,7 +38,6 @@ public final class MethodContextImpl implements MethodContext {
     private final AnnotationHandle methodAnnotation;
     private final @Nullable AnnotationHandle injectionPointAnnotation;
     private final List<Type> targetTypes;
-    private final List<String> matchingTargets;
     private final PatchContext patchContext;
 
     private final Supplier<TargetPair> cleanInjectionPairCache;
@@ -50,7 +46,7 @@ public final class MethodContextImpl implements MethodContext {
     private final Supplier<LocalVariableLookup> dirtyLocalsTableCache;
     private final Map<TargetPair, List<AbstractInsnNode>> targetInstructionsCache;
 
-    public MethodContextImpl(ClassNode classNode, AnnotationHandle rawClassAnnotation, AnnotationValueHandle<?> classAnnotation, MethodNode methodNode, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation, List<Type> targetTypes, List<String> matchingTargets, PatchContext patchContext) {
+    public MethodContextImpl(ClassNode classNode, AnnotationHandle rawClassAnnotation, AnnotationValueHandle<?> classAnnotation, MethodNode methodNode, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation, List<Type> targetTypes, PatchContext patchContext) {
         this.classNode = Objects.requireNonNull(classNode, "Missing class node");
         this.rawClassAnnotation = Objects.requireNonNull(rawClassAnnotation, "Missing raw class annotation");
         this.classAnnotation = Objects.requireNonNull(classAnnotation, "Missing class annotation");
@@ -58,7 +54,6 @@ public final class MethodContextImpl implements MethodContext {
         this.methodAnnotation = Objects.requireNonNull(methodAnnotation, "Missing method annotation");
         this.injectionPointAnnotation = injectionPointAnnotation;
         this.targetTypes = Objects.requireNonNull(targetTypes, "Missing target types");
-        this.matchingTargets = Objects.requireNonNull(matchingTargets, "Missing matching targets");
         this.patchContext = patchContext;
 
         this.cleanInjectionPairCache = Suppliers.memoize(() -> {
@@ -69,11 +64,6 @@ public final class MethodContextImpl implements MethodContext {
         this.targetInstructionsCache = new HashMap<>();
         this.cleanLocalsTableCache = Suppliers.memoize(() -> Optional.ofNullable(findCleanInjectionTarget()).map(pair -> new LocalVariableLookup(pair.methodNode())).orElse(null));
         this.dirtyLocalsTableCache = Suppliers.memoize(() -> Optional.ofNullable(findDirtyInjectionTarget()).map(pair -> new LocalVariableLookup(pair.methodNode())).orElse(null));
-    }
-
-    @Override
-    public AnnotationHandle injectionPointAnnotationOrThrow() {
-        return Objects.requireNonNull(this.injectionPointAnnotation, "Missing injection point annotation");
     }
 
     @Override
@@ -111,30 +101,16 @@ public final class MethodContextImpl implements MethodContext {
         return MethodQualifier.create(reference).orElse(null);
     }
 
-    @Nullable
-    @Override
-    public MethodQualifier getInjectionPointMethodQualifier() {
-        // Get injection target
-        String target = injectionPointAnnotation().<String>getValue("target").map(AnnotationValueHandle::get).orElse(null);
-        if (target == null) {
-            return null;
-        }
-        // Resolve method reference
-        String reference = patchContext().remap(target);
-        // Extract owner, name and desc using regex
-        return MethodQualifier.create(reference).orElse(null);
-    }
-
     @Override
     public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable TargetPair target) {
         return this.targetInstructionsCache.computeIfAbsent(target, this::computeInjectionTargetInsns);
     }
 
     @Override
-    public void updateDescription(MethodTransform transform, List<Type> parameters) {
+    public void updateDescription(List<Type> parameters) {
         Type returnType = Type.getReturnType(this.methodNode.desc);
         String newDesc = Type.getMethodDescriptor(returnType, parameters.toArray(Type[]::new));
-        recordAudit(transform, "Change descriptor to %s", newDesc);
+//        recordAudit(transform, "Change descriptor to %s", newDesc);
         this.methodNode.desc = newDesc;
         this.methodNode.signature = null;
     }
@@ -142,11 +118,6 @@ public final class MethodContextImpl implements MethodContext {
     @Override
     public boolean isStatic() {
         return (this.methodNode.access & Opcodes.ACC_STATIC) != 0;
-    }
-
-    @Override
-    public boolean isCancellable() {
-        return methodAnnotation().matchesDesc(MixinConstants.INJECT) && methodAnnotation().<Boolean>getValue("cancellable").map(AnnotationValueHandle::get).orElse(false);
     }
 
     @Nullable
@@ -229,19 +200,9 @@ public final class MethodContextImpl implements MethodContext {
     }
 
     @Override
-    public boolean capturesLocals() {
-        return methodAnnotation().getValue("locals").isPresent();
-    }
-
-    @Override
     public boolean failsDirtyInjectionCheck() {
         TargetPair dirtyPair = findDirtyInjectionTarget();
         return dirtyPair == null || computeInjectionTargetInsns(dirtyPair).isEmpty() && computeConstantTargetInsns(dirtyPair).isEmpty();
-    }
-
-    @Override
-    public boolean hasInjectionPointValue(String value) {
-        return this.injectionPointAnnotation != null && this.injectionPointAnnotation.<String>getValue("value").map(v -> value.equals(v.get())).orElse(false);
     }
 
     @Override
@@ -337,7 +298,7 @@ public final class MethodContextImpl implements MethodContext {
         }
         String owner = Optional.ofNullable(qualifier.internalOwnerName())
             .orElseGet(() -> {
-                List<Type> targetTypes = targetTypes();
+                List<Type> targetTypes = this.targetTypes;
                 if (targetTypes.size() == 1) {
                     return targetTypes.getFirst().getInternalName();
                 }
@@ -378,16 +339,6 @@ public final class MethodContextImpl implements MethodContext {
     }
 
     @Override
-    public AnnotationHandle rawClassAnnotation() {
-        return this.rawClassAnnotation;
-    }
-
-    @Override
-    public AnnotationValueHandle<?> classAnnotation() {
-        return this.classAnnotation;
-    }
-
-    @Override
     public AnnotationHandle methodAnnotation() {
         return this.methodAnnotation;
     }
@@ -396,16 +347,6 @@ public final class MethodContextImpl implements MethodContext {
     @Nullable
     public AnnotationHandle injectionPointAnnotation() {
         return this.injectionPointAnnotation;
-    }
-
-    @Override
-    public List<Type> targetTypes() {
-        return this.targetTypes;
-    }
-
-    @Override
-    public List<String> matchingTargets() {
-        return this.matchingTargets;
     }
 
     @Override
@@ -421,7 +362,6 @@ public final class MethodContextImpl implements MethodContext {
         private AnnotationHandle methodAnnotation;
         private AnnotationHandle injectionPointAnnotation;
         private final List<Type> targetTypes = new ArrayList<>();
-        private final List<String> matchingTargets = new ArrayList<>();
 
         public Builder classNode(ClassNode classNode) {
             this.classNode = classNode;
@@ -458,13 +398,8 @@ public final class MethodContextImpl implements MethodContext {
             return this;
         }
 
-        public Builder matchingTargets(List<String> matchingTargets) {
-            this.matchingTargets.addAll(matchingTargets);
-            return this;
-        }
-
         public MethodContextImpl build(PatchContext context) {
-            return new MethodContextImpl(this.classNode, this.rawClassAnnotation, this.classAnnotation, this.methodNode, this.methodAnnotation, this.injectionPointAnnotation, List.copyOf(this.targetTypes), List.copyOf(this.matchingTargets), context);
+            return new MethodContextImpl(this.classNode, this.rawClassAnnotation, this.classAnnotation, this.methodNode, this.methodAnnotation, this.injectionPointAnnotation, List.copyOf(this.targetTypes), context);
         }
     }
 }

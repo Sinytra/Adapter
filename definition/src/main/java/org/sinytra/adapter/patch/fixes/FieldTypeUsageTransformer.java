@@ -2,15 +2,14 @@ package org.sinytra.adapter.patch.fixes;
 
 import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
-import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.next.env.ann.ClassTarget;
 import org.sinytra.adapter.patch.analysis.method.MethodAnalyzer;
-import org.sinytra.adapter.patch.api.ClassTransform;
-import org.sinytra.adapter.patch.api.Patch;
+import org.sinytra.adapter.next.transform.ClassTransformer;
 import org.sinytra.adapter.patch.api.PatchContext;
-import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
+import org.sinytra.adapter.patch.api.PatchResult;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.slf4j.Logger;
 
@@ -18,13 +17,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
+import static org.sinytra.adapter.patch.util.AdapterUtil.MIXINPATCH;
 
-public class FieldTypeUsageTransformer implements ClassTransform {
+public class FieldTypeUsageTransformer implements ClassTransformer {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     @Override
-    public Patch.Result apply(ClassNode classNode, @Nullable AnnotationValueHandle<?> annotation, PatchContext context) {
+    public PatchResult apply(ClassNode classNode, ClassTarget classTarget, PatchContext context) {
         BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
         boolean applied = false;
         if (bfu != null) {
@@ -85,7 +84,7 @@ public class FieldTypeUsageTransformer implements ClassTransform {
                 }
             }
         }
-        return applied ? Patch.Result.APPLY : Patch.Result.PASS;
+        return applied ? PatchResult.APPLY : PatchResult.PASS;
     }
 
     private static boolean runFieldFix(BytecodeFixerUpper bfu, Pair<Type, Type> updatedTypes, MethodNode method, FieldInsnNode finsn) {

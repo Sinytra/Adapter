@@ -13,7 +13,7 @@ import java.text.DecimalFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
+import static org.sinytra.adapter.patch.util.AdapterUtil.MIXINPATCH;
 
 public class PatchAuditTrailImpl implements PatchAuditTrail {
     private static final DecimalFormat FORMAT = new DecimalFormat("##.00");

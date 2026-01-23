@@ -17,6 +17,7 @@ public final class AnnotationHandle {
         return this.annotationNode.desc;
     }
 
+    // TODO Remove me
     public boolean matchesDesc(String desc) {
         return this.annotationNode.desc.equals(desc);
     }

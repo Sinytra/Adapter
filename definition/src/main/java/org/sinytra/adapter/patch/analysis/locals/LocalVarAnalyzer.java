@@ -9,8 +9,8 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.patch.analysis.params.ParamsDiffSnapshot;
+import org.sinytra.adapter.patch.api.LocalVariable;
 import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.api.MethodTransform;
 import org.sinytra.adapter.patch.transformer.operation.param.TransformParameters;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.OpcodeUtil;
@@ -32,11 +32,11 @@ public final class LocalVarAnalyzer {
             return null;
         }
         // Get available local variables at the injection point in the target method
-        List<MethodContext.LocalVariable> available = methodContext.getTargetMethodLocals(capturedLocals.target());
+        List<LocalVariable> available = methodContext.getTargetMethodLocals(capturedLocals.target());
         if (available == null) {
             return null;
         }
-        List<Type> availableTypes = available.stream().map(MethodContext.LocalVariable::type).toList();
+        List<Type> availableTypes = available.stream().map(LocalVariable::type).toList();
         // Compare expected and available params
         ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(capturedLocals.expected(), availableTypes);
         return new CapturedLocalsInfo(capturedLocals, diff, availableTypes);
@@ -63,7 +63,7 @@ public final class LocalVarAnalyzer {
 
     public record CapturedLocalsUsage(LocalVariableLookup targetTable, Int2IntMap usageCount, Int2ObjectMap<InsnList> varInsnLists) {}
 
-    public record CapturedLocalsTransform(List<Integer> used, MethodTransform remover, List<LocalVariableNode> usedLocalNodes) {
+    public record CapturedLocalsTransform(List<Integer> used, TransformParameters remover, List<LocalVariableNode> usedLocalNodes) {
         public CapturedLocalsUsage getUsage(AdapterUtil.CapturedLocals capturedLocals) {
             LocalVariableLookup targetTable = new LocalVariableLookup(capturedLocals.target().methodNode());
             Int2ObjectMap<InsnList> varInsnLists = new Int2ObjectOpenHashMap<>();
@@ -96,7 +96,7 @@ public final class LocalVarAnalyzer {
             }
         }
         // Remove unused captured locals
-        MethodTransform remover = TransformParameters.builder()
+        TransformParameters remover = TransformParameters.builder()
             .chain(b -> IntStream.range(paramLocalStart, capturedLocals.paramLocalEnd())
                 .filter(i -> !used.contains(i))
                 .boxed().sorted(Collections.reverseOrder())

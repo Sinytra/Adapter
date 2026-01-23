@@ -6,11 +6,7 @@ import org.objectweb.asm.TypeReference;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.analysis.locals.LVTSnapshot;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.Patch;
-import org.sinytra.adapter.patch.api.PatchContext;
-import org.sinytra.adapter.patch.transformer.ModifyArgsOffsetUpgrader;
+import org.sinytra.adapter.patch.api.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,11 +16,11 @@ import static org.sinytra.adapter.patch.transformer.operation.param.ParamTransfo
 
 public record InjectParameterTransform(int index, Type type) implements ParameterTransformer {
     @Override
-    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, List<Type> parameters, int offset) {
+    public PatchResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, List<Type> parameters, int offset) {
         boolean isNonStatic = (methodNode.access & Opcodes.ACC_STATIC) == 0;
         final int index = this.index + offset;
         if (index >= parameters.size() + 1) {
-            return Patch.Result.PASS;
+            return PatchResult.PASS;
         }
 
         AnnotationHandle annotation = methodContext.methodAnnotation();
@@ -36,12 +32,12 @@ public record InjectParameterTransform(int index, Type type) implements Paramete
                     indexHandle.set(indexValue + 1);
                 }
             });
-            return Patch.Result.APPLY;
+            return PatchResult.APPLY;
         }
 
         if (annotation.matchesDesc(MixinConstants.MODIFY_ARGS)) {
             ModifyArgsOffsetUpgrader.upgradeAfterParamInsert(methodNode, this.index);
-            return Patch.Result.APPLY;
+            return PatchResult.APPLY;
         }
 
         LocalVariableNode self = methodNode.localVariables.stream().filter(lvn -> lvn.index == 0).findFirst().orElseThrow();
@@ -58,7 +54,7 @@ public record InjectParameterTransform(int index, Type type) implements Paramete
             methodNode.localVariables.add(index + (isNonStatic ? 1 : 0), new LocalVariableNode(newParameter.name, type.getDescriptor(), null, self.start, self.end, lvtIndex));
         });
 
-        return Patch.Result.APPLY;
+        return PatchResult.APPLY;
     }
 
     public static void offsetParameters(MethodNode methodNode, int paramIndex) {

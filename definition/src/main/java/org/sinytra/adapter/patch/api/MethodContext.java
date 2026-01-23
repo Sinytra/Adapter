@@ -6,32 +6,22 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.next.env.ctx.Auditor;
 import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 
 import java.util.List;
 
-public interface MethodContext {
+public interface MethodContext extends Auditor {
     ClassNode getMixinClass();
 
     MethodNode getMixinMethod();
 
-    AnnotationHandle rawClassAnnotation();
-
-    AnnotationValueHandle<?> classAnnotation();
-
     AnnotationHandle methodAnnotation();
 
     @Nullable AnnotationHandle injectionPointAnnotation();
-
-    AnnotationHandle injectionPointAnnotationOrThrow();
-
-    List<Type> targetTypes();
-
-    List<String> matchingTargets();
 
     PatchContext patchContext();
 
@@ -46,9 +36,6 @@ public interface MethodContext {
     @Nullable
     MethodQualifier getTargetMethodQualifier();
 
-    @Nullable
-    MethodQualifier getInjectionPointMethodQualifier();
-
     List<AbstractInsnNode> findInjectionTargetInsns(@Nullable TargetPair target);
 
     /**
@@ -59,11 +46,9 @@ public interface MethodContext {
     @Nullable
     Pair<ClassNode, List<MethodNode>> findInjectionTargetCandidates(ClassLookup lookup, boolean ignoreDesc);
 
-    void updateDescription(MethodTransform transform, List<Type> parameters);
+    void updateDescription(List<Type> parameters);
 
     boolean isStatic();
-
-    boolean isCancellable();
 
     @Nullable
     List<LocalVariable> getTargetMethodLocals(TargetPair target);
@@ -78,19 +63,9 @@ public interface MethodContext {
 
     List<Integer> getLvtCompatLevelsOrdered();
 
-    boolean capturesLocals();
-
     boolean failsDirtyInjectionCheck();
-
-    boolean hasInjectionPointValue(String value);
 
     boolean isNotRequired();
 
     boolean hasValidSlice(TargetPair target);
-
-    void recordAudit(Object transform, String message, Object... args);
-
-    record LocalVariable(int index, Type type) {}
-
-    record TargetPair(ClassNode classNode, MethodNode methodNode) {}
 }

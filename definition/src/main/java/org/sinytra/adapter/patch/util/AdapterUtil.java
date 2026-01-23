@@ -17,7 +17,10 @@ import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.api.PatchEnvironment;
+import org.sinytra.adapter.patch.api.TargetPair;
 import org.slf4j.Logger;
+import org.slf4j.Marker;
+import org.slf4j.MarkerFactory;
 import org.spongepowered.asm.mixin.gen.AccessorInfo;
 
 import java.io.PrintWriter;
@@ -30,6 +33,7 @@ import java.util.stream.Stream;
 
 public final class AdapterUtil {
     public static final String LAMBDA_PREFIX = "lambda$";
+    public static final Marker MIXINPATCH = MarkerFactory.getMarker("MIXINPATCH");
     private static final Pattern FIELD_REF_PATTERN = Pattern.compile("^(?<owner>L.+?;)?(?<name>[^:]+)?:(?<desc>.+)?$");
     private static final Logger LOGGER = LogUtils.getLogger();
 
@@ -200,7 +204,7 @@ public final class AdapterUtil {
             LOGGER.debug("Missing CI or CIR argument in injector of type {}", annotation.getDesc());
             return null;
         }
-        MethodContext.TargetPair target = methodContext.findDirtyInjectionTarget();
+        TargetPair target = methodContext.findDirtyInjectionTarget();
         if (target == null) {
             return null;
         }
@@ -244,7 +248,7 @@ public final class AdapterUtil {
         return list.toArray(arrayGen);
     }
 
-    public record CapturedLocals(MethodContext.TargetPair target, boolean isStatic, int paramLocalStart, int paramLocalEnd, int lvtOffset,
+    public record CapturedLocals(TargetPair target, boolean isStatic, int paramLocalStart, int paramLocalEnd, int lvtOffset,
                                  List<Type> expected, LocalVariableLookup lvt) {
     }
 

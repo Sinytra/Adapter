@@ -16,10 +16,6 @@ public class ConfigurationImpl extends BasePropertyContainer implements MutableC
     @Nullable
     private final Configuration parent;
 
-    public ConfigurationImpl() {
-        this(null, null);
-    }
-
     public ConfigurationImpl(@Nullable PropertyContainerTemplate template) {
         this(template, null);
     }
@@ -68,7 +64,7 @@ public class ConfigurationImpl extends BasePropertyContainer implements MutableC
     public MutableConfiguration inheritReturnType() {
         return inheritProperty(Keys.RETURN_TYPE);
     }
-    
+
     @Override
     public MutableConfiguration inheritShouldDelete() {
         return inheritProperty(Keys.DELETE);
@@ -107,6 +103,12 @@ public class ConfigurationImpl extends BasePropertyContainer implements MutableC
     @Override
     public boolean shouldDelete() {
         Boolean boxed = getProperty(Keys.DELETE).orElse(null);
+        return boxed != null && boxed.booleanValue();
+    }
+
+    @Override
+    public boolean isCancellable() {
+        Boolean boxed = getProperty(Keys.CANCELLABLE).orElse(null);
         return boxed != null && boxed.booleanValue();
     }
 
@@ -191,22 +193,27 @@ public class ConfigurationImpl extends BasePropertyContainer implements MutableC
     }
 
     @Override
-    public MutableConfiguration subConfig() {
+    public MutableConfiguration copyClean() {
         return new ConfigurationImpl(this.template, this.parent);
     }
 
     @Override
-    public MutableConfiguration subConfig(PropertyContainerTemplate template) {
+    public MutableConfiguration copyClean(PropertyContainerTemplate template) {
         return new ConfigurationImpl(template, this.parent);
     }
 
     @Override
     protected MutablePropertyContainer createCopyImpl() {
-        return subConfig();
+        return copyClean();
     }
 
     @Override
     public MutableConfiguration copy() {
         return (MutableConfiguration) super.copy();
+    }
+
+    @Override
+    public MutableConfiguration childConfig() {
+        return new ConfigurationImpl(this.template, this);
     }
 }

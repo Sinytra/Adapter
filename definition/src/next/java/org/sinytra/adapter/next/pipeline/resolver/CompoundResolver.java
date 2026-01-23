@@ -2,7 +2,6 @@ package org.sinytra.adapter.next.pipeline.resolver;
 
 import org.jetbrains.annotations.Nullable;
 import org.sinytra.adapter.next.env.MixinContext;
-import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 
@@ -22,7 +21,7 @@ public abstract class CompoundResolver implements Resolver {
         return this;
     }
 
-    protected abstract boolean canApply(MixinData mixin, Recipe recipe);
+    protected abstract boolean canApply(Recipe recipe);
 
     @Nullable
     protected Configuration tryReuse(MixinContext context, Recipe recipe) {
@@ -35,8 +34,8 @@ public abstract class CompoundResolver implements Resolver {
     }
 
     @Override
-    public ResolutionResult resolve(MixinData mixin, MixinContext context, Recipe recipe) {
-        if (!canApply(mixin, recipe)) {
+    public ResolutionResult resolve(MixinContext context, Recipe recipe) {
+        if (!canApply(recipe)) {
             return ResolutionResult.pass();
         }
 
@@ -46,7 +45,7 @@ public abstract class CompoundResolver implements Resolver {
         }
 
         for (SubResolver subResolver : this.subResolvers) {
-            Configuration result = subResolver.resolve(mixin, context, recipe);
+            Configuration result = subResolver.resolve(context, recipe);
             if (result != null) {
                 return ResolutionResult.success(result);
             }

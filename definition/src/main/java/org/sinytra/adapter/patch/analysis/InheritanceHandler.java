@@ -1,8 +1,6 @@
 package org.sinytra.adapter.patch.analysis;
 
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 
 import java.util.*;

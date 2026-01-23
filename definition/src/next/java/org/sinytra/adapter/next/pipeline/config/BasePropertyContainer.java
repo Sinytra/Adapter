@@ -2,9 +2,13 @@ package org.sinytra.adapter.next.pipeline.config;
 
 import com.google.common.collect.ImmutableMap;
 import org.jetbrains.annotations.Nullable;
+import org.sinytra.adapter.next.env.ctx.RefMapper;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 public class BasePropertyContainer implements MutablePropertyContainer {
@@ -20,20 +24,9 @@ public class BasePropertyContainer implements MutablePropertyContainer {
         this.template = template;
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
     @Override
     public boolean validate() {
-        if (this.template != null && !this.template.validate(this)) {
-            return false;
-        }
-
-        for (Map.Entry<PropertyKey<?>, Object> entry : this.properties.entrySet()) {
-            PropertyKey key = entry.getKey();
-            if (!key.validate(entry.getValue())) {
-                return false;
-            }
-        }
-        return true;
+        return this.template == null || this.template.validate(this);
     }
 
     @Override
@@ -50,7 +43,11 @@ public class BasePropertyContainer implements MutablePropertyContainer {
 
     @Override
     public <T> MutablePropertyContainer setProperty(PropertyKey<T> key, @Nullable T value) {
-        this.properties.put(key, value);
+        if (value != null) {
+            this.properties.put(key, value);
+        } else {
+            this.properties.remove(key);
+        }
         return this;
     }
 
@@ -80,7 +77,42 @@ public class BasePropertyContainer implements MutablePropertyContainer {
         return this;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        BasePropertyContainer container = (BasePropertyContainer) o;
+        return Objects.equals(properties, container.properties) && Objects.equals(template, container.template);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(properties, template);
+    }
+
     protected MutablePropertyContainer createCopyImpl() {
-        return new BasePropertyContainer();
+        return new BasePropertyContainer(this.template);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public static MutablePropertyContainer parse(AnnotationHandle handle, @Nullable PropertyContainerTemplate template, RefMapper mapper) {
+        MutablePropertyContainer container = new BasePropertyContainer(template);
+
+        for (PropertyKey key : template.getKeys()) {
+            Object value = handle.getValue(key.name()).map(AnnotationValueHandle::get).orElse(null);
+            if (value == null) continue;
+
+            if (key.parser() != null) {
+                Object parsed = key.parser().parse(value, mapper);
+                container.setProperty(key, parsed);
+            } else {
+                throw new IllegalStateException("Cannot parse for key %s, it does not define a parser".formatted(key.name()));
+            }
+        }
+
+        if (!container.validate()) {
+            return null;
+        }
+
+        return container;
     }
 }

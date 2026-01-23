@@ -1,9 +1,24 @@
 package org.sinytra.adapter.next.pipeline.config;
 
 import org.jetbrains.annotations.Nullable;
+import org.sinytra.adapter.next.env.ctx.RefMapper;
+import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 
 public interface MutablePropertyContainer extends PropertyContainer {
+    static MutablePropertyContainer create() {
+        return create(null);
+    }
+
+    static MutablePropertyContainer create(@Nullable PropertyContainerTemplate template) {
+        return new BasePropertyContainer(template);
+    }
+
+    static MutablePropertyContainer parse(AnnotationHandle handle, @Nullable PropertyContainerTemplate template, RefMapper mapper) {
+        return BasePropertyContainer.parse(handle, template, mapper);
+    }
+
     <T> MutablePropertyContainer setProperty(PropertyKey<T> key, @Nullable T value);
+
     <T> MutablePropertyContainer removeProperty(PropertyKey<T> key);
 
     MutablePropertyContainer mergeFrom(PropertyContainer other);

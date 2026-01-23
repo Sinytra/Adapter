@@ -22,7 +22,7 @@ public class OrderedRegistry<U> {
         return this.instances;
     }
 
-    public void addBefore(Class<? extends U> type, U entry) {
+    public OrderedRegistry<U> addBefore(Class<? extends U> type, U entry) {
         assertNotFrozen();
         assertUnique(entry);
 
@@ -30,9 +30,11 @@ public class OrderedRegistry<U> {
         int index = this.instances.indexOf(original);
 
         this.instances.add(index, entry);
+        
+        return this;
     }
 
-    public void addAfter(Class<? extends U> type, U entry) {
+    public OrderedRegistry<U> addAfter(Class<? extends U> type, U entry) {
         assertNotFrozen();
         assertUnique(entry);
 
@@ -40,18 +42,28 @@ public class OrderedRegistry<U> {
         int index = this.instances.indexOf(original);
 
         this.instances.add(index + 1, entry);
+
+        return this;
     }
 
     public <T extends U> T getOrThrow(Class<T> type) {
         return Objects.requireNonNull(get(type), "Entry not found for type %s".formatted(type));
     }
 
-    @SuppressWarnings("unchecked")
     public void add(U entry) {
         assertNotFrozen();
         assertUnique(entry);
 
         this.instances.add(entry);
+    }
+
+    public OrderedRegistry<U> addFirst(U entry) {
+        assertNotFrozen();
+        assertUnique(entry);
+
+        this.instances.addFirst(entry);
+        
+        return this;
     }
 
     @SuppressWarnings("unchecked")
@@ -68,7 +80,7 @@ public class OrderedRegistry<U> {
     @SuppressWarnings("unchecked")
     public void assertUnique(U entry) {
         if (get((Class<? extends U>) entry.getClass()) != null) {
-             throw new IllegalArgumentException("Duplicate entry for type %s".formatted(entry.getClass()));
+            throw new IllegalArgumentException("Duplicate entry for type %s".formatted(entry.getClass()));
         }
     }
 

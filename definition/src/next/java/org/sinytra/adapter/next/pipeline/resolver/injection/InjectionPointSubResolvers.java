@@ -8,7 +8,6 @@ import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.WeighedDisambiguation;
-import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.env.param.Parameters;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
@@ -16,7 +15,7 @@ import org.sinytra.adapter.next.pipeline.resolver.SubResolver;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.patch.analysis.method.MethodInsnMatcher;
-import org.sinytra.adapter.patch.api.MethodContext;
+import org.sinytra.adapter.patch.api.TargetPair;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.ArrayList;
@@ -26,11 +25,11 @@ import java.util.Objects;
 import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
 
 public class InjectionPointSubResolvers {
-    public static final SubResolver REPLACED_TYPE = (MixinData mixin, MixinContext context, Recipe recipe) -> {
+    public static final SubResolver REPLACED_TYPE = (MixinContext context, Recipe recipe) -> {
         if (!recipe.clean().getAtData().getValue().equals(AT_VAL_INVOKE)) return null;
 
-        MethodContext.TargetPair cleanPair = recipe.getCleanTarget();
-        MethodContext.TargetPair dirtyTarget = recipe.getDirtyTarget();
+        TargetPair cleanPair = recipe.getCleanTarget();
+        TargetPair dirtyTarget = recipe.getDirtyTarget();
         // Find single clean target minsn
         List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(cleanPair);
         if (insns.isEmpty() || !(insns.getFirst() instanceof MethodInsnNode cleanInsn)) return null;
@@ -75,7 +74,7 @@ public class InjectionPointSubResolvers {
             .toList();
     }
 
-    private static List<MethodQualifier> testOverloadedMethods(MixinContext context, MethodInsnNode cleanInsn, MethodContext.TargetPair cleanPair, MethodContext.TargetPair dirtyPair) {
+    private static List<MethodQualifier> testOverloadedMethods(MixinContext context, MethodInsnNode cleanInsn, TargetPair cleanPair, TargetPair dirtyPair) {
         ClassNode dirtyClass = context.dirtyLookup().getClass(cleanInsn.owner).orElse(null);
         if (dirtyClass == null) {
             return List.of();

@@ -4,8 +4,8 @@ import com.mojang.logging.LogUtils;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchContext;
+import org.sinytra.adapter.patch.api.PatchResult;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.SingleValueHandle;
 import org.slf4j.Logger;
@@ -13,13 +13,13 @@ import org.slf4j.Logger;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
+import static org.sinytra.adapter.patch.util.AdapterUtil.MIXINPATCH;
 
 public record SwapParametersTransformer(int from, int to) implements ParameterTransformer {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     @Override
-    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, List<Type> parameters, int offset) {
+    public PatchResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, List<Type> parameters, int offset) {
         int from = offset + this.from;
         int to = offset + this.to;
         boolean nonStatic = !methodContext.isStatic();
@@ -48,7 +48,7 @@ public record SwapParametersTransformer(int from, int to) implements ParameterTr
             .andThen(swapLVT(methodNode, toOldLVT, fromNewLVT))
             .accept(null);
 
-        return Patch.Result.COMPUTE_FRAMES;
+        return PatchResult.COMPUTE_FRAMES;
     }
 
     public static Consumer<Void> swapLVT(MethodNode methodNode, int from, int to) {

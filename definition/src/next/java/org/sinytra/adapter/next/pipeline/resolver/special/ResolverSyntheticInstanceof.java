@@ -5,15 +5,14 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.next.env.Configurations;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.AtData;
-import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.resolver.Resolver;
 import org.sinytra.adapter.patch.analysis.InsnComparator;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.method.MethodInsnMatcher;
-import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
+import org.sinytra.adapter.patch.api.TargetPair;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,12 +33,12 @@ import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_S
 public record ResolverSyntheticInstanceof(boolean skipInsnComparison) implements Resolver {
 
     @Override
-    public ResolutionResult resolve(MixinData mixin, MixinContext context, Recipe recipe) {
-        if (!context.legacy().hasInjectionPointValue(AT_VAL_INVOKE))
+    public ResolutionResult resolve(MixinContext context, Recipe recipe) {
+        if (!recipe.hasInjectionPointValue(AT_VAL_INVOKE))
             return ResolutionResult.pass();
 
-        MethodContext.TargetPair cleanTarget = recipe.getCleanTarget();
-        MethodContext.TargetPair dirtyTarget = recipe.getDirtyTarget();
+        TargetPair cleanTarget = recipe.getCleanTarget();
+        TargetPair dirtyTarget = recipe.getDirtyTarget();
         AbstractInsnNode targetInsn = context.methods().findInjectionTargetInsn(cleanTarget);
         if (targetInsn == null) return ResolutionResult.pass();
 
@@ -65,11 +64,14 @@ public record ResolverSyntheticInstanceof(boolean skipInsnComparison) implements
                         }
 
                         int ordinal = getInstanceofOrdinal(dirtyInsns, instanceOfInsn);
-                        Configuration config = recipe.dirty().subConfig()
+                        Configuration config = recipe.dirty().copyClean()
                             .setMixinType(MixinConstants.MODIFY_INSTANCEOF_VAL)
                             .inheritTargetClass()
                             .inheritTargetMethod()
-                            .setAtData(new AtData(AT_VAL_SINYTRA_INSTANCEOF, instanceOfInsn.desc, ordinal != 0 ? ordinal : null))
+                            .setAtData(AtData.builder(AT_VAL_SINYTRA_INSTANCEOF)
+                                .target(instanceOfInsn.desc)
+                                .ordinal(ordinal != 0 ? ordinal : null)
+                                .build())
                             .inheritParameters()
                             .inheritReturnType();
 

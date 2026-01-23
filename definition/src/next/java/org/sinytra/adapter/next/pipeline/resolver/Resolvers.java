@@ -8,7 +8,13 @@ import org.sinytra.adapter.next.pipeline.resolver.target.TargetMethodResolver;
 public class Resolvers extends OrderedRegistry<Resolver> {
 
     public Resolvers() {
-        registerDefaultResolvers();
+        this(true);
+    }
+
+    public Resolvers(boolean registerDefault) {
+        if (registerDefault) {
+            registerDefaultResolvers();
+        }
     }
 
     private void registerDefaultResolvers() {

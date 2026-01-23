@@ -8,14 +8,14 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.AtData;
 import org.sinytra.adapter.next.env.ann.ConstantData;
-import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup;
 import org.sinytra.adapter.next.env.param.Parameter;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
-import org.sinytra.adapter.next.pipeline.config.Configuration.Keys;
+import org.sinytra.adapter.next.pipeline.config.Keys;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
+import org.sinytra.adapter.next.pipeline.config.SpecialKeys;
 import org.sinytra.adapter.next.pipeline.processor.wrapop.WrapOpSurgeon;
 import org.sinytra.adapter.next.pipeline.resolver.SubResolver;
 import org.sinytra.adapter.patch.analysis.MethodLabelComparator;
@@ -23,6 +23,7 @@ import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.patch.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
+import org.sinytra.adapter.patch.api.TargetPair;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.Collection;
@@ -36,10 +37,10 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
 
     @Nullable
     protected AbstractInsnNode prepare(MixinContext context, Recipe recipe) {
-        MethodContext.TargetPair dirtyTarget = recipe.getDirtyTarget();
+        TargetPair dirtyTarget = recipe.getDirtyTarget();
         if (dirtyTarget == null) return null;
 
-        MethodContext.TargetPair cleanTarget = recipe.getCleanTarget();
+        TargetPair cleanTarget = recipe.getCleanTarget();
         if (cleanTarget == null) return null;
 
         return context.methods().findInjectionTargetInsn(cleanTarget);
@@ -48,8 +49,8 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
     public static class Inject extends ComparingInjectionPointResolver {
         @Nullable
         @Override
-        public Configuration resolve(MixinData mixin, MixinContext context, Recipe recipe) {
-            MethodContext.TargetPair cleanTarget = recipe.getCleanTarget();
+        public Configuration resolve(MixinContext context, Recipe recipe) {
+            TargetPair cleanTarget = recipe.getCleanTarget();
             if (cleanTarget == null) return null;
 
             AbstractInsnNode cleanInsn = prepare(context, recipe);
@@ -75,7 +76,7 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
                 for (AbstractInsnNode insn : insns) {
                     if (insn instanceof MethodInsnNode minsn) {
                         return MutableConfiguration.create()
-                            .setAtData(new AtData(AT_VAL_INVOKE, minsn));
+                            .setAtData(AtData.create(AT_VAL_INVOKE, minsn));
                     }
                 }
             }
@@ -85,7 +86,7 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
         private static Configuration attemptExtractMixin(MethodInsnNode minsn, MixinContext context, Configuration clean) {
             // Looks like some code was moved into a static method outside this class
             // Attempt extracting mixin
-            MethodContext.TargetPair target = context.methods().findMethodPair(context.dirtyLookup(), MethodQualifier.create(minsn));
+            TargetPair target = context.methods().findMethodPair(context.dirtyLookup(), MethodQualifier.create(minsn));
             if (target == null) return null;
 
 //            MethodUpgrader.adjustInjectorOrdinalForNewMethod(minsn, context.legacy()); FIXME
@@ -96,15 +97,15 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
                 .setTargetClass(target.classNode().name)
                 .setTargetMethod(minsn)
                 .setAtData(clean.getAtData().withOrdinal(null)) // TODO Find new ordinal
-                .setProperty(Configuration.SpecialKeys.EXTRACT_TARGET, minsn);
+                .setProperty(SpecialKeys.EXTRACT_TARGET, minsn);
         }
     }
 
     public static class WrapOperation extends ComparingInjectionPointResolver {
         @Nullable
         @Override
-        public Configuration resolve(MixinData mixin, MixinContext context, Recipe recipe) {
-            MethodContext.TargetPair dirtyTarget = recipe.getDirtyTarget();
+        public Configuration resolve(MixinContext context, Recipe recipe) {
+            TargetPair dirtyTarget = recipe.getDirtyTarget();
             if (dirtyTarget == null) return null;
 
             AbstractInsnNode cleanInsn = prepare(context, recipe);
@@ -144,7 +145,7 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
             List<Type> inheritedParams = clean.getParameters().getTypes(ParamGroup.METHOD_PARAMS);
             Multimap<Integer, VarInsnNode> usedVars = WrapOpSurgeon.getUsedVars(mixinLocals, inheritedParams, context);
 
-            MutableConfiguration config = recipe.dirty().subConfig()
+            MutableConfiguration config = recipe.dirty().copyClean()
                 .removeProperty(Keys.TARGET_AT)
                 .setProperty(Keys.TARGET_CONSTANT, ConstantData.classValue(Type.getObjectType(instanceOfCall.desc)))
                 .inheritParameters()
@@ -203,7 +204,7 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
             MethodInsnNode insn = methodCalls.getLast();
 
             return Optional.of(MutableConfiguration.create()
-                .setAtData(new AtData(AT_VAL_INVOKE, insn)));
+                .setAtData(AtData.create(AT_VAL_INVOKE, insn)));
         }
 
         private static Optional<Configuration> handleWrapOperationNewInjectionPoint(MethodInsnNode cleanInjectionInsn, List<AbstractInsnNode> cleanLabel, List<List<AbstractInsnNode>> hunkLabels) {
@@ -229,21 +230,21 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
 
             MethodInsnNode dirtyMinsn = methodCalls.getFirst();
             return Optional.of(MutableConfiguration.create()
-                .setAtData(new AtData(AT_VAL_INVOKE, dirtyMinsn)));
+                .setAtData(AtData.create(AT_VAL_INVOKE, dirtyMinsn)));
         }
 
-        private static Optional<Configuration> handleTargetModification(List<List<AbstractInsnNode>> hunkLabels, MethodContext.TargetPair dirtyTarget, MixinContext context) {
+        private static Optional<Configuration> handleTargetModification(List<List<AbstractInsnNode>> hunkLabels, TargetPair dirtyTarget, MixinContext context) {
             ClassNode dirtyClass = dirtyTarget.classNode();
             return hunkLabels.stream()
                 .flatMap(Collection::stream)
                 .filter(insn -> insn instanceof MethodInsnNode minsn && minsn.owner.equals(dirtyClass.name))
                 .map(MethodInsnNode.class::cast)
                 .filter(minsn -> {
-                    MethodContext.TargetPair pair = context.methods().findMethodPair(context.dirtyLookup(), MethodQualifier.create(minsn));
+                    TargetPair pair = context.methods().findMethodPair(context.dirtyLookup(), MethodQualifier.create(minsn));
                     return pair != null && context.methods().hasInjectionTargetInsns(pair);
                 })
                 .<Configuration>map(minsn -> MutableConfiguration.create()
-                    .setAtData(new AtData(AT_VAL_INVOKE, minsn)))
+                    .setAtData(AtData.create(AT_VAL_INVOKE, minsn)))
                 .findFirst();
         }
     }

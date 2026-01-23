@@ -1,20 +1,27 @@
 package org.sinytra.adapter.next.env;
 
 import org.jetbrains.annotations.Nullable;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.next.env.ann.ClassTarget;
 import org.sinytra.adapter.next.env.ctx.MethodHelper;
 import org.sinytra.adapter.next.env.ctx.RefMapper;
+import org.sinytra.adapter.next.pipeline.processor.Processors;
+import org.sinytra.adapter.next.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.PatchContext;
+import org.sinytra.adapter.patch.api.PatchEnvironment;
 import org.sinytra.adapter.patch.fixes.TypeAdapter;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 
+import java.util.List;
+
 public class MixinContext implements RefMapper {
+    private final String mixinId;
+    private final ClassTarget classTarget;
     private final ClassNode classNode;
     private final MethodNode methodNode;
     private final MethodNode originalMethodNode;
@@ -22,12 +29,35 @@ public class MixinContext implements RefMapper {
     private final MethodHelper methodHelper;
     private final MethodContext methodContext;
 
-    public MixinContext(ClassNode classNode, MethodNode methodNode, MethodContext methodContext) {
+    private final Resolvers resolvers = new Resolvers();
+    private final Processors processors = new Processors();
+
+    public MixinContext(ClassTarget classTarget, ClassNode classNode, MethodNode methodNode, MethodContext methodContext) {
+        this.mixinId = classNode.name + "#" + methodNode.name + methodNode.desc;
+
+        this.classTarget = classTarget;
         this.classNode = classNode;
         this.methodNode = methodNode;
-        this.methodHelper = new MethodHelper(this, methodContext.targetTypes());
+        this.methodHelper = new MethodHelper(this, classTarget.getTypes());
         this.methodContext = methodContext;
         this.originalMethodNode = AdapterUtil.copyMethod(this.methodNode);
+    }
+
+    public String getMixinId() {
+        return this.mixinId;
+    }
+
+    // TODO Move out
+    public Resolvers getResolvers() {
+        return resolvers;
+    }
+
+    public Processors getProcessors() {
+        return processors;
+    }
+
+    public ClassTarget classTarget() {
+        return this.classTarget;
     }
 
     public ClassNode classNode() {
@@ -84,5 +114,13 @@ public class MixinContext implements RefMapper {
     @Deprecated
     public MethodContext legacy() {
         return this.methodContext;
+    }
+
+    public List<Type> targetTypes() {
+        return this.classTarget.getTypes();
+    }
+
+    public PatchEnvironment environment() {
+        return patchContext().environment();
     }
 }

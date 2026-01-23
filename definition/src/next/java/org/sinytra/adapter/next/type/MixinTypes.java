@@ -11,14 +11,18 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class MixinTypes {
-    private static final Map<String, MixinType<?>> MIXIN_TYPES = new HashMap<>();
+    private static final Map<String, MixinType> MIXIN_TYPES = new HashMap<>();
     
-    public static final MixinType<?> INJECT = new InjectMixin();
-    public static final MixinType<?> MODIFY_VAR = new ModifyVariableMixin();
-    public static final MixinType<?> MODIFY_ARG = new ModifyArgMixin();
-    public static final MixinType<?> REDIRECT = new RedirectMixin();
-    public static final MixinType<?> WRAP_OP = new WrapOperationMixin();
-    public static final MixinType<?> MODIFY_EXPR_VAL = new ModifyExpressionValueMixin();
+    // TODO:
+    // MixinConstants.MODIFY_ARGS, MixinConstants.MODIFY_CONST, MixinConstants.WRAP_WITH_CONDITION,
+    // MixinConstants.MODIFY_RETURN_VAL, MixinConstants.OVERWRITE (dont forget special modifyTarget handling)
+    // MixinConstants.ACCESSOR
+    public static final MixinType INJECT = new InjectMixin();
+    public static final MixinType MODIFY_VAR = new ModifyVariableMixin();
+    public static final MixinType MODIFY_ARG = new ModifyArgMixin();
+    public static final MixinType REDIRECT = new RedirectMixin();
+    public static final MixinType WRAP_OP = new WrapOperationMixin();
+    public static final MixinType MODIFY_EXPR_VAL = new ModifyExpressionValueMixin();
 
     static {
         registerMixinType(Inject.class, INJECT);
@@ -30,16 +34,16 @@ public class MixinTypes {
     }
 
     @Nullable
-    public static MixinType<?> getMixinType(String annotation) {
+    public static MixinType getMixinType(String annotation) {
         return MIXIN_TYPES.get(annotation);
     }
 
-    private static void registerMixinType(Class<?> annotation, MixinType<?> type) {
+    private static void registerMixinType(Class<?> annotation, MixinType type) {
         String internalName = annotation.getName().replace('.', '/');
         registerMixinType(internalName, type);
     }
     
-    private static void registerMixinType(String annInternalName, MixinType<?> type) {
+    private static void registerMixinType(String annInternalName, MixinType type) {
         MIXIN_TYPES.put(annInternalName, type);
     }
 }

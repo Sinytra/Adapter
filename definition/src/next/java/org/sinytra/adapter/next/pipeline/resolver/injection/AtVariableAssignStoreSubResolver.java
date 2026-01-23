@@ -3,13 +3,12 @@ package org.sinytra.adapter.next.pipeline.resolver.injection;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.next.env.MixinContext;
-import org.sinytra.adapter.next.env.ann.MixinData;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
 import org.sinytra.adapter.next.pipeline.resolver.SubResolver;
-import org.sinytra.adapter.patch.api.MethodContext;
 import org.sinytra.adapter.patch.api.MixinConstants;
+import org.sinytra.adapter.patch.api.TargetPair;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.OpcodeUtil;
 
@@ -24,14 +23,14 @@ import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_I
 public class AtVariableAssignStoreSubResolver implements SubResolver {
     @Nullable
     @Override
-    public Configuration resolve(MixinData mixin, MixinContext context, Recipe recipe) {
+    public Configuration resolve(MixinContext context, Recipe recipe) {
         if (!recipe.clean().getAtData().getValue().equals(AT_VAL_INVOKE)) return null;
 
-        MethodContext.TargetPair cleanPair = recipe.getCleanTarget();
+        TargetPair cleanPair = recipe.getCleanTarget();
         AbstractInsnNode cleanInsn = context.methods().findInjectionTargetInsn(cleanPair);
         if (cleanInsn == null) return null;
 
-        MethodContext.TargetPair dirtyPair = recipe.getDirtyTarget();
+        TargetPair dirtyPair = recipe.getDirtyTarget();
         if (dirtyPair == null) return null;
 
         // Check that the following instruction is a store operation

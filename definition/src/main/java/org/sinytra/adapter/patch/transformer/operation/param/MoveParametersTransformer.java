@@ -9,20 +9,20 @@ import org.objectweb.asm.tree.ParameterNode;
 import org.sinytra.adapter.patch.analysis.locals.LVTSnapshot;
 import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.api.Patch;
 import org.sinytra.adapter.patch.api.PatchContext;
+import org.sinytra.adapter.patch.api.PatchResult;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.slf4j.Logger;
 
 import java.util.List;
 
-import static org.sinytra.adapter.patch.PatchInstance.MIXINPATCH;
+import static org.sinytra.adapter.patch.util.AdapterUtil.MIXINPATCH;
 
 public record MoveParametersTransformer(int from, int to) implements ParameterTransformer {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     @Override
-    public Patch.Result apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, List<Type> parameters, int offset) {
+    public PatchResult apply(ClassNode classNode, MethodNode methodNode, MethodContext methodContext, PatchContext context, List<Type> parameters, int offset) {
         final int paramIndex = this.from + offset;
 
         LOGGER.info(MIXINPATCH, "Moving parameter from index {} to {} in method {}.{}", this.from, this.to, classNode.name, methodNode.name);
@@ -49,6 +49,6 @@ public record MoveParametersTransformer(int from, int to) implements ParameterTr
 
         parameters.add(this.to > paramIndex ? this.to - 1 : this.to, type);
 
-        return Patch.Result.COMPUTE_FRAMES;
+        return PatchResult.COMPUTE_FRAMES;
     }
 }
