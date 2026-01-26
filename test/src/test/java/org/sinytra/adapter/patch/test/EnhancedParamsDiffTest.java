@@ -3,8 +3,8 @@ package org.sinytra.adapter.patch.test;
 import com.mojang.datafixers.util.Pair;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
-import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
-import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
+import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
+import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 
 import java.util.*;
 

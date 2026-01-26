@@ -1,0 +1,46 @@
+package org.sinytra.adapter.transform.patch;
+
+import org.objectweb.asm.commons.InstructionAdapter;
+import org.sinytra.adapter.transform.MethodTransformer;
+
+import java.util.function.Consumer;
+
+public interface MethodPatchBuilder {
+    // Matching
+    MethodPatchBuilder targetMixinType(String annotationDesc);
+
+    MethodPatchBuilder targetClass(String... targets);
+
+    MethodPatchBuilder targetMethod(String... targets);
+
+    MethodPatchBuilder targetInjectionPoint(String target);
+
+    MethodPatchBuilder targetInjectionPoint(String value, String target);
+
+    MethodPatchBuilder targetConstant(double doubleValue);
+
+    // Interface only
+    MethodPatchBuilder targetField(String target);
+
+    // Modifications
+    MethodPatchBuilder extractMixin(String targetClass);
+    
+    MethodPatchBuilder modifyTarget(String method);
+
+    MethodPatchBuilder modifyInjectionPoint(String target);
+
+    MethodPatchBuilder modifyInjectionPoint(String value, String target);
+
+    MethodPatchBuilder modifyInjectionPoint(String value, String target, boolean resetValues);
+
+    // TODO This should be automatic
+    MethodPatchBuilder modifyStatic(boolean isStatic);
+
+    MethodPatchBuilder modifyMixinType(String newType);
+
+    MethodPatchBuilder divertRedirector(Consumer<InstructionAdapter> patcher);
+
+    MethodPatchBuilder disable();
+
+    MethodPatchBuilder transform(MethodTransformer transformer);
+}

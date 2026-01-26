@@ -5,12 +5,12 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.tree.ClassNode;
-import org.sinytra.adapter.next.flow.DynamicPatches;
-import org.sinytra.adapter.next.flow.Patcher;
-import org.sinytra.adapter.next.env.ctx.PatchEnvironment;
-import org.sinytra.adapter.next.env.ctx.RefmapHolder;
-import org.sinytra.adapter.next.types.FieldTypeUsageTransformer;
-import org.sinytra.adapter.patch.util.provider.ClassLookup;
+import org.sinytra.adapter.patch.DynamicPatches;
+import org.sinytra.adapter.patch.Patcher;
+import org.sinytra.adapter.env.ctx.PatchEnvironment;
+import org.sinytra.adapter.env.ctx.RefmapHolder;
+import org.sinytra.adapter.types.FieldTypeUsageTransformer;
+import org.sinytra.adapter.util.provider.ClassLookup;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.FabricUtil;
 

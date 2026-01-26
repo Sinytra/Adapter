@@ -4,9 +4,9 @@ import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
-import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
-import org.sinytra.adapter.patch.analysis.params.ParametersDiff;
+import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
+import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
+import org.sinytra.adapter.analysis.params.ParametersDiff;
 import org.sinytra.adapter.patch.test.mixin.MinecraftMixinPatchTest;
 
 import java.io.IOException;
