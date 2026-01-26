@@ -7,7 +7,7 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.next.env.MixinContext;
-import org.sinytra.adapter.next.env.WeighedDisambiguation;
+import org.sinytra.adapter.next.env.util.WeighedDisambiguation;
 import org.sinytra.adapter.next.env.param.Parameters;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
@@ -15,14 +15,14 @@ import org.sinytra.adapter.next.pipeline.resolver.SubResolver;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.patch.analysis.method.MethodInsnMatcher;
-import org.sinytra.adapter.patch.api.TargetPair;
+import org.sinytra.adapter.next.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
 
 public class InjectionPointSubResolvers {
     public static final SubResolver REPLACED_TYPE = (MixinContext context, Recipe recipe) -> {

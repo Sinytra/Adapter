@@ -2,7 +2,7 @@ package org.sinytra.adapter.next.env.param;
 
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.Type;
-import org.sinytra.adapter.patch.api.MixinConstants;
+import org.sinytra.adapter.next.env.util.MixinAnnotations;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +26,7 @@ public class Parameter {
     }
 
     public boolean isLocal() {
-        return hasAnnotation(MixinConstants.LOCAL);
+        return hasAnnotation(MixinAnnotations.LOCAL);
     }
 
     public boolean hasAnnotation(String desc) {

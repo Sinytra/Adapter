@@ -6,10 +6,14 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
 import org.objectweb.asm.commons.Method;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.next.env.MixinContext;
+import org.sinytra.adapter.next.env.ctx.PatchEnvironment;
+import org.sinytra.adapter.next.env.ctx.TargetPair;
+import org.sinytra.adapter.next.env.util.MixinAnnotations;
+import org.sinytra.adapter.next.env.util.TypeConstants;
+import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.patch.analysis.method.MethodCallAnalyzer;
-import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.PatchResult;
+import org.sinytra.adapter.next.env.ctx.PatchResult;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.OpcodeUtil;
@@ -19,13 +23,21 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_METHOD;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.AT_METHOD;
 
 // TODO Cleanup
-public record MirrorableExtractMixin(String destinationClass, MethodInsnNode destinationMethodInvocation) {
-    public PatchResult apply(MethodContext methodContext) {
-        Type selfType = Type.getObjectType(methodContext.findDirtyInjectionTarget().classNode().name);
-        Type[] params = Type.getArgumentTypes(this.destinationMethodInvocation.desc);
+public class MirrorableExtractMixin {
+
+    public static PatchResult apply(MixinContext context, Recipe recipe, String destinationClass, MethodInsnNode destinationMethodInvocation) {
+        TargetPair dirtyTarget = recipe.getNewCleanTarget();
+        if (dirtyTarget == null) return PatchResult.PASS;
+
+        ClassNode classNode = context.classNode();
+        MethodNode methodNode = context.methodNode();
+        PatchEnvironment environment = context.environment();
+
+        Type selfType = Type.getObjectType(dirtyTarget.classNode().name);
+        Type[] params = Type.getArgumentTypes(destinationMethodInvocation.desc);
         int selfIndex = Stream.of(Stream.iterate(0, i -> i < params.length, i -> i + 1)
                 .filter(i -> params[i].equals(selfType))
                 .toList())
@@ -37,7 +49,7 @@ public record MirrorableExtractMixin(String destinationClass, MethodInsnNode des
             return PatchResult.PASS;
         }
 
-        List<AbstractInsnNode> callInsns = MethodCallAnalyzer.getMethodCallSrcInsns(methodContext.findDirtyInjectionTarget().methodNode(), this.destinationMethodInvocation);
+        List<AbstractInsnNode> callInsns = MethodCallAnalyzer.getMethodCallSrcInsns(dirtyTarget.methodNode(), destinationMethodInvocation);
         if (callInsns == null || callInsns.size() <= selfIndex) {
             return PatchResult.PASS;
         }
@@ -46,13 +58,12 @@ public record MirrorableExtractMixin(String destinationClass, MethodInsnNode des
             return PatchResult.PASS;
         }
         // Cool, out instance is passed into the method. Now let's inject there and call the old mixin method
-        ClassNode generatedTarget = methodContext.patchContext().environment().classGenerator().getOrGenerateMixinClass(methodContext.getMixinClass(), this.destinationClass, null);
-        methodContext.patchContext().environment().refmapHolder().copyEntries(methodContext.getMixinClass().name, generatedTarget.name);
+        ClassNode generatedTarget = environment.classGenerator().getOrGenerateMixinClass(classNode, destinationClass, null);
+        environment.refmapHolder().copyEntries(classNode.name, generatedTarget.name);
         // Generate a method with the same injector annotation
-        MethodNode originalMixinMethod = methodContext.getMixinMethod();
-        String name = originalMixinMethod.name + "$adapter$mirror$" + AdapterUtil.randomString(5);
-        List<Type> originalParams = List.of(Type.getArgumentTypes(originalMixinMethod.desc));
-        List<Type> newParams = ImmutableList.<Type>builder().add(Type.getArgumentTypes(this.destinationMethodInvocation.desc)).add(MixinConstants.CI_TYPE).build();
+        String name = methodNode.name + "$adapter$mirror$" + AdapterUtil.randomString(5);
+        List<Type> originalParams = List.of(Type.getArgumentTypes(methodNode.desc));
+        List<Type> newParams = ImmutableList.<Type>builder().add(Type.getArgumentTypes(destinationMethodInvocation.desc)).add(TypeConstants.CI_TYPE).build();
         // Make sure we have all required params
         if (!new HashSet<>(newParams).containsAll(originalParams)) {
             return PatchResult.PASS;
@@ -60,17 +71,17 @@ public record MirrorableExtractMixin(String destinationClass, MethodInsnNode des
 
         String desc = Type.getMethodDescriptor(Type.VOID_TYPE, newParams.toArray(Type[]::new));
         // Change target
-        methodContext.methodAnnotation()
+        context.methodAnnotation()
             .setOrAppendNonNull(AT_METHOD, List.of(
                 MethodQualifier.create(destinationMethodInvocation).asDescriptor()
             ));
 
         MethodNode invokerMixinMethod = (MethodNode) generatedTarget.visitMethod(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, name, desc, null, null);
-        invokerMixinMethod.visibleAnnotations = new ArrayList<>(originalMixinMethod.visibleAnnotations);
+        invokerMixinMethod.visibleAnnotations = new ArrayList<>(methodNode.visibleAnnotations);
         // Make original mixin a unique public method
-        originalMixinMethod.access = OpcodeUtil.setAccessVisibility(originalMixinMethod.access, Opcodes.ACC_PUBLIC);
-        originalMixinMethod.visibleAnnotations.remove(methodContext.methodAnnotation().unwrap());
-        originalMixinMethod.visitAnnotation(MixinConstants.UNIQUE, true);
+        methodNode.access = OpcodeUtil.setAccessVisibility(methodNode.access, Opcodes.ACC_PUBLIC);
+        methodNode.visibleAnnotations.remove(context.methodAnnotation().unwrap());
+        methodNode.visitAnnotation(MixinAnnotations.UNIQUE, true);
         // Now call the original mixin
         GeneratorAdapter gen = new GeneratorAdapter(invokerMixinMethod, invokerMixinMethod.access, invokerMixinMethod.name, invokerMixinMethod.desc);
         gen.newLabel();
@@ -78,7 +89,7 @@ public record MirrorableExtractMixin(String destinationClass, MethodInsnNode des
         for (Type type : originalParams) {
             gen.loadArg(newParams.indexOf(type));
         }
-        gen.invokeVirtual(selfType, new Method(originalMixinMethod.name, originalMixinMethod.desc));
+        gen.invokeVirtual(selfType, new Method(methodNode.name, methodNode.desc));
         gen.newLabel();
         gen.returnValue();
         gen.newLabel();

@@ -3,7 +3,7 @@ package org.sinytra.adapter.next.env.param;
 import com.google.common.collect.ImmutableMap;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.patch.api.MixinConstants;
+import org.sinytra.adapter.next.env.util.TypeConstants;
 
 import java.util.*;
 import java.util.function.Predicate;
@@ -20,8 +20,8 @@ public class MethodParameters implements Copiable<MethodParameters> {
         public static final ParamGroup CAPTURED_PARAMS = new ParamGroup(ParamGroupType.VARIABLE, "captured_params", i -> !i.isLocal());
 
         public static final ParamGroup SINGLE_ANY = new ParamGroup(ParamGroupType.SINGLE, "single_any", i -> true);
-        public static final ParamGroup CI_CIR = new ParamGroup(ParamGroupType.SINGLE, "ci_cir", i -> i.getType().equals(MixinConstants.CI_TYPE) || i.getType().equals(MixinConstants.CIR_TYPE));
-        public static final ParamGroup OPERATION = new ParamGroup(ParamGroupType.SINGLE, "operation", i -> i.getType().equals(MixinConstants.OPERATION_TYPE));
+        public static final ParamGroup CI_CIR = new ParamGroup(ParamGroupType.SINGLE, "ci_cir", i -> i.getType().equals(TypeConstants.CI_TYPE) || i.getType().equals(TypeConstants.CIR_TYPE));
+        public static final ParamGroup OPERATION = new ParamGroup(ParamGroupType.SINGLE, "operation", i -> i.getType().equals(TypeConstants.OPERATION_TYPE));
 
         public static final ParamGroup LOCALS = new ParamGroup(ParamGroupType.VARIABLE, "locals", Parameter::isLocal);
     }

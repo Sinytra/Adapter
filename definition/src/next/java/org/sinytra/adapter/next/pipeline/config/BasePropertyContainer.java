@@ -16,10 +16,6 @@ public class BasePropertyContainer implements MutablePropertyContainer {
     @Nullable
     protected final PropertyContainerTemplate template;
 
-    public BasePropertyContainer() {
-        this(null);
-    }
-
     public BasePropertyContainer(@Nullable PropertyContainerTemplate template) {
         this.template = template;
     }
@@ -93,6 +89,11 @@ public class BasePropertyContainer implements MutablePropertyContainer {
         return new BasePropertyContainer(this.template);
     }
 
+    public static MutablePropertyContainer parseValid(AnnotationHandle handle, @Nullable PropertyContainerTemplate template, RefMapper mapper) {
+        MutablePropertyContainer container = parse(handle, template, mapper);
+        return container.validate() ? container : null;
+    }
+
     @SuppressWarnings({"rawtypes", "unchecked"})
     public static MutablePropertyContainer parse(AnnotationHandle handle, @Nullable PropertyContainerTemplate template, RefMapper mapper) {
         MutablePropertyContainer container = new BasePropertyContainer(template);
@@ -102,15 +103,15 @@ public class BasePropertyContainer implements MutablePropertyContainer {
             if (value == null) continue;
 
             if (key.parser() != null) {
-                Object parsed = key.parser().parse(value, mapper);
-                container.setProperty(key, parsed);
+                try {
+                    Object parsed = key.parser().parse(value, mapper);
+                    container.setProperty(key, parsed);
+                } catch (Exception e) {
+                    throw new RuntimeException("Error parsing property '%s'".formatted(key.name()), e);
+                }
             } else {
                 throw new IllegalStateException("Cannot parse for key %s, it does not define a parser".formatted(key.name()));
             }
-        }
-
-        if (!container.validate()) {
-            return null;
         }
 
         return container;

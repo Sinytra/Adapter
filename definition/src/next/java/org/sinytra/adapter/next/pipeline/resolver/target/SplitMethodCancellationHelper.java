@@ -8,11 +8,12 @@ import org.objectweb.asm.commons.GeneratorAdapter;
 import org.objectweb.asm.commons.Method;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.next.env.MixinContext;
+import org.sinytra.adapter.next.env.util.MixinAnnotations;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.patch.analysis.method.MethodAnalyzer;
-import org.sinytra.adapter.patch.api.MixinClassGenerator;
-import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.TargetPair;
+import org.sinytra.adapter.next.env.ctx.MixinClassGenerator;
+import org.sinytra.adapter.next.env.util.TypeConstants;
+import org.sinytra.adapter.next.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
@@ -20,7 +21,7 @@ import java.util.List;
 
 public final class SplitMethodCancellationHelper {
 
-    public static void handle(Object transform, MixinContext context, Recipe recipe, MethodNode newTarget) {
+    public static void handle(MixinContext context, Recipe recipe, MethodNode newTarget) {
         TargetPair cleanTarget = recipe.getCleanTarget();
         TargetPair originalTarget = recipe.getDirtyTarget();
 
@@ -53,10 +54,10 @@ public final class SplitMethodCancellationHelper {
 
     private static void generateCancellerMethod(ClassNode generatedTarget, FieldNode trackerField, ClassNode originalClassTarget, MethodNode newTarget, MixinContext context, boolean reset) {
         String name = context.methodNode().name + "$adapter$canceller$" + AdapterUtil.randomString(5);
-        String desc = Type.getMethodDescriptor(Type.VOID_TYPE, MixinConstants.CI_TYPE);
+        String desc = Type.getMethodDescriptor(Type.VOID_TYPE, TypeConstants.CI_TYPE);
         MethodNode invokerMixinMethod = (MethodNode) generatedTarget.visitMethod(Opcodes.ACC_PRIVATE | (context.isStatic() ? Opcodes.ACC_STATIC : 0), name, desc, null, null);
         {
-            AnnotationVisitor injectAnn = invokerMixinMethod.visitAnnotation(MixinConstants.INJECT, true);
+            AnnotationVisitor injectAnn = invokerMixinMethod.visitAnnotation(MixinAnnotations.INJECT, true);
             {
                 AnnotationVisitor methodValue = injectAnn.visitArray("method");
                 methodValue.visit(null, newTarget.name + newTarget.desc);
@@ -65,7 +66,7 @@ public final class SplitMethodCancellationHelper {
             {
                 AnnotationVisitor atValue = injectAnn.visitArray("at");
                 {
-                    AnnotationVisitor atAnn = atValue.visitAnnotation(null, MixinConstants.AT);
+                    AnnotationVisitor atAnn = atValue.visitAnnotation(null, MixinAnnotations.AT);
                     atAnn.visit("value", "HEAD");
                     atAnn.visitEnd();
                 }
@@ -90,14 +91,14 @@ public final class SplitMethodCancellationHelper {
             }
             gen.newLabel();
             gen.loadArg(0);
-            gen.invokeVirtual(MixinConstants.CI_TYPE, new Method("cancel", "()V"));
+            gen.invokeVirtual(TypeConstants.CI_TYPE, new Method("cancel", "()V"));
         }
         gen.visitLabel(endLabel);
         gen.returnValue();
         gen.newLabel();
         gen.endMethod();
         // Modify mixin to set the field value
-        MethodQualifier qualifier = new MethodQualifier(MixinConstants.CI_TYPE.getDescriptor(), "cancel", "()V");
+        MethodQualifier qualifier = new MethodQualifier(TypeConstants.CI_TYPE.getDescriptor(), "cancel", "()V");
         InsnList methodInsns = context.methodNode().instructions;
         for (AbstractInsnNode insn : methodInsns) {
             if (insn instanceof MethodInsnNode minsn && qualifier.matches(minsn)) {

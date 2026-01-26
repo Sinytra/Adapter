@@ -1,6 +1,6 @@
 package org.sinytra.adapter.next.pipeline.processor;
 
-import org.sinytra.adapter.next.env.OrderedRegistry;
+import org.sinytra.adapter.next.env.util.OrderedRegistry;
 import org.sinytra.adapter.next.pipeline.processor.extract.ExtractMixinProcessor;
 
 public class Processors extends OrderedRegistry<Processor> {

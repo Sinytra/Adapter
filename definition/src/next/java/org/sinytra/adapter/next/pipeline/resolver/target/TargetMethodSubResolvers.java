@@ -14,7 +14,7 @@ import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
 import org.sinytra.adapter.next.pipeline.resolver.Resolver;
 import org.sinytra.adapter.next.pipeline.resolver.SubResolver;
 import org.sinytra.adapter.next.pipeline.resolver.injection.InjectionPointResolver;
-import org.sinytra.adapter.patch.api.TargetPair;
+import org.sinytra.adapter.next.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
@@ -62,7 +62,7 @@ public class TargetMethodSubResolvers {
         for (AbstractInsnNode insn : target.methodNode().instructions) {
             // Find lambda invocations and search for target insns inside the lambda
             if (insn instanceof InvokeDynamicInsnNode indy && indy.bsmArgs.length > 1 && indy.bsmArgs[1] instanceof Handle handle) {
-                TargetPair lambda = MethodQualifier.create(handle.getName())
+                TargetPair lambda = MethodQualifier.parse(handle.getName())
                     .map(q -> context.methods().findOwnMethodPair(context.dirtyLookup(), q))
                     .orElse(null);
                 if (lambda == null) return null;

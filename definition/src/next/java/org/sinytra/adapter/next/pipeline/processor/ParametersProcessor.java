@@ -11,7 +11,7 @@ import org.sinytra.adapter.next.pipeline.TxResult;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.patch.analysis.params.ParamsDiffSnapshot;
-import org.sinytra.adapter.patch.api.PatchResult;
+import org.sinytra.adapter.next.env.ctx.PatchResult;
 
 import java.util.List;
 import java.util.Map;
@@ -57,7 +57,7 @@ public class ParametersProcessor implements Processor {
         ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(clean, dirty);
         if (!diff.isEmpty()) {
             PatchResult result = diff.offset(offset).asParameterTransformer(false, Set.of())
-                .apply(context.legacy());
+                .apply(context);
             return result != PatchResult.PASS;
         }
         return true;

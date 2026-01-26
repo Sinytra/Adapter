@@ -18,7 +18,7 @@ public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nu
     }
 
     @Nullable
-    public static Optional<MethodQualifier> create(String qualifier) {
+    public static Optional<MethodQualifier> parse(String qualifier) {
         Matcher matcher = METHOD_QUALIFIER_PATTERN.matcher(qualifier);
         if (matcher.matches()) {
             String name = matcher.group("name");

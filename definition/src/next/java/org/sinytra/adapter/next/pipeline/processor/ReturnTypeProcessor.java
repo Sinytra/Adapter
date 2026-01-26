@@ -11,7 +11,7 @@ import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.TxResult;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.patch.analysis.method.MethodAnalyzer;
-import org.sinytra.adapter.patch.fixes.TypeAdapter;
+import org.sinytra.adapter.next.types.TypeAdapter;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 
 import java.util.ArrayList;

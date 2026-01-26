@@ -6,11 +6,11 @@ import org.assertj.core.api.Assertions;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.next.env.util.MixinAnnotations;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
-import org.sinytra.adapter.patch.api.MixinClassGenerator;
-import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.PatchEnvironment;
+import org.sinytra.adapter.next.env.ctx.MixinClassGenerator;
+import org.sinytra.adapter.next.env.ctx.PatchEnvironment;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 import org.sinytra.adapter.patch.util.provider.ZipClassLookup;
@@ -189,9 +189,9 @@ public abstract class MinecraftMixinPatchTest {
 
     protected AssertCallback assertUnique() {
         return (patched, expected, env) -> {
-            Assertions.assertThat(patched.visibleAnnotations.stream().anyMatch(ann -> ann.desc.equals(MixinConstants.UNIQUE)))
+            Assertions.assertThat(patched.visibleAnnotations.stream().anyMatch(ann -> ann.desc.equals(MixinAnnotations.UNIQUE)))
                 .as("Unique method")
-                .isEqualTo(expected.visibleAnnotations.stream().anyMatch(ann -> ann.desc.equals(MixinConstants.UNIQUE)));
+                .isEqualTo(expected.visibleAnnotations.stream().anyMatch(ann -> ann.desc.equals(MixinAnnotations.UNIQUE)));
         };
     }
 

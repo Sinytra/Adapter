@@ -5,21 +5,21 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.next.env.Configurations;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.AtData;
+import org.sinytra.adapter.next.env.util.MixinAnnotations;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.resolver.Resolver;
 import org.sinytra.adapter.patch.analysis.InsnComparator;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.method.MethodInsnMatcher;
-import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.TargetPair;
+import org.sinytra.adapter.next.env.ctx.TargetPair;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_SINYTRA_INSTANCEOF;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.AT_VAL_SINYTRA_INSTANCEOF;
 
 /**
  * <p>
@@ -65,7 +65,7 @@ public record ResolverSyntheticInstanceof(boolean skipInsnComparison) implements
 
                         int ordinal = getInstanceofOrdinal(dirtyInsns, instanceOfInsn);
                         Configuration config = recipe.dirty().copyClean()
-                            .setMixinType(MixinConstants.MODIFY_INSTANCEOF_VAL)
+                            .setMixinType(MixinAnnotations.MODIFY_INSTANCEOF_VAL)
                             .inheritTargetClass()
                             .inheritTargetMethod()
                             .setAtData(AtData.builder(AT_VAL_SINYTRA_INSTANCEOF)

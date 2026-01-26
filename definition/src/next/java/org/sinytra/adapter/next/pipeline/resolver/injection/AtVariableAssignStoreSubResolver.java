@@ -3,19 +3,19 @@ package org.sinytra.adapter.next.pipeline.resolver.injection;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.next.env.MixinContext;
+import org.sinytra.adapter.next.env.ctx.TargetPair;
+import org.sinytra.adapter.next.env.util.MixinAnnotations;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
 import org.sinytra.adapter.next.pipeline.resolver.SubResolver;
-import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.TargetPair;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.OpcodeUtil;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
 
 /**
  * Find our new injection point with relation to variable assignments
@@ -39,12 +39,12 @@ public class AtVariableAssignStoreSubResolver implements SubResolver {
             return null;
         }
         // Find matching local in dirty target method
-        LocalVariableNode cleanLocal = context.legacy().cleanLocalsTable().getByIndexOrNull(varInsn.var);
+        LocalVariableNode cleanLocal = recipe.cleanLocalsTable().getByIndexOrNull(varInsn.var);
         if (cleanLocal == null) {
             return null;
         }
-        List<LocalVariableNode> cleanLocals = context.legacy().cleanLocalsTable().getForType(cleanLocal);
-        List<LocalVariableNode> dirtyLocals = context.legacy().dirtyLocalsTable().getForType(cleanLocal);
+        List<LocalVariableNode> cleanLocals = recipe.cleanLocalsTable().getForType(cleanLocal);
+        List<LocalVariableNode> dirtyLocals = recipe.dirtyLocalsTable().getForType(cleanLocal);
         if (cleanLocals.size() != dirtyLocals.size()) {
             return null;
         }
@@ -66,7 +66,7 @@ public class AtVariableAssignStoreSubResolver implements SubResolver {
             return null;
         }
 
-        if (context.methodAnnotation().matchesDesc(MixinConstants.WRAP_OPERATION)) {
+        if (context.methodAnnotation().matchesDesc(MixinAnnotations.WRAP_OPERATION)) {
             // In case the mixin is call-sensitive, we try to keep the orignal injection point if the method was moved
             if (!previousMethodCall.owner.equals(dirtyPair.classNode().name)) {
                 return null;

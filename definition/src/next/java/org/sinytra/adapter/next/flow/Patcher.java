@@ -4,18 +4,19 @@ import com.mojang.logging.LogUtils;
 import org.objectweb.asm.tree.ClassNode;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.ClassTarget;
-import org.sinytra.adapter.next.env.ann.MixinAnnotationConstants;
+import org.sinytra.adapter.next.env.ctx.PatchContext;
+import org.sinytra.adapter.next.env.ctx.PatchContextImpl;
+import org.sinytra.adapter.next.env.ctx.PatchEnvironment;
+import org.sinytra.adapter.next.env.util.MixinAnnotationConstants;
 import org.sinytra.adapter.next.pipeline.TxResult;
 import org.sinytra.adapter.next.pipeline.config.Keys;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
 import org.sinytra.adapter.next.pipeline.config.PropertyContainerTemplate;
 import org.sinytra.adapter.next.transform.ClassTransformer;
 import org.sinytra.adapter.next.transform.MethodTransformer;
-import org.sinytra.adapter.next.type.MixinType;
-import org.sinytra.adapter.patch.MethodContextImpl;
-import org.sinytra.adapter.patch.PatchContextImpl;
+import org.sinytra.adapter.next.mixin.MixinType;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.api.*;
+import org.sinytra.adapter.next.env.ctx.PatchResult;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.slf4j.Logger;
 
@@ -73,8 +74,9 @@ public class Patcher {
         MethodQualifier target = mixin.properties().getProperty(Keys.TARGET_METHOD).orElse(null);
         if (target == null) return PatchResult.PASS;
 
+        AnnotationHandle atHandle = mixin.methodAnnotation().getNested(MixinAnnotationConstants.PROPERTY_AT).orElse(null);
         MixinType mixinType = mixin.mixinType();
-        MixinContext mixinContext = buildContext(classNode, classTarget, mixin, patchContext);
+        MixinContext mixinContext = new MixinContext(patchContext, classTarget, classNode, mixin.methodNode(), mixin.methodAnnotation(), atHandle);
         String mixinId = mixinContext.getMixinId();
 
         // Build base config
@@ -97,11 +99,10 @@ public class Patcher {
             return PatchResult.PASS;
         }
 
-        MethodContext legacy = mixinContext.legacy();
         PatchResult result = PatchResult.PASS;
         // TODO Audit trail
         if (!this.methodTransformers.isEmpty()) {
-            this.environment.auditTrail().prepareMethod(legacy);
+            this.environment.auditTrail().prepareMethod(mixinContext);
         }
 
         for (MethodTransformer transformer : this.methodTransformers) {
@@ -116,22 +117,5 @@ public class Patcher {
         }
 
         return result;
-    }
-
-    private MixinContext buildContext(ClassNode classNode, ClassTarget classTarget, MixinParser.MixinMethodHandle mixin, PatchContext patchContext) {
-        AnnotationHandle handle = mixin.methodAnnotation().getNested(MixinAnnotationConstants.PROPERTY_AT)
-            .orElse(null);
-
-        MethodContext legacyContext = MethodContextImpl.builder()
-            .classNode(classNode)
-            .rawClassAnnotation(classTarget.getHandle())
-            .classAnnotation(classTarget.getValueHandle())
-            .targetTypes(classTarget.getTypes())
-            .methodNode(mixin.methodNode())
-            .methodAnnotation(mixin.methodAnnotation())
-            .injectionPointAnnotation(handle)
-            .build(patchContext);
-
-        return new MixinContext(classTarget, classNode, mixin.methodNode(), legacyContext);
     }
 }

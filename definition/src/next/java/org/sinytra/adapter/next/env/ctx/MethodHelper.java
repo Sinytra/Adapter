@@ -13,10 +13,9 @@ import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.patch.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.api.PatchContext;
-import org.sinytra.adapter.patch.api.TargetPair;
+import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
-import org.sinytra.adapter.patch.util.MockMixinRuntime;
+import org.sinytra.adapter.next.env.MockMixinRuntime;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.injection.InjectionPoint;
@@ -24,13 +23,15 @@ import org.spongepowered.asm.mixin.injection.code.ISliceContext;
 import org.spongepowered.asm.mixin.injection.code.MethodSlice;
 import org.spongepowered.asm.mixin.injection.struct.Target;
 import org.spongepowered.asm.mixin.refmap.IMixinContext;
+import org.spongepowered.asm.util.Locals;
 
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.*;
 import static org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup.CAPTURED_PARAMS;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.*;
 
 public class MethodHelper {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -149,7 +150,7 @@ public class MethodHelper {
     }
 
     @Nullable
-    private List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable TargetPair target, Supplier<AnnotationHandle> atNodeSupplier, BiFunction<IMixinContext, AnnotationHandle, InjectionPoint> injectionPointParser, boolean ignoreShift) {
+    public List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable TargetPair target, Supplier<AnnotationHandle> atNodeSupplier, BiFunction<IMixinContext, AnnotationHandle, InjectionPoint> injectionPointParser, boolean ignoreShift) {
         if (target == null) {
             return List.of();
         }
@@ -200,6 +201,41 @@ public class MethodHelper {
     private InsnList computeSlicedInsns(ISliceContext context, AnnotationNode annotation, Target mixinTarget) {
         MethodSlice slice = MethodSlice.parse(context, annotation);
         return slice.getSlice(mixinTarget);
+    }
+
+    @Nullable
+    public List<LocalVariable> getTargetMethodLocals(TargetPair target) {
+        Type[] targetParams = Type.getArgumentTypes(target.methodNode().desc);
+        boolean isStatic = isStatic(this.context.methodNode());
+        int lvtOffset = isStatic ? 0 : 1;
+        // The starting LVT index is of the first var after all method parameters. Offset by 1 for instance methods to skip 'this'
+        int targetLocalPos = targetParams.length + lvtOffset;
+        return getTargetMethodLocals(target, targetLocalPos);
+    }
+
+    @Nullable
+    public List<LocalVariable> getTargetMethodLocals(TargetPair target, int startPos) {
+        return getTargetMethodLocals(target, startPos, this.context.environment().fabricLVTCompatibility());
+    }
+
+    @Nullable
+    public List<LocalVariable> getTargetMethodLocals(TargetPair target, int startPos, int lvtCompatLevel) {
+        List<AbstractInsnNode> targetInsns = findInjectionTargetInsns(target);
+        if (targetInsns.isEmpty()) {
+            LOGGER.debug("Skipping LVT patch, no target instructions found");
+            return null;
+        }
+        // Get available local variables at the injection point in the target method
+        LocalVariableNode[] localVariables;
+        // Synchronize to avoid issues in mixin. This is necessary.
+        synchronized (this) {
+            localVariables = Locals.getLocalsAt(target.classNode(), target.methodNode(), targetInsns.getFirst(), lvtCompatLevel);
+        }
+        LocalVariable[] locals = Stream.of(localVariables)
+            .filter(Objects::nonNull)
+            .map(lv -> new LocalVariable(lv.index, Type.getType(lv.desc)))
+            .toArray(LocalVariable[]::new);
+        return AdapterUtil.summariseLocals(locals, startPos);
     }
 
     public static boolean isStatic(MethodNode node) {

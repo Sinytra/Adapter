@@ -5,42 +5,43 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.next.env.ann.ClassTarget;
-import org.sinytra.adapter.next.env.ctx.MethodHelper;
-import org.sinytra.adapter.next.env.ctx.RefMapper;
+import org.sinytra.adapter.next.env.ctx.*;
 import org.sinytra.adapter.next.pipeline.processor.Processors;
 import org.sinytra.adapter.next.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.api.PatchContext;
-import org.sinytra.adapter.patch.api.PatchEnvironment;
-import org.sinytra.adapter.patch.fixes.TypeAdapter;
+import org.sinytra.adapter.next.types.TypeAdapter;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 
 import java.util.List;
 
-public class MixinContext implements RefMapper {
-    private final String mixinId;
+public class MixinContext implements RefMapper, Auditor {
+    private final PatchContext patchContext;
     private final ClassTarget classTarget;
     private final ClassNode classNode;
     private final MethodNode methodNode;
     private final MethodNode originalMethodNode;
+    
+    private final AnnotationHandle methodAnnotation;
+    private final AnnotationHandle injectionPointAnnotation;
 
+    private final String mixinId;
     private final MethodHelper methodHelper;
-    private final MethodContext methodContext;
-
     private final Resolvers resolvers = new Resolvers();
     private final Processors processors = new Processors();
 
-    public MixinContext(ClassTarget classTarget, ClassNode classNode, MethodNode methodNode, MethodContext methodContext) {
-        this.mixinId = classNode.name + "#" + methodNode.name + methodNode.desc;
-
+    public MixinContext(PatchContext patchContext, ClassTarget classTarget, ClassNode classNode, MethodNode methodNode, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation) {
+        this.patchContext = patchContext;
         this.classTarget = classTarget;
         this.classNode = classNode;
         this.methodNode = methodNode;
+        this.methodAnnotation = methodAnnotation;
+        this.injectionPointAnnotation = injectionPointAnnotation;
+
         this.methodHelper = new MethodHelper(this, classTarget.getTypes());
-        this.methodContext = methodContext;
         this.originalMethodNode = AdapterUtil.copyMethod(this.methodNode);
+        
+        this.mixinId = classNode.name + "#" + methodNode.name + methodNode.desc;
     }
 
     public String getMixinId() {
@@ -77,25 +78,25 @@ public class MixinContext implements RefMapper {
     }
 
     public ClassLookup cleanLookup() {
-        return this.methodContext.patchContext().environment().cleanClassLookup();
+        return this.patchContext.environment().cleanClassLookup();
     }
 
     public ClassLookup dirtyLookup() {
-        return this.methodContext.patchContext().environment().dirtyClassLookup();
+        return this.patchContext.environment().dirtyClassLookup();
     }
 
     public AnnotationHandle methodAnnotation() {
-        return this.methodContext.methodAnnotation();
+        return this.methodAnnotation;
     }
 
     @Nullable
     public AnnotationHandle injectionPointAnnotation() {
-        return this.methodContext.injectionPointAnnotation();
+        return this.injectionPointAnnotation;
     }
 
     @Nullable
     public TypeAdapter getTypeAdapter(Type from, Type to) {
-        return this.methodContext.patchContext().environment().bytecodeFixerUpper().getTypeAdapter(from, to);
+        return this.patchContext.environment().bytecodeFixerUpper().getTypeAdapter(from, to);
     }
 
     @Override
@@ -104,16 +105,11 @@ public class MixinContext implements RefMapper {
     }
 
     public PatchContext patchContext() {
-        return this.methodContext.patchContext();
+        return this.patchContext;
     }
 
     public boolean isStatic() {
         return MethodHelper.isStatic(this.methodNode);
-    }
-
-    @Deprecated
-    public MethodContext legacy() {
-        return this.methodContext;
     }
 
     public List<Type> targetTypes() {
@@ -122,5 +118,10 @@ public class MixinContext implements RefMapper {
 
     public PatchEnvironment environment() {
         return patchContext().environment();
+    }
+
+    @Override
+    public void recordAudit(Object transform, String message, Object... args) {
+        environment().auditTrail().recordAudit(transform, this, message, args);
     }
 }

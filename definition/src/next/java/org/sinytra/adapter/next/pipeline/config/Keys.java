@@ -28,7 +28,7 @@ public final class Keys {
             // Resolve method reference
             String reference = mapper.remap(methodRefs.getFirst());
             // Extract owner, name and desc using regex
-            return MethodQualifier.create(reference).orElse(null);
+            return MethodQualifier.parse(reference).orElse(null);
         })
         .build();
     public static final PropertyKey<AtData> TARGET_AT = PropertyKey.<AtData>builder("at")
@@ -66,6 +66,7 @@ public final class Keys {
             .toList())
         .build();
     public static final PropertyKey<LocalCapture> LOCALS = PropertyKey.create("locals", LocalCapture.class);
+    public static final PropertyKey<Integer> REQUIRE = PropertyKey.create("require", Integer.class);
 
     private Keys() {
     }

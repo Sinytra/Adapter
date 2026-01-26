@@ -12,11 +12,11 @@ import org.sinytra.adapter.next.pipeline.resolver.SubResolver;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.locals.LocalVarAnalyzer;
 import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.patch.api.TargetPair;
+import org.sinytra.adapter.next.env.ctx.TargetPair;
 
 import java.util.List;
 
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_STORE;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.AT_VAL_STORE;
 import static org.sinytra.adapter.next.pipeline.config.Keys.ORDINAL;
 
 public class ModifyVarInjectionPointSubResolver implements SubResolver {

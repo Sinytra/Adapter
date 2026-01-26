@@ -6,11 +6,11 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.InnerClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.next.env.ann.ClassTarget;
-import org.sinytra.adapter.next.type.MixinTypes;
+import org.sinytra.adapter.next.mixin.MixinTypes;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.next.transform.ClassTransformer;
-import org.sinytra.adapter.patch.api.PatchContext;
-import org.sinytra.adapter.patch.api.PatchResult;
+import org.sinytra.adapter.next.env.ctx.PatchContext;
+import org.sinytra.adapter.next.env.ctx.PatchResult;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
@@ -38,7 +38,7 @@ public class DynamicAnonClassIndexPatch implements ClassTransformer {
         }
 
         // FIXME Cannot use remap here!
-        MethodQualifier cleanOuterMethod = MethodQualifier.create(context.remap(cleanClass.outerMethod + cleanClass.outerMethodDesc)).orElse(null);
+        MethodQualifier cleanOuterMethod = MethodQualifier.parse(context.remap(cleanClass.outerMethod + cleanClass.outerMethodDesc)).orElse(null);
         if (cleanOuterMethod == null) {
             return PatchResult.PASS;
         }
@@ -72,7 +72,7 @@ public class DynamicAnonClassIndexPatch implements ClassTransformer {
                             List<String> mapped = val.get().stream()
                                 .map(target -> {
                                     String remapped = context.remap(target);
-                                    MethodQualifier q = MethodQualifier.create(remapped).orElse(null);
+                                    MethodQualifier q = MethodQualifier.parse(remapped).orElse(null);
                                     return q == null ? target : "L" + newOwner + ";" + q.name() + q.desc();
                                 })
                                 .toList();

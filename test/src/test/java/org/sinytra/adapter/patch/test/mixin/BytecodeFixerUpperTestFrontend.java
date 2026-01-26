@@ -6,9 +6,9 @@ import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.InsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.TypeInsnNode;
-import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
-import org.sinytra.adapter.patch.fixes.SimpleTypeAdapter;
-import org.sinytra.adapter.patch.fixes.TypeAdapter;
+import org.sinytra.adapter.next.types.BytecodeFixerUpper;
+import org.sinytra.adapter.next.types.SimpleTypeAdapter;
+import org.sinytra.adapter.next.types.TypeAdapter;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 
 import java.util.List;

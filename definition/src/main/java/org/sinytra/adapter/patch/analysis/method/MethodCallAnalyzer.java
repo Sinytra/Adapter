@@ -9,12 +9,14 @@ import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.Frame;
 import org.objectweb.asm.tree.analysis.SourceInterpreter;
 import org.objectweb.asm.tree.analysis.SourceValue;
+import org.sinytra.adapter.patch.analysis.InsnComparator;
 import org.sinytra.adapter.patch.analysis.selector.FrameUtil;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 public class MethodCallAnalyzer {
@@ -45,7 +47,8 @@ public class MethodCallAnalyzer {
 
     @Nullable
     public static List<AbstractInsnNode> getMethodCallSrcInsns(MethodNode methodNode, MethodInsnNode minsn) {
-        List<? extends SourceValue> sources = getCallSourceValues(methodNode, minsn);
+        List<? extends SourceValue> sources = Objects.requireNonNull(getCallSourceValues(methodNode, minsn));
+
         List<AbstractInsnNode> insns = new ArrayList<>();
         for (SourceValue src : sources) {
             AbstractInsnNode srcInsn = AdapterUtil.getSingleInsn(src);
@@ -115,7 +118,7 @@ public class MethodCallAnalyzer {
 
         @Override
         public SourceValue naryOperation(AbstractInsnNode insn, List<? extends SourceValue> values) {
-            if (insn == this.targetInsn && this.results == null) {
+            if (InsnComparator.insnEqual(insn, this.targetInsn) && this.results == null) {
                 this.results = values;
             }
             return super.naryOperation(insn, values);

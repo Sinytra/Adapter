@@ -2,14 +2,14 @@ package org.sinytra.adapter.next.pipeline.resolver.special;
 
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.AtData;
+import org.sinytra.adapter.next.env.util.MixinAnnotations;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.resolver.Resolver;
-import org.sinytra.adapter.patch.api.MixinConstants;
 import org.spongepowered.asm.mixin.injection.At;
 
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE_ASSIGN;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.AT_VAL_INVOKE_ASSIGN;
 
 /**
  * Upgrade a ModifyVar to a ModifyExpressionVal
@@ -82,7 +82,7 @@ public class ModifyVarUpgradeResolver implements Resolver {
 
         String target = at.getTargetOrThrow();
         Configuration config = recipe.dirty().copyClean()
-            .setMixinType(MixinConstants.MODIFY_EXPR_VAL)
+            .setMixinType(MixinAnnotations.MODIFY_EXPR_VAL)
             .inheritTargetClass()
             .inheritTargetMethod()
             .setAtData(AtData.create(AT_VAL_INVOKE, target))

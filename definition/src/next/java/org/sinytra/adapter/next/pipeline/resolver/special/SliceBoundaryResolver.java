@@ -12,9 +12,9 @@ import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
 import org.sinytra.adapter.next.pipeline.resolver.Resolver;
-import org.sinytra.adapter.patch.api.TargetPair;
+import org.sinytra.adapter.next.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.util.MethodQualifier;
-import org.sinytra.adapter.patch.util.MockMixinRuntime;
+import org.sinytra.adapter.next.env.MockMixinRuntime;
 import org.spongepowered.asm.mixin.injection.code.ISliceContext;
 import org.spongepowered.asm.mixin.injection.code.MethodSlice;
 import org.spongepowered.asm.mixin.injection.struct.Target;
@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
 import static org.sinytra.adapter.next.pipeline.config.Keys.SLICE;
 
 public class SliceBoundaryResolver implements Resolver {
@@ -69,7 +69,7 @@ public class SliceBoundaryResolver implements Resolver {
             return Optional.empty();
 
         // Find original target invocation qualifier
-        MethodQualifier target = boundary.getTarget().flatMap(MethodQualifier::create).orElse(null);
+        MethodQualifier target = boundary.getTarget().flatMap(MethodQualifier::parse).orElse(null);
         if (target == null) return Optional.empty();
 
         // Find method invocations with a matching name

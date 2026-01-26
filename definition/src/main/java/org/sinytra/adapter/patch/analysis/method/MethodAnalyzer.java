@@ -7,7 +7,7 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.*;
-import org.sinytra.adapter.patch.api.MixinConstants;
+import org.sinytra.adapter.next.env.util.TypeConstants;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.sinytra.adapter.patch.util.OpcodeUtil;
@@ -22,17 +22,8 @@ public class MethodAnalyzer {
     public static final String LAMBDA_PREFIX = "lambda$";
 
     public static boolean isDirtyDeprecatedMethod(MethodNode clean, MethodNode dirty) {
-        return !AdapterUtil.hasAnnotation(clean.visibleAnnotations, MixinConstants.DEPRECATED) && AdapterUtil.hasAnnotation(dirty.visibleAnnotations, MixinConstants.DEPRECATED);
-    }
-
-    public static List<MethodInsnNode> getMethodInvocations(MethodNode method, MethodQualifier qualifier) {
-        List<MethodInsnNode> list = new ArrayList<>();
-        for (AbstractInsnNode insn : method.instructions) {
-            if (insn instanceof MethodInsnNode minsn && qualifier.matches(minsn)) {
-                list.add(minsn);
-            }
-        }
-        return list;
+        return !AdapterUtil.hasAnnotation(clean.visibleAnnotations, TypeConstants.DEPRECATED)
+            && AdapterUtil.hasAnnotation(dirty.visibleAnnotations, TypeConstants.DEPRECATED);
     }
 
     @Nullable

@@ -5,8 +5,10 @@ import com.google.common.collect.Multimap;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.next.env.ann.ClassTarget;
+import org.sinytra.adapter.next.env.ctx.PatchContext;
+import org.sinytra.adapter.next.env.ctx.PatchResult;
+import org.sinytra.adapter.next.env.util.MixinAnnotations;
 import org.sinytra.adapter.next.transform.ClassTransformer;
-import org.sinytra.adapter.patch.api.*;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 
 import java.util.Collection;
@@ -36,7 +38,7 @@ public class DynamicAnonymousShadowFieldTypePatch implements ClassTransformer {
         for (FieldNode field : classNode.fields) {
             if (field.visibleAnnotations != null) {
                 for (AnnotationNode ann : field.visibleAnnotations) {
-                    if (MixinConstants.SHADOW.equals(ann.desc)) {
+                    if (MixinAnnotations.SHADOW.equals(ann.desc)) {
                         Collection<FieldNode> targetFields = fields.get(field.desc);
                         if (targetFields.size() == 1) {
                             FieldNode targetField = targetFields.iterator().next();

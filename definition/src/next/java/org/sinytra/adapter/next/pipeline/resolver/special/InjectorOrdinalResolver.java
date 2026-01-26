@@ -8,6 +8,9 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.AtData;
+import org.sinytra.adapter.next.env.ctx.PatchContext;
+import org.sinytra.adapter.next.env.ctx.TargetPair;
+import org.sinytra.adapter.next.env.util.MixinAnnotations;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.Keys;
@@ -19,9 +22,6 @@ import org.sinytra.adapter.patch.analysis.locals.LocalVarAnalyzer;
 import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.patch.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.patch.analysis.method.MethodInsnMatcher;
-import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.PatchContext;
-import org.sinytra.adapter.patch.api.TargetPair;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.GeneratedVariables;
 import org.sinytra.adapter.patch.util.SingleValueHandle;
@@ -29,8 +29,8 @@ import org.sinytra.adapter.patch.util.SingleValueHandle;
 import java.util.*;
 import java.util.function.Function;
 
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_RETURN;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.AT_VAL_RETURN;
 
 public class InjectorOrdinalResolver implements Resolver {
     private static final Map<String, OffsetUpdateHandler> OFFSET_HANDLERS = Map.of(
@@ -43,7 +43,7 @@ public class InjectorOrdinalResolver implements Resolver {
         Type returnType = recipe.clean().getReturnType();
         if (returnType == null) return ResolutionResult.pass();
 
-        List<HandlerInstance<?, ?>> offsetHandlers = getOffsetHandlers(context, recipe.clean(), returnType);
+        List<HandlerInstance<?, ?>> offsetHandlers = getOffsetHandlers(context, recipe, returnType);
         if (offsetHandlers.isEmpty()) return ResolutionResult.pass();
 
         TargetPair cleanTarget = recipe.getCleanTarget();
@@ -65,7 +65,8 @@ public class InjectorOrdinalResolver implements Resolver {
         return applied ? ResolutionResult.success(merged) : ResolutionResult.pass();
     }
 
-    private static List<HandlerInstance<?, ?>> getOffsetHandlers(MixinContext context, Configuration cleanConfig, Type returnType) {
+    private static List<HandlerInstance<?, ?>> getOffsetHandlers(MixinContext context, Recipe recipe, Type returnType) {
+        Configuration cleanConfig = recipe.clean();
         AtData at = cleanConfig.getAtData();
         List<HandlerInstance<?, ?>> handlers = new ArrayList<>();
 
@@ -82,8 +83,8 @@ public class InjectorOrdinalResolver implements Resolver {
             }
         });
 
-        if (context.methodAnnotation().matchesDesc(MixinConstants.MODIFY_VAR)) {
-            LocalVariableLookup cleanTable = context.legacy().cleanLocalsTable();
+        if (context.methodAnnotation().matchesDesc(MixinAnnotations.MODIFY_VAR)) {
+            LocalVariableLookup cleanTable = recipe.cleanLocalsTable();
             if (cleanTable != null) {
                 // Handle modified ordinals
                 cleanConfig.getProperty(Keys.ORDINAL)

@@ -7,11 +7,12 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.next.env.MixinContext;
+import org.sinytra.adapter.next.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.patch.analysis.params.ParamsDiffSnapshot;
-import org.sinytra.adapter.patch.api.LocalVariable;
-import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.transformer.operation.param.TransformParameters;
+import org.sinytra.adapter.next.env.ctx.LocalVariable;
+import org.sinytra.adapter.next.transform.param.TransformParameters;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.OpcodeUtil;
 
@@ -23,19 +24,18 @@ import java.util.stream.IntStream;
 
 public final class LocalVarAnalyzer {
 
-    public record CapturedLocalsInfo(AdapterUtil.CapturedLocals capturedLocals, ParamsDiffSnapshot diff, List<Type> availableTypes) {}
-    
+    public record CapturedLocalsInfo(AdapterUtil.CapturedLocals capturedLocals, ParamsDiffSnapshot diff, List<Type> availableTypes) {
+    }
+
     @Nullable
-    public static CapturedLocalsInfo getCapturedLocals(MethodContext methodContext) {
-        AdapterUtil.CapturedLocals capturedLocals = AdapterUtil.getCapturedLocals(methodContext.getMixinMethod(), methodContext);
-        if (capturedLocals == null) {
-            return null;
-        }
+    public static CapturedLocalsInfo getCapturedLocals(MixinContext context, TargetPair dirtyTarget) {
+        AdapterUtil.CapturedLocals capturedLocals = AdapterUtil.getCapturedLocals(context, dirtyTarget);
+        if (capturedLocals == null) return null;
+
         // Get available local variables at the injection point in the target method
-        List<LocalVariable> available = methodContext.getTargetMethodLocals(capturedLocals.target());
-        if (available == null) {
-            return null;
-        }
+        List<LocalVariable> available = context.methods().getTargetMethodLocals(capturedLocals.target());
+        if (available == null) return null;
+
         List<Type> availableTypes = available.stream().map(LocalVariable::type).toList();
         // Compare expected and available params
         ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(capturedLocals.expected(), availableTypes);
@@ -61,7 +61,8 @@ public final class LocalVarAnalyzer {
         return insns;
     }
 
-    public record CapturedLocalsUsage(LocalVariableLookup targetTable, Int2IntMap usageCount, Int2ObjectMap<InsnList> varInsnLists) {}
+    public record CapturedLocalsUsage(LocalVariableLookup targetTable, Int2IntMap usageCount, Int2ObjectMap<InsnList> varInsnLists) {
+    }
 
     public record CapturedLocalsTransform(List<Integer> used, TransformParameters remover, List<LocalVariableNode> usedLocalNodes) {
         public CapturedLocalsUsage getUsage(AdapterUtil.CapturedLocals capturedLocals) {
@@ -131,5 +132,6 @@ public final class LocalVarAnalyzer {
         varInsnLists.put(index, insns);
     }
 
-    private LocalVarAnalyzer() {}
+    private LocalVarAnalyzer() {
+    }
 }

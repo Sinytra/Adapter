@@ -11,9 +11,9 @@ import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.patch.analysis.method.MethodCallAnalyzer;
-import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
-import org.sinytra.adapter.patch.fixes.TypeAdapter;
-import org.sinytra.adapter.patch.transformer.operation.param.ParamTransformationUtil;
+import org.sinytra.adapter.next.types.BytecodeFixerUpper;
+import org.sinytra.adapter.next.types.TypeAdapter;
+import org.sinytra.adapter.next.transform.param.ParamTransformationUtil;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.OpcodeUtil;
 
@@ -68,7 +68,7 @@ public class WrapOpSurgeon {
                 return null;
             }
 
-            LocalVariableLookup cleanLookup = context.legacy().cleanLocalsTable();
+            LocalVariableLookup cleanLookup = recipe.cleanLocalsTable();
             LocalVariableNode lvn = cleanLookup.getByIndex(varInsn.var);
 
             TypeAdapter typeAdapter = bfu.getTypeAdapter(Type.getObjectType(dirtyInsn.owner), Type.getType(lvn.desc));

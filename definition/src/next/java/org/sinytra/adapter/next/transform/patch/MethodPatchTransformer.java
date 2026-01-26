@@ -9,7 +9,7 @@ import org.sinytra.adapter.next.pipeline.processor.Processor;
 import org.sinytra.adapter.next.pipeline.processor.Processors;
 import org.sinytra.adapter.next.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.next.transform.MethodTransformer;
-import org.sinytra.adapter.patch.api.PatchResult;
+import org.sinytra.adapter.next.env.ctx.PatchResult;
 
 import java.util.ArrayList;
 import java.util.List;

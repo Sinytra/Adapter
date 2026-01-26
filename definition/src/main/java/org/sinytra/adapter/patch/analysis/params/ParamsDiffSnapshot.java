@@ -3,9 +3,8 @@ package org.sinytra.adapter.patch.analysis.params;
 import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
-import org.sinytra.adapter.patch.transformer.operation.param.TransformParameters;
+import org.sinytra.adapter.next.transform.param.TransformParameters;
 
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -34,10 +33,6 @@ public interface ParamsDiffSnapshot {
     ParamsDiffSnapshot offset(int offset);
 
     ParamsDiffSnapshot offset(int offset, int limit);
-
-    default TransformParameters asParameterTransformer(boolean withOffset) {
-        return asParameterTransformer(withOffset, EnumSet.of(ParamsDiffSnapshot.Flags.REMOVED_VAR_GRAVE));
-    }
 
     TransformParameters asParameterTransformer(boolean withOffset, Set<Flags> flags);
 }

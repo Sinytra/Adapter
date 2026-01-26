@@ -8,8 +8,8 @@ import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
 
 import java.util.List;
 
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.MIXIN_TARGETS;
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.MIXIN_VALUE;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.MIXIN_TARGETS;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.MIXIN_VALUE;
 
 public class ClassTarget {
     private final AnnotationHandle handle;

@@ -8,17 +8,15 @@ import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.next.env.ann.ClassTarget;
 import org.sinytra.adapter.next.env.ctx.MethodHelper;
 import org.sinytra.adapter.next.env.ctx.RefMapper;
+import org.sinytra.adapter.next.env.util.MixinAnnotations;
 import org.sinytra.adapter.next.pipeline.config.*;
-import org.sinytra.adapter.next.type.MixinType;
-import org.sinytra.adapter.next.type.MixinTypes;
+import org.sinytra.adapter.next.mixin.MixinType;
+import org.sinytra.adapter.next.mixin.MixinTypes;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
-import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.PatchEnvironment;
+import org.sinytra.adapter.next.env.ctx.PatchEnvironment;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 public class MixinParser {
 
@@ -39,7 +37,6 @@ public class MixinParser {
         return new MixinClassHandle(cls, methods);
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
     private static MixinMethodHandle parseMixin(ClassTarget cls, MethodNode method, RefMapper mapper) {
         if (method.visibleAnnotations == null) return null;
 
@@ -51,28 +48,11 @@ public class MixinParser {
             if (mixinType == null) continue;
 
             PropertyContainerTemplate template = mixinType.getConfigurationTemplate();
-            Set<PropertyKey<?>> keys = template.getKeys();
 
-            MutablePropertyContainer properties = MutablePropertyContainer.create(template);
+            MutablePropertyContainer properties = MutablePropertyContainer.parse(handle, template, mapper);
             properties.setProperty(Keys.MIXIN_TYPE, annotation.desc);
             properties.setProperty(Keys.TARGET_CLASS, cls.getSingle().getInternalName());
             properties.setProperty(Keys.RETURN_TYPE, Type.getReturnType(method.desc));
-
-            for (PropertyKey key : keys) {
-                if (properties.hasProperty(key)) continue;
-
-                Object value = handle.getValue(key.name()).map(AnnotationValueHandle::get).orElse(null);
-                if (value == null) continue;
-
-                if (key.parser() != null) {
-                    Object parsed = key.parser().parse(value, mapper);
-                    properties.setProperty(key, parsed);
-                } else {
-                    throw new IllegalStateException("Cannot parse for key %s, it does not define a parser".formatted(key.name()));
-                }
-            }
-
-            // Set static property
             properties.setProperty(SpecialKeys.STATIC, MethodHelper.isStatic(method));
 
             return new MixinMethodHandle(mixinType, method, handle, properties);
@@ -86,7 +66,7 @@ public class MixinParser {
         if (classNode.invisibleAnnotations == null) return null;
 
         for (AnnotationNode annotation : classNode.invisibleAnnotations) {
-            if (annotation.desc.equals(MixinConstants.MIXIN)) {
+            if (annotation.desc.equals(MixinAnnotations.MIXIN)) {
                 AnnotationHandle ann = new AnnotationHandle(annotation);
                 return ClassTarget.parse(ann);
             }

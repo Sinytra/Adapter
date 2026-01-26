@@ -13,6 +13,11 @@ public interface MutablePropertyContainer extends PropertyContainer {
         return new BasePropertyContainer(template);
     }
 
+    @Nullable
+    static MutablePropertyContainer parseValid(AnnotationHandle handle, @Nullable PropertyContainerTemplate template, RefMapper mapper) {
+        return BasePropertyContainer.parseValid(handle, template, mapper);
+    }
+
     static MutablePropertyContainer parse(AnnotationHandle handle, @Nullable PropertyContainerTemplate template, RefMapper mapper) {
         return BasePropertyContainer.parse(handle, template, mapper);
     }

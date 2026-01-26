@@ -8,9 +8,12 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.AtData;
 import org.sinytra.adapter.next.env.ann.ConstantData;
+import org.sinytra.adapter.next.env.ctx.TargetPair;
 import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup;
 import org.sinytra.adapter.next.env.param.Parameter;
+import org.sinytra.adapter.next.env.util.MixinAnnotations;
+import org.sinytra.adapter.next.env.util.TypeConstants;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.Keys;
@@ -21,17 +24,14 @@ import org.sinytra.adapter.next.pipeline.resolver.SubResolver;
 import org.sinytra.adapter.patch.analysis.MethodLabelComparator;
 import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.patch.analysis.method.MethodCallAnalyzer;
-import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.TargetPair;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.PROPERTY_ORDINAL;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.PROPERTY_ORDINAL;
 
 public abstract class ComparingInjectionPointResolver implements SubResolver {
 
@@ -54,7 +54,7 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
             if (cleanTarget == null) return null;
 
             AbstractInsnNode cleanInsn = prepare(context, recipe);
-            MethodLabelComparator.ComparisonResult comparisonResult = MethodLabelComparator.findPatchedLabels(cleanInsn, context.legacy());
+            MethodLabelComparator.ComparisonResult comparisonResult = MethodLabelComparator.findPatchedLabels(cleanInsn, recipe);
             if (comparisonResult == null) return null;
 
             List<List<AbstractInsnNode>> hunkLabels = comparisonResult.patchedLabels();
@@ -111,7 +111,7 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
             AbstractInsnNode cleanInsn = prepare(context, recipe);
             if (!(cleanInsn instanceof MethodInsnNode minsn)) return null;
 
-            MethodLabelComparator.ComparisonResult comparisonResult = MethodLabelComparator.findPatchedLabels(cleanInsn, context.legacy());
+            MethodLabelComparator.ComparisonResult comparisonResult = MethodLabelComparator.findPatchedLabels(cleanInsn, recipe);
             if (comparisonResult == null) return null;
 
             List<List<AbstractInsnNode>> hunkLabels = comparisonResult.patchedLabels();
@@ -151,20 +151,22 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
                 .inheritParameters()
                 .inheritReturnType();
             MethodParameters parameters = config.getParameters();
-            Parameter newInstanceParam = Parameter.simple(MixinConstants.OBJECT_TYPE);
+            Parameter newInstanceParam = Parameter.simple(TypeConstants.OBJECT_TYPE);
             parameters.set(ParamGroup.METHOD_PARAMS, List.of(newInstanceParam));
 
             if (usedVars.containsKey(instanceLocal.index)) {
-                MethodContext methodContext = context.legacy();
-                List<AbstractInsnNode> originalCallArgs = MethodCallAnalyzer.getMethodCallSrcInsns(methodContext.findCleanInjectionTarget().methodNode(), cleanInjectionInsn);
-                int cleanOrdinal = methodContext.cleanLocalsTable().getTypedOrdinal(methodContext.cleanLocalsTable().getByIndex(((VarInsnNode) originalCallArgs.getFirst()).var)).orElse(-1);
+                TargetPair cleanTarget = recipe.getCleanTarget();
+                LocalVariableLookup cleanLocals = recipe.cleanLocalsTable();
+                
+                List<AbstractInsnNode> originalCallArgs = MethodCallAnalyzer.getMethodCallSrcInsns(cleanTarget.methodNode(), cleanInjectionInsn);
+                int cleanOrdinal = cleanLocals.getTypedOrdinal(cleanLocals.getByIndex(((VarInsnNode) originalCallArgs.getFirst()).var)).orElse(-1);
                 if (cleanOrdinal == -1) return Optional.empty();
 
-                LocalVariableNode dirtyLocal = methodContext.dirtyLocalsTable().getByTypedOrdinal(Type.getType(instanceLocal.desc), cleanOrdinal).orElse(null);
+                LocalVariableNode dirtyLocal = recipe.dirtyLocalsTable().getByTypedOrdinal(Type.getType(instanceLocal.desc), cleanOrdinal).orElse(null);
                 if (dirtyLocal == null) return Optional.empty();
 
                 Parameter replacementInstanceParam = Parameter.builder(dirtyLocal.desc)
-                    .annotate(MixinConstants.LOCAL, b -> b
+                    .annotate(MixinAnnotations.LOCAL, b -> b
                         .put(PROPERTY_ORDINAL, cleanOrdinal))
                     .build();
                 parameters.add(ParamGroup.LOCALS, replacementInstanceParam);

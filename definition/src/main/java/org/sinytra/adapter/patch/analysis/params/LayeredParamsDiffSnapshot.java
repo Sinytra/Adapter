@@ -5,7 +5,7 @@ import com.google.errorprone.annotations.CheckReturnValue;
 import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
-import org.sinytra.adapter.patch.transformer.operation.param.*;
+import org.sinytra.adapter.next.transform.param.*;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -4,12 +4,12 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.sinytra.adapter.next.env.ctx.RefMapper;
+import org.sinytra.adapter.next.env.util.MixinAnnotations;
 import org.sinytra.adapter.next.pipeline.config.MutablePropertyContainer;
 import org.sinytra.adapter.next.pipeline.config.PropertyContainer;
 import org.sinytra.adapter.next.pipeline.config.PropertyContainerTemplate;
 import org.sinytra.adapter.next.pipeline.config.PropertyKey;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.api.MixinConstants;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 import org.spongepowered.asm.mixin.injection.At;
 
@@ -57,7 +57,7 @@ public class AtData {
     }
 
     public AnnotationNode toAnnotationNode() {
-        AnnotationNode node = new AnnotationNode(MixinConstants.AT);
+        AnnotationNode node = new AnnotationNode(MixinAnnotations.AT);
         this.properties.getProperties().forEach((key, value) -> node.visit(key.name(), value));
         return node;
     }
@@ -97,7 +97,7 @@ public class AtData {
     }
 
     public static Optional<AtData> parse(AnnotationHandle annotation, RefMapper mapper) {
-        PropertyContainer container = MutablePropertyContainer.parse(annotation, TEMPLATE, mapper);
+        PropertyContainer container = MutablePropertyContainer.parseValid(annotation, TEMPLATE, mapper);
         return Optional.ofNullable(container).map(AtData::new);
     }
 

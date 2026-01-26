@@ -11,19 +11,19 @@ import org.sinytra.adapter.next.env.ann.AtData;
 import org.sinytra.adapter.next.env.param.MethodParameters;
 import org.sinytra.adapter.next.env.param.MethodParameters.ParamGroup;
 import org.sinytra.adapter.next.env.param.Parameter;
+import org.sinytra.adapter.next.env.util.MixinAnnotations;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
 import org.sinytra.adapter.next.pipeline.resolver.SubResolver;
-import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.PatchContext;
-import org.sinytra.adapter.patch.api.TargetPair;
-import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
+import org.sinytra.adapter.next.env.ctx.PatchContext;
+import org.sinytra.adapter.next.env.ctx.TargetPair;
+import org.sinytra.adapter.next.types.BytecodeFixerUpper;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.List;
 
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
 
 // TODO Test
 public class InheritedInjectionPointSubResolver implements SubResolver {
@@ -33,7 +33,7 @@ public class InheritedInjectionPointSubResolver implements SubResolver {
         if (!recipe.hasInjectionPointValue(AT_VAL_INVOKE)) return null;
 
         AtData at = recipe.clean().getAtData();
-        MethodQualifier atTarget = at.getTarget().flatMap(MethodQualifier::create).orElseThrow();
+        MethodQualifier atTarget = at.getTarget().flatMap(MethodQualifier::parse).orElseThrow();
         if (atTarget == null) return null;
 
         TargetPair targetPair = recipe.getDirtyTarget();
@@ -51,12 +51,12 @@ public class InheritedInjectionPointSubResolver implements SubResolver {
                 MutableConfiguration config = MutableConfiguration.create();
                 config.setAtData(at.withTarget(minsn));
 
-                if (context.methodAnnotation().matchesDesc(MixinConstants.REDIRECT) && minsn.getOpcode() != Opcodes.INVOKESTATIC) {
+                if (context.methodAnnotation().matchesDesc(MixinAnnotations.REDIRECT) && minsn.getOpcode() != Opcodes.INVOKESTATIC) {
                     MethodParameters params = recipe.clean().getParameters().copy();
                     List<Parameter> callParams = params.get(ParamGroup.METHOD_PARAMS);
                     if (!callParams.isEmpty()) {
                         Parameter first = callParams.getFirst().extend()
-                            .annotate(MixinConstants.COERCE, b -> b.visible(false))
+                            .annotate(MixinAnnotations.COERCE, b -> b.visible(false))
                             .build();
                         callParams.set(0, first);
                         config.setParameters(params);

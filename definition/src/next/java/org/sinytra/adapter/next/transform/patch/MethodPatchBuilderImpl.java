@@ -41,7 +41,7 @@ public class MethodPatchBuilderImpl implements MethodPatchBuilder {
     @Override
     public MethodPatchBuilder targetMethod(String... targets) {
         Stream.of(targets)
-            .map(t -> MethodQualifier.create(t).orElseThrow())
+            .map(t -> MethodQualifier.parse(t).orElseThrow())
             .forEach(t -> this.matcher.match(TARGET_METHOD, q -> q.matches(t)));
         return this;
     }
@@ -82,7 +82,7 @@ public class MethodPatchBuilderImpl implements MethodPatchBuilder {
 
     @Override
     public MethodPatchBuilder modifyTarget(String method) {
-        MethodQualifier qualifier = MethodQualifier.create(method).orElseThrow();
+        MethodQualifier qualifier = MethodQualifier.parse(method).orElseThrow();
         this.config.setTargetMethod(qualifier);
         return this;
     }

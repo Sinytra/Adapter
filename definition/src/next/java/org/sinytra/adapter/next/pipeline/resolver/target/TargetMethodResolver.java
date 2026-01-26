@@ -4,7 +4,7 @@ import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.resolver.CompoundResolver;
-import org.sinytra.adapter.patch.api.TargetPair;
+import org.sinytra.adapter.next.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 public class TargetMethodResolver extends CompoundResolver {

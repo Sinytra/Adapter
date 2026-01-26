@@ -5,6 +5,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.AtData;
+import org.sinytra.adapter.next.env.util.MixinAnnotations;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.MutableConfiguration;
@@ -12,8 +13,7 @@ import org.sinytra.adapter.next.pipeline.resolver.SubResolver;
 import org.sinytra.adapter.patch.analysis.InsnComparator;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.method.MethodInsnMatcher;
-import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.TargetPair;
+import org.sinytra.adapter.next.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.util.AdapterUtil;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
 
 public class ArbitraryInjectionPointSubResolver implements SubResolver {
     @Nullable
@@ -94,7 +94,7 @@ public class ArbitraryInjectionPointSubResolver implements SubResolver {
     private static MethodInsnNode findReplacementInjectionPoint(AbstractInsnNode lastInsn, UnaryOperator<AbstractInsnNode> flow, MixinContext context, String injectionPointTarget) {
         // Require matching return types for ModifyExpressionValue mixins
         // TODO Eliminate use of matchesDesc
-        if (context.methodAnnotation().matchesDesc(MixinConstants.MODIFY_EXPR_VAL)) {
+        if (context.methodAnnotation().matchesDesc(MixinAnnotations.MODIFY_EXPR_VAL)) {
             Type desiredReturnType = Type.getReturnType(injectionPointTarget);
             return (MethodInsnNode) AdapterUtil.iterateInsns(lastInsn, flow,
                 v -> v instanceof MethodInsnNode minsn && Type.getReturnType(minsn.desc).equals(desiredReturnType));

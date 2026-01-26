@@ -17,8 +17,8 @@ public class ParameterUsageProcessor implements Processor {
         String dirtyTarget = dirty.getAtData().getTarget().orElse(null);
         if (dirtyTarget == null) return TxResult.PASS;
 
-        MethodQualifier cleanTargetQual = MethodQualifier.create(cleanTarget).orElseThrow();
-        MethodQualifier dirtyTargetQual = MethodQualifier.create(dirtyTarget).orElseThrow();
+        MethodQualifier cleanTargetQual = MethodQualifier.parse(cleanTarget).orElseThrow();
+        MethodQualifier dirtyTargetQual = MethodQualifier.parse(dirtyTarget).orElseThrow();
         for (AbstractInsnNode insn : context.methodNode().instructions) {
             if (insn instanceof MethodInsnNode minsn && cleanTargetQual.matches(minsn)) {
                 if (dirtyTargetQual.owner() != null) {

@@ -11,13 +11,16 @@ import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.SourceValue;
 import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceMethodVisitor;
+import org.sinytra.adapter.next.env.MixinContext;
+import org.sinytra.adapter.next.env.ctx.MethodHelper;
+import org.sinytra.adapter.next.env.ctx.PatchEnvironment;
+import org.sinytra.adapter.next.env.ctx.TargetPair;
+import org.sinytra.adapter.next.env.util.MixinAnnotations;
+import org.sinytra.adapter.next.env.util.TypeConstants;
+import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.patch.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationValueHandle;
-import org.sinytra.adapter.patch.api.MethodContext;
-import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.PatchEnvironment;
-import org.sinytra.adapter.patch.api.TargetPair;
 import org.slf4j.Logger;
 import org.slf4j.Marker;
 import org.slf4j.MarkerFactory;
@@ -156,7 +159,7 @@ public final class AdapterUtil {
     }
 
     public static boolean isShadowField(FieldNode field) {
-        return AdapterUtil.hasAnnotation(field.visibleAnnotations, MixinConstants.SHADOW);
+        return AdapterUtil.hasAnnotation(field.visibleAnnotations, MixinAnnotations.SHADOW);
     }
 
     public static boolean hasAnnotation(List<AnnotationNode> annotations, String desc) {
@@ -195,35 +198,41 @@ public final class AdapterUtil {
     }
 
     @Nullable
-    public static CapturedLocals getCapturedLocals(MethodNode methodNode, MethodContext methodContext) {
-        AnnotationHandle annotation = methodContext.methodAnnotation();
+    public static CapturedLocals getCapturedLocals(MixinContext context, Recipe recipe) {
+        TargetPair target = recipe.getDirtyTarget();
+        if (target == null) return null;
+
+        return getCapturedLocals(context, target);        
+    }
+
+    // TODO Better way?
+    @Nullable
+    public static CapturedLocals getCapturedLocals(MixinContext context, TargetPair dirtyTarget) {
+        MethodNode methodNode = context.methodNode();
         Type[] params = Type.getArgumentTypes(methodNode.desc);
         OptionalInt paramLocalPos = getCapturedLocalStartingIndex(params);
         // Sanity check to make sure the injector method takes in a CI or CIR argument
         if (paramLocalPos.isEmpty()) {
-            LOGGER.debug("Missing CI or CIR argument in injector of type {}", annotation.getDesc());
+            LOGGER.debug("Missing CI or CIR argument in injector of type {}", context.methodAnnotation().getDesc());
             return null;
         }
-        TargetPair target = methodContext.findDirtyInjectionTarget();
-        if (target == null) {
-            return null;
-        }
-        List<Type> ignored = getAnnotatedParameters(methodNode, params, MixinConstants.SHARE, (node, type) -> type);
+        
+        List<Type> ignored = getAnnotatedParameters(methodNode, params, MixinAnnotations.SHARE, (node, type) -> type);
         Type[] availableParams = Stream.of(params).filter(t -> !ignored.contains(t)).toArray(Type[]::new);
 
-        boolean isStatic = (methodNode.access & Opcodes.ACC_STATIC) != 0;
+        boolean isStatic = MethodHelper.isStatic(methodNode);
         int lvtOffset = isStatic ? 0 : 1;
         // The first local var in the method's params comes after the target's params plus the CI/CIR parameter
         int paramLocalPosVal = paramLocalPos.getAsInt();
         // Get expected local variables from method parameters
         List<Type> expected = AdapterUtil.summariseLocals(availableParams, paramLocalPosVal);
-        return new CapturedLocals(target, isStatic, paramLocalPosVal, paramLocalPosVal + expected.size(), lvtOffset, expected, new LocalVariableLookup(methodNode));
+        return new CapturedLocals(dirtyTarget, isStatic, paramLocalPosVal, paramLocalPosVal + expected.size(), lvtOffset, expected, new LocalVariableLookup(methodNode));
     }
 
     private static OptionalInt getCapturedLocalStartingIndex(Type[] params) {
         for (int i = 0; i < params.length; i++) {
             Type param = params[i];
-            if ((param.equals(MixinConstants.CI_TYPE) || param.equals(MixinConstants.CIR_TYPE)) && i + 1 < params.length) {
+            if ((param.equals(TypeConstants.CI_TYPE) || param.equals(TypeConstants.CIR_TYPE)) && i + 1 < params.length) {
                 return OptionalInt.of(i + 1);
             }
         }

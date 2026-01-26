@@ -13,7 +13,7 @@ import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.function.Consumer;
 
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
 
 public class DivertRedirectProcessor implements Processor {
     @Override
@@ -22,7 +22,7 @@ public class DivertRedirectProcessor implements Processor {
         if (patcher == null) return TxResult.PASS;
 
         if (!recipe.hasInjectionPointValue(AT_VAL_INVOKE)) return TxResult.PASS;
-        MethodQualifier target = dirty.getAtData().getTarget().flatMap(MethodQualifier::create).orElse(null);
+        MethodQualifier target = dirty.getAtData().getTarget().flatMap(MethodQualifier::parse).orElse(null);
 
         if (target != null) {
             MethodNode methodNode = context.methodNode();

@@ -4,11 +4,11 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.sinytra.adapter.next.env.ctx.RefMapper;
+import org.sinytra.adapter.next.env.util.MixinAnnotations;
 import org.sinytra.adapter.patch.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.patch.api.MixinConstants;
 
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.SLICE_FROM;
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.SLICE_TO;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.SLICE_FROM;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.SLICE_TO;
 
 public class SliceData {
     @Nullable
@@ -42,13 +42,13 @@ public class SliceData {
     }
 
     public AnnotationNode toAnnotationNode() {
-        AnnotationNode slice = new AnnotationNode(MixinConstants.SLICE);
+        AnnotationNode slice = new AnnotationNode(MixinAnnotations.SLICE);
         if (this.from != null) {
-            AnnotationVisitor fromNode = slice.visitAnnotation(SLICE_FROM, MixinConstants.AT);
+            AnnotationVisitor fromNode = slice.visitAnnotation(SLICE_FROM, MixinAnnotations.AT);
             this.from.toAnnotationNode().accept(fromNode);
         }
         if (this.to != null) {
-            AnnotationVisitor fromNode = slice.visitAnnotation(SLICE_TO, MixinConstants.AT);
+            AnnotationVisitor fromNode = slice.visitAnnotation(SLICE_TO, MixinAnnotations.AT);
             this.to.toAnnotationNode().accept(fromNode);
         }
         return slice;

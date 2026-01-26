@@ -14,7 +14,7 @@ import org.sinytra.adapter.patch.analysis.InsnComparator;
 import org.sinytra.adapter.patch.analysis.InstructionMatcher;
 import org.sinytra.adapter.patch.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.patch.analysis.method.MethodInsnMatcher;
-import org.sinytra.adapter.patch.api.TargetPair;
+import org.sinytra.adapter.next.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.util.MethodQualifier;
 
 import java.util.ArrayList;
@@ -41,7 +41,7 @@ public class SplitTargetMethodSubResolver implements SubResolver {
 
             // TODO Move to processor
             if (recipe.clean().isCancellable()) {
-                SplitMethodCancellationHelper.handle(this, context, recipe, method);
+                SplitMethodCancellationHelper.handle(context, recipe, method);
             }
 
             return MutableConfiguration.create()
@@ -73,7 +73,7 @@ public class SplitTargetMethodSubResolver implements SubResolver {
         if (candidates.isEmpty()) {
             List<TargetPair> nestedLambdas = invocations.stream()
                 .flatMap(m -> MethodAnalyzer.findLambdasInMethod(dirtyTarget.classNode(), m, null).stream())
-                .flatMap(s -> MethodQualifier.create(s).stream())
+                .flatMap(s -> MethodQualifier.parse(s).stream())
                 .map(s -> context.methods().findOwnMethodPair(context.dirtyLookup(), s))
                 .filter(Objects::nonNull)
                 .toList();

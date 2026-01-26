@@ -7,22 +7,22 @@ import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
 import org.sinytra.adapter.next.env.MixinContext;
 import org.sinytra.adapter.next.env.ann.AtData;
+import org.sinytra.adapter.next.env.util.MixinAnnotations;
 import org.sinytra.adapter.next.pipeline.Recipe;
 import org.sinytra.adapter.next.pipeline.config.Configuration;
 import org.sinytra.adapter.next.pipeline.config.Keys;
 import org.sinytra.adapter.next.pipeline.resolver.Resolver;
 import org.sinytra.adapter.patch.analysis.method.MethodCallAnalyzer;
-import org.sinytra.adapter.patch.api.MixinConstants;
-import org.sinytra.adapter.patch.api.TargetPair;
-import org.sinytra.adapter.patch.util.MockMixinRuntime;
+import org.sinytra.adapter.next.env.ctx.TargetPair;
+import org.sinytra.adapter.next.env.MockMixinRuntime;
 import org.spongepowered.asm.mixin.injection.modify.LocalVariableDiscriminator;
 import org.spongepowered.asm.mixin.injection.struct.InjectionInfo;
 import org.spongepowered.asm.mixin.injection.struct.Target;
 
 import java.util.List;
 
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_INVOKE;
-import static org.sinytra.adapter.next.env.ann.MixinAnnotationConstants.AT_VAL_RETURN;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
+import static org.sinytra.adapter.next.env.util.MixinAnnotationConstants.AT_VAL_RETURN;
 
 /**
  * Original mixin:
@@ -106,7 +106,7 @@ public class ModifyVarAtReturnResolver implements Resolver {
             AbstractInsnNode insn = args.get(i);
             if (insn instanceof VarInsnNode varInsn && varInsn.var == cleanTargetPair.getSecond()) {
                 Configuration config = recipe.dirty().copyClean()
-                    .setMixinType(MixinConstants.MODIFY_ARG)
+                    .setMixinType(MixinAnnotations.MODIFY_ARG)
                     .inheritTargetClass()
                     .inheritTargetMethod()
                     .setAtData(AtData.create(AT_VAL_INVOKE, dirtyMinsn))

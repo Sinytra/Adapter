@@ -7,9 +7,9 @@ import org.junit.jupiter.api.Test;
 import org.objectweb.asm.tree.ClassNode;
 import org.sinytra.adapter.next.flow.DynamicPatches;
 import org.sinytra.adapter.next.flow.Patcher;
-import org.sinytra.adapter.patch.api.PatchEnvironment;
-import org.sinytra.adapter.patch.api.RefmapHolder;
-import org.sinytra.adapter.patch.fixes.FieldTypeUsageTransformer;
+import org.sinytra.adapter.next.env.ctx.PatchEnvironment;
+import org.sinytra.adapter.next.env.ctx.RefmapHolder;
+import org.sinytra.adapter.next.types.FieldTypeUsageTransformer;
 import org.sinytra.adapter.patch.util.provider.ClassLookup;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.FabricUtil;
@@ -45,8 +45,7 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         patcher = new Patcher(
             patchEnvironment,
             List.of(new FieldTypeUsageTransformer()),
-            DynamicPatches.methodTransformers(List.of()),
-            List.of()
+            DynamicPatches.methodTransformers(List.of())
         );
     }
 
