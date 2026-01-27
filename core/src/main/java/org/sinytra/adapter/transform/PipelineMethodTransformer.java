@@ -4,24 +4,25 @@ import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.ClassNode;
 import org.sinytra.adapter.env.MixinContext;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.ann.SliceData;
 import org.sinytra.adapter.env.ctx.AuditTrail;
+import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.config.Keys;
 import org.sinytra.adapter.patch.config.MutableConfiguration;
+import org.sinytra.adapter.patch.mixin.MixinType;
+import org.sinytra.adapter.patch.mixin.MixinTypes;
 import org.sinytra.adapter.patch.processor.Processor;
 import org.sinytra.adapter.patch.processor.Processors;
 import org.sinytra.adapter.patch.resolver.Resolver;
 import org.sinytra.adapter.patch.resolver.Resolvers;
-import org.sinytra.adapter.patch.mixin.MixinType;
-import org.sinytra.adapter.patch.mixin.MixinTypes;
-import org.sinytra.adapter.env.ctx.PatchResult;
+import org.sinytra.adapter.transform.patch.MethodPatch;
+import org.sinytra.adapter.transform.patch.MethodPatchResolver;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.injection.InjectionPoint;
 import org.spongepowered.asm.mixin.injection.points.BeforeConstant;
@@ -34,26 +35,22 @@ import static org.sinytra.adapter.util.AdapterUtil.MIXINPATCH;
 public class PipelineMethodTransformer implements MethodTransformer {
     private static final Logger LOGGER = LogUtils.getLogger();
 
+    private final List<MethodPatch> methodPatches;
+
+    public PipelineMethodTransformer(List<MethodPatch> methodPatches) {
+        this.methodPatches = methodPatches;
+    }
+
     @Override
     public PatchResult apply(MixinContext context, Configuration config) {
         TargetPair cleanTarget = context.methods().findOwnMethodPair(context.cleanLookup(), config.getTargetMethod());
-        if (cleanTarget == null)
-            return PatchResult.PASS;
+        if (cleanTarget == null) return PatchResult.PASS;
 
         TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), config.getTargetMethod());
         if (!failsDirtyInjectionCheck(context, dirtyTarget) && hasValidSlice(context, config, dirtyTarget))
             return PatchResult.PASS;
 
-        AuditTrail.Match previousMatch = context.environment().auditTrail().getMatch(context);
-        if (previousMatch != null && previousMatch != AuditTrail.Match.NONE)
-            return PatchResult.PASS;
-
-        String annotationInternalName = Type.getType(context.methodAnnotation().getDesc()).getInternalName();
-        MixinType mixinType = MixinTypes.getMixinType(annotationInternalName);
-        if (mixinType == null) return PatchResult.PASS;
-
-        ClassNode cls = context.classNode();
-        LOGGER.debug(MIXINPATCH, "Considering method {}.{}", cls.name, cls.name);
+        LOGGER.debug(MIXINPATCH, "Considering method {}", context.getMixinId());
 
         AuditTrail auditTrail = context.environment().auditTrail();
         auditTrail.recordResult(context, config, AuditTrail.Match.NONE);
@@ -71,6 +68,9 @@ public class PipelineMethodTransformer implements MethodTransformer {
         String mixinId = context.getMixinId();
         Resolvers resolvers = context.getResolvers();
         Processors processors = context.getProcessors();
+
+        // 0. Add highest priority manual patch resolver
+        resolvers.addFirst(new MethodPatchResolver(this.methodPatches));
 
         // 1. Create clean config from validated config
         MutableConfiguration cleanConfig = config.copy();
@@ -156,7 +156,7 @@ public class PipelineMethodTransformer implements MethodTransformer {
             return false;
 
         SliceData slice = config.getProperty(Keys.SLICE).orElse(null);
-        if (slice == null) return false;
+        if (slice == null) return true;
 
         AtData from = slice.from();
         if (from != null && !validateAtNode(context, from, target))

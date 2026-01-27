@@ -5,10 +5,10 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.tree.ClassNode;
-import org.sinytra.adapter.patch.DynamicPatches;
-import org.sinytra.adapter.patch.Patcher;
 import org.sinytra.adapter.env.ctx.PatchEnvironment;
 import org.sinytra.adapter.env.ctx.RefmapHolder;
+import org.sinytra.adapter.patch.DynamicPatches;
+import org.sinytra.adapter.patch.Patcher;
 import org.sinytra.adapter.types.FieldTypeUsageTransformer;
 import org.sinytra.adapter.util.provider.ClassLookup;
 import org.slf4j.Logger;
@@ -42,11 +42,10 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
             new BytecodeFixerUpperTestFrontend(cleanLookup, dirtyLookup).unwrap(),
             FabricUtil.COMPATIBILITY_LATEST
         );
-        patcher = new Patcher(
-            patchEnvironment,
-            List.of(new FieldTypeUsageTransformer()),
-            DynamicPatches.methodTransformers(List.of())
-        );
+        patcher = Patcher.builder(patchEnvironment)
+            .classTransformer(new FieldTypeUsageTransformer())
+            .methodTransformers(DynamicPatches.methodTransformers(List.of()))
+            .build();
     }
 
     @AfterAll
@@ -430,7 +429,7 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
         ClassNode patched = loadClass(className);
         patched.methods.removeIf(m -> !allowedMethods.contains(m.name));
-        patcher.apply(patched);
+        patcher.process(patched);
         return new LoadResult(patchEnvironment, patched, loadClass(className));
     }
 }
