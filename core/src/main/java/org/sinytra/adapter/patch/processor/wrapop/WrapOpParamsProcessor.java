@@ -49,13 +49,10 @@ public class WrapOpParamsProcessor implements Processor {
         AbstractInsnNode dirtyInsn = context.methods().findInjectionTargetInsn(recipe.getDirtyTarget());
         if (cleanInsn instanceof MethodInsnNode cleanMinsn && dirtyInsn instanceof MethodInsnNode dirtyMinsn) {
             List<Type> methodParams = dirty.getParameters().getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
-            boolean result = WrapOpSurgeon.tryUpgrade(context, recipe, methodParams, cleanMinsn, dirtyMinsn);
-            if (!result) {
-                return TxResult.FAIL;
-            }
+            WrapOpSurgeon.tryUpgrade(context, recipe, methodParams, cleanMinsn, dirtyMinsn);
         }
 
-        return TxResult.PASS;
+        return TxResult.SUCCESS;
     }
 
     @Nullable

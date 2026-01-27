@@ -38,6 +38,7 @@ public class FieldTypeUsageTransformer implements ClassTransformer {
                             field.desc = updatedTypes.getSecond().getDescriptor();
                             // Update shadow field usages
                             classUpdatedTypes.put(field.name, updatedTypes);
+                            applied = true;
                         }
                     }
                 }

@@ -1,6 +1,7 @@
 package org.sinytra.adapter.analysis.selector;
 
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
@@ -9,11 +10,21 @@ import org.objectweb.asm.tree.analysis.Analyzer;
 import org.objectweb.asm.tree.analysis.Frame;
 import org.objectweb.asm.tree.analysis.SourceInterpreter;
 import org.objectweb.asm.tree.analysis.SourceValue;
+import org.sinytra.adapter.analysis.method.AdvancedSourceInterpreter;
 
 public class FrameUtil {
     public static Frame<SourceValue>[] getFrames(MethodNode methodNode) {
         try {
             Analyzer<SourceValue> analyzer = new Analyzer<>(new SourceInterpreter());
+            return analyzer.analyze(Object.class.getName(), methodNode);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static Frame<SourceValue>[] getStableFrames(MethodNode methodNode) {
+        try {
+            Analyzer<SourceValue> analyzer = new Analyzer<>(new AdvancedSourceInterpreter(true));
             return analyzer.analyze(Object.class.getName(), methodNode);
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -28,7 +39,7 @@ public class FrameUtil {
         if (insn instanceof MethodInsnNode) {
             // Static: pops args
             // Virtual/Special/Interface: pops args + receiver (1)
-            int args = org.objectweb.asm.Type.getArgumentsAndReturnSizes(((MethodInsnNode) insn).desc) >> 2;
+            int args = Type.getArgumentsAndReturnSizes(((MethodInsnNode) insn).desc) >> 2;
             boolean isStatic = op == Opcodes.INVOKESTATIC;
             // INVOKEDYNAMIC is complex, but usually acts like static for the bootstrap
             if (op == org.objectweb.asm.Opcodes.INVOKEDYNAMIC) isStatic = true;

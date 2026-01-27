@@ -2,6 +2,7 @@ package org.sinytra.adapter.transform.patch;
 
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.sinytra.adapter.env.ann.AtData;
+import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.patch.config.MutableConfiguration;
 import org.sinytra.adapter.patch.config.SpecialKeys;
 import org.sinytra.adapter.transform.MethodTransformer;
@@ -11,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalDouble;
 import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
 import static java.util.function.Predicate.isEqual;
@@ -21,7 +23,8 @@ public class MethodPatchBuilderImpl implements MethodPatchBuilder {
     private final MutableConfiguration config = MutableConfiguration.create();
     private final List<MethodTransformer> transforms = new ArrayList<>();
 
-    public MethodPatchImpl build() {
+    @Override
+    public MethodPatch build() {
         ConfigurationMatcher finalMatcher = this.matcher.build();
         return new MethodPatchImpl(finalMatcher, this.config, this.transforms);
     }
@@ -104,6 +107,12 @@ public class MethodPatchBuilderImpl implements MethodPatchBuilder {
     @Override
     public MethodPatchBuilder modifyInjectionPoint(String value, String target, boolean resetValues) {
         this.config.setAtData(AtData.create(value, target));
+        return this;
+    }
+
+    @Override
+    public MethodPatchBuilder modifyParams(UnaryOperator<MethodParameters> op) {
+        
         return this;
     }
 

@@ -1,9 +1,11 @@
 package org.sinytra.adapter.transform.patch;
 
 import org.objectweb.asm.commons.InstructionAdapter;
+import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.transform.MethodTransformer;
 
 import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 
 public interface MethodPatchBuilder {
     // Matching
@@ -32,6 +34,8 @@ public interface MethodPatchBuilder {
     MethodPatchBuilder modifyInjectionPoint(String value, String target);
 
     MethodPatchBuilder modifyInjectionPoint(String value, String target, boolean resetValues);
+    
+    MethodPatchBuilder modifyParams(UnaryOperator<MethodParameters> op);
 
     // TODO This should be automatic
     MethodPatchBuilder modifyStatic(boolean isStatic);
@@ -43,4 +47,6 @@ public interface MethodPatchBuilder {
     MethodPatchBuilder disable();
 
     MethodPatchBuilder transform(MethodTransformer transformer);
+
+    MethodPatch build();
 }

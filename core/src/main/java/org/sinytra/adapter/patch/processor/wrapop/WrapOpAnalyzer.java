@@ -17,7 +17,7 @@ import java.util.Map;
 public class WrapOpAnalyzer {
     public static List<List<AbstractInsnNode>> groupArrayInitializers(MethodNode methodNode, AbstractInsnNode newArrayInsn) {
         // 1. Analyze the method frames to track data flow
-        Frame<SourceValue>[] frames = FrameUtil.getFrames(methodNode);
+        Frame<SourceValue>[] frames = FrameUtil.getStableFrames(methodNode);
 
         // Map to hold the AASTORE instruction for each array index
         // Key = Array Index (0, 1...), Value = The AASTORE instruction node

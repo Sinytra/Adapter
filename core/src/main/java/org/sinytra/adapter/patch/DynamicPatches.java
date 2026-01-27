@@ -25,7 +25,7 @@ public class DynamicPatches {
         return ImmutableMultimap.of(
             TxPhase.EARLY, new LocalCaptureUpgradeTransformer(),
             TxPhase.LOADED, new FieldAccessorTypeTransformer(), // TODO EARLY?
-            TxPhase.VALIDATED, new PipelineMethodTransformer(patches) 
+            TxPhase.VALIDATED, new PipelineMethodTransformer(patches, false) 
         );
     }
 }

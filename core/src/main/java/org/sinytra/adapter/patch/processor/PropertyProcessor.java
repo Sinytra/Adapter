@@ -12,8 +12,6 @@ import static org.sinytra.adapter.patch.config.Keys.SLICE;
 public class PropertyProcessor implements Processor {
     @Override
     public TxResult process(MixinContext context, Configuration dirty, Recipe recipe) {
-        if (dirty.getAtData() == null) return TxResult.FAIL;
-
         // TODO Auto append all props
         AnnotationHandle handle = context.methodAnnotation();
         dirty.getProperty(ORDINAL)

@@ -18,7 +18,7 @@ public class ConfigurationMatcher {
     @SuppressWarnings({"rawtypes", "unchecked"})
     public boolean match(PropertyContainer container) {
         for (Map.Entry<PropertyKey<?>, Predicate<?>> entry : this.matchers.entrySet()) {
-            Object value = container.getProperty(entry.getKey());
+            Object value = container.getProperty(entry.getKey()).orElse(null);
             if (value == null || !((Predicate) entry.getValue()).test(value)) {
                 return false;
             }

@@ -1,13 +1,11 @@
 package org.sinytra.adapter.analysis.method;
 
 import org.jetbrains.annotations.Nullable;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.Frame;
-import org.objectweb.asm.tree.analysis.SourceInterpreter;
 import org.objectweb.asm.tree.analysis.SourceValue;
 import org.sinytra.adapter.analysis.InsnComparator;
 import org.sinytra.adapter.analysis.selector.FrameUtil;
@@ -31,11 +29,12 @@ public class MethodCallAnalyzer {
             .orElse(null);
     }
 
+    // Uses true producer source values
     public static List<List<AbstractInsnNode>> getAllMethodCallSrcInsnsInclusive(MethodNode methodNode, MethodQualifier qualifier) {
         List<List<AbstractInsnNode>> list = new ArrayList<>();
         for (AbstractInsnNode insn : methodNode.instructions) {
             if (insn instanceof MethodInsnNode minsn && qualifier.matches(minsn)) {
-                List<AbstractInsnNode> insns = getMethodCallSrcInsns(methodNode, minsn);
+                List<AbstractInsnNode> insns = getMethodCallSrcInsns(methodNode, minsn, true);
                 insns.add(minsn);
                 if (insns != null) {
                     list.add(insns);
@@ -47,7 +46,12 @@ public class MethodCallAnalyzer {
 
     @Nullable
     public static List<AbstractInsnNode> getMethodCallSrcInsns(MethodNode methodNode, MethodInsnNode minsn) {
-        List<? extends SourceValue> sources = Objects.requireNonNull(getCallSourceValues(methodNode, minsn));
+        return getMethodCallSrcInsns(methodNode, minsn, false);
+    }
+
+    @Nullable
+    public static List<AbstractInsnNode> getMethodCallSrcInsns(MethodNode methodNode, MethodInsnNode minsn, boolean stable) {
+        List<? extends SourceValue> sources = Objects.requireNonNull(getCallSourceValues(methodNode, minsn, stable));
 
         List<AbstractInsnNode> insns = new ArrayList<>();
         for (SourceValue src : sources) {
@@ -98,17 +102,17 @@ public class MethodCallAnalyzer {
     }
 
     @Nullable
-    public static List<? extends SourceValue> getCallSourceValues(MethodNode methodNode, MethodInsnNode minsn) {
-        SourceValueInterpreter i = MethodAnalyzer.analyzeInterpretMethod(methodNode, new SourceValueInterpreter(minsn));
+    public static List<? extends SourceValue> getCallSourceValues(MethodNode methodNode, MethodInsnNode minsn, boolean stable) {
+        SourceValueInterpreter i = MethodAnalyzer.analyzeInterpretMethod(methodNode, new SourceValueInterpreter(minsn, stable));
         return i.getResults();
     }
 
-    private static class SourceValueInterpreter extends SourceInterpreter {
+    private static class SourceValueInterpreter extends AdvancedSourceInterpreter {
         private final AbstractInsnNode targetInsn;
         private List<? extends SourceValue> results;
 
-        public SourceValueInterpreter(AbstractInsnNode targetInsn) {
-            super(Opcodes.ASM9);
+        public SourceValueInterpreter(AbstractInsnNode targetInsn, boolean stable) {
+            super(stable);
             this.targetInsn = targetInsn;
         }
 

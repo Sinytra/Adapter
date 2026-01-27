@@ -36,9 +36,11 @@ public class PipelineMethodTransformer implements MethodTransformer {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private final List<MethodPatch> methodPatches;
+    private final boolean patchesOnly;
 
-    public PipelineMethodTransformer(List<MethodPatch> methodPatches) {
+    public PipelineMethodTransformer(List<MethodPatch> methodPatches, boolean patchesOnly) {
         this.methodPatches = methodPatches;
+        this.patchesOnly = patchesOnly;
     }
 
     @Override
@@ -66,7 +68,7 @@ public class PipelineMethodTransformer implements MethodTransformer {
 
     private PatchResult execute(MixinContext context, Configuration config) {
         String mixinId = context.getMixinId();
-        Resolvers resolvers = context.getResolvers();
+        Resolvers resolvers = this.patchesOnly ? new Resolvers(false) : context.getResolvers();
         Processors processors = context.getProcessors();
 
         // 0. Add highest priority manual patch resolver

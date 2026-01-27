@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.tree.ClassNode;
 import org.sinytra.adapter.env.ctx.PatchEnvironment;
+import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.env.ctx.RefmapHolder;
 import org.sinytra.adapter.patch.DynamicPatches;
 import org.sinytra.adapter.patch.Patcher;
@@ -15,6 +16,8 @@ import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.FabricUtil;
 
 import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -429,7 +432,8 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
         ClassNode patched = loadClass(className);
         patched.methods.removeIf(m -> !allowedMethods.contains(m.name));
-        patcher.process(patched);
+        PatchResult result = patcher.process(patched);
+        assertNotEquals(PatchResult.PASS, result);
         return new LoadResult(patchEnvironment, patched, loadClass(className));
     }
 }

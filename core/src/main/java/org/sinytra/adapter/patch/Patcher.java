@@ -140,6 +140,11 @@ public class Patcher {
             return this;
         }
         
+        public Builder classTransformers(List<ClassTransformer> transformers) {
+            this.classTransformers.addAll(transformers);
+            return this;
+        }
+        
         public Builder methodTransformer(TxPhase phase, MethodTransformer transformer) {
             this.methodTransformers.put(phase, transformer);
             return this;
