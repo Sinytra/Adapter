@@ -52,9 +52,11 @@ public class AtData {
         this.properties.apply(handle);
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public AnnotationNode toAnnotationNode() {
         AnnotationNode node = new AnnotationNode(MixinAnnotations.AT);
-        this.properties.getProperties().forEach((key, value) -> node.visit(key.name(), value));
+        this.properties.getProperties()
+            .forEach((key, value) -> node.visit(key.name(), ((PropertyKey) key).serialize(value)));
         return node;
     }
 
@@ -150,6 +152,7 @@ public class AtData {
         public static final PropertyKey<String> VALUE = PropertyKey.create("value", String.class);
         public static final PropertyKey<String> TARGET = PropertyKey.<String>builder("target")
             .parser((value, mapper) -> mapper.remap((String) value))
+            .serializable()
             .build();
         public static final PropertyKey<Integer> ORDINAL = PropertyKey.create("ordinal", Integer.class);
         public static final PropertyKey<At.Shift> SHIFT = PropertyKey.create("shift", At.Shift.class);

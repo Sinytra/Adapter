@@ -51,8 +51,8 @@ public class PropertyKey<T> {
 
     public static <T> PropertyKey<T> create(String name, Class<T> type) {
         return PropertyKey.<T>builder(name)
-            .parseAs(type)
             .serializable()
+            .parseAs(type)
             .build();
     }
 

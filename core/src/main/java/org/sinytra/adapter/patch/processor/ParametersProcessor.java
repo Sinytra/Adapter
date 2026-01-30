@@ -2,16 +2,17 @@ package org.sinytra.adapter.patch.processor;
 
 import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.VarInsnNode;
+import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
+import org.sinytra.adapter.analysis.params.ParamsDiffSnapshot;
 import org.sinytra.adapter.env.ctx.MixinContext;
+import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.env.param.Parameters;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
 import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
-import org.sinytra.adapter.analysis.params.ParamsDiffSnapshot;
-import org.sinytra.adapter.env.ctx.PatchResult;
 
 import java.util.List;
 import java.util.Map;
@@ -50,7 +51,10 @@ public class ParametersProcessor implements Processor {
         Parameters.applyVarMappings(context.methodNode(), oldVarMap);
         Parameters.applyAnnotations(context.methodNode(), dirtyParams.merge());
 
-        context.methodNode().maxLocals = context.methodNode().localVariables.size();
+        // Temporarily set this to a high number for frame analysis to work
+        // Will be set correctly by ClassWriter after patching
+        MethodNode methodNode = context.methodNode();
+        methodNode.maxLocals = methodNode.maxStack = 999;
 
         return TxResult.SUCCESS;
     }

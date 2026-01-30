@@ -39,7 +39,7 @@ public class MixinKeys {
             AnnotationHandle handle = new AnnotationHandle(node);
             return AtData.parse(handle, mapper).orElse(null);
         })
-        .serializer(a -> List.of(a.toAnnotationNode()))
+        .serializer(a -> List.of(a.toAnnotationNode())) // FIXME Sometimes a list, sometimes not. How to handle?
         .build();
     public static final PropertyKey<ConstantData> TARGET_CONSTANT = PropertyKey.<ConstantData>builder("constant")
         .parser((value, mapper) -> {

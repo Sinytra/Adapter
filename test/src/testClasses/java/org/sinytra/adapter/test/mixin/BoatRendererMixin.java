@@ -5,12 +5,15 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.mojang.datafixers.util.Pair;
 import net.minecraft.client.model.ListModel;
 import net.minecraft.client.renderer.entity.BoatRenderer;
+import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.vehicle.Boat;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 import java.util.Map;
+import java.util.Objects;
 
 @Mixin(BoatRenderer.class)
 public class BoatRendererMixin {
@@ -23,6 +26,11 @@ public class BoatRendererMixin {
         )
     )
     private Object getBoatTextureAndModel(Map<Boat.Type, Pair<ResourceLocation, ListModel<Boat>>> instance, Object type, Operation<Object> original, Boat entity) {
+        //noinspection ConstantConditions
+        if (entity instanceof Entity terraformEntity &&
+            (Object) this instanceof EntityRenderer terraformRenderer) {
+            return terraformRenderer.getTextureLocation(terraformEntity);
+        }
         return original.call(instance, type);
     }
 
@@ -34,6 +42,11 @@ public class BoatRendererMixin {
         )
     )
     private Object getBoatTextureAndModelExpected(Map<Boat.Type, Pair<ResourceLocation, ListModel<Boat>>> instance, Object type, Operation<Object> original, Boat entity) {
+        //noinspection ConstantConditions
+        if (entity instanceof Entity terraformEntity &&
+            (Object) this instanceof EntityRenderer terraformRenderer) {
+            return terraformRenderer.getTextureLocation(terraformEntity);
+        }
         return original.call(instance, type);
     }
 }
