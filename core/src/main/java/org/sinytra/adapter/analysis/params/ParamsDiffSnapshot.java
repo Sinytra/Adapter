@@ -14,6 +14,8 @@ public interface ParamsDiffSnapshot {
         REMOVED_VAR_GRAVE
     }
 
+    int modificationsCount();
+
     boolean isEmpty();
 
     List<Pair<Integer, Type>> insertions();

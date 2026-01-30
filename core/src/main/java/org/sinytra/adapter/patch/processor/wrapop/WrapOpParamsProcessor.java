@@ -44,12 +44,14 @@ public class WrapOpParamsProcessor implements Processor {
             }
         }
 
-        // Upgrade calls on "instance" variable
-        AbstractInsnNode cleanInsn = context.methods().findInjectionTargetInsn(recipe.getCleanTarget());
-        AbstractInsnNode dirtyInsn = context.methods().findInjectionTargetInsn(recipe.getDirtyTarget());
-        if (cleanInsn instanceof MethodInsnNode cleanMinsn && dirtyInsn instanceof MethodInsnNode dirtyMinsn) {
-            List<Type> methodParams = dirty.getParameters().getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
-            WrapOpSurgeon.tryUpgrade(context, recipe, methodParams, cleanMinsn, dirtyMinsn);
+        if (dirty.getAtData() != null) {
+            // Upgrade calls on "instance" variable
+            AbstractInsnNode cleanInsn = context.methods().findInjectionTargetInsn(recipe.getCleanTarget());
+            AbstractInsnNode dirtyInsn = context.methods().findInjectionTargetInsn(recipe.getDirtyTarget(), dirty.getAtData());
+            if (cleanInsn instanceof MethodInsnNode cleanMinsn && dirtyInsn instanceof MethodInsnNode dirtyMinsn) {
+                List<Type> methodParams = dirty.getParameters().getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
+                WrapOpSurgeon.tryUpgrade(context, recipe, methodParams, cleanMinsn, dirtyMinsn);
+            }
         }
 
         return TxResult.SUCCESS;

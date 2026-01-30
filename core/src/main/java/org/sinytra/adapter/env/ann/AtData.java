@@ -3,13 +3,13 @@ package org.sinytra.adapter.env.ann;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.MethodInsnNode;
+import org.sinytra.adapter.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.env.ctx.RefMapper;
 import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.patch.config.MutablePropertyContainer;
 import org.sinytra.adapter.patch.config.PropertyContainer;
 import org.sinytra.adapter.patch.config.PropertyContainerTemplate;
 import org.sinytra.adapter.patch.config.PropertyKey;
-import org.sinytra.adapter.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.util.MethodQualifier;
 import org.spongepowered.asm.mixin.injection.At;
 
@@ -48,12 +48,8 @@ public class AtData {
         return getProperty(Keys.ORDINAL);
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
     public void apply(AnnotationHandle handle) {
-        this.properties.getProperties().forEach((key, value) -> {
-            Object serialized = ((PropertyKey) key).serialize(value);
-            handle.setOrAppendNonNull(key.name(), serialized);
-        });
+        this.properties.apply(handle);
     }
 
     public AnnotationNode toAnnotationNode() {

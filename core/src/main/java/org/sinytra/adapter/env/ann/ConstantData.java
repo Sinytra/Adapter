@@ -2,50 +2,44 @@ package org.sinytra.adapter.env.ann;
 
 import org.objectweb.asm.Type;
 import org.sinytra.adapter.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.analysis.selector.AnnotationValueHandle;
+import org.sinytra.adapter.patch.config.MutablePropertyContainer;
+import org.sinytra.adapter.patch.config.PropertyContainer;
+import org.sinytra.adapter.patch.config.PropertyContainerTemplate;
+import org.sinytra.adapter.patch.config.PropertyKey;
 
-import java.util.List;
 import java.util.Optional;
-import java.util.OptionalDouble;
 
-// TODO Cleanup
 public class ConstantData {
-    private final Object value;
+    private static final PropertyContainerTemplate TEMPLATE = PropertyContainerTemplate.builder()
+        .requireOne(Keys.DOUBLE_VALUE, Keys.CLASS_VALUE)
+        .build();
 
-    private ConstantData(Object value) {
-        this.value = value;
+    private final PropertyContainer properties;
+
+    private ConstantData(PropertyContainer properties) {
+        this.properties = properties;
     }
 
-    public Optional<Type> classValue() {
-        return value instanceof Type t ? Optional.of(t) : Optional.empty();
-    }
-
-    public OptionalDouble doubleValue() {
-        return value instanceof Double d ? OptionalDouble.of(d) : OptionalDouble.empty();
+    public Optional<Double> doubleValue() {
+        return this.properties.getProperty(Keys.DOUBLE_VALUE);
     }
 
     public static ConstantData classValue(Type value) {
-        return new ConstantData(value);
+        PropertyContainer container = MutablePropertyContainer.create().setProperty(Keys.CLASS_VALUE, value);
+        return new ConstantData(container);
     }
 
     public void apply(AnnotationHandle handle) {
-        if (this.value instanceof Type) {
-            handle.setOrAppendNonNull("classValue", this.value);
-        } else if (this.value instanceof Double) {
-            handle.setOrAppendNonNull("doubleValue", this.value);
-        } else {
-            throw new IllegalStateException("Unexpected value: " + value);
-        }
+        this.properties.apply(handle);
     }
 
     public static Optional<ConstantData> parse(AnnotationHandle handle) {
-        List<String> knownKeys = List.of("doubleValue", "classValue");
-        for (String key : knownKeys) {
-            Object value = handle.getValue(key).map(AnnotationValueHandle::get).orElse(null);
-            if (value != null) {
-                return Optional.of(new ConstantData(value));
-            }
-        }
-        return Optional.empty();
+        MutablePropertyContainer container = MutablePropertyContainer.parseValid(handle, TEMPLATE, s -> s);
+        return Optional.ofNullable(container).map(ConstantData::new);
+    }
+
+    public static class Keys {
+        public static final PropertyKey<Double> DOUBLE_VALUE = PropertyKey.create("doubleValue", Double.class);
+        public static final PropertyKey<Type> CLASS_VALUE = PropertyKey.create("classValue", Type.class);
     }
 }

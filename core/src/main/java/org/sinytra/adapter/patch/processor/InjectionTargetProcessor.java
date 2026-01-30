@@ -17,22 +17,21 @@ public class InjectionTargetProcessor implements Processor {
             return TxResult.PASS;
         }
 
-        AnnotationHandle annotation = context.methodAnnotation();        
+        AnnotationHandle annotation = context.methodAnnotation();
+
+        annotation.removeValues(MixinAnnotationConstants.PROPERTY_AT);
         if (dirty.getAtData() != null) {
             AnnotationHandle handle = annotation.getNestedOrAppend(MixinAnnotationConstants.PROPERTY_AT, MixinAnnotations.AT);
             dirty.getAtData().apply(handle);
-        } else {
-            annotation.removeValues(MixinAnnotationConstants.PROPERTY_AT);
         }
 
+        annotation.removeValues(MixinAnnotationConstants.PROPERTY_CONSTANT);
         if (dirty.hasProperty(Keys.TARGET_CONSTANT)) {
             AnnotationHandle handle = annotation.getNestedOrAppend(MixinAnnotationConstants.PROPERTY_CONSTANT, MixinAnnotations.CONSTANT);
             ConstantData cst = dirty.getProperty(Keys.TARGET_CONSTANT).orElseThrow();
             cst.apply(handle);
-        } else {
-            annotation.removeValues(MixinAnnotationConstants.PROPERTY_CONSTANT);
         }
-        
+
         // methodContext.recordAudit(this, "Change injection point to %s", this.target);
 
         return TxResult.SUCCESS;

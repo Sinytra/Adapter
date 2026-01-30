@@ -35,8 +35,8 @@ public class MethodCallAnalyzer {
         for (AbstractInsnNode insn : methodNode.instructions) {
             if (insn instanceof MethodInsnNode minsn && qualifier.matches(minsn)) {
                 List<AbstractInsnNode> insns = getMethodCallSrcInsns(methodNode, minsn, true);
-                insns.add(minsn);
                 if (insns != null) {
+                    insns.add(minsn);
                     list.add(insns);
                 }
             }

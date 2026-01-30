@@ -50,6 +50,8 @@ public class ParametersProcessor implements Processor {
         Parameters.applyVarMappings(context.methodNode(), oldVarMap);
         Parameters.applyAnnotations(context.methodNode(), dirtyParams.merge());
 
+        context.methodNode().maxLocals = context.methodNode().localVariables.size();
+
         return TxResult.SUCCESS;
     }
 

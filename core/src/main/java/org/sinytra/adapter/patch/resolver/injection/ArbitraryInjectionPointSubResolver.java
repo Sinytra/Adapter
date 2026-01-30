@@ -28,7 +28,7 @@ public class ArbitraryInjectionPointSubResolver implements SubResolver {
     @Nullable
     @Override
     public Configuration resolve(MixinContext context, Recipe recipe) {
-        String injectionPointTarget = recipe.clean().getAtData().getTarget().orElseThrow();
+        String injectionPointTarget = recipe.clean().getAtData().getTarget().orElse(null);
         TargetPair cleanTarget = recipe.getCleanTarget();
         TargetPair dirtyTarget = recipe.getDirtyTarget();
         AbstractInsnNode cleanInsn = context.methods().findInjectionTargetInsn(cleanTarget);
@@ -52,7 +52,7 @@ public class ArbitraryInjectionPointSubResolver implements SubResolver {
         return MutableConfiguration.create().setAtData(AtData.create(AT_VAL_INVOKE, targetMethodCall));
     }
 
-    private MethodInsnNode resolveTargetCallInsn(MethodNode dirtyTargetMethod, AbstractInsnNode cleanInjectionInsn, MixinContext context, String injectionPointTarget) {
+    private MethodInsnNode resolveTargetCallInsn(MethodNode dirtyTargetMethod, AbstractInsnNode cleanInjectionInsn, MixinContext context, @Nullable String injectionPointTarget) {
         AbstractInsnNode nextCallCandidate = findCandidates(MethodInsnMatcher.findBackwardsInstructions(cleanInjectionInsn).inverse(), dirtyTargetMethod, List::getLast);
 
         if (nextCallCandidate != null) {
@@ -91,10 +91,10 @@ public class ArbitraryInjectionPointSubResolver implements SubResolver {
         return !candidates.isEmpty() ? candidates.getFirst() : null;
     }
 
-    private static MethodInsnNode findReplacementInjectionPoint(AbstractInsnNode lastInsn, UnaryOperator<AbstractInsnNode> flow, MixinContext context, String injectionPointTarget) {
+    private static MethodInsnNode findReplacementInjectionPoint(AbstractInsnNode lastInsn, UnaryOperator<AbstractInsnNode> flow, MixinContext context, @Nullable String injectionPointTarget) {
         // Require matching return types for ModifyExpressionValue mixins
         // TODO Eliminate use of matchesDesc
-        if (context.methodAnnotation().matchesDesc(MixinAnnotations.MODIFY_EXPR_VAL)) {
+        if (context.methodAnnotation().matchesDesc(MixinAnnotations.MODIFY_EXPR_VAL) && injectionPointTarget != null) {
             Type desiredReturnType = Type.getReturnType(injectionPointTarget);
             return (MethodInsnNode) AdapterUtil.iterateInsns(lastInsn, flow,
                 v -> v instanceof MethodInsnNode minsn && Type.getReturnType(minsn.desc).equals(desiredReturnType));

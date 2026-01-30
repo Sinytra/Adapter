@@ -10,7 +10,7 @@ public final class AnnotationHandle {
     private final Map<String, AnnotationValueHandle<?>> handleCache = new HashMap<>();
 
     public AnnotationHandle(AnnotationNode annotationNode) {
-        this.annotationNode = annotationNode;
+        this.annotationNode = Objects.requireNonNull(annotationNode);
     }
 
     public String getDesc() {

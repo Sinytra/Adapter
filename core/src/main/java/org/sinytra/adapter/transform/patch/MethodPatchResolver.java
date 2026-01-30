@@ -3,6 +3,7 @@ package org.sinytra.adapter.transform.patch;
 import org.sinytra.adapter.env.MixinContext;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.config.Configuration;
+import org.sinytra.adapter.patch.config.Configurations;
 import org.sinytra.adapter.patch.config.MutableConfiguration;
 import org.sinytra.adapter.patch.resolver.Resolver;
 import org.sinytra.adapter.transform.MethodTransformer;
@@ -38,6 +39,11 @@ public class MethodPatchResolver implements Resolver {
             if (!postChanges.isEmpty()) {
                 // TODO Might get cancelled by earlier processor
                 recipe.processors().add(new MethodPatchProcessor(postChanges));
+            }
+            
+            // TODO Ugly hardcoding
+            if (dirtyConfig.shouldDelete()) {
+                return ResolutionResult.replace(Configurations.DELETE);
             }
 
             return ResolutionResult.replace(dirtyConfig);

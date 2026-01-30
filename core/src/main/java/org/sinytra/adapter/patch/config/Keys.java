@@ -34,6 +34,8 @@ public final class Keys {
     public static final PropertyKey<AtData> TARGET_AT = PropertyKey.<AtData>builder("at")
         .parser((value, mapper) -> {
             AnnotationNode node = parseSingle(value, AnnotationNode.class);
+            if (node == null) return null;
+
             AnnotationHandle handle = new AnnotationHandle(node);
             return AtData.parse(handle, mapper).orElse(null);
         })

@@ -145,6 +145,11 @@ public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) i
     }
 
     @Override
+    public int modificationsCount() {
+        return this.modifications.size();
+    }
+
+    @Override
     public boolean isEmpty() {
         return this.modifications.isEmpty();
     }

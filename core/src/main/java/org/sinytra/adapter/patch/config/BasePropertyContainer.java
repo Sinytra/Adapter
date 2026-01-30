@@ -73,6 +73,15 @@ public class BasePropertyContainer implements MutablePropertyContainer {
         return this;
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @Override
+    public void apply(AnnotationHandle handle) {
+        this.properties.forEach((key, value) -> {
+            Object serialized = ((PropertyKey) key).serialize(value);
+            handle.setOrAppendNonNull(key.name(), serialized);
+        });
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;

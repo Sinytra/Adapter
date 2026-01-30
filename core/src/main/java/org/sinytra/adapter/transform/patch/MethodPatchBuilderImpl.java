@@ -10,7 +10,7 @@ import org.sinytra.adapter.util.MethodQualifier;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.OptionalDouble;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
@@ -45,7 +45,7 @@ public class MethodPatchBuilderImpl implements MethodPatchBuilder {
     public MethodPatchBuilder targetMethod(String... targets) {
         Stream.of(targets)
             .map(t -> MethodQualifier.parse(t).orElseThrow())
-            .forEach(t -> this.matcher.match(TARGET_METHOD, q -> q.matches(t)));
+            .forEach(t -> this.matcher.match(TARGET_METHOD, t::matches));
         return this;
     }
 
@@ -65,8 +65,8 @@ public class MethodPatchBuilderImpl implements MethodPatchBuilder {
     public MethodPatchBuilder targetConstant(double doubleValue) {
         this.matcher.match(TARGET_CONSTANT, c -> {
             // TODO OR check at const value
-            OptionalDouble opt = c.doubleValue();
-            return opt.isPresent() && opt.getAsDouble() == doubleValue;
+            Optional<Double> opt = c.doubleValue();
+            return opt.isPresent() && opt.get() == doubleValue;
         });
         return this;
     }

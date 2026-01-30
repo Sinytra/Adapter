@@ -6,16 +6,17 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.env.MixinContext;
-import org.sinytra.adapter.env.param.ParamDiffResolver;
-import org.sinytra.adapter.env.param.Parameters;
-import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.analysis.selector.AnnotationHandle;
+import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.MockMixinRuntime;
+import org.sinytra.adapter.env.ann.AtData;
+import org.sinytra.adapter.env.param.ParamDiffResolver;
+import org.sinytra.adapter.env.param.Parameters;
+import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
-import org.sinytra.adapter.env.MockMixinRuntime;
 import org.sinytra.adapter.util.provider.ClassLookup;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.injection.InjectionPoint;
@@ -107,6 +108,28 @@ public class MethodHelper {
                 }
 
                 return InjectionPoint.parse(ctx, this.context.methodNode(), this.context.methodAnnotation().unwrap(), atAnn.unwrap());
+            },
+            true
+        );
+    }
+
+    // TODO Always use config AtData?
+    @Nullable
+    public AbstractInsnNode findInjectionTargetInsn(@Nullable TargetPair target, AtData atData) {
+        List<AbstractInsnNode> cleanInsns = findInjectionTargetInsns(target, atData);
+        return cleanInsns.size() != 1 ? null : cleanInsns.getFirst();
+    }
+
+    public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable TargetPair target, AtData atData) {
+        return computeInjectionTargetInsns(
+            target,
+            this.context::injectionPointAnnotation,
+            (ctx, h) -> {
+                AnnotationNode atCopy = atData.toAnnotationNode();
+                AnnotationHandle annCopy = this.context.methodAnnotation().copy();
+                annCopy.setOrAppendNonNull(PROPERTY_AT, atCopy);
+
+                return InjectionPoint.parse(ctx, this.context.methodNode(), annCopy.unwrap(), atCopy);
             },
             true
         );
