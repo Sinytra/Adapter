@@ -23,7 +23,7 @@ public interface PatchEnvironment {
     @Nullable
     BytecodeFixerUpper bytecodeFixerUpper();
 
-    InheritanceHandler inheritanceHandler();
+    InheritanceHandler inheritanceHandler(ClassLookup lookup);
 
     RefmapHolder refmapHolder();
 

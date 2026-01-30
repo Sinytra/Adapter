@@ -1,10 +1,14 @@
-package org.sinytra.adapter.patch.config;
+package org.sinytra.adapter.patch.config.key;
 
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.MethodInsnNode;
+import org.sinytra.adapter.patch.config.PropertyKey;
 
 import java.util.function.Consumer;
 
+/**
+ * Mixin-type-specific Configuration Keys. Never serialized.
+ */
 public final class SpecialKeys {
     // Hidden
     public static final PropertyKey<MethodInsnNode> EXTRACT_TARGET = PropertyKey.create("_extract_target_minsn");

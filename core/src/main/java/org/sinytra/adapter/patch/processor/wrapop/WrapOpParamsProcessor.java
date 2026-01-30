@@ -4,7 +4,7 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.env.param.Parameter;
 import org.sinytra.adapter.patch.Recipe;

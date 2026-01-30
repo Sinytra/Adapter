@@ -5,7 +5,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.resolver.SubResolver;
@@ -17,7 +17,7 @@ import org.sinytra.adapter.env.ctx.TargetPair;
 import java.util.List;
 
 import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_STORE;
-import static org.sinytra.adapter.patch.config.Keys.ORDINAL;
+import static org.sinytra.adapter.patch.config.key.MixinKeys.ORDINAL;
 
 public class ModifyVarInjectionPointSubResolver implements SubResolver {
 

@@ -7,7 +7,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.analysis.params.ParamsDiffSnapshot;

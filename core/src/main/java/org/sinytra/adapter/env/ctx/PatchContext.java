@@ -5,7 +5,7 @@ import org.objectweb.asm.tree.ClassNode;
 
 import java.util.List;
 
-public interface PatchContext {
+public interface PatchContext extends RefMapper {
     static PatchContext create(ClassNode classNode, List<Type> targetTypes, PatchEnvironment environment) {
         return new PatchContextImpl(classNode, targetTypes, environment);
     }
@@ -15,8 +15,6 @@ public interface PatchContext {
     List<Type> targetTypes();
 
     PatchEnvironment environment();
-
-    String remap(String reference);
 
     void postApply(Runnable consumer);
 }

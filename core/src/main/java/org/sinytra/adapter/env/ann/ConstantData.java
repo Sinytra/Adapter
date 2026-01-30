@@ -1,7 +1,9 @@
 package org.sinytra.adapter.env.ann;
 
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AnnotationNode;
 import org.sinytra.adapter.analysis.selector.AnnotationHandle;
+import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.patch.config.MutablePropertyContainer;
 import org.sinytra.adapter.patch.config.PropertyContainer;
 import org.sinytra.adapter.patch.config.PropertyContainerTemplate;
@@ -31,6 +33,12 @@ public class ConstantData {
 
     public void apply(AnnotationHandle handle) {
         this.properties.apply(handle);
+    }
+
+    public AnnotationNode toAnnotationNode() {
+        AnnotationNode node = new AnnotationNode(MixinAnnotations.AT);
+        this.properties.getProperties().forEach((key, value) -> node.visit(key.name(), value));
+        return node;
     }
 
     public static Optional<ConstantData> parse(AnnotationHandle handle) {

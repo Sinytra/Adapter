@@ -4,7 +4,7 @@ import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.ann.SliceData;
 import org.sinytra.adapter.env.ctx.AuditTrail;
@@ -13,7 +13,8 @@ import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
 import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.patch.config.Keys;
+import org.sinytra.adapter.patch.config.key.ControlKeys;
+import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.sinytra.adapter.patch.config.MutableConfiguration;
 import org.sinytra.adapter.patch.mixin.MixinType;
 import org.sinytra.adapter.patch.mixin.MixinTypes;
@@ -104,7 +105,7 @@ public class PipelineMethodTransformer implements MethodTransformer {
         }
 
         // 3. Complete dirty config
-        if (dirtyConfig.hasProperty(Keys.MIXIN_TYPE)) {
+        if (dirtyConfig.hasProperty(ControlKeys.MIXIN_TYPE)) {
             String type = dirtyConfig.getMixinType();
             MixinType lateMixinType = MixinTypes.getMixinType(Type.getType(type).getInternalName());
             if (lateMixinType != null) {
@@ -157,7 +158,7 @@ public class PipelineMethodTransformer implements MethodTransformer {
         if (target == null)
             return false;
 
-        SliceData slice = config.getProperty(Keys.SLICE).orElse(null);
+        SliceData slice = config.getProperty(MixinKeys.SLICE).orElse(null);
         if (slice == null) return true;
 
         AtData from = slice.from();

@@ -5,12 +5,12 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.patch.config.Keys;
+import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.sinytra.adapter.patch.resolver.Resolver;
 import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.env.ctx.TargetPair;
@@ -112,7 +112,7 @@ public class ModifyVarAtReturnResolver implements Resolver {
                     .setAtData(AtData.create(AT_VAL_INVOKE, dirtyMinsn))
                     .inheritParameters()
                     .inheritReturnType()
-                    .setProperty(Keys.INDEX, i);
+                    .setProperty(MixinKeys.INDEX, i);
 
                 // TODO Audit
 //                String qualifier = MethodQualifier.create(dirtyMinsn).asDescriptor();

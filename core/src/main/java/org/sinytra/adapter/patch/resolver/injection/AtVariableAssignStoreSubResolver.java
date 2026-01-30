@@ -2,12 +2,12 @@ package org.sinytra.adapter.patch.resolver.injection;
 
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
-import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.config.MutableConfiguration;
+import org.sinytra.adapter.patch.mixin.MixinFlag;
 import org.sinytra.adapter.patch.resolver.SubResolver;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.OpcodeUtil;
@@ -66,11 +66,9 @@ public class AtVariableAssignStoreSubResolver implements SubResolver {
             return null;
         }
 
-        if (context.methodAnnotation().matchesDesc(MixinAnnotations.WRAP_OPERATION)) {
-            // In case the mixin is call-sensitive, we try to keep the orignal injection point if the method was moved
-            if (!previousMethodCall.owner.equals(dirtyPair.classNode().name)) {
-                return null;
-            }
+        // In case the mixin is call-sensitive, we try to keep the orignal injection point if the method was moved
+        if (context.hasFlag(MixinFlag.AT_TARGET_SENSITIVE) && !previousMethodCall.owner.equals(dirtyPair.classNode().name)) {
+            return null;
         }
 
         // All checks have passed, proceed to patch method

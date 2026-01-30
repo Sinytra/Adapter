@@ -6,14 +6,14 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
 import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.patch.config.Keys;
-import org.sinytra.adapter.patch.config.SpecialKeys;
+import org.sinytra.adapter.patch.config.key.MixinKeys;
+import org.sinytra.adapter.patch.config.key.SpecialKeys;
 import org.sinytra.adapter.patch.processor.Processor;
 import org.sinytra.adapter.analysis.locals.LocalVarAnalyzer;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
@@ -52,7 +52,7 @@ public class ExtractMixinProcessor implements Processor {
 
         TargetPair cleanTarget = recipe.getCleanTarget();
         String owner = Optional.ofNullable(cleanTarget).map(t -> t.classNode().name).orElse(targetClassName);
-        boolean isInherited = context.environment().inheritanceHandler().isClassInherited(targetClassName, owner);
+        boolean isInherited = context.environment().inheritanceHandler(context.dirtyLookup()).isClassInherited(targetClassName, owner);
         Candidates candidates = findCandidates(classNode, methodNode);
         if (!candidates.canMove(classNode, isInherited)) return PatchResult.PASS;
 
@@ -74,7 +74,7 @@ public class ExtractMixinProcessor implements Processor {
 
         // Take care of captured locals
         PatchResult result = PatchResult.PASS;
-        boolean capturesLocals = recipe.clean().hasProperty(Keys.LOCALS);
+        boolean capturesLocals = recipe.clean().hasProperty(MixinKeys.LOCALS);
         if (capturesLocals) {
             result = result.or(recreateLocalVariables(methodNode, context, recipe, generatedTarget));
         }

@@ -7,7 +7,7 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
@@ -93,7 +93,7 @@ public class WrapOpSurgeon {
             });
             Consumer<InsnList> castCheck = subList.getFirst() instanceof TypeInsnNode typeInsn && typeInsn.getOpcode() == Opcodes.CHECKCAST ?
                 list -> {
-                    List<AbstractInsnNode> originalWOCall = new ArrayList<>(ParamTransformationUtil.findWrapOperationOriginalCallArgs(context.methodNode(), context));
+                    List<AbstractInsnNode> originalWOCall = new ArrayList<>(ParamTransformationUtil.findWrapOperationOriginalCallArgs(context.methodNode()));
                     // Include final method call and cast
                     originalWOCall.add(originalWOCall.getLast().getNext());
                     originalWOCall.add(originalWOCall.getLast().getNext());
@@ -133,7 +133,7 @@ public class WrapOpSurgeon {
             .map(l -> l.index)
             .toList();
 
-        List<AbstractInsnNode> originalOpCall = ParamTransformationUtil.findWrapOperationOriginalCallArgs(methodNode, context);
+        List<AbstractInsnNode> originalOpCall = ParamTransformationUtil.findWrapOperationOriginalCallArgs(methodNode);
         Multimap<Integer, VarInsnNode> usedVars = HashMultimap.create();
         for (AbstractInsnNode insn : methodNode.instructions) {
             if (insn instanceof VarInsnNode varInsn && !originalOpCall.contains(insn) && paramVars.contains(varInsn.var)) {

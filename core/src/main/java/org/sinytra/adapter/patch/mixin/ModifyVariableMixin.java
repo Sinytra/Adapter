@@ -1,17 +1,14 @@
 package org.sinytra.adapter.patch.mixin;
 
 import org.objectweb.asm.Type;
-import org.sinytra.adapter.patch.config.ConfigurationTemplates;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.patch.config.*;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.env.param.Parameter;
 import org.sinytra.adapter.env.param.Parameters;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
-import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.patch.config.Keys;
-import org.sinytra.adapter.patch.config.MutableConfiguration;
-import org.sinytra.adapter.patch.config.PropertyContainerTemplate;
+import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.sinytra.adapter.patch.processor.Processors;
 import org.sinytra.adapter.patch.resolver.Resolvers;
 import org.sinytra.adapter.patch.resolver.injection.InjectionPointResolver;
@@ -28,7 +25,7 @@ import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.SINGLE_A
 
 public class ModifyVariableMixin implements MixinType {
     private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
-        .keys(Keys.ARGS_ONLY, Keys.ORDINAL, Keys.INDEX, Keys.SLICE)
+        .keys(MixinKeys.ARGS_ONLY, MixinKeys.ORDINAL, MixinKeys.INDEX, MixinKeys.SLICE)
         .build();
 
     @Override
@@ -52,9 +49,9 @@ public class ModifyVariableMixin implements MixinType {
 
     @Override
     public TxResult postProcess(MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
-        dirty.inheritProperyIfAbsent(Keys.SLICE);
+        dirty.inheritProperyIfAbsent(MixinKeys.SLICE);
 
-        boolean argsOnly = clean.getProperty(Keys.ARGS_ONLY).orElse(false);
+        boolean argsOnly = clean.getProperty(MixinKeys.ARGS_ONLY).orElse(false);
         if (argsOnly && dirty.getTargetMethod() != null && !dirty.getTargetMethod().desc().equals(clean.getTargetMethod().desc())) {
             Type cleanVarType = clean.getParameters().getTypes(SINGLE_ANY).getFirst();
             List<Type> cleanTargetMethodParams = Parameters.getParameterTypes(clean.getTargetMethod().desc());

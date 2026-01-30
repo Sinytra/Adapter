@@ -5,12 +5,12 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.AuditTrail;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.patch.config.Keys;
+import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.sinytra.adapter.transform.MethodTransformer;
 import org.sinytra.adapter.analysis.locals.LocalVarAnalyzer;
 import org.sinytra.adapter.env.ctx.PatchResult;
@@ -29,7 +29,7 @@ public class LocalCaptureUpgradeTransformer implements MethodTransformer {
         TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), config.getTargetMethod());
         if (dirtyTarget == null) return PatchResult.PASS;
 
-        if (!config.hasProperty(Keys.LOCALS)) return PatchResult.PASS;
+        if (!config.hasProperty(MixinKeys.LOCALS)) return PatchResult.PASS;
 
         // Analyze locals
         MethodNode methodNode = context.methodNode();

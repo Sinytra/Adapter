@@ -3,11 +3,11 @@ package org.sinytra.adapter.patch.processor.redirect;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
 import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.patch.config.SpecialKeys;
+import org.sinytra.adapter.patch.config.key.SpecialKeys;
 import org.sinytra.adapter.patch.processor.Processor;
 import org.sinytra.adapter.util.MethodQualifier;
 

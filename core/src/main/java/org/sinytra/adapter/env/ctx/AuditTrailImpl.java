@@ -5,9 +5,8 @@ import it.unimi.dsi.fastutil.Pair;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.env.MixinContext;
 import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.patch.config.Keys;
+import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.slf4j.Logger;
 
 import java.text.DecimalFormat;
@@ -60,7 +59,7 @@ public class AuditTrailImpl implements AuditTrail {
     public void recordResult(MixinContext context, Configuration configuration, Match match) {
         Candidate candidate = new Candidate(context.classNode(), context.methodNode());
         this.candidates.compute(candidate, (key, prev) -> {
-            boolean isNotRequired = configuration.getProperty(Keys.REQUIRE)
+            boolean isNotRequired = configuration.getProperty(MixinKeys.REQUIRE)
                 .map(i -> i == 0)
                 .orElse(false);
             Match maybeIgnore = match == Match.NONE && isNotRequired ? Match.IGNORED : match;

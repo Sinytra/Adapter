@@ -5,16 +5,13 @@ import com.google.common.collect.Multimap;
 import com.mojang.logging.LogUtils;
 import org.objectweb.asm.tree.ClassNode;
 import org.sinytra.adapter.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.env.MixinContext;
 import org.sinytra.adapter.env.ann.ClassTarget;
-import org.sinytra.adapter.env.ctx.PatchContext;
-import org.sinytra.adapter.env.ctx.PatchContextImpl;
-import org.sinytra.adapter.env.ctx.PatchEnvironment;
-import org.sinytra.adapter.env.ctx.PatchResult;
+import org.sinytra.adapter.env.ctx.*;
 import org.sinytra.adapter.env.util.MixinAnnotationConstants;
-import org.sinytra.adapter.patch.config.Keys;
+import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.sinytra.adapter.patch.config.MutableConfiguration;
 import org.sinytra.adapter.patch.config.PropertyContainerTemplate;
+import org.sinytra.adapter.patch.mixin.MixinFlag;
 import org.sinytra.adapter.patch.mixin.MixinType;
 import org.sinytra.adapter.transform.ClassTransformer;
 import org.sinytra.adapter.transform.MethodTransformer;
@@ -24,6 +21,7 @@ import org.slf4j.Logger;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 import static org.sinytra.adapter.util.AdapterUtil.MIXINPATCH;
 
@@ -67,13 +65,14 @@ public class Patcher {
     }
 
     private PatchResult processMixin(ClassNode classNode, ClassTarget classTarget, PatchContext patchContext, MixinParser.MixinMethodHandle mixin) {
-        MethodQualifier target = mixin.properties().getProperty(Keys.TARGET_METHOD).orElse(null);
+        MethodQualifier target = mixin.properties().getProperty(MixinKeys.TARGET_METHOD).orElse(null);
         if (target == null) return PatchResult.PASS;
 
         // Prepare context
         AnnotationHandle atHandle = mixin.methodAnnotation().getNested(MixinAnnotationConstants.PROPERTY_AT).orElse(null);
         MixinType mixinType = mixin.mixinType();
-        MixinContext mixinContext = new MixinContext(patchContext, classTarget, classNode, mixin.methodNode(), mixin.methodAnnotation(), atHandle);
+        Set<MixinFlag> flags = mixinType.getFlags();
+        MixinContext mixinContext = new MixinContext(patchContext, classTarget, classNode, mixin.methodNode(), mixin.methodAnnotation(), atHandle, flags);
         String mixinId = mixinContext.getMixinId();
 
         // Build base config

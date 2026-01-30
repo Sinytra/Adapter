@@ -58,6 +58,10 @@ public class AtData {
         return node;
     }
 
+    public AtData withValue(String value) {
+        return withProperty(Keys.VALUE, value);
+    }
+
     public AtData withTarget(MethodInsnNode insn) {
         return withTarget(MethodQualifier.create(insn));
     }
@@ -100,7 +104,7 @@ public class AtData {
     public static AtData create(String value) {
         return builder(value).build();
     }
-    
+
     public static AtData create(String value, MethodInsnNode target) {
         return create(value, MethodQualifier.create(target).asDescriptor());
     }
@@ -123,7 +127,7 @@ public class AtData {
         public Builder(String value) {
             this.properties.setProperty(Keys.VALUE, value);
         }
-        
+
         public Builder target(String target) {
             return property(Keys.TARGET, target);
         }

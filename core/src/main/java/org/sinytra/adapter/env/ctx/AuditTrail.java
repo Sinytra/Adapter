@@ -4,7 +4,6 @@ import it.unimi.dsi.fastutil.Pair;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.env.MixinContext;
 import org.sinytra.adapter.patch.config.Configuration;
 
 import java.util.ArrayList;

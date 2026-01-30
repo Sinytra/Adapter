@@ -68,8 +68,10 @@ public class BasePropertyContainer implements MutablePropertyContainer {
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     @Override
-    public MutablePropertyContainer mergeFrom(PropertyContainer other) {
-        other.getProperties().forEach((p, v) -> setProperty((PropertyKey) p, v));
+    public MutablePropertyContainer mergeFrom(@Nullable PropertyContainer other) {
+        if (other != null) {
+            other.getProperties().forEach((p, v) -> setProperty((PropertyKey) p, v));
+        }
         return this;
     }
 

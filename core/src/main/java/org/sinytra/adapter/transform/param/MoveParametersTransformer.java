@@ -6,7 +6,7 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.ParameterNode;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.analysis.locals.LVTSnapshot;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.env.ctx.PatchResult;

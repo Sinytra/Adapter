@@ -6,7 +6,7 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.MethodInsnNode;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.env.param.MethodParameters.ParamGroup;
@@ -15,6 +15,7 @@ import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.config.MutableConfiguration;
+import org.sinytra.adapter.patch.mixin.MixinFlag;
 import org.sinytra.adapter.patch.resolver.SubResolver;
 import org.sinytra.adapter.env.ctx.PatchContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
@@ -25,7 +26,6 @@ import java.util.List;
 
 import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
 
-// TODO Test
 public class InheritedInjectionPointSubResolver implements SubResolver {
     @Nullable
     @Override
@@ -44,12 +44,12 @@ public class InheritedInjectionPointSubResolver implements SubResolver {
         for (AbstractInsnNode insn : targetPair.methodNode().instructions) {
             if (insn instanceof MethodInsnNode minsn
                 && minsn.name.equals(atTarget.name()) && minsn.desc.equals(atTarget.desc()) && !minsn.owner.equals(owner)
-                && (context.environment().inheritanceHandler().isClassInherited(minsn.owner, owner) || isFixedField(minsn, context.patchContext()))
+                && (context.environment().inheritanceHandler(context.dirtyLookup()).isClassInherited(minsn.owner, owner) || isFixedField(minsn, context.patchContext()))
             ) {
                 MutableConfiguration config = MutableConfiguration.create();
                 config.setAtData(at.withTarget(minsn));
 
-                if (context.methodAnnotation().matchesDesc(MixinAnnotations.REDIRECT) && minsn.getOpcode() != Opcodes.INVOKESTATIC) {
+                if (context.hasFlag(MixinFlag.AT_TARGET_SENSITIVE) && minsn.getOpcode() != Opcodes.INVOKESTATIC) {
                     MethodParameters params = recipe.clean().getParameters().copy();
                     List<Parameter> callParams = params.get(ParamGroup.METHOD_PARAMS);
                     if (!callParams.isEmpty()) {

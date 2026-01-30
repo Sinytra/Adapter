@@ -6,7 +6,7 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.util.WeighedDisambiguation;
 import org.sinytra.adapter.env.param.Parameters;
 import org.sinytra.adapter.patch.Recipe;

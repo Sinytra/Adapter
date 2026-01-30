@@ -2,13 +2,15 @@ package org.sinytra.adapter.patch.mixin;
 
 import org.objectweb.asm.Type;
 import org.sinytra.adapter.patch.config.ConfigurationTemplates;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.env.param.Parameter;
 import org.sinytra.adapter.env.param.Parameters;
 import org.sinytra.adapter.patch.config.*;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
+import org.sinytra.adapter.patch.config.key.MixinKeys;
+import org.sinytra.adapter.patch.config.key.SpecialKeys;
 import org.sinytra.adapter.patch.processor.Processors;
 import org.sinytra.adapter.patch.resolver.Resolvers;
 import org.sinytra.adapter.patch.resolver.injection.ArbitraryInjectionPointSubResolver;
@@ -23,7 +25,7 @@ import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.*;
 
 public class InjectMixin implements MixinType {
     private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
-        .keys(Keys.SLICES, Keys.CANCELLABLE)
+        .keys(MixinKeys.SLICES, MixinKeys.CANCELLABLE)
         .build();
 
     @Override

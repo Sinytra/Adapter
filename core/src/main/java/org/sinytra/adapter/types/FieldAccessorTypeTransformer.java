@@ -6,15 +6,14 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MethodHelper;
+import org.sinytra.adapter.env.ctx.MixinContext;
+import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.transform.MethodTransformer;
-import org.sinytra.adapter.analysis.selector.FieldMatcher;
-import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.util.AdapterUtil;
 
-// TODO Clean up maybe
 public class FieldAccessorTypeTransformer implements MethodTransformer {
     private static final String PREFIX = "adapter$";
     private static final int PRIORITY_MAX = 9999;
@@ -30,7 +29,7 @@ public class FieldAccessorTypeTransformer implements MethodTransformer {
             .orElse(null);
         if (fieldFqn == null) return PatchResult.PASS;
 
-        String fieldName = new FieldMatcher(fieldFqn).getName();
+        String fieldName = getFieldName(fieldFqn);
         Type owner = context.targetTypes().getFirst();
         Pair<Type, Type> updatedTypes = bfu.getFieldTypeChange(owner.getInternalName(), fieldName);
         if (updatedTypes != null) {
@@ -38,6 +37,7 @@ public class FieldAccessorTypeTransformer implements MethodTransformer {
             if (typeAdapter != null) {
                 String targetMethod = addRedirectAcceptorField(owner, methodNode, fieldName, typeAdapter, bfu.getGenerator());
 
+                // Change Accessor to Invoker
                 methodNode.visibleAnnotations.remove(context.methodAnnotation().unwrap());
                 AnnotationVisitor invokerAnn = methodNode.visitAnnotation(MixinAnnotations.INVOKER, true);
                 invokerAnn.visit("value", targetMethod);
@@ -55,7 +55,7 @@ public class FieldAccessorTypeTransformer implements MethodTransformer {
         Type to = adapter.to();
         String methodDesc = Type.getMethodDescriptor(to);
         if (node.methods.stream().noneMatch(m -> m.name.equals(methodName))) {
-            boolean isStatic = (methodNode.access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC;
+            boolean isStatic = MethodHelper.isStatic(methodNode);
             MethodNode method = (MethodNode) node.visitMethod(Opcodes.ACC_PUBLIC | (isStatic ? Opcodes.ACC_STATIC : 0), methodName, methodDesc, null, null);
             {
                 AnnotationVisitor annotationVisitor = method.visitAnnotation(MixinAnnotations.UNIQUE, true);
@@ -110,5 +110,10 @@ public class FieldAccessorTypeTransformer implements MethodTransformer {
             case Type.VOID -> Opcodes.RETURN;
             default -> throw new UnsupportedOperationException();
         };
+    }
+
+    private static String getFieldName(String desc) {
+        int descIndex = desc.indexOf(':');
+        return descIndex == -1 ? desc : desc.substring(0, descIndex);
     }
 }

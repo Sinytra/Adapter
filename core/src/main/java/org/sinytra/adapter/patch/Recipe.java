@@ -1,7 +1,7 @@
 package org.sinytra.adapter.patch;
 
 import com.google.common.base.Suppliers;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.processor.Processors;

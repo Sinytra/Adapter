@@ -1,6 +1,6 @@
 package org.sinytra.adapter.transform.patch;
 
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.config.Configurations;
@@ -10,6 +10,7 @@ import org.sinytra.adapter.transform.MethodTransformer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 public class MethodPatchResolver implements Resolver {
     private final List<MethodPatch> patches;
@@ -31,6 +32,11 @@ public class MethodPatchResolver implements Resolver {
 
                 Configuration patchConfig = patch.configuration();
                 dirtyConfig.mergeFrom(patchConfig);
+
+                // Add dynamic properties
+                BiConsumer<Configuration, MutableConfiguration> completer = patch.configCompleter();
+                completer.accept(recipe.clean(), dirtyConfig);
+                
                 postChanges.addAll(patch.transforms());
             }
         }

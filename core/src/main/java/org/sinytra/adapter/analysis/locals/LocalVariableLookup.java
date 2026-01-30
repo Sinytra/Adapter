@@ -3,10 +3,10 @@ package org.sinytra.adapter.analysis.locals;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.jetbrains.annotations.Nullable;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.env.ctx.MethodHelper;
 
 import java.util.*;
 
@@ -17,7 +17,7 @@ public class LocalVariableLookup {
     private final Map<Type, List<LocalVariableNode>> byType = new HashMap<>();
 
     public LocalVariableLookup(MethodNode methodNode) {
-        this.isNonStatic = (methodNode.access & Opcodes.ACC_STATIC) == 0;
+        this.isNonStatic = !MethodHelper.isStatic(methodNode);
         this.sortedLocals = methodNode.localVariables.stream().sorted(Comparator.comparingInt(lvn -> lvn.index)).toList();
         for (LocalVariableNode node : this.sortedLocals) {
             this.byIndex.put(node.index, node);

@@ -6,12 +6,12 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.VarInsnNode;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.MethodHelper;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
 import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.patch.config.SpecialKeys;
+import org.sinytra.adapter.patch.config.key.SpecialKeys;
 
 public class StaticAccessProcessor implements Processor {
     @Override

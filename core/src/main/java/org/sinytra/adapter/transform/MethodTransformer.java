@@ -1,6 +1,6 @@
 package org.sinytra.adapter.transform;
 
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.env.ctx.PatchResult;
 

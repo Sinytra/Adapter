@@ -6,7 +6,7 @@ import org.objectweb.asm.tree.AnnotationNode;
 import java.util.*;
 
 public final class AnnotationHandle {
-    private AnnotationNode annotationNode;
+    private final AnnotationNode annotationNode;
     private final Map<String, AnnotationValueHandle<?>> handleCache = new HashMap<>();
 
     public AnnotationHandle(AnnotationNode annotationNode) {
@@ -17,13 +17,9 @@ public final class AnnotationHandle {
         return this.annotationNode.desc;
     }
 
-    // TODO Remove me
+    @Deprecated
     public boolean matchesDesc(String desc) {
         return this.annotationNode.desc.equals(desc);
-    }
-
-    public boolean matchesAny(Collection<String> descs) {
-        return descs.stream().anyMatch(this.annotationNode.desc::equals);
     }
 
     public AnnotationNode unwrap() {
@@ -50,13 +46,6 @@ public final class AnnotationHandle {
         return getValue(key)
             .<AnnotationNode>flatMap(AnnotationValueHandle::maybeUnwrap)
             .map(AnnotationHandle::new);
-    }
-
-    public List<AnnotationHandle> getNestedList(String key) {
-        return this.<List<AnnotationNode>>getValue(key).stream()
-            .flatMap(v -> v.get().stream())
-            .map(AnnotationHandle::new)
-            .toList();
     }
 
     @SuppressWarnings("unchecked")
@@ -88,24 +77,6 @@ public final class AnnotationHandle {
         this.annotationNode.values.add(key);
         this.annotationNode.values.add(value);
         this.handleCache.remove(key);
-    }
-
-    public Map<String, AnnotationValueHandle<?>> getAllValues() {
-        Map<String, AnnotationValueHandle<?>> map = new HashMap<>();
-        if (this.annotationNode.values != null) {
-            for (int keyIdx = 0; keyIdx < this.annotationNode.values.size(); keyIdx += 2) {
-                String atKey = (String) this.annotationNode.values.get(keyIdx);
-                int valueIdx = keyIdx + 1;
-                AnnotationValueHandle<?> existing = this.handleCache.compute(atKey, (k, v) -> v != null ? v : new AnnotationValueHandle<>(this.annotationNode.values, valueIdx, atKey));
-                map.put(atKey, existing);
-            }
-        }
-        return map;
-    }
-
-    public void refresh(AnnotationNode annotationNode) {
-        this.annotationNode = annotationNode;
-        this.handleCache.values().forEach(v -> v.refresh(annotationNode));
     }
 
     public void setOrAppendNonNull(String key, @Nullable Object value) {

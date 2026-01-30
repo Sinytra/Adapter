@@ -58,5 +58,7 @@ public interface MutableConfiguration extends Configuration, MutablePropertyCont
 
     <T> MutableConfiguration removeProperty(PropertyKey<T> key);
 
+    MutableConfiguration mergeFrom(@Nullable PropertyContainer other);
+
     void inheritProperyIfAbsent(PropertyKey<?> key);
 }

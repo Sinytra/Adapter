@@ -2,17 +2,14 @@ package org.sinytra.adapter.patch.mixin;
 
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.patch.config.ConfigurationTemplates;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.patch.config.*;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.MethodHelper;
 import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.env.param.Parameters;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
-import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.patch.config.Keys;
-import org.sinytra.adapter.patch.config.MutableConfiguration;
-import org.sinytra.adapter.patch.config.PropertyContainerTemplate;
+import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.sinytra.adapter.patch.processor.ParametersProcessor;
 import org.sinytra.adapter.patch.processor.Processors;
 import org.sinytra.adapter.patch.processor.wrapop.WrapOpParamsProcessor;
@@ -24,18 +21,25 @@ import org.sinytra.adapter.env.util.TypeConstants;
 import org.sinytra.adapter.util.MethodQualifier;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.*;
 
 public class WrapOperationMixin implements MixinType {
     private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_BASE.extend()
-        .requireOne(Keys.TARGET_AT, Keys.TARGET_CONSTANT)
+        .requireOne(MixinKeys.TARGET_AT, MixinKeys.TARGET_CONSTANT)
         .build();
 
     @Override
     public PropertyContainerTemplate getConfigurationTemplate() {
         return TEMPLATE;
+    }
+
+    @Override
+    public Set<MixinFlag> getFlags() {
+        return EnumSet.of(MixinFlag.AT_TARGET_SENSITIVE, MixinFlag.ACCEPTS_INSTANCE);
     }
 
     @Override

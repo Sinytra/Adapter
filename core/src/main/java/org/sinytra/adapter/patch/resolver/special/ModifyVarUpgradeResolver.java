@@ -1,6 +1,6 @@
 package org.sinytra.adapter.patch.resolver.special;
 
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.patch.Recipe;

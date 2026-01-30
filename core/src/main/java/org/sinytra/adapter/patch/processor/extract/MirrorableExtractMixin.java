@@ -6,7 +6,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
 import org.objectweb.asm.commons.Method;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.PatchEnvironment;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.env.util.MixinAnnotations;

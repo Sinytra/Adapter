@@ -3,17 +3,17 @@ package org.sinytra.adapter.patch.resolver.injection;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.env.MixinContext;
-import org.sinytra.adapter.env.ann.AtData;
-import org.sinytra.adapter.env.util.MixinAnnotations;
-import org.sinytra.adapter.patch.Recipe;
-import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.patch.config.MutableConfiguration;
-import org.sinytra.adapter.patch.resolver.SubResolver;
 import org.sinytra.adapter.analysis.InsnComparator;
 import org.sinytra.adapter.analysis.InstructionMatcher;
 import org.sinytra.adapter.analysis.method.MethodInsnMatcher;
+import org.sinytra.adapter.env.ann.AtData;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
+import org.sinytra.adapter.patch.Recipe;
+import org.sinytra.adapter.patch.config.Configuration;
+import org.sinytra.adapter.patch.config.MutableConfiguration;
+import org.sinytra.adapter.patch.mixin.MixinFlag;
+import org.sinytra.adapter.patch.resolver.SubResolver;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
 
@@ -93,8 +93,7 @@ public class ArbitraryInjectionPointSubResolver implements SubResolver {
 
     private static MethodInsnNode findReplacementInjectionPoint(AbstractInsnNode lastInsn, UnaryOperator<AbstractInsnNode> flow, MixinContext context, @Nullable String injectionPointTarget) {
         // Require matching return types for ModifyExpressionValue mixins
-        // TODO Eliminate use of matchesDesc
-        if (context.methodAnnotation().matchesDesc(MixinAnnotations.MODIFY_EXPR_VAL) && injectionPointTarget != null) {
+        if (context.hasFlag(MixinFlag.RETURN_TYPE_SENSITIVE) && injectionPointTarget != null) {
             Type desiredReturnType = Type.getReturnType(injectionPointTarget);
             return (MethodInsnNode) AdapterUtil.iterateInsns(lastInsn, flow,
                 v -> v instanceof MethodInsnNode minsn && Type.getReturnType(minsn.desc).equals(desiredReturnType));

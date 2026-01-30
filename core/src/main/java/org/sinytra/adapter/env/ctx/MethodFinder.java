@@ -7,7 +7,6 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.analysis.InheritanceHandler;
 import org.sinytra.adapter.util.MethodQualifier;
 import org.sinytra.adapter.util.provider.ClassLookup;
 import org.slf4j.Logger;
@@ -24,10 +23,12 @@ public class MethodFinder {
         public static final int FALLBACK_OWNER = 0b10;
     }
 
+    private final PatchEnvironment environment;
     @Nullable
     private final String fallbackOwner;
 
-    public MethodFinder(String fallbackOwner) {
+    public MethodFinder(PatchEnvironment environment, String fallbackOwner) {
+        this.environment = environment;
         this.fallbackOwner = fallbackOwner;
     }
 
@@ -36,8 +37,7 @@ public class MethodFinder {
         ClassNode node = lookup.getClass(qualifier.internalOwnerName()).orElse(null);
         if (node == null) return null;
 
-        // TODO Unify
-        Collection<String> parents = new InheritanceHandler(lookup).getClassParents(node.name);
+        Collection<String> parents = this.environment.inheritanceHandler(lookup).getClassParents(node.name);
 
         return Stream.concat(Stream.of(node.name), parents.stream())
             .flatMap(cls -> lookup.findMethod(cls, qualifier.name(), qualifier.desc()).stream()

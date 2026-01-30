@@ -1,20 +1,17 @@
 package org.sinytra.adapter.transform.cls;
 
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.InnerClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.env.ann.ClassTarget;
-import org.sinytra.adapter.patch.mixin.MixinTypes;
-import org.sinytra.adapter.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.transform.ClassTransformer;
 import org.sinytra.adapter.env.ctx.PatchContext;
 import org.sinytra.adapter.env.ctx.PatchResult;
+import org.sinytra.adapter.patch.MixinParser;
+import org.sinytra.adapter.patch.config.key.MixinKeys;
+import org.sinytra.adapter.transform.ClassTransformer;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
-
-import java.util.List;
 
 /**
  * Handle cases where a method targets an anonymous class whose index has changed.
@@ -52,7 +49,7 @@ public class DynamicAnonClassIndexPatch implements ClassTransformer {
 
                 if (!inner.name.equals(target) && cleanOuterMethod.matches(null, inner.outerMethod, inner.outerMethodDesc)) {
                     classTarget.set(Type.getObjectType(inner.name));
-                    stripOwnerFromMixinTargets(classNode, context, inner.name);
+                    stripOwnerFromMixinTargets(classNode, classTarget, context, inner.name);
                     return PatchResult.APPLY;
                 }
             }
@@ -61,26 +58,15 @@ public class DynamicAnonClassIndexPatch implements ClassTransformer {
         return PatchResult.PASS;
     }
 
-    // TODO Improve so that we don't need to manually scan the annotations
-    private static void stripOwnerFromMixinTargets(ClassNode classNode, PatchContext context, String newOwner) {
+    private static void stripOwnerFromMixinTargets(ClassNode classNode, ClassTarget classTarget, PatchContext context, String newOwner) {
         for (MethodNode method : classNode.methods) {
-            if (method.visibleAnnotations != null) {
-                for (AnnotationNode annotation : method.visibleAnnotations) {
-                    if (MixinTypes.getMixinType(annotation.desc) != null) {
-                        AnnotationHandle handle = new AnnotationHandle(annotation);
-                        handle.<List<String>>getValue("method").ifPresent(val -> {
-                            List<String> mapped = val.get().stream()
-                                .map(target -> {
-                                    String remapped = context.remap(target);
-                                    MethodQualifier q = MethodQualifier.parse(remapped).orElse(null);
-                                    return q == null ? target : "L" + newOwner + ";" + q.name() + q.desc();
-                                })
-                                .toList();
-                            val.set(mapped);
-                        });
-                    }
-                }
-            }
+            MixinParser.MixinMethodHandle handle = MixinParser.parseMixin(classTarget, method, context);
+            if (handle == null) continue;
+
+            handle.properties().getProperty(MixinKeys.TARGET_METHOD)
+                .map(q -> q.withOwner(newOwner))
+                .map(MixinKeys.TARGET_METHOD::serialize)
+                .ifPresent(q -> handle.methodAnnotation().setOrAppendNonNull(MixinKeys.TARGET_METHOD.name(), q));
         }
     }
 }

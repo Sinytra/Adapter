@@ -1,12 +1,12 @@
 package org.sinytra.adapter.patch.mixin;
 
 import org.objectweb.asm.Type;
-import org.sinytra.adapter.patch.config.ConfigurationTemplates;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
 import org.sinytra.adapter.patch.config.Configuration;
+import org.sinytra.adapter.patch.config.ConfigurationTemplates;
 import org.sinytra.adapter.patch.config.MutableConfiguration;
 import org.sinytra.adapter.patch.config.PropertyContainerTemplate;
 import org.sinytra.adapter.patch.processor.Processors;
@@ -16,16 +16,23 @@ import org.sinytra.adapter.patch.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.patch.resolver.special.ResolverSyntheticInstanceof;
 import org.sinytra.adapter.util.MethodQualifier;
 
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
-import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.CAPTURED_PARAMS;
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.SINGLE_ANY;
+import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
 
 public class ModifyExpressionValueMixin implements MixinType {
     @Override
     public PropertyContainerTemplate getConfigurationTemplate() {
         return ConfigurationTemplates.MIXIN_AT;
+    }
+
+    @Override
+    public Set<MixinFlag> getFlags() {
+        return EnumSet.of(MixinFlag.RETURN_TYPE_SENSITIVE);
     }
 
     @Override

@@ -9,7 +9,7 @@ import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.analysis.params.ParamsDiffSnapshot;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.param.MethodParameters.ParamGroup;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;

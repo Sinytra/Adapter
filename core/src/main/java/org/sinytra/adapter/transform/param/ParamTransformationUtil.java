@@ -5,8 +5,6 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.env.MixinContext;
-import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
@@ -25,33 +23,28 @@ public final class ParamTransformationUtil {
         return lvt;
     }
 
-    public static List<AbstractInsnNode> findWrapOperationOriginalCall(MethodNode methodNode, MixinContext context) {
-        if (context.methodAnnotation().matchesDesc(MixinAnnotations.WRAP_OPERATION)) {
-            List<AbstractInsnNode> list = new ArrayList<>();
-            outer:
-            for (AbstractInsnNode insn : methodNode.instructions) {
-                if (insn instanceof MethodInsnNode minsn && WO_ORIGINAL_CALL.matches(minsn)) {
-                    for (AbstractInsnNode prev = insn.getPrevious(); prev != null; prev = prev.getPrevious()) {
-                        if (prev instanceof LabelNode) {
-                            continue outer;
-                        }
-                        if (AdapterUtil.canHandleLocalVarInsnValue(prev)) {
-                            list.add(prev);
-                        }
+    public static List<AbstractInsnNode> findWrapOperationOriginalCall(MethodNode methodNode) {
+        List<AbstractInsnNode> list = new ArrayList<>();
+        outer:
+        for (AbstractInsnNode insn : methodNode.instructions) {
+            if (insn instanceof MethodInsnNode minsn && WO_ORIGINAL_CALL.matches(minsn)) {
+                for (AbstractInsnNode prev = insn.getPrevious(); prev != null; prev = prev.getPrevious()) {
+                    if (prev instanceof LabelNode) {
+                        continue outer;
+                    }
+                    if (AdapterUtil.canHandleLocalVarInsnValue(prev)) {
+                        list.add(prev);
                     }
                 }
             }
-            return List.copyOf(list);
         }
-        return List.of();
+        return List.copyOf(list);
     }
 
-    public static List<AbstractInsnNode> findWrapOperationOriginalCallArgs(MethodNode methodNode, MixinContext context) {
-        if (context.methodAnnotation().matchesDesc(MixinAnnotations.WRAP_OPERATION)) {
-            for (AbstractInsnNode insn : methodNode.instructions) {
-                if (insn instanceof MethodInsnNode minsn && WO_ORIGINAL_CALL.matches(minsn)) {
-                    return MethodCallAnalyzer.getMethodCallInsns(methodNode, minsn);
-                }
+    public static List<AbstractInsnNode> findWrapOperationOriginalCallArgs(MethodNode methodNode) {
+        for (AbstractInsnNode insn : methodNode.instructions) {
+            if (insn instanceof MethodInsnNode minsn && WO_ORIGINAL_CALL.matches(minsn)) {
+                return MethodCallAnalyzer.getMethodCallInsns(methodNode, minsn);
             }
         }
         return List.of();

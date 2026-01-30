@@ -11,7 +11,7 @@ import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.SourceValue;
 import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceMethodVisitor;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.MethodHelper;
 import org.sinytra.adapter.env.ctx.PatchEnvironment;
 import org.sinytra.adapter.env.ctx.TargetPair;

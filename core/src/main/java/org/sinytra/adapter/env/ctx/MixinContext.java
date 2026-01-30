@@ -1,19 +1,20 @@
-package org.sinytra.adapter.env;
+package org.sinytra.adapter.env.ctx;
 
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.env.ann.ClassTarget;
-import org.sinytra.adapter.env.ctx.*;
+import org.sinytra.adapter.patch.mixin.MixinFlag;
 import org.sinytra.adapter.patch.processor.Processors;
 import org.sinytra.adapter.patch.resolver.Resolvers;
-import org.sinytra.adapter.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.types.TypeAdapter;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.provider.ClassLookup;
 
 import java.util.List;
+import java.util.Set;
 
 public class MixinContext implements RefMapper, Auditor {
     private final PatchContext patchContext;
@@ -21,6 +22,7 @@ public class MixinContext implements RefMapper, Auditor {
     private final ClassNode classNode;
     private final MethodNode methodNode;
     private final MethodNode originalMethodNode;
+    private final Set<MixinFlag> flags;
     
     private final AnnotationHandle methodAnnotation;
     private final AnnotationHandle injectionPointAnnotation;
@@ -30,18 +32,23 @@ public class MixinContext implements RefMapper, Auditor {
     private final Resolvers resolvers = new Resolvers();
     private final Processors processors = new Processors();
 
-    public MixinContext(PatchContext patchContext, ClassTarget classTarget, ClassNode classNode, MethodNode methodNode, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation) {
+    public MixinContext(PatchContext patchContext, ClassTarget classTarget, ClassNode classNode, MethodNode methodNode, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation, Set<MixinFlag> flags) {
         this.patchContext = patchContext;
         this.classTarget = classTarget;
         this.classNode = classNode;
         this.methodNode = methodNode;
         this.methodAnnotation = methodAnnotation;
         this.injectionPointAnnotation = injectionPointAnnotation;
+        this.flags = flags;
 
         this.methodHelper = new MethodHelper(this, classTarget.getTypes());
         this.originalMethodNode = AdapterUtil.copyMethod(this.methodNode);
         
         this.mixinId = classNode.name + "#" + methodNode.name + methodNode.desc;
+    }
+
+    public boolean hasFlag(MixinFlag flag) {
+        return this.flags.contains(flag);
     }
 
     public String getMixinId() {

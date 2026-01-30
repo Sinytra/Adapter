@@ -33,7 +33,7 @@ public interface MethodPatchBuilder {
 
     MethodPatchBuilder modifyInjectionPoint(String value, String target);
 
-    MethodPatchBuilder modifyInjectionPoint(String value, String target, boolean resetValues);
+    MethodPatchBuilder replaceInjectionPoint(String value, String target);
     
     MethodPatchBuilder modifyParams(UnaryOperator<MethodParameters> op);
 

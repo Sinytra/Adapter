@@ -5,7 +5,7 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.ann.SliceData;
 import org.sinytra.adapter.patch.Recipe;
@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
-import static org.sinytra.adapter.patch.config.Keys.SLICE;
+import static org.sinytra.adapter.patch.config.key.MixinKeys.SLICE;
 
 public class SliceBoundaryResolver implements Resolver {
     @Override

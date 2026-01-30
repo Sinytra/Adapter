@@ -2,26 +2,27 @@ package org.sinytra.adapter.patch.resolver.special;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
+import com.mojang.datafixers.util.Pair;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.env.MixinContext;
-import org.sinytra.adapter.env.ann.AtData;
-import org.sinytra.adapter.env.ctx.PatchContext;
-import org.sinytra.adapter.env.ctx.TargetPair;
-import org.sinytra.adapter.env.util.MixinAnnotations;
-import org.sinytra.adapter.patch.Recipe;
-import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.patch.config.Keys;
-import org.sinytra.adapter.patch.config.MutableConfiguration;
-import org.sinytra.adapter.patch.resolver.Resolver;
 import org.sinytra.adapter.analysis.InsnComparator;
 import org.sinytra.adapter.analysis.InstructionMatcher;
 import org.sinytra.adapter.analysis.locals.LocalVarAnalyzer;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodInsnMatcher;
+import org.sinytra.adapter.env.ann.AtData;
+import org.sinytra.adapter.env.ctx.MixinContext;
+import org.sinytra.adapter.env.ctx.PatchContext;
+import org.sinytra.adapter.env.ctx.TargetPair;
+import org.sinytra.adapter.patch.Recipe;
+import org.sinytra.adapter.patch.config.Configuration;
+import org.sinytra.adapter.patch.config.MutableConfiguration;
+import org.sinytra.adapter.patch.config.key.MixinKeys;
+import org.sinytra.adapter.patch.mixin.MixinFlag;
+import org.sinytra.adapter.patch.resolver.Resolver;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.GeneratedVariables;
 import org.sinytra.adapter.util.SingleValueHandle;
@@ -83,24 +84,26 @@ public class InjectorOrdinalResolver implements Resolver {
             }
         });
 
-        if (context.methodAnnotation().matchesDesc(MixinAnnotations.MODIFY_VAR)) {
+        if (context.hasFlag(MixinFlag.TARGETS_VARIABLE)) {
             LocalVariableLookup cleanTable = recipe.cleanLocalsTable();
             if (cleanTable != null) {
                 // Handle modified ordinals
-                cleanConfig.getProperty(Keys.ORDINAL)
+                cleanConfig.getProperty(MixinKeys.ORDINAL)
                     .flatMap(ordinal -> cleanTable.getByTypedOrdinal(returnType, ordinal)
                         .flatMap(lvn -> cleanTable.getTypedOrdinal(lvn).map(o -> new LocalVar(lvn, o, true)))
-                        .map(local -> new HandlerInstance<>(ModifyVariableOffsetHandler.INSTANCE, local, var ->
+                        .map(local -> new HandlerInstance<>(ModifyVariableOffsetHandler.INSTANCE, local, pair ->
                             MutableConfiguration.create()
-                                .setProperty(Keys.ORDINAL, var.ordinal())
+                                .setProperty(MixinKeys.ORDINAL, pair.getFirst().ordinal())
+                                .mergeFrom(pair.getSecond())
                         )))
                     // Handle modified indexes
-                    .or(() -> cleanConfig.getProperty(Keys.INDEX)
+                    .or(() -> cleanConfig.getProperty(MixinKeys.INDEX)
                         .flatMap(i -> Optional.ofNullable(cleanTable.getByIndexOrNull(i))
                             .flatMap(lvn -> cleanTable.getTypedOrdinal(lvn).map(o -> new LocalVar(lvn, o, false)))
-                            .map(local -> new HandlerInstance<>(ModifyVariableOffsetHandler.INSTANCE, local, var ->
+                            .map(local -> new HandlerInstance<>(ModifyVariableOffsetHandler.INSTANCE, local, pair ->
                                 MutableConfiguration.create()
-                                    .setProperty(Keys.INDEX, var.lvn().index)
+                                    .setProperty(MixinKeys.INDEX, pair.getFirst().lvn().index)
+                                    .mergeFrom(pair.getSecond())
                             ))
                         ))
                     .ifPresent(handlers::add);
@@ -240,11 +243,11 @@ public class InjectorOrdinalResolver implements Resolver {
         }
     }
 
-    private static class ModifyVariableOffsetHandler implements UpdateHandler<LocalVar, LocalVar> {
+    private static class ModifyVariableOffsetHandler implements UpdateHandler<LocalVar, Pair<LocalVar, @Nullable Configuration>> {
         private static final ModifyVariableOffsetHandler INSTANCE = new ModifyVariableOffsetHandler();
 
         @Override
-        public Optional<LocalVar> apply(MixinContext mixinContext, TargetPair cleanTarget, TargetPair dirtyTarget, LocalVar local) {
+        public Optional<Pair<LocalVar, @Nullable Configuration>> apply(MixinContext mixinContext, TargetPair cleanTarget, TargetPair dirtyTarget, LocalVar local) {
             MethodNode methodNode = mixinContext.methodNode();
 
             Type[] args = Type.getArgumentTypes(methodNode.desc);
@@ -263,6 +266,7 @@ public class InjectorOrdinalResolver implements Resolver {
             }
 
             return tryFindUpdatedIndex(targetType, cleanTarget, dirtyTarget, local)
+                .<Pair<LocalVar, Configuration>>map(var -> Pair.of(var, null))
                 .or(() -> tryFindSyntheticVariableIndex(mixinContext, methodNode, cleanTarget, dirtyTarget, local));
         }
 
@@ -294,7 +298,7 @@ public class InjectorOrdinalResolver implements Resolver {
          *    INVOKEVIRTUAL net/minecraft/world/entity/player/Player.setHealth (F)V
          * }</pre>
          */
-        private static Optional<LocalVar> tryFindSyntheticVariableIndex(MixinContext mixinContext, MethodNode methodNode, TargetPair cleanTarget, TargetPair dirtyTarget, LocalVar local) {
+        private static Optional<Pair<LocalVar, @Nullable Configuration>> tryFindSyntheticVariableIndex(MixinContext mixinContext, MethodNode methodNode, TargetPair cleanTarget, TargetPair dirtyTarget, LocalVar local) {
             int ordinal = local.ordinal();
             Type variableType = Type.getReturnType(methodNode.desc);
             LocalVariableLookup cleanTable = new LocalVariableLookup(cleanTarget.methodNode());
@@ -318,14 +322,14 @@ public class InjectorOrdinalResolver implements Resolver {
                                 if (dirtyVars.size() == 1) {
                                     int dirtyIndex = dirtyVars.getFirst().get();
                                     if (dirtyIndex != variableIndex) {
-                                        // FIXME Cannot use set
-                                        mixinContext.methodAnnotation().<Boolean>getValue("argsOnly")
-                                            .ifPresent(h -> h.set(false));
-
                                         // Find new ordinal by index
                                         LocalVariableNode lvn = dirtyTable.getByIndex(dirtyIndex);
                                         return dirtyTable.getTypedOrdinal(lvn)
-                                            .map(o -> new LocalVar(lvn, o));
+                                            .map(o -> Pair.of(
+                                                new LocalVar(lvn, o),
+                                                MutableConfiguration.create()
+                                                    .setProperty(MixinKeys.ARGS_ONLY, false)
+                                            ));
                                     }
                                 }
                                 break;

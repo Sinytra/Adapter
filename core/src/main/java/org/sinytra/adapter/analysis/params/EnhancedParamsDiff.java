@@ -5,10 +5,10 @@ import com.google.common.collect.Maps;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.env.ctx.MethodHelper;
 import org.sinytra.adapter.util.GeneratedVariables;
 import org.slf4j.Logger;
 
@@ -32,8 +32,8 @@ public class EnhancedParamsDiff {
 
         int cleanParamCount = Type.getArgumentTypes(clean.desc).length;
         int dirtyParamCount = Type.getArgumentTypes(dirty.desc).length;
-        boolean isCleanStatic = (clean.access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC;
-        boolean isDirtyStatic = (dirty.access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC;
+        boolean isCleanStatic = MethodHelper.isStatic(clean);
+        boolean isDirtyStatic = MethodHelper.isStatic(dirty);
         // Get params as local variables, which include their names as well
         List<LocalVariable> cleanParams = clean.localVariables.stream()
             .sorted(Comparator.comparingInt(lv -> lv.index))

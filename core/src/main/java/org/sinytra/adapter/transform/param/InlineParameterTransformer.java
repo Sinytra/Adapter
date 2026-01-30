@@ -4,7 +4,7 @@ import com.mojang.logging.LogUtils;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.analysis.locals.LVTSnapshot;
 import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.util.AdapterUtil;

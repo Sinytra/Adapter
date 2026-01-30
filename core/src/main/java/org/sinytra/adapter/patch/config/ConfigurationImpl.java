@@ -7,6 +7,8 @@ import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.param.Copiable;
 import org.sinytra.adapter.env.param.MethodParameters;
+import org.sinytra.adapter.patch.config.key.ControlKeys;
+import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.sinytra.adapter.util.MethodQualifier;
 
 /**
@@ -37,90 +39,90 @@ public class ConfigurationImpl extends BasePropertyContainer implements MutableC
 
     @Override
     public MutableConfiguration inheritMixinType() {
-        return inheritProperty(Keys.MIXIN_TYPE);
+        return inheritProperty(ControlKeys.MIXIN_TYPE);
     }
 
     @Override
     public MutableConfiguration inheritTargetClass() {
-        return inheritProperty(Keys.TARGET_CLASS);
+        return inheritProperty(ControlKeys.TARGET_CLASS);
     }
 
     @Override
     public MutableConfiguration inheritTargetMethod() {
-        return inheritProperty(Keys.TARGET_METHOD);
+        return inheritProperty(MixinKeys.TARGET_METHOD);
     }
 
     @Override
     public MutableConfiguration inheritAtData() {
-        return inheritProperty(Keys.TARGET_AT);
+        return inheritProperty(MixinKeys.TARGET_AT);
     }
 
     @Override
     public MutableConfiguration inheritParameters() {
-        return inheritProperty(Keys.PARAMETERS);
+        return inheritProperty(ControlKeys.PARAMETERS);
     }
 
     @Override
     public MutableConfiguration inheritReturnType() {
-        return inheritProperty(Keys.RETURN_TYPE);
+        return inheritProperty(ControlKeys.RETURN_TYPE);
     }
 
     @Override
     public MutableConfiguration inheritShouldDelete() {
-        return inheritProperty(Keys.DELETE);
+        return inheritProperty(ControlKeys.DELETE);
     }
 
     @Override
     public String getMixinType() {
-        return getPropertyOrNull(Keys.MIXIN_TYPE);
+        return getPropertyOrNull(ControlKeys.MIXIN_TYPE);
     }
 
     @Override
     public String getTargetClass() {
-        return getPropertyOrNull(Keys.TARGET_CLASS);
+        return getPropertyOrNull(ControlKeys.TARGET_CLASS);
     }
 
     @Override
     public MethodQualifier getTargetMethod() {
-        return getPropertyOrNull(Keys.TARGET_METHOD);
+        return getPropertyOrNull(MixinKeys.TARGET_METHOD);
     }
 
     @Override
     public AtData getAtData() {
-        return getPropertyOrNull(Keys.TARGET_AT);
+        return getPropertyOrNull(MixinKeys.TARGET_AT);
     }
 
     @Override
     public MethodParameters getParameters() {
-        return getPropertyOrNull(Keys.PARAMETERS);
+        return getPropertyOrNull(ControlKeys.PARAMETERS);
     }
 
     @Override
     public Type getReturnType() {
-        return getPropertyOrNull(Keys.RETURN_TYPE);
+        return getPropertyOrNull(ControlKeys.RETURN_TYPE);
     }
 
     @Override
     public boolean shouldDelete() {
-        Boolean boxed = getProperty(Keys.DELETE).orElse(null);
+        Boolean boxed = getProperty(ControlKeys.DELETE).orElse(null);
         return boxed != null && boxed.booleanValue();
     }
 
     @Override
     public boolean isCancellable() {
-        Boolean boxed = getProperty(Keys.CANCELLABLE).orElse(null);
+        Boolean boxed = getProperty(MixinKeys.CANCELLABLE).orElse(null);
         return boxed != null && boxed.booleanValue();
     }
 
     @Override
     public MutableConfiguration setTargetClass(String targetClass) {
-        setProperty(Keys.TARGET_CLASS, targetClass);
+        setProperty(ControlKeys.TARGET_CLASS, targetClass);
         return this;
     }
 
     @Override
     public MutableConfiguration setMixinType(String mixinType) {
-        setProperty(Keys.MIXIN_TYPE, mixinType);
+        setProperty(ControlKeys.MIXIN_TYPE, mixinType);
         return this;
     }
 
@@ -138,31 +140,31 @@ public class ConfigurationImpl extends BasePropertyContainer implements MutableC
 
     @Override
     public MutableConfiguration setTargetMethod(MethodQualifier targetMethod) {
-        setProperty(Keys.TARGET_METHOD, targetMethod);
+        setProperty(MixinKeys.TARGET_METHOD, targetMethod);
         return this;
     }
 
     @Override
     public MutableConfiguration setAtData(AtData atData) {
-        setProperty(Keys.TARGET_AT, atData);
+        setProperty(MixinKeys.TARGET_AT, atData);
         return this;
     }
 
     @Override
     public MutableConfiguration setParameters(MethodParameters parameters) {
-        setProperty(Keys.PARAMETERS, parameters);
+        setProperty(ControlKeys.PARAMETERS, parameters);
         return this;
     }
 
     @Override
     public MutableConfiguration setReturnType(Type returnType) {
-        setProperty(Keys.RETURN_TYPE, returnType);
+        setProperty(ControlKeys.RETURN_TYPE, returnType);
         return this;
     }
 
     @Override
     public MutableConfiguration setShouldDelete(boolean delete) {
-        setProperty(Keys.DELETE, delete);
+        setProperty(ControlKeys.DELETE, delete);
         return this;
     }
 
@@ -215,5 +217,11 @@ public class ConfigurationImpl extends BasePropertyContainer implements MutableC
     @Override
     public MutableConfiguration childConfig() {
         return new ConfigurationImpl(this.template, this);
+    }
+
+    @Override
+    public MutableConfiguration mergeFrom(@Nullable PropertyContainer other) {
+        super.mergeFrom(other);
+        return this;
     }
 }

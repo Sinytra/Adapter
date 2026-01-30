@@ -26,5 +26,5 @@ public interface MutablePropertyContainer extends PropertyContainer {
 
     <T> MutablePropertyContainer removeProperty(PropertyKey<T> key);
 
-    MutablePropertyContainer mergeFrom(PropertyContainer other);
+    MutablePropertyContainer mergeFrom(@Nullable PropertyContainer other);
 }

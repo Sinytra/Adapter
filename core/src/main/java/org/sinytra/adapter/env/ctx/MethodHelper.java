@@ -9,7 +9,6 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.env.MixinContext;
 import org.sinytra.adapter.env.MockMixinRuntime;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.param.ParamDiffResolver;
@@ -46,7 +45,7 @@ public class MethodHelper {
         this.context = context;
 
         String singleTargetClass = targetTypes.size() == 1 ? targetTypes.getFirst().getInternalName() : null;
-        this.methodFinder = new MethodFinder(singleTargetClass);
+        this.methodFinder = new MethodFinder(context.environment(), singleTargetClass);
     }
 
     @Nullable
@@ -93,11 +92,7 @@ public class MethodHelper {
     }
 
     public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable TargetPair target, boolean ignoreOrdinal) {
-        return this.targetInstructionsCache.computeIfAbsent(target, t -> computeInjectionTargetInsns(t, ignoreOrdinal));
-    }
-
-    private List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable TargetPair target, boolean ignoreOrdinal) {
-        return computeInjectionTargetInsns(
+        return this.targetInstructionsCache.computeIfAbsent(target, t -> computeInjectionTargetInsns(
             target,
             this.context::injectionPointAnnotation,
             (ctx, h) -> {
@@ -110,18 +105,12 @@ public class MethodHelper {
                 return InjectionPoint.parse(ctx, this.context.methodNode(), this.context.methodAnnotation().unwrap(), atAnn.unwrap());
             },
             true
-        );
+        ));
     }
 
-    // TODO Always use config AtData?
     @Nullable
     public AbstractInsnNode findInjectionTargetInsn(@Nullable TargetPair target, AtData atData) {
-        List<AbstractInsnNode> cleanInsns = findInjectionTargetInsns(target, atData);
-        return cleanInsns.size() != 1 ? null : cleanInsns.getFirst();
-    }
-
-    public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable TargetPair target, AtData atData) {
-        return computeInjectionTargetInsns(
+        List<AbstractInsnNode> cleanInsns = computeInjectionTargetInsns(
             target,
             this.context::injectionPointAnnotation,
             (ctx, h) -> {
@@ -133,6 +122,7 @@ public class MethodHelper {
             },
             true
         );
+        return cleanInsns.size() != 1 ? null : cleanInsns.getFirst();
     }
 
     public List<Type> resolveCapturedMethodParams(Configuration clean, Configuration dirty) {

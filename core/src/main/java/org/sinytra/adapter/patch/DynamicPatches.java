@@ -24,7 +24,7 @@ public class DynamicPatches {
     public static Multimap<TxPhase, MethodTransformer> methodTransformers(List<MethodPatch> patches) {
         return ImmutableMultimap.of(
             TxPhase.EARLY, new LocalCaptureUpgradeTransformer(),
-            TxPhase.LOADED, new FieldAccessorTypeTransformer(), // TODO EARLY?
+            TxPhase.LOADED, new FieldAccessorTypeTransformer(),
             TxPhase.VALIDATED, new PipelineMethodTransformer(patches, false) 
         );
     }

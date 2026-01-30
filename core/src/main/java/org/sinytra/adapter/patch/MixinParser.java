@@ -10,6 +10,8 @@ import org.sinytra.adapter.env.ctx.MethodHelper;
 import org.sinytra.adapter.env.ctx.RefMapper;
 import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.patch.config.*;
+import org.sinytra.adapter.patch.config.key.ControlKeys;
+import org.sinytra.adapter.patch.config.key.SpecialKeys;
 import org.sinytra.adapter.patch.mixin.MixinType;
 import org.sinytra.adapter.patch.mixin.MixinTypes;
 import org.sinytra.adapter.analysis.selector.AnnotationHandle;
@@ -37,7 +39,7 @@ public class MixinParser {
         return new MixinClassHandle(cls, methods);
     }
 
-    private static MixinMethodHandle parseMixin(ClassTarget cls, MethodNode method, RefMapper mapper) {
+    public static MixinMethodHandle parseMixin(ClassTarget cls, MethodNode method, RefMapper mapper) {
         if (method.visibleAnnotations == null) return null;
 
         for (AnnotationNode annotation : method.visibleAnnotations) {
@@ -50,9 +52,9 @@ public class MixinParser {
             PropertyContainerTemplate template = mixinType.getConfigurationTemplate();
 
             MutablePropertyContainer properties = MutablePropertyContainer.parse(handle, template, mapper);
-            properties.setProperty(Keys.MIXIN_TYPE, annotation.desc);
-            properties.setProperty(Keys.TARGET_CLASS, cls.getSingle().getInternalName());
-            properties.setProperty(Keys.RETURN_TYPE, Type.getReturnType(method.desc));
+            properties.setProperty(ControlKeys.MIXIN_TYPE, annotation.desc);
+            properties.setProperty(ControlKeys.TARGET_CLASS, cls.getSingle().getInternalName());
+            properties.setProperty(ControlKeys.RETURN_TYPE, Type.getReturnType(method.desc));
             properties.setProperty(SpecialKeys.STATIC, MethodHelper.isStatic(method));
 
             return new MixinMethodHandle(mixinType, method, handle, properties);

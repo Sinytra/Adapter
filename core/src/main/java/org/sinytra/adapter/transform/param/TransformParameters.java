@@ -7,10 +7,9 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.env.MixinContext;
-import org.sinytra.adapter.env.util.MixinAnnotations;
-import org.sinytra.adapter.analysis.selector.AnnotationHandle;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.PatchResult;
+import org.sinytra.adapter.patch.mixin.MixinFlag;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -19,7 +18,6 @@ import java.util.function.Consumer;
 
 public record TransformParameters(List<ParameterTransformer> transformers, boolean withOffset) {
 
-    // TODO
     public PatchResult apply(MixinContext context) {
         ClassNode classNode = context.classNode();
         MethodNode methodNode = context.methodNode();
@@ -48,9 +46,8 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
     }
 
     private int calculateOffset(MixinContext context) {
-        AnnotationHandle annotation = context.methodAnnotation();
         // If it's a redirect, the first local variable (index 1) is the object instance
-        boolean needsLocalOffset = annotation.matchesDesc(MixinAnnotations.REDIRECT) || annotation.matchesDesc(MixinAnnotations.WRAP_OPERATION);
+        boolean needsLocalOffset = context.hasFlag(MixinFlag.ACCEPTS_INSTANCE);
         return !context.isStatic() && this.withOffset && needsLocalOffset ? 1 : 0;
     }
 

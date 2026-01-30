@@ -53,7 +53,6 @@ public class ClassTarget {
         return types.getFirst();
     }
 
-    @Deprecated
     public void set(Type type) {
         this.either.ifLeft(h -> h.set(List.of(type)))
             .ifRight(h -> h.set(List.of(type.getInternalName())));

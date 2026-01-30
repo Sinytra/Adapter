@@ -10,14 +10,24 @@ public class Processors extends OrderedRegistry<Processor> {
     }
 
     private void registerDefaultProcessors() {
+        // === Major changes first ===
+        // Handle deleted mixins
         add(new DisableMixinProcessor());
+        // Changed class target
         add(new ExtractMixinProcessor());
+        // Replaced mixin types
         add(new MixinTypeProcessor());
-        add(new TargetMethodProcessor());
-        add(new InjectionTargetProcessor());
-        add(new ParametersProcessor());
-        add(new ReturnTypeProcessor());
+
+        // === Standard changes ===
+        // General annotation props
         add(new PropertyProcessor());
+        // Target method post processor
+        add(new TargetMethodProcessor());
+        // Mixin method parameters
+        add(new ParametersProcessor());
+        // Mixin method return type
+        add(new ReturnTypeProcessor());
+        // Static access modifier
         add(new StaticAccessProcessor());
     }
 }

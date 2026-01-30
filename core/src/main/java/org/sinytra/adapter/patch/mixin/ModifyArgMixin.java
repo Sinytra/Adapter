@@ -2,18 +2,15 @@ package org.sinytra.adapter.patch.mixin;
 
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
-import org.sinytra.adapter.patch.config.ConfigurationTemplates;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.patch.config.*;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.env.param.Parameter;
 import org.sinytra.adapter.env.param.Parameters;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
-import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.patch.config.Keys;
-import org.sinytra.adapter.patch.config.MutableConfiguration;
-import org.sinytra.adapter.patch.config.PropertyContainerTemplate;
+import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.sinytra.adapter.patch.processor.Processors;
 import org.sinytra.adapter.patch.resolver.Resolvers;
 import org.sinytra.adapter.patch.resolver.injection.ArbitraryInjectionPointSubResolver;
@@ -24,11 +21,11 @@ import org.sinytra.adapter.util.MethodQualifier;
 import java.util.List;
 
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.SINGLE_ANY;
-import static org.sinytra.adapter.patch.config.Keys.INDEX;
+import static org.sinytra.adapter.patch.config.key.MixinKeys.INDEX;
 
 public class ModifyArgMixin implements MixinType {
     private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
-        .keys(Keys.INDEX)
+        .keys(MixinKeys.INDEX)
         .build();
 
     @Override

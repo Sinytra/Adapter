@@ -4,7 +4,7 @@ import com.mojang.logging.LogUtils;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.param.Parameters;
 import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
@@ -44,7 +44,7 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
         localVar.desc = this.type.getDescriptor();
         localVar.signature = null;
 
-        List<AbstractInsnNode> ignoreInsns = findWrapOperationOriginalCall(methodNode, context);
+        List<AbstractInsnNode> ignoreInsns = findWrapOperationOriginalCall(methodNode);
         BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
         if (this.upgradeUsage && this.type.getSort() == Type.OBJECT && originalType.getSort() == Type.OBJECT) {
             // Replace variable usages with the new type

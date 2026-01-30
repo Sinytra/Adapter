@@ -5,7 +5,7 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.ann.ConstantData;
 import org.sinytra.adapter.env.ctx.TargetPair;
@@ -15,10 +15,9 @@ import org.sinytra.adapter.env.param.Parameter;
 import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.env.util.TypeConstants;
 import org.sinytra.adapter.patch.Recipe;
-import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.patch.config.Keys;
-import org.sinytra.adapter.patch.config.MutableConfiguration;
-import org.sinytra.adapter.patch.config.SpecialKeys;
+import org.sinytra.adapter.patch.config.*;
+import org.sinytra.adapter.patch.config.key.MixinKeys;
+import org.sinytra.adapter.patch.config.key.SpecialKeys;
 import org.sinytra.adapter.patch.processor.wrapop.WrapOpSurgeon;
 import org.sinytra.adapter.patch.resolver.SubResolver;
 import org.sinytra.adapter.analysis.MethodLabelComparator;
@@ -146,8 +145,8 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
             Multimap<Integer, VarInsnNode> usedVars = WrapOpSurgeon.getUsedVars(mixinLocals, inheritedParams, context);
 
             MutableConfiguration config = recipe.dirty().copyClean()
-                .removeProperty(Keys.TARGET_AT)
-                .setProperty(Keys.TARGET_CONSTANT, ConstantData.classValue(Type.getObjectType(instanceOfCall.desc)))
+                .removeProperty(MixinKeys.TARGET_AT)
+                .setProperty(MixinKeys.TARGET_CONSTANT, ConstantData.classValue(Type.getObjectType(instanceOfCall.desc)))
                 .inheritParameters()
                 .inheritReturnType();
             MethodParameters parameters = config.getParameters();

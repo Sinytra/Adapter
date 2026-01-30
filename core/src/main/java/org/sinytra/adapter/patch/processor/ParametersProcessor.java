@@ -3,7 +3,7 @@ package org.sinytra.adapter.patch.processor;
 import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.VarInsnNode;
-import org.sinytra.adapter.env.MixinContext;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.env.param.Parameters;
 import org.sinytra.adapter.patch.Recipe;
