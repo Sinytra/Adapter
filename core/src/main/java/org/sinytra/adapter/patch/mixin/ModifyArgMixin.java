@@ -26,6 +26,7 @@ import static org.sinytra.adapter.patch.config.key.MixinKeys.INDEX;
 public class ModifyArgMixin implements MixinType {
     private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
         .keys(MixinKeys.INDEX)
+        .pluralKeys(MixinKeys.TARGET_METHOD)
         .build();
 
     @Override

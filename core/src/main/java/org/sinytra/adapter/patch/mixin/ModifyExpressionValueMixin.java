@@ -9,6 +9,7 @@ import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.config.ConfigurationTemplates;
 import org.sinytra.adapter.patch.config.MutableConfiguration;
 import org.sinytra.adapter.patch.config.PropertyContainerTemplate;
+import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.sinytra.adapter.patch.processor.Processors;
 import org.sinytra.adapter.patch.resolver.Resolvers;
 import org.sinytra.adapter.patch.resolver.injection.ArbitraryInjectionPointSubResolver;
@@ -25,9 +26,13 @@ import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.SINGLE_A
 import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
 
 public class ModifyExpressionValueMixin implements MixinType {
+    private final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
+        .pluralKeys(MixinKeys.TARGET_METHOD, MixinKeys.TARGET_AT)
+        .build();
+
     @Override
     public PropertyContainerTemplate getConfigurationTemplate() {
-        return ConfigurationTemplates.MIXIN_AT;
+        return TEMPLATE;
     }
 
     @Override
@@ -43,7 +48,7 @@ public class ModifyExpressionValueMixin implements MixinType {
             .addBefore(InjectionPointResolver.class, new ResolverSyntheticInstanceof(true));
 
         clean.setParameters(MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY, CAPTURED_PARAMS)));
-        
+
         return TxResult.SUCCESS;
     }
 
@@ -71,7 +76,7 @@ public class ModifyExpressionValueMixin implements MixinType {
 
         dirty.setParameters(params);
         dirty.setReturnType(modifyingType);
-        
+
         return TxResult.SUCCESS;
     }
 }

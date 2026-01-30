@@ -29,7 +29,7 @@ public class MixinKeys {
             // Extract owner, name and desc using regex
             return MethodQualifier.parse(reference).orElse(null);
         })
-        .serializer(q -> List.of(q.asDescriptor()))
+        .serializer(MethodQualifier::asDescriptor)
         .build();
     public static final PropertyKey<AtData> TARGET_AT = PropertyKey.<AtData>builder("at")
         .parser((value, mapper) -> {
@@ -39,7 +39,7 @@ public class MixinKeys {
             AnnotationHandle handle = new AnnotationHandle(node);
             return AtData.parse(handle, mapper).orElse(null);
         })
-        .serializer(a -> List.of(a.toAnnotationNode())) // FIXME Sometimes a list, sometimes not. How to handle?
+        .serializer(AtData::toAnnotationNode)
         .build();
     public static final PropertyKey<ConstantData> TARGET_CONSTANT = PropertyKey.<ConstantData>builder("constant")
         .parser((value, mapper) -> {
@@ -47,7 +47,7 @@ public class MixinKeys {
             AnnotationHandle handle = new AnnotationHandle(node);
             return ConstantData.parse(handle).orElse(null);
         })
-        .serializer(c -> List.of(c.toAnnotationNode()))
+        .serializer(ConstantData::toAnnotationNode)
         .build();
     // Mixin data
     public static final PropertyKey<Boolean> CANCELLABLE = PropertyKey.create("cancellable", Boolean.class);

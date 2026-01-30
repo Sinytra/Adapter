@@ -30,6 +30,7 @@ import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.*;
 public class WrapOperationMixin implements MixinType {
     private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_BASE.extend()
         .requireOne(MixinKeys.TARGET_AT, MixinKeys.TARGET_CONSTANT)
+        .pluralKeys(MixinKeys.TARGET_METHOD, MixinKeys.TARGET_AT, MixinKeys.TARGET_CONSTANT)
         .build();
 
     @Override

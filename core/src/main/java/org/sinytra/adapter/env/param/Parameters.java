@@ -44,7 +44,7 @@ public final class Parameters {
     }
 
     public static List<Type> getParameterTypes(String desc) {
-        return Arrays.asList(Type.getArgumentTypes(desc));
+        return new ArrayList<>(Arrays.asList(Type.getArgumentTypes(desc)));
     }
 
     public static Map<VarInsnNode, Pair<Integer, Type>> gatherVarMappings(MethodNode method, List<Parameter> cleanParameters, List<Parameter> dirtyParameters, Map<Parameter, Parameter> replacements) {

@@ -214,7 +214,11 @@ public abstract class MinecraftMixinPatchTest {
     }
 
     protected AssertCallback assertTargetMethod() {
-        Function<AnnotationNode, List<String>> targetMethodExtractor = node -> new AnnotationHandle(node).<List<String>>getValue("method").map(AnnotationValueHandle::get).orElseThrow();
+        Function<AnnotationNode, List<String>> targetMethodExtractor = node ->
+            new AnnotationHandle(node).
+                <List<String>>getValue("method")
+                .map(AnnotationValueHandle::get)
+                .orElseThrow();
 
         return (patched, expected, env) -> {
             AnnotationNode patchedMethodAnn = patched.visibleAnnotations.getFirst();

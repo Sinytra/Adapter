@@ -26,6 +26,7 @@ import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.SINGLE_A
 public class ModifyVariableMixin implements MixinType {
     private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
         .keys(MixinKeys.ARGS_ONLY, MixinKeys.ORDINAL, MixinKeys.INDEX, MixinKeys.SLICE)
+        .pluralKeys(MixinKeys.TARGET_METHOD)
         .build();
 
     @Override

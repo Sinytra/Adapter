@@ -26,6 +26,7 @@ import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.*;
 public class InjectMixin implements MixinType {
     private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
         .keys(MixinKeys.SLICES, MixinKeys.CANCELLABLE)
+        .pluralKeys(MixinKeys.TARGET_METHOD, MixinKeys.TARGET_AT)
         .build();
 
     @Override

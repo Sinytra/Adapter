@@ -2,14 +2,11 @@ package org.sinytra.adapter.patch.config;
 
 import com.google.common.collect.ImmutableMap;
 import org.jetbrains.annotations.Nullable;
-import org.sinytra.adapter.env.ctx.RefMapper;
 import org.sinytra.adapter.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.analysis.selector.AnnotationValueHandle;
+import org.sinytra.adapter.env.ctx.RefMapper;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 
 public class BasePropertyContainer implements MutablePropertyContainer {
     private final Map<PropertyKey<?>, Object> properties = new HashMap<>();
@@ -78,9 +75,14 @@ public class BasePropertyContainer implements MutablePropertyContainer {
     @SuppressWarnings({"rawtypes", "unchecked"})
     @Override
     public void apply(AnnotationHandle handle) {
+        Set<PropertyKey<?>> pluralKeys = Optional.ofNullable(this.template)
+            .map(PropertyContainerTemplate::getPluralKeys)
+            .orElseGet(Set::of);
+
         this.properties.forEach((key, value) -> {
             Object serialized = ((PropertyKey) key).serialize(value);
-            handle.setOrAppendNonNull(key.name(), serialized);
+            Object actual = pluralKeys.contains(key) ? List.of(serialized) : serialized;
+            handle.setOrAppendNonNull(key.name(), actual);
         });
     }
 

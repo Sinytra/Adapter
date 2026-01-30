@@ -11,15 +11,21 @@ import java.util.stream.Stream;
 
 public class PropertyContainerTemplate {
     private final Set<PropertyKey<?>> keys;
+    private final Set<PropertyKey<?>> pluralKeys;
     private final List<Validator> constraints;
 
-    private PropertyContainerTemplate(Set<PropertyKey<?>> keys, List<Validator> constraints) {
+    private PropertyContainerTemplate(Set<PropertyKey<?>> keys, Set<PropertyKey<?>> pluralKeys, List<Validator> constraints) {
         this.keys = ImmutableSet.copyOf(keys);
+        this.pluralKeys = ImmutableSet.copyOf(pluralKeys);
         this.constraints = ImmutableList.copyOf(constraints);
     }
 
     public Set<PropertyKey<?>> getKeys() {
         return this.keys;
+    }
+
+    public Set<PropertyKey<?>> getPluralKeys() {
+        return this.pluralKeys;
     }
 
     public boolean validate(PropertyContainer container) {
@@ -32,7 +38,7 @@ public class PropertyContainerTemplate {
     }
 
     public Builder extend() {
-        return new Builder(this.keys, this.constraints);
+        return new Builder(this.keys, this.pluralKeys, this.constraints);
     }
 
     public static Builder builder() {
@@ -41,20 +47,28 @@ public class PropertyContainerTemplate {
 
     public static class Builder {
         private final Set<PropertyKey<?>> keys;
+        private final Set<PropertyKey<?>> pluralKeys;
         private final List<Validator> constraints;
 
         public Builder() {
             this.keys = new HashSet<>();
+            this.pluralKeys = new HashSet<>();
             this.constraints = new ArrayList<>();
         }
 
-        public Builder(Set<PropertyKey<?>> keys, List<Validator> constraints) {
+        public Builder(Set<PropertyKey<?>> keys, Set<PropertyKey<?>> pluralKeys, List<Validator> constraints) {
             this.keys = new HashSet<>(keys);
+            this.pluralKeys = new HashSet<>(pluralKeys);
             this.constraints = new ArrayList<>(constraints);
         }
 
         public Builder keys(PropertyKey<?>... keys) {
             this.keys.addAll(List.of(keys));
+            return this;
+        }
+
+        public Builder pluralKeys(PropertyKey<?>... keys) {
+            this.pluralKeys.addAll(List.of(keys));
             return this;
         }
 
@@ -76,7 +90,7 @@ public class PropertyContainerTemplate {
         }
 
         public PropertyContainerTemplate build() {
-            return new PropertyContainerTemplate(this.keys, this.constraints);
+            return new PropertyContainerTemplate(this.keys, this.pluralKeys, this.constraints);
         }
     }
 

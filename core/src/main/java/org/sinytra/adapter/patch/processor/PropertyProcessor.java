@@ -24,7 +24,7 @@ public class PropertyProcessor implements Processor {
     public TxResult process(MixinContext context, Configuration dirty, Recipe recipe) {
         AnnotationHandle handle = context.methodAnnotation();
 
-        MutableConfiguration subConfig = MutableConfiguration.create();
+        MutableConfiguration subConfig = dirty.copyClean();
         ACCEPTED_KEYS.forEach(k -> dirty.getProperty(k)
             .ifPresent(v -> subConfig.setProperty((PropertyKey) k, v)));
 

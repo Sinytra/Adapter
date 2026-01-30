@@ -1,7 +1,9 @@
 package org.sinytra.adapter.patch.mixin;
 
 import org.objectweb.asm.Type;
+import org.sinytra.adapter.env.ctx.MethodHelper;
 import org.sinytra.adapter.env.ctx.MixinContext;
+import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.env.param.Parameters;
 import org.sinytra.adapter.env.util.MixinAnnotationConstants;
@@ -11,6 +13,7 @@ import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.config.ConfigurationTemplates;
 import org.sinytra.adapter.patch.config.MutableConfiguration;
 import org.sinytra.adapter.patch.config.PropertyContainerTemplate;
+import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.sinytra.adapter.patch.processor.ParametersProcessor;
 import org.sinytra.adapter.patch.processor.Processors;
 import org.sinytra.adapter.patch.processor.redirect.DivertRedirectProcessor;
@@ -29,9 +32,13 @@ import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.CAPTURED
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.METHOD_PARAMS;
 
 public class RedirectMixin implements MixinType {
+    private final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
+        .pluralKeys(MixinKeys.TARGET_METHOD)
+        .build();
+
     @Override
     public PropertyContainerTemplate getConfigurationTemplate() {
-        return ConfigurationTemplates.MIXIN_AT;
+        return TEMPLATE;
     }
 
     @Override
@@ -54,7 +61,16 @@ public class RedirectMixin implements MixinType {
         if (targetDesc == null)
             return TxResult.FAIL;
 
+        TargetPair cleanTarget = context.methods().findOwnMethodPair(context.cleanLookup(), targetDesc);
+        if (cleanTarget == null)
+            return TxResult.FAIL;
+
         List<Type> callTypes = Parameters.getParameterTypes(targetDesc.desc());
+        if (!MethodHelper.isStatic(cleanTarget.methodNode())) {
+            Type owner = Type.getObjectType(cleanTarget.classNode().name);
+            callTypes.addFirst(owner);
+        }
+
         List<Type> methodTypes = Parameters.getParameterTypes(context.methodNode().desc);
         List<Type> capturedMethodParams = new ArrayList<>(methodTypes.subList(callTypes.size(), methodTypes.size()));
 
@@ -77,8 +93,16 @@ public class RedirectMixin implements MixinType {
         if (targetDesc == null)
             return TxResult.FAIL;
 
+        TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), targetDesc);
+        if (dirtyTarget == null)
+            return TxResult.FAIL;
+
         List<Type> dirtyCaptured = context.methods().resolveCapturedMethodParams(recipe.clean(), recipe.dirty());
         List<Type> callTypes = Parameters.getParameterTypes(targetDesc.desc());
+        if (!MethodHelper.isStatic(dirtyTarget.methodNode())) {
+            Type owner = Type.getObjectType(dirtyTarget.classNode().name);
+            callTypes.addFirst(owner);
+        }
 
         MethodParameters params = MethodParameters.builder()
             .putTypes(METHOD_PARAMS, callTypes)
