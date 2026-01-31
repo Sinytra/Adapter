@@ -25,6 +25,8 @@ public class Processors extends OrderedRegistry<Processor> {
         add(new TargetMethodProcessor());
         // Mixin method parameters
         add(new ParametersProcessor());
+        // Parameter casts
+        add(new ParametersPostProcessor());
         // Mixin method return type
         add(new ReturnTypeProcessor());
         // Static access modifier

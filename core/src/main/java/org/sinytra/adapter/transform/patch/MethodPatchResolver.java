@@ -19,6 +19,15 @@ public class MethodPatchResolver implements Resolver {
         this.patches = patches;
     }
 
+    public boolean matches(Configuration config) {
+        for (MethodPatch patch : this.patches) {
+            if (patch.matcher().match(config)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public ResolutionResult resolve(MixinContext context, Recipe recipe) {
         List<MethodTransformer> postChanges = new ArrayList<>();
@@ -36,7 +45,7 @@ public class MethodPatchResolver implements Resolver {
                 // Add dynamic properties
                 BiConsumer<Configuration, MutableConfiguration> completer = patch.configCompleter();
                 completer.accept(recipe.clean(), dirtyConfig);
-                
+
                 postChanges.addAll(patch.transforms());
             }
         }
@@ -46,13 +55,13 @@ public class MethodPatchResolver implements Resolver {
                 // TODO Might get cancelled by earlier processor
                 recipe.processors().add(new MethodPatchProcessor(postChanges));
             }
-            
+
             // TODO Ugly hardcoding
             if (dirtyConfig.shouldDelete()) {
                 return ResolutionResult.replace(Configurations.DELETE);
             }
 
-            return ResolutionResult.replace(dirtyConfig);
+            return ResolutionResult.success(dirtyConfig);
         }
 
         return ResolutionResult.pass();

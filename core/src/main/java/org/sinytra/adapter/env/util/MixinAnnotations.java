@@ -16,6 +16,7 @@ public class MixinAnnotations {
     public static final String MODIFY_EXPR_VAL = "Lcom/llamalad7/mixinextras/injector/ModifyExpressionValue;";
     public static final String MODIFY_EXPR_VAL_INTERNAL_NAME = "com/llamalad7/mixinextras/injector/ModifyExpressionValue";
     public static final String MODIFY_RETURN_VAL = "Lcom/llamalad7/mixinextras/injector/ModifyReturnValue;";
+    public static final String MODIFY_RETURN_VAL_INTERNAL_NAME = "com/llamalad7/mixinextras/injector/ModifyReturnValue";
     public static final String WRAP_OPERATION = "Lcom/llamalad7/mixinextras/injector/wrapoperation/WrapOperation;";
     public static final String WRAP_OPERATION_INTERNAL_NAME = "com/llamalad7/mixinextras/injector/wrapoperation/WrapOperation";
     public static final String WRAP_WITH_CONDITION = "Lcom/llamalad7/mixinextras/injector/WrapWithCondition;";

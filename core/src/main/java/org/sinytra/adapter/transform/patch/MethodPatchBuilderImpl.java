@@ -1,5 +1,6 @@
 package org.sinytra.adapter.transform.patch;
 
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.param.MethodParameters;
@@ -12,6 +13,7 @@ import org.sinytra.adapter.util.MethodQualifier;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -60,8 +62,10 @@ public class MethodPatchBuilderImpl implements MethodPatchBuilder {
     }
 
     @Override
-    public MethodPatchBuilder targetInjectionPoint(String value, String target) {
-        this.matcher.match(MixinKeys.TARGET_AT, t -> value.equals(t.getValue()) && target.equals(t.getTarget().orElse(null)));
+    public MethodPatchBuilder targetInjectionPoint(String value, @Nullable String target) {
+        this.matcher.match(MixinKeys.TARGET_AT, t ->
+            value.equals(t.getValue()) && Objects.equals(target, t.getTarget().orElse(null))
+        );
         return this;
     }
 

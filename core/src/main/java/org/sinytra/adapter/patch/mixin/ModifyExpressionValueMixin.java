@@ -26,7 +26,7 @@ import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.SINGLE_A
 import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
 
 public class ModifyExpressionValueMixin implements MixinType {
-    private final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
+    private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
         .pluralKeys(MixinKeys.TARGET_METHOD, MixinKeys.TARGET_AT)
         .build();
 

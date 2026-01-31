@@ -4,12 +4,12 @@ import com.mojang.logging.LogUtils;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.env.ctx.MixinContext;
-import org.sinytra.adapter.env.param.Parameters;
-import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.PatchResult;
+import org.sinytra.adapter.env.param.Parameters;
+import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.types.BytecodeFixerUpper;
 import org.sinytra.adapter.types.TypeAdapter;
 import org.slf4j.Logger;
@@ -74,22 +74,12 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
                     }
                 }
 
-                if (insn instanceof MethodInsnNode minsn) {
-                    // Add casts to usage in method calls
-                    List<AbstractInsnNode> callArgs = MethodCallAnalyzer.getMethodCallInsns(methodNode, minsn);
-                    for (AbstractInsnNode arg : callArgs) {
-                        if (arg instanceof VarInsnNode varInsn && varInsn.var == localVar.index) {
-                            methodNode.instructions.insert(varInsn, new TypeInsnNode(Opcodes.CHECKCAST, originalType.getInternalName()));
-                        }
-                    }
-                    
-                    if (minsn.owner.equals(originalType.getInternalName())) {
-                        List<AbstractInsnNode> insns = MethodCallAnalyzer.getMethodCallInsns(methodNode, minsn);
-                        // Find var load instruction
-                        for (AbstractInsnNode callInsn : insns) {
-                            if (callInsn instanceof VarInsnNode varInsn && varInsn.var == localVar.index) {
-                                minsn.owner = this.type.getInternalName();
-                            }
+                if (insn instanceof MethodInsnNode minsn && minsn.owner.equals(originalType.getInternalName())) {
+                    List<AbstractInsnNode> insns = MethodCallAnalyzer.getMethodCallInsns(methodNode, minsn);
+                    // Find var load instruction
+                    for (AbstractInsnNode callInsn : insns) {
+                        if (callInsn instanceof VarInsnNode varInsn && varInsn.var == localVar.index) {
+                            minsn.owner = this.type.getInternalName();
                         }
                     }
                 }

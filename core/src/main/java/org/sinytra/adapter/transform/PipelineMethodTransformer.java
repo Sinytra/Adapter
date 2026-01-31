@@ -36,11 +36,11 @@ import static org.sinytra.adapter.util.AdapterUtil.MIXINPATCH;
 public class PipelineMethodTransformer implements MethodTransformer {
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    private final List<MethodPatch> methodPatches;
+    private final MethodPatchResolver patchResolver;
     private final boolean patchesOnly;
 
     public PipelineMethodTransformer(List<MethodPatch> methodPatches, boolean patchesOnly) {
-        this.methodPatches = methodPatches;
+        this.patchResolver = new MethodPatchResolver(methodPatches);
         this.patchesOnly = patchesOnly;
     }
 
@@ -50,7 +50,7 @@ public class PipelineMethodTransformer implements MethodTransformer {
         if (cleanTarget == null) return PatchResult.PASS;
 
         TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), config.getTargetMethod());
-        if (!failsDirtyInjectionCheck(context, config, dirtyTarget) && hasValidSlice(context, config, dirtyTarget))
+        if (!this.patchResolver.matches(config) && !failsDirtyInjectionCheck(context, config, dirtyTarget) && hasValidSlice(context, config, dirtyTarget))
             return PatchResult.PASS;
 
         LOGGER.debug(MIXINPATCH, "Considering method {}", context.getMixinId());
@@ -73,7 +73,7 @@ public class PipelineMethodTransformer implements MethodTransformer {
         Processors processors = context.getProcessors();
 
         // 0. Add highest priority manual patch resolver
-        resolvers.addFirst(new MethodPatchResolver(this.methodPatches));
+        resolvers.addFirst(this.patchResolver);
 
         // 1. Create clean config from validated config
         MutableConfiguration cleanConfig = config.copy();

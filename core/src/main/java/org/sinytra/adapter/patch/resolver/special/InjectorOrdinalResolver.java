@@ -25,6 +25,7 @@ import org.sinytra.adapter.patch.mixin.MixinFlag;
 import org.sinytra.adapter.patch.resolver.Resolver;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.GeneratedVariables;
+import org.sinytra.adapter.util.MethodQualifier;
 import org.sinytra.adapter.util.SingleValueHandle;
 
 import java.util.*;
@@ -211,7 +212,58 @@ public class InjectorOrdinalResolver implements Resolver {
                 }
             }
 
+            return findByMethodCalls(ordinal, cleanTarget, dirtyTarget);
+        }
+        
+        private static Optional<Integer> findByMethodCalls(int ordinal, TargetPair cleanTarget, TargetPair dirtyTarget) {
+            List<Pair<InsnNode, List<String>>> cleanCalls = getBlockCalls(cleanTarget.methodNode());
+            List<Pair<InsnNode, List<String>>> dirtyCalls = getBlockCalls(dirtyTarget.methodNode());
+            
+            if (ordinal >= cleanCalls.size()) {
+                return Optional.empty();
+            }
+
+            List<String> cleanCall = cleanCalls.get(ordinal).getSecond();
+            for (int i = 0; i < dirtyCalls.size(); i++) {
+                Pair<InsnNode, List<String>> dirtyCall = dirtyCalls.get(i);
+                boolean haveCommon = !Collections.disjoint(cleanCall, dirtyCall.getSecond());
+                if (haveCommon) {
+                    return Optional.of(i);   
+                }
+            }
+
             return Optional.empty();
+        }
+
+        private static List<Pair<InsnNode, List<String>>> getBlockCalls(MethodNode methodNode) {
+            List<Pair<InsnNode, List<String>>> blockCalls = new ArrayList<>();
+
+            List<String> minsns = new ArrayList<>();
+            for (AbstractInsnNode insn : methodNode.instructions) {
+                if (insn instanceof MethodInsnNode minsn) {
+                    minsns.add(MethodQualifier.create(minsn).asDescriptor());
+                }
+                if (RETURN_OPCODES.contains(insn.getOpcode())) {
+                    blockCalls.add(Pair.of((InsnNode) insn, minsns));
+                    minsns = new ArrayList<>();
+                }
+            }
+            
+            // Remove non-unique calls
+            List<List<String>> values = blockCalls.stream()
+                .map(Pair::getSecond)
+                .toList();
+            Map<String, Integer> counts = new HashMap<>();
+            for (List<String> list : values) {
+                for (String s : list) {
+                    counts.merge(s, 1, Integer::sum);
+                }
+            }
+            for (List<String> list : values) {
+                list.removeIf(s -> counts.getOrDefault(s, 0) > 1);
+            }
+
+            return blockCalls;
         }
 
         private static List<AbstractInsnNode> findReturnPrecedingInsns(AbstractInsnNode insn) {

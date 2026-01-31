@@ -1,5 +1,6 @@
 package org.sinytra.adapter.transform.patch;
 
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.transform.MethodTransformer;
@@ -17,7 +18,7 @@ public interface MethodPatchBuilder {
 
     MethodPatchBuilder targetInjectionPoint(String target);
 
-    MethodPatchBuilder targetInjectionPoint(String value, String target);
+    MethodPatchBuilder targetInjectionPoint(String value, @Nullable String target);
 
     MethodPatchBuilder targetConstant(double doubleValue);
 

@@ -1,5 +1,6 @@
 package org.sinytra.adapter.env.ann;
 
+import com.google.common.base.MoreObjects;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.MethodInsnNode;
@@ -96,6 +97,13 @@ public class AtData {
     @Override
     public int hashCode() {
         return Objects.hash(properties);
+    }
+
+    @Override
+    public String toString() {
+        MoreObjects.ToStringHelper helper = MoreObjects.toStringHelper(this);
+        this.properties.getProperties().forEach((k, v) -> helper.add(k.name(), v));
+        return helper.toString();
     }
 
     public static Optional<AtData> parse(AnnotationHandle annotation, RefMapper mapper) {

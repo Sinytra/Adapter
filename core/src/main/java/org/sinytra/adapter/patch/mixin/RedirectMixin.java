@@ -32,7 +32,7 @@ import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.CAPTURED
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.METHOD_PARAMS;
 
 public class RedirectMixin implements MixinType {
-    private final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
+    private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
         .pluralKeys(MixinKeys.TARGET_METHOD)
         .build();
 
