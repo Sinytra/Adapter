@@ -13,6 +13,7 @@ import java.util.List;
 public class InjectionPointResolver extends CompoundResolver {
 
     public InjectionPointResolver() {
+        addSubResolver(new OverloadedInjectionPointSubResolver());
         addSubResolver(new InheritedInjectionPointSubResolver());
         addSubResolver(InjectionPointSubResolvers.REPLACED_TYPE);
     }

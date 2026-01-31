@@ -16,8 +16,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.StreamSupport;
 
 public class MethodCallAnalyzer {
+    public static List<MethodInsnNode> getMethodCallMinsns(MethodNode methodNode, MethodQualifier qualifier) {
+        return StreamSupport.stream(methodNode.instructions.spliterator(), false)
+            .filter(i -> i instanceof MethodInsnNode minsn && qualifier.matches(minsn))
+            .map(MethodInsnNode.class::cast)
+            .toList();
+    }
+
     @Nullable
     public static List<AbstractInsnNode> getMethodCallInsns(MethodNode methodNode, MethodInsnNode minsn) {
         return Optional.ofNullable(getMethodCallSrcInsns(methodNode, minsn))

@@ -76,4 +76,8 @@ public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nu
     public MethodQualifier withOwner(String owner) {
         return new MethodQualifier(owner, this.name, this.desc);
     }
+
+    public MethodQualifier ignoreDesc() {
+        return new MethodQualifier(this.owner, this.name, null);
+    }
 }

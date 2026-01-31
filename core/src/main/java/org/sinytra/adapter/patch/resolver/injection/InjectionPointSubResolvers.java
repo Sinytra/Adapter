@@ -6,23 +6,21 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.env.ctx.MixinContext;
-import org.sinytra.adapter.env.util.WeighedDisambiguation;
-import org.sinytra.adapter.env.param.Parameters;
-import org.sinytra.adapter.patch.Recipe;
-import org.sinytra.adapter.patch.config.MutableConfiguration;
-import org.sinytra.adapter.patch.resolver.SubResolver;
 import org.sinytra.adapter.analysis.InstructionMatcher;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodInsnMatcher;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
+import org.sinytra.adapter.env.param.Parameters;
+import org.sinytra.adapter.env.util.WeighedDisambiguation;
+import org.sinytra.adapter.patch.Recipe;
+import org.sinytra.adapter.patch.config.MutableConfiguration;
+import org.sinytra.adapter.patch.resolver.SubResolver;
 import org.sinytra.adapter.util.MethodQualifier;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-
-import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
 
 public class InjectionPointSubResolvers {
     public static final SubResolver REPLACED_TYPE = (MixinContext context, Recipe recipe) -> {

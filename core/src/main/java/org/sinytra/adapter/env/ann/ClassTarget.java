@@ -41,16 +41,14 @@ public class ClassTarget {
         );
     }
 
+    @Nullable
     public Type getSingle() {
         List<Type> types = this.either.map(AnnotationValueHandle::get, h -> h.get()
             .stream()
             .map(Type::getObjectType)
             .toList()
         );
-        if (types.size() != 1) {
-            throw new IllegalStateException("Expected exactly one type, got " + types.size());
-        }
-        return types.getFirst();
+        return types.size() != 1 ? null : types.getFirst();
     }
 
     public void set(Type type) {

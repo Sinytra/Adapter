@@ -271,6 +271,17 @@ public abstract class MinecraftMixinPatchTest {
         };
     }
 
+    protected AssertCallback assertIndex() {
+        return (patched, expected, env) -> {
+            AnnotationHandle patchedMethodAnn = new AnnotationHandle(patched.visibleAnnotations.getFirst());
+            AnnotationHandle expectedMethodAnn = new AnnotationHandle(expected.visibleAnnotations.getFirst());
+
+            Assertions.assertThat(patchedMethodAnn.<Integer>getValue("index").get().get())
+                .as("Index")
+                .isEqualTo(expectedMethodAnn.<Integer>getValue("index").get().get());
+        };
+    }
+
     protected AssertCallback assertTargetsConstant() {
         return (patched, expected, env) -> {
             AnnotationHandle patchedMethodAnn = new AnnotationHandle(patched.visibleAnnotations.getFirst());

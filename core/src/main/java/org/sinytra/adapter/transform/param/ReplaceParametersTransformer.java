@@ -74,12 +74,22 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
                     }
                 }
 
-                if (insn instanceof MethodInsnNode minsn && minsn.owner.equals(originalType.getInternalName())) {
-                    List<AbstractInsnNode> insns = MethodCallAnalyzer.getMethodCallInsns(methodNode, minsn);
-                    // Find var load instruction
-                    for (AbstractInsnNode callInsn : insns) {
-                        if (callInsn instanceof VarInsnNode varinsn && varinsn.var == localVar.index) {
-                            minsn.owner = this.type.getInternalName();
+                if (insn instanceof MethodInsnNode minsn) {
+                    // Add casts to usage in method calls
+                    List<AbstractInsnNode> callArgs = MethodCallAnalyzer.getMethodCallInsns(methodNode, minsn);
+                    for (AbstractInsnNode arg : callArgs) {
+                        if (arg instanceof VarInsnNode varInsn && varInsn.var == localVar.index) {
+                            methodNode.instructions.insert(varInsn, new TypeInsnNode(Opcodes.CHECKCAST, originalType.getInternalName()));
+                        }
+                    }
+                    
+                    if (minsn.owner.equals(originalType.getInternalName())) {
+                        List<AbstractInsnNode> insns = MethodCallAnalyzer.getMethodCallInsns(methodNode, minsn);
+                        // Find var load instruction
+                        for (AbstractInsnNode callInsn : insns) {
+                            if (callInsn instanceof VarInsnNode varInsn && varInsn.var == localVar.index) {
+                                minsn.owner = this.type.getInternalName();
+                            }
                         }
                     }
                 }

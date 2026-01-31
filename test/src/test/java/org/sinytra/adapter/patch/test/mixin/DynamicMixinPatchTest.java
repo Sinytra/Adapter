@@ -425,6 +425,17 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    @Test
+    void testModifiedVariableIndex() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/GuiGraphicsMixin",
+            "modifyRenderX",
+            assertTargetMethod(),
+            assertInjectionPoint(),
+            assertIndex()
+        );
+    }
+
     @Override
     protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
         ClassNode patched = loadClass(className);

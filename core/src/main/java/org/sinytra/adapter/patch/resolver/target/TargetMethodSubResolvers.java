@@ -8,13 +8,13 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.env.ctx.MixinContext;
+import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.config.MutableConfiguration;
 import org.sinytra.adapter.patch.resolver.Resolver;
 import org.sinytra.adapter.patch.resolver.SubResolver;
 import org.sinytra.adapter.patch.resolver.injection.InjectionPointResolver;
-import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
 
@@ -22,8 +22,6 @@ import java.util.Comparator;
 import java.util.List;
 
 public class TargetMethodSubResolvers {
-    private static final String DEPRECATED = "Ljava/lang/Deprecated;";
-
     /**
      * Handle cases where the target method's parameters have changed
      * <p>
@@ -114,7 +112,6 @@ public class TargetMethodSubResolvers {
 
     public static boolean isDirtyDeprecatedMethod(MixinContext context, MethodNode dirty) {
         TargetPair pair = context.methods().findOwnMethodPair(context.cleanLookup(), MethodQualifier.create(dirty));
-        return (pair == null || !AdapterUtil.hasAnnotation(pair.methodNode().visibleAnnotations, DEPRECATED))
-            && !AdapterUtil.hasAnnotation(dirty.visibleAnnotations, DEPRECATED);
+        return (pair == null || !AdapterUtil.isDeprecated(pair.methodNode())) && !AdapterUtil.isDeprecated(dirty);
     }
 }

@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 public class PropertyProcessor implements Processor {
     private static final Set<PropertyKey<?>> ACCEPTED_KEYS = Set.of(
         MixinKeys.TARGET_METHOD, MixinKeys.TARGET_AT, MixinKeys.TARGET_CONSTANT,
-        MixinKeys.ORDINAL, MixinKeys.SLICE, MixinKeys.ARGS_ONLY
+        MixinKeys.ORDINAL, MixinKeys.INDEX, MixinKeys.SLICE, MixinKeys.ARGS_ONLY
     );
 
     @SuppressWarnings({"unchecked", "rawtypes"})

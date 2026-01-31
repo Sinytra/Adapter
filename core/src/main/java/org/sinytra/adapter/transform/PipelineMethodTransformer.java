@@ -50,7 +50,7 @@ public class PipelineMethodTransformer implements MethodTransformer {
         if (cleanTarget == null) return PatchResult.PASS;
 
         TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), config.getTargetMethod());
-        if (!failsDirtyInjectionCheck(context, dirtyTarget) && hasValidSlice(context, config, dirtyTarget))
+        if (!failsDirtyInjectionCheck(context, config, dirtyTarget) && hasValidSlice(context, config, dirtyTarget))
             return PatchResult.PASS;
 
         LOGGER.debug(MIXINPATCH, "Considering method {}", context.getMixinId());
@@ -139,8 +139,10 @@ public class PipelineMethodTransformer implements MethodTransformer {
         return PatchResult.APPLY;
     }
 
-    public boolean failsDirtyInjectionCheck(MixinContext context, TargetPair dirtyTarget) {
-        return dirtyTarget == null || !context.methods().hasInjectionTargetInsns(dirtyTarget)
+    public boolean failsDirtyInjectionCheck(MixinContext context, Configuration config, TargetPair dirtyTarget) {
+        return !context.getMixinType().canInject(context, config)
+            || dirtyTarget == null
+            || !context.methods().hasInjectionTargetInsns(dirtyTarget)
             && computeConstantTargetInsns(context, dirtyTarget).isEmpty();
     }
 

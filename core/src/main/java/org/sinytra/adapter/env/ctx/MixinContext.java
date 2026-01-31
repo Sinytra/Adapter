@@ -7,6 +7,7 @@ import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.env.ann.ClassTarget;
 import org.sinytra.adapter.patch.mixin.MixinFlag;
+import org.sinytra.adapter.patch.mixin.MixinType;
 import org.sinytra.adapter.patch.processor.Processors;
 import org.sinytra.adapter.patch.resolver.Resolvers;
 import org.sinytra.adapter.types.TypeAdapter;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Set;
 
 public class MixinContext implements RefMapper, Auditor {
+    private final MixinType mixinType;
     private final PatchContext patchContext;
     private final ClassTarget classTarget;
     private final ClassNode classNode;
@@ -32,7 +34,8 @@ public class MixinContext implements RefMapper, Auditor {
     private final Resolvers resolvers = new Resolvers();
     private final Processors processors = new Processors();
 
-    public MixinContext(PatchContext patchContext, ClassTarget classTarget, ClassNode classNode, MethodNode methodNode, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation, Set<MixinFlag> flags) {
+    public MixinContext(MixinType mixinType, PatchContext patchContext, ClassTarget classTarget, ClassNode classNode, MethodNode methodNode, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation, Set<MixinFlag> flags) {
+        this.mixinType = mixinType;
         this.patchContext = patchContext;
         this.classTarget = classTarget;
         this.classNode = classNode;
@@ -45,6 +48,10 @@ public class MixinContext implements RefMapper, Auditor {
         this.originalMethodNode = AdapterUtil.copyMethod(this.methodNode);
         
         this.mixinId = classNode.name + "#" + methodNode.name + methodNode.desc;
+    }
+
+    public MixinType getMixinType() {
+        return this.mixinType;
     }
 
     public boolean hasFlag(MixinFlag flag) {

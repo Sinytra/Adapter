@@ -72,7 +72,7 @@ public class Patcher {
         AnnotationHandle atHandle = mixin.methodAnnotation().getNested(MixinAnnotationConstants.PROPERTY_AT).orElse(null);
         MixinType mixinType = mixin.mixinType();
         Set<MixinFlag> flags = mixinType.getFlags();
-        MixinContext mixinContext = new MixinContext(patchContext, classTarget, classNode, mixin.methodNode(), mixin.methodAnnotation(), atHandle, flags);
+        MixinContext mixinContext = new MixinContext(mixinType, patchContext, classTarget, classNode, mixin.methodNode(), mixin.methodAnnotation(), atHandle, flags);
         String mixinId = mixinContext.getMixinId();
 
         // Build base config

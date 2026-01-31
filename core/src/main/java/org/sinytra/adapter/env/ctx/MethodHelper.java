@@ -44,7 +44,7 @@ public class MethodHelper {
     public MethodHelper(MixinContext context, List<Type> targetTypes) {
         this.context = context;
 
-        String singleTargetClass = targetTypes.size() == 1 ? targetTypes.getFirst().getInternalName() : null;
+        String singleTargetClass = targetTypes.getFirst().getInternalName();
         this.methodFinder = new MethodFinder(context.environment(), singleTargetClass);
     }
 

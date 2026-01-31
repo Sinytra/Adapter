@@ -38,7 +38,12 @@ public final class AdapterUtil {
     public static final String LAMBDA_PREFIX = "lambda$";
     public static final Marker MIXINPATCH = MarkerFactory.getMarker("MIXINPATCH");
     private static final Pattern FIELD_REF_PATTERN = Pattern.compile("^(?<owner>L.+?;)?(?<name>[^:]+)?:(?<desc>.+)?$");
+    private static final String DEPRECATED = "Ljava/lang/Deprecated;";
     private static final Logger LOGGER = LogUtils.getLogger();
+
+    public static boolean isDeprecated(MethodNode methodNode) {
+        return hasAnnotation(methodNode.visibleAnnotations, DEPRECATED);
+    }
 
     public static MethodNode copyMethod(MethodNode original) {
         MethodNode copy = new MethodNode(original.access, original.name, original.desc, original.signature, original.exceptions.toArray(String[]::new));

@@ -19,6 +19,8 @@ public class DynamicAnonymousShadowFieldTypePatch implements ClassTransformer {
     @Override
     public PatchResult apply(ClassNode classNode, ClassTarget classTarget, PatchContext context) {
         Type singleTarget = classTarget.getSingle();
+        if (singleTarget == null) return PatchResult.PASS;
+
         String target = singleTarget.getInternalName();
         if (!AdapterUtil.isAnonymousClass(target)) {
             return PatchResult.PASS;

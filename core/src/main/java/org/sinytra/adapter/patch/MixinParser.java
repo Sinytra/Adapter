@@ -19,13 +19,14 @@ import org.sinytra.adapter.env.ctx.PatchEnvironment;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class MixinParser {
 
     @Nullable
     public static MixinClassHandle parseMixins(ClassNode classNode, PatchEnvironment environment) {
         ClassTarget cls = parseTargetClass(classNode);
-        if (cls == null || cls.getTypes().size() > 1) return null;
+        if (cls == null) return null;
 
         RefMapper refMapper = ref -> environment.refmapHolder().remap(classNode.name, ref);
         List<MixinMethodHandle> methods = new ArrayList<>();
@@ -53,7 +54,8 @@ public class MixinParser {
 
             MutablePropertyContainer properties = MutablePropertyContainer.parse(handle, template, mapper);
             properties.setProperty(ControlKeys.MIXIN_TYPE, annotation.desc);
-            properties.setProperty(ControlKeys.TARGET_CLASS, cls.getSingle().getInternalName());
+            String targetClass = Objects.requireNonNullElseGet(cls.getSingle(), () -> cls.getTypes().getFirst()).getInternalName();
+            properties.setProperty(ControlKeys.TARGET_CLASS, targetClass);
             properties.setProperty(ControlKeys.RETURN_TYPE, Type.getReturnType(method.desc));
             properties.setProperty(SpecialKeys.STATIC, MethodHelper.isStatic(method));
 

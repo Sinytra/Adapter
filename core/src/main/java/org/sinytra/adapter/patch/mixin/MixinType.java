@@ -22,6 +22,10 @@ public interface MixinType {
         return EnumSet.noneOf(MixinFlag.class);
     }
 
+    default boolean canInject(MixinContext context, Configuration config) {
+        return true;
+    }
+
     TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers, Processors processors);
 
     TxResult postProcess(MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe);
