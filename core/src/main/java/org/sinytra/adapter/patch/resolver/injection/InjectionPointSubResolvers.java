@@ -26,8 +26,6 @@ import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_INVOK
 
 public class InjectionPointSubResolvers {
     public static final SubResolver REPLACED_TYPE = (MixinContext context, Recipe recipe) -> {
-        if (!recipe.clean().getAtData().getValue().equals(AT_VAL_INVOKE)) return null;
-
         TargetPair cleanPair = recipe.getCleanTarget();
         TargetPair dirtyTarget = recipe.getDirtyTarget();
         // Find single clean target minsn
