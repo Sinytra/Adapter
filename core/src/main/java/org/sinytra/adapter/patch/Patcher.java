@@ -40,11 +40,9 @@ public class Patcher {
     }
 
     public PatchResult process(ClassNode classNode) {
-        // Parse mixin data
-        MixinParser.MixinClassHandle mixinClass = MixinParser.parseMixins(classNode, this.environment);
-        if (mixinClass == null) return PatchResult.PASS;
+        // Parse class data
+        ClassTarget classTarget = MixinParser.prepareMixinClass(classNode, this.environment);
 
-        ClassTarget classTarget = mixinClass.classTarget();
         PatchResult result = PatchResult.PASS;
         PatchContextImpl context = new PatchContextImpl(classNode, classTarget.getTypes(), this.environment);
 
@@ -52,6 +50,11 @@ public class Patcher {
         for (ClassTransformer patch : this.classPatches) {
             result = result.or(patch.apply(classNode, classTarget, context));
         }
+
+        // Parse mixin methods
+        // Note: Parsing is split in two to account for potential changes to mixin methods by ClassTransformers
+        MixinParser.MixinClassHandle mixinClass = MixinParser.parseMixins(classTarget, classNode, this.environment);
+        if (mixinClass == null) return result;
 
         // Mixin-level transformations 
         for (MixinParser.MixinMethodHandle mixin : mixinClass.mixins()) {
@@ -93,7 +96,7 @@ public class Patcher {
             LOGGER.debug(MIXINPATCH, "Skipping mixin {} due to failed preProcess", mixinId);
             return PatchResult.PASS;
         }
-        
+
         // << RUN LOADED PHASE
         for (MethodTransformer transformer : getTransformers(TxPhase.LOADED)) {
             PatchResult txResult = transformer.apply(mixinContext, configuration);
@@ -133,22 +136,22 @@ public class Patcher {
         public Builder(PatchEnvironment environment) {
             this.environment = environment;
         }
-        
+
         public Builder classTransformer(ClassTransformer transformer) {
             this.classTransformers.add(transformer);
             return this;
         }
-        
+
         public Builder classTransformers(List<ClassTransformer> transformers) {
             this.classTransformers.addAll(transformers);
             return this;
         }
-        
+
         public Builder methodTransformer(TxPhase phase, MethodTransformer transformer) {
             this.methodTransformers.put(phase, transformer);
             return this;
         }
-        
+
         public Builder methodTransformers(Multimap<TxPhase, MethodTransformer> transformers) {
             this.methodTransformers.putAll(transformers);
             return this;

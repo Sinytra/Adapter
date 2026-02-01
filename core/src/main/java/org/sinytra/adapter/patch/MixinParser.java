@@ -23,12 +23,14 @@ import java.util.Objects;
 
 public class MixinParser {
 
-    @Nullable
-    public static MixinClassHandle parseMixins(ClassNode classNode, PatchEnvironment environment) {
-        RefMapper mapper = ref -> environment.refmapHolder().remap(classNode.name, ref);
+    public static ClassTarget prepareMixinClass(ClassNode classNode, PatchEnvironment environment) {
+        RefMapper mapper = mapperFor(classNode, environment);
+        return parseTargetClass(classNode, mapper);
+    }
 
-        ClassTarget cls = parseTargetClass(classNode, mapper);
-        if (cls == null) return null;
+    @Nullable
+    public static MixinClassHandle parseMixins(ClassTarget cls, ClassNode classNode, PatchEnvironment environment) {
+        RefMapper mapper = mapperFor(classNode, environment);
 
         List<MixinMethodHandle> methods = new ArrayList<>();
         for (MethodNode method : classNode.methods) {
@@ -78,6 +80,10 @@ public class MixinParser {
         }
 
         return null;
+    }
+
+    private static RefMapper mapperFor(ClassNode classNode, PatchEnvironment environment) {
+        return ref -> environment.refmapHolder().remap(classNode.name, ref);
     }
 
     public record MixinMethodHandle(MixinType mixinType, MethodNode methodNode, AnnotationHandle methodAnnotation, PropertyContainer properties) {

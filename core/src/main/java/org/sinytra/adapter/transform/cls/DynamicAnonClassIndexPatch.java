@@ -51,7 +51,7 @@ public class DynamicAnonClassIndexPatch implements ClassTransformer {
 
                 if (!inner.name.equals(target) && cleanOuterMethod.matches(null, inner.outerMethod, inner.outerMethodDesc)) {
                     classTarget.set(Type.getObjectType(inner.name));
-                    stripOwnerFromMixinTargets(classNode, classTarget, context, inner.name);
+                    updateMixinTargetOwners(classNode, classTarget, context, inner.name);
                     return PatchResult.APPLY;
                 }
             }
@@ -60,13 +60,13 @@ public class DynamicAnonClassIndexPatch implements ClassTransformer {
         return PatchResult.PASS;
     }
 
-    private static void stripOwnerFromMixinTargets(ClassNode classNode, ClassTarget classTarget, PatchContext context, String newOwner) {
+    private static void updateMixinTargetOwners(ClassNode classNode, ClassTarget classTarget, PatchContext context, String newOwner) {
         for (MethodNode method : classNode.methods) {
             MixinParser.MixinMethodHandle handle = MixinParser.parseMixin(classTarget, method, context);
             if (handle == null) continue;
 
             handle.properties().getProperty(MixinKeys.TARGET_METHOD)
-                .map(q -> q.withOwner(newOwner))
+                .map(q -> q.withOwner(Type.getObjectType(newOwner)))
                 .map(MixinKeys.TARGET_METHOD::serialize)
                 .ifPresent(q -> handle.methodAnnotation().setOrAppendNonNull(MixinKeys.TARGET_METHOD.name(), q));
         }

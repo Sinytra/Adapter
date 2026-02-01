@@ -14,7 +14,7 @@ import static org.sinytra.adapter.env.util.MixinAnnotationConstants.MIXIN_TARGET
 import static org.sinytra.adapter.env.util.MixinAnnotationConstants.MIXIN_VALUE;
 
 public class ClassTarget {
-    private final List<Type> types;
+    private List<Type> types;
     private final Either<AnnotationValueHandle<List<Type>>, AnnotationValueHandle<List<String>>> either;
 
     public ClassTarget(List<Type> types, Either<AnnotationValueHandle<List<Type>>, AnnotationValueHandle<List<String>>> either) {
@@ -32,6 +32,7 @@ public class ClassTarget {
     }
 
     public void set(Type type) {
+        this.types = List.of(type);
         this.either.ifLeft(h -> h.set(List.of(type)))
             .ifRight(h -> h.set(List.of(type.getInternalName())));
     }

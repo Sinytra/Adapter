@@ -73,8 +73,8 @@ public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nu
         return result + this.name + (this.desc != null ? this.desc : "");
     }
 
-    public MethodQualifier withOwner(String owner) {
-        return new MethodQualifier(owner, this.name, this.desc);
+    public MethodQualifier withOwner(@Nullable Type owner) {
+        return new MethodQualifier(owner == null ? null : owner.getDescriptor(), this.name, this.desc);
     }
 
     public MethodQualifier ignoreDesc() {
