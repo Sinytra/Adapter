@@ -17,13 +17,13 @@ public class MethodParameters implements Copiable<MethodParameters> {
 
     public record ParamGroup(ParamGroupType type, String name, Predicate<Parameter> predicate) {
         public static final ParamGroup METHOD_PARAMS = new ParamGroup(ParamGroupType.VARIABLE, "method_params", i -> true);
-        public static final ParamGroup CAPTURED_PARAMS = new ParamGroup(ParamGroupType.VARIABLE, "captured_params", i -> !i.isLocal());
+        public static final ParamGroup CAPTURED_PARAMS = new ParamGroup(ParamGroupType.VARIABLE, "captured_params", i -> !i.isLocalOrShare());
 
         public static final ParamGroup SINGLE_ANY = new ParamGroup(ParamGroupType.SINGLE, "single_any", i -> true);
         public static final ParamGroup CI_CIR = new ParamGroup(ParamGroupType.SINGLE, "ci_cir", i -> i.getType().equals(TypeConstants.CI_TYPE) || i.getType().equals(TypeConstants.CIR_TYPE));
         public static final ParamGroup OPERATION = new ParamGroup(ParamGroupType.SINGLE, "operation", i -> i.getType().equals(TypeConstants.OPERATION_TYPE));
 
-        public static final ParamGroup LOCALS = new ParamGroup(ParamGroupType.VARIABLE, "locals", Parameter::isLocal);
+        public static final ParamGroup LOCALS = new ParamGroup(ParamGroupType.VARIABLE, "locals", Parameter::isLocalOrShare);
     }
 
     private final Map<ParamGroup, List<Parameter>> groups;

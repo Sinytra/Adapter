@@ -25,15 +25,23 @@ public class Parameter {
         return this.annotations;
     }
 
+    public boolean isLocalOrShare() {
+        return isLocal() || isShare();
+    }
+    
     public boolean isLocal() {
         return hasAnnotation(MixinAnnotations.LOCAL);
+    }
+
+    public boolean isShare() {
+        return hasAnnotation(MixinAnnotations.SHARE);
     }
 
     public boolean hasAnnotation(String desc) {
         return this.annotations.stream()
             .anyMatch(annotation -> annotation.getDesc().equals(desc));
     }
-    
+
     public Builder extend() {
         Builder builder = builder(this.type);
         this.annotations.forEach(builder::annotate);
@@ -47,7 +55,7 @@ public class Parameter {
     public static Builder builder(String typeDesc) {
         return builder(Type.getType(typeDesc));
     }
-    
+
     public static Builder builder(Type type) {
         return new Builder(type);
     }
