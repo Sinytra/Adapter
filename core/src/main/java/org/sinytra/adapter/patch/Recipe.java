@@ -1,13 +1,13 @@
 package org.sinytra.adapter.patch;
 
 import com.google.common.base.Suppliers;
-import org.sinytra.adapter.env.ctx.MixinContext;
+import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.env.ann.AtData;
+import org.sinytra.adapter.env.ctx.MixinContext;
+import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.processor.Processors;
 import org.sinytra.adapter.patch.resolver.Resolvers;
-import org.sinytra.adapter.env.ctx.TargetPair;
-import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -26,6 +26,10 @@ public final class Recipe {
     private final Processors processors;
     private final MixinContext context;
 
+    private final Supplier<TargetPair> cleanTarget;
+    private final Supplier<TargetPair> newCleanTarget;
+    private final Supplier<TargetPair> dirtyTarget;
+
     private final Supplier<LocalVariableLookup> cleanLocalsTableCache;
     private final Supplier<LocalVariableLookup> dirtyLocalsTableCache;
 
@@ -39,6 +43,19 @@ public final class Recipe {
         this.resolvers = resolvers;
         this.processors = processors;
         this.context = context;
+
+        this.cleanTarget = Suppliers.memoize(() -> {
+            if (clean.getTargetMethod() == null) return null;
+            return context.methods().findOwnMethodPair(context.cleanLookup(), clean.getTargetMethod());
+        });
+        this.newCleanTarget = Suppliers.memoize(() -> {
+            if (clean.getTargetMethod() == null) return null;
+            return context.methods().findOwnMethodPair(context.dirtyLookup(), clean.getTargetMethod());
+        });
+        this.dirtyTarget = Suppliers.memoize(() -> {
+            if (dirty.getTargetMethod() == null) return null;
+            return context.methods().findOwnMethodPair(context.dirtyLookup(), dirty.getTargetMethod());
+        });
 
         this.cleanLocalsTableCache = Suppliers.memoize(() -> Optional.ofNullable(getCleanTarget())
             .map(pair -> new LocalVariableLookup(pair.methodNode()))
@@ -60,20 +77,16 @@ public final class Recipe {
         return new Recipe(this.clean, dirty, this.resolvers, this.processors, this.context);
     }
 
-    // TODO Cache
     public TargetPair getCleanTarget() {
-        if (clean.getTargetMethod() == null) return null;
-        return context.methods().findOwnMethodPair(context.cleanLookup(), clean.getTargetMethod());
+        return this.cleanTarget.get();
     }
 
     public TargetPair getNewCleanTarget() {
-        if (clean.getTargetMethod() == null) return null;
-        return context.methods().findOwnMethodPair(context.dirtyLookup(), clean.getTargetMethod());
+        return this.newCleanTarget.get();
     }
 
     public TargetPair getDirtyTarget() {
-        if (dirty.getTargetMethod() == null) return null;
-        return context.methods().findOwnMethodPair(context.dirtyLookup(), dirty.getTargetMethod());
+        return this.dirtyTarget.get();
     }
 
     public boolean hasInjectionPointValue(String value) {

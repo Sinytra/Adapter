@@ -1,10 +1,12 @@
 package org.sinytra.adapter.env.ann;
 
+import com.google.common.collect.ImmutableList;
 import com.mojang.datafixers.util.Either;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.sinytra.adapter.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.analysis.selector.AnnotationValueHandle;
+import org.sinytra.adapter.env.ctx.RefMapper;
 
 import java.util.List;
 
@@ -12,43 +14,21 @@ import static org.sinytra.adapter.env.util.MixinAnnotationConstants.MIXIN_TARGET
 import static org.sinytra.adapter.env.util.MixinAnnotationConstants.MIXIN_VALUE;
 
 public class ClassTarget {
-    private final AnnotationHandle handle;
+    private final List<Type> types;
     private final Either<AnnotationValueHandle<List<Type>>, AnnotationValueHandle<List<String>>> either;
 
-    public ClassTarget(AnnotationHandle handle, Either<AnnotationValueHandle<List<Type>>, AnnotationValueHandle<List<String>>> either) {
-        this.handle = handle;
+    public ClassTarget(List<Type> types, Either<AnnotationValueHandle<List<Type>>, AnnotationValueHandle<List<String>>> either) {
+        this.types = ImmutableList.copyOf(types);
         this.either = either;
     }
 
-    @Deprecated
-    public AnnotationHandle getHandle() {
-        return this.handle;
-    }
-
-    @Deprecated
-    public AnnotationValueHandle<?> getValueHandle() {
-        if (this.either.left().isPresent()) {
-            return this.either.left().orElseThrow();
-        }
-        return this.either.right().orElseThrow();
-    }
-
     public List<Type> getTypes() {
-        return this.either.map(AnnotationValueHandle::get, h -> h.get()
-            .stream()
-            .map(Type::getObjectType)
-            .toList()
-        );
+        return this.types;
     }
 
     @Nullable
     public Type getSingle() {
-        List<Type> types = this.either.map(AnnotationValueHandle::get, h -> h.get()
-            .stream()
-            .map(Type::getObjectType)
-            .toList()
-        );
-        return types.size() != 1 ? null : types.getFirst();
+        return this.types.size() != 1 ? null : this.types.getFirst();
     }
 
     public void set(Type type) {
@@ -57,11 +37,16 @@ public class ClassTarget {
     }
 
     @Nullable
-    public static ClassTarget parse(AnnotationHandle handle) {
+    public static ClassTarget parse(AnnotationHandle handle, RefMapper mapper) {
         return handle.<List<Type>>getValue(MIXIN_VALUE)
-            .<Either<AnnotationValueHandle<List<Type>>, AnnotationValueHandle<List<String>>>>map(Either::left)
-            .or(() -> handle.<List<String>>getValue(MIXIN_TARGETS).map(Either::right))
-            .map(v -> new ClassTarget(handle, v))
+            .map(v -> new ClassTarget(v.get(), Either.left(v)))
+            .or(() -> handle.<List<String>>getValue(MIXIN_TARGETS).map(v -> {
+                List<Type> types = v.get().stream()
+                    .map(mapper::remap)
+                    .map(Type::getObjectType)
+                    .toList();
+                return new ClassTarget(types, Either.right(v));
+            }))
             .orElse(null);
     }
 }

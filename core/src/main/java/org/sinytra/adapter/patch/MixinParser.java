@@ -25,13 +25,14 @@ public class MixinParser {
 
     @Nullable
     public static MixinClassHandle parseMixins(ClassNode classNode, PatchEnvironment environment) {
-        ClassTarget cls = parseTargetClass(classNode);
+        RefMapper mapper = ref -> environment.refmapHolder().remap(classNode.name, ref);
+
+        ClassTarget cls = parseTargetClass(classNode, mapper);
         if (cls == null) return null;
 
-        RefMapper refMapper = ref -> environment.refmapHolder().remap(classNode.name, ref);
         List<MixinMethodHandle> methods = new ArrayList<>();
         for (MethodNode method : classNode.methods) {
-            MixinMethodHandle handle = parseMixin(cls, method, refMapper);
+            MixinMethodHandle handle = parseMixin(cls, method, mapper);
             if (handle != null) {
                 methods.add(handle);
             }
@@ -66,13 +67,13 @@ public class MixinParser {
     }
 
     @Nullable
-    private static ClassTarget parseTargetClass(ClassNode classNode) {
+    private static ClassTarget parseTargetClass(ClassNode classNode, RefMapper mapper) {
         if (classNode.invisibleAnnotations == null) return null;
 
         for (AnnotationNode annotation : classNode.invisibleAnnotations) {
             if (annotation.desc.equals(MixinAnnotations.MIXIN)) {
                 AnnotationHandle ann = new AnnotationHandle(annotation);
-                return ClassTarget.parse(ann);
+                return ClassTarget.parse(ann, mapper);
             }
         }
 
