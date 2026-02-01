@@ -46,7 +46,7 @@ public class LocalVariableLookup {
     }
 
     public int getParameterOrdinal(LocalVariableNode node) {
-        return getOrdinal(node) + (this.isNonStatic ? 1 : 0);
+        return getOrdinal(node) - (this.isNonStatic ? 1 : 0);
     }
 
     public LocalVariableNode getLast() {
