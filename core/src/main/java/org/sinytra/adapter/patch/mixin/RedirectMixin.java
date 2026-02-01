@@ -63,7 +63,7 @@ public class RedirectMixin implements MixinType {
 
         List<Type> methodParams = Parameters.getParameterTypes(context.methodNode().desc);
         List<Type> callTypes = Parameters.getParameterTypes(targetDesc.desc());
-        boolean isStatic = methodParams.size() >= callTypes.size() && methodParams.subList(0, callTypes.size()).equals(callTypes);
+        boolean isStatic = isStaticRedirect(context, targetDesc, methodParams, callTypes);
         if (!isStatic) {
             callTypes.addFirst(methodParams.getFirst());
         }
@@ -110,5 +110,13 @@ public class RedirectMixin implements MixinType {
         dirty.setReturnType(Type.getReturnType(targetDesc.desc()));
 
         return TxResult.SUCCESS;
+    }
+
+    private boolean isStaticRedirect(MixinContext context, MethodQualifier targetDesc, List<Type> methodParams, List<Type> callTypes) {
+        TargetPair cleanTarget = context.methods().findOwnMethodPair(context.cleanLookup(), targetDesc);
+        if (cleanTarget != null) {
+            return MethodHelper.isStatic(cleanTarget.methodNode());
+        }
+        return methodParams.size() >= callTypes.size() && methodParams.subList(0, callTypes.size()).equals(callTypes);
     }
 }
