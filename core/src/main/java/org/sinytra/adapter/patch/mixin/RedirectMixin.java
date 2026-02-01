@@ -61,14 +61,11 @@ public class RedirectMixin implements MixinType {
         if (targetDesc == null)
             return TxResult.FAIL;
 
-        TargetPair cleanTarget = context.methods().findOwnMethodPair(context.cleanLookup(), targetDesc);
-        if (cleanTarget == null)
-            return TxResult.FAIL;
-
+        List<Type> methodParams = Parameters.getParameterTypes(context.methodNode().desc);
         List<Type> callTypes = Parameters.getParameterTypes(targetDesc.desc());
-        if (!MethodHelper.isStatic(cleanTarget.methodNode())) {
-            Type owner = Type.getObjectType(cleanTarget.classNode().name);
-            callTypes.addFirst(owner);
+        boolean isStatic = methodParams.size() >= callTypes.size() && methodParams.subList(0, callTypes.size()).equals(callTypes);
+        if (!isStatic) {
+            callTypes.addFirst(methodParams.getFirst());
         }
 
         List<Type> methodTypes = Parameters.getParameterTypes(context.methodNode().desc);

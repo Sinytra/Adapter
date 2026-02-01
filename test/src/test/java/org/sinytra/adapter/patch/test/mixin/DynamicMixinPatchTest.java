@@ -446,6 +446,16 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    @Test
+    void testAmbigousOverloadedTarget() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/GuiMixin",
+            "renderSelectedItemName",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
     @Override
     protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
         ClassNode patched = loadClass(className);

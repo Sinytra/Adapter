@@ -10,6 +10,7 @@ import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.analysis.params.ParamsDiffSnapshot;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.param.MethodParameters;
+import org.sinytra.adapter.env.param.Parameters;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
 import org.sinytra.adapter.patch.config.Configuration;
@@ -61,7 +62,7 @@ public class ParametersPostProcessor implements Processor {
                 if (!(insn instanceof MethodInsnNode minsn)) continue;
 
                 // Add casts to usage in method calls
-                List<Type> methodArgs = List.of(Type.getArgumentTypes(minsn.desc));
+                List<Type> methodArgs = Parameters.getParameterTypes(minsn.desc);
                 List<AbstractInsnNode> callArgs = MethodCallAnalyzer.getMethodCallSrcInsns(methodNode, minsn);
                 int instanceOffset = minsn.getOpcode() == Opcodes.INVOKESTATIC ? 0 : 1;
                 for (int i = instanceOffset; i < callArgs.size(); i++) {

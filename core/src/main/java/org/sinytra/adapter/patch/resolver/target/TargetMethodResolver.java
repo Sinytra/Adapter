@@ -1,10 +1,10 @@
 package org.sinytra.adapter.patch.resolver.target;
 
 import org.sinytra.adapter.env.ctx.MixinContext;
+import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.resolver.CompoundResolver;
-import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.util.MethodQualifier;
 
 public class TargetMethodResolver extends CompoundResolver {

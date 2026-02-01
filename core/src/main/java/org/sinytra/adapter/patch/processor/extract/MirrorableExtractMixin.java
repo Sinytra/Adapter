@@ -11,6 +11,7 @@ import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.PatchEnvironment;
 import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.env.ctx.TargetPair;
+import org.sinytra.adapter.env.param.Parameters;
 import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.env.util.TypeConstants;
 import org.sinytra.adapter.patch.Recipe;
@@ -62,7 +63,7 @@ public class MirrorableExtractMixin {
         environment.refmapHolder().copyEntries(classNode.name, generatedTarget.name);
         // Generate a method with the same injector annotation
         String name = methodNode.name + "$adapter$mirror$" + AdapterUtil.randomString(5);
-        List<Type> originalParams = List.of(Type.getArgumentTypes(methodNode.desc));
+        List<Type> originalParams = Parameters.getParameterTypes(methodNode.desc);
         List<Type> newParams = ImmutableList.<Type>builder().add(Type.getArgumentTypes(destinationMethodInvocation.desc)).add(TypeConstants.CI_TYPE).build();
         // Make sure we have all required params
         if (!new HashSet<>(newParams).containsAll(originalParams)) {

@@ -9,6 +9,7 @@ import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
+import org.sinytra.adapter.env.param.Parameters;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.config.MutableConfiguration;
@@ -85,7 +86,7 @@ public class TargetMethodSubResolvers {
         Resolver resolver = recipe.resolvers().get(InjectionPointResolver.class);
 
         List<Pair<MethodNode, Configuration>> valid = methods.stream()
-            .sorted(Comparator.<MethodNode, String>comparing(m -> m.desc).reversed())
+            .sorted(Comparator.<MethodNode>comparingInt(m -> Parameters.getParameterTypes(m.desc).size()).reversed())
             .<Pair<MethodNode, Configuration>>flatMap(m -> {
                 Configuration dirtyCopy = recipe.dirty().copy().setTargetMethod(m);
                 return resolver.resolve(context, recipe.withDirtyConfig(dirtyCopy))
@@ -105,6 +106,12 @@ public class TargetMethodSubResolvers {
         if (nonDeprecated.size() == 1) {
             return MutableConfiguration.create()
                 .setTargetMethod(nonDeprecated.getFirst());
+        }
+
+        // Best effort: Handle cases where the target method is overloaded, but the mixin does not specify the target descriptor,
+        // resulting in ambigous targets. So we just pick the one with the most parameters;
+        if (!valid.isEmpty()) {
+            return valid.getFirst().getSecond();
         }
 
         return null;
