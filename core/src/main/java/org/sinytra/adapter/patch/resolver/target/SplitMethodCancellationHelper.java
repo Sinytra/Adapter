@@ -49,7 +49,7 @@ public final class SplitMethodCancellationHelper {
             generateCancellerMethod(generatedTarget, trackerField, originalClassTarget, invocations.get(i), context, i == invocations.size() - 1);
         }
 
-//        context.recordAudit(transform, "Generate cancellation handler mixin");
+        context.recordCtxAudit("Generate cancellation handler mixin");
     }
 
     private static void generateCancellerMethod(ClassNode generatedTarget, FieldNode trackerField, ClassNode originalClassTarget, MethodNode newTarget, MixinContext context, boolean reset) {

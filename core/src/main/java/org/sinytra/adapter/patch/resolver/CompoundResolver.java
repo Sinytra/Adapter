@@ -45,7 +45,9 @@ public abstract class CompoundResolver implements Resolver {
         }
 
         for (SubResolver subResolver : this.subResolvers) {
+            context.pushAudit(subResolver);
             Configuration result = subResolver.resolve(context, recipe);
+            context.popAudit();
             if (result != null) {
                 return ResolutionResult.success(result);
             }

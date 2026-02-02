@@ -27,14 +27,14 @@ public class StaticAccessProcessor implements Processor {
         boolean actuallyStatic = MethodHelper.isStatic(context.methodNode());
         // Add static
         if (!actuallyStatic && !cleanStatic && dirtyStatic) {
-            // context.recordAudit(this, "Adding access modifier %s", change.modifier);
+            context.recordCtxAudit("Made method static");
             method.access |= Opcodes.ACC_STATIC;
 
             return TxResult.SUCCESS;
         }
         // Remove static
         else if (actuallyStatic && cleanStatic && !dirtyStatic) {
-            // context.recordAudit(this, "Removing access modifier %s", change.modifier);
+            context.recordCtxAudit("Made method non-static");
             method.access &= ~Opcodes.ACC_STATIC;
 
             LocalVariableNode firstParam = method.localVariables.stream().filter(lvn -> lvn.index == 0)

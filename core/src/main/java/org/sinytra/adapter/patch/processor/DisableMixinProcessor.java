@@ -11,10 +11,10 @@ public class DisableMixinProcessor implements Processor {
         if (!dirty.shouldDelete()) {
             return TxResult.PASS;
         }
-        
-        // methodContext.recordAudit(this, "Remove mixin method");
+
+        context.recordCtxAudit("Remove mixin method");
         context.patchContext().postApply(() -> context.classNode().methods.remove(context.methodNode()));
-        
+
         return TxResult.FINALIZE;
     }
 }

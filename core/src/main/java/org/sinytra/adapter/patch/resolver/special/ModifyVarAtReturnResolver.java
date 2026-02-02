@@ -15,6 +15,7 @@ import org.sinytra.adapter.patch.resolver.Resolver;
 import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.env.MockMixinRuntime;
+import org.sinytra.adapter.util.MethodQualifier;
 import org.spongepowered.asm.mixin.injection.modify.LocalVariableDiscriminator;
 import org.spongepowered.asm.mixin.injection.struct.InjectionInfo;
 import org.spongepowered.asm.mixin.injection.struct.Target;
@@ -114,9 +115,8 @@ public class ModifyVarAtReturnResolver implements Resolver {
                     .inheritReturnType()
                     .setProperty(MixinKeys.INDEX, i);
 
-                // TODO Audit
-//                String qualifier = MethodQualifier.create(dirtyMinsn).asDescriptor();
-//                context.legacy().recordAudit(this, "Redirect RETURN variable modifier to parameter %s of method call to %s", i, qualifier);
+                String qualifier = MethodQualifier.create(dirtyMinsn).asDescriptor();
+                context.recordCtxAudit("Redirect RETURN variable modifier to parameter %s of method call to %s", i, qualifier);
                 return ResolutionResult.replace(config);
             }
         }

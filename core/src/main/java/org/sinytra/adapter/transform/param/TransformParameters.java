@@ -32,17 +32,18 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
         }
 
         if (result != PatchResult.PASS) {
-            updateDescription(methodNode, newParameterTypes);
+            updateDescription(context, methodNode, newParameterTypes);
         }
 
         return result;
     }
 
-    private void updateDescription(MethodNode methodNode, List<Type> parameters) {
+    private void updateDescription(MixinContext context, MethodNode methodNode, List<Type> parameters) {
         Type returnType = Type.getReturnType(methodNode.desc);
-        //  recordAudit(transform, "Change descriptor to %s", newDesc);
         methodNode.desc = Type.getMethodDescriptor(returnType, parameters.toArray(Type[]::new));
         methodNode.signature = null;
+
+        context.recordCtxAudit("Change descriptor to %s", methodNode.desc);
     }
 
     private int calculateOffset(MixinContext context) {

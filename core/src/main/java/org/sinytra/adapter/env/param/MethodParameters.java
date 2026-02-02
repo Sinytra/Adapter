@@ -20,8 +20,8 @@ public class MethodParameters implements Copiable<MethodParameters> {
         public static final ParamGroup CAPTURED_PARAMS = new ParamGroup(ParamGroupType.VARIABLE, "captured_params", i -> !i.isLocalOrShare());
 
         public static final ParamGroup SINGLE_ANY = new ParamGroup(ParamGroupType.SINGLE, "single_any", i -> true);
-        public static final ParamGroup CI_CIR = new ParamGroup(ParamGroupType.SINGLE, "ci_cir", i -> i.getType().equals(TypeConstants.CI_TYPE) || i.getType().equals(TypeConstants.CIR_TYPE));
-        public static final ParamGroup OPERATION = new ParamGroup(ParamGroupType.SINGLE, "operation", i -> i.getType().equals(TypeConstants.OPERATION_TYPE));
+        public static final ParamGroup CI_CIR = new ParamGroup(ParamGroupType.SINGLE, "ci_cir", i -> i.type().equals(TypeConstants.CI_TYPE) || i.type().equals(TypeConstants.CIR_TYPE));
+        public static final ParamGroup OPERATION = new ParamGroup(ParamGroupType.SINGLE, "operation", i -> i.type().equals(TypeConstants.OPERATION_TYPE));
 
         public static final ParamGroup LOCALS = new ParamGroup(ParamGroupType.VARIABLE, "locals", Parameter::isLocalOrShare);
     }
@@ -56,7 +56,7 @@ public class MethodParameters implements Copiable<MethodParameters> {
 
     public List<Type> getTypes(ParamGroup group) {
         return get(group).stream()
-            .map(Parameter::getType)
+            .map(Parameter::type)
             .toList();
     }
 
@@ -87,7 +87,7 @@ public class MethodParameters implements Copiable<MethodParameters> {
 
     public List<Type> mergeTypes() {
         return merge().stream()
-            .map(Parameter::getType)
+            .map(Parameter::type)
             .toList();
     }
 
@@ -151,7 +151,7 @@ public class MethodParameters implements Copiable<MethodParameters> {
                         // Two subsequent groups cannot both match a parameter
                         else {
                             throw new IllegalStateException("Ambiguous match for param %s in groups %s and %s"
-                                .formatted(param.getType(), group.name(), groups.get(groupIndex + 1).name()));
+                                .formatted(param.type(), group.name(), groups.get(groupIndex + 1).name()));
                         }
                     }
 

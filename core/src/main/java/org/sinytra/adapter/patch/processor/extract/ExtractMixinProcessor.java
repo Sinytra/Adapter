@@ -38,9 +38,7 @@ public class ExtractMixinProcessor implements Processor {
             result = MirrorableExtractMixin.apply(context, recipe, dirty.getTargetClass(), minsn);
         }
 
-        if (result == PatchResult.PASS) return TxResult.FAIL;
-
-        return TxResult.SUCCESS;
+        return result == PatchResult.PASS ? TxResult.FAIL : TxResult.SUCCESS;
     }
 
     // TODO Prioritize mirroring over extraction, remove locals recreation
@@ -79,9 +77,8 @@ public class ExtractMixinProcessor implements Processor {
             result = result.or(recreateLocalVariables(methodNode, context, recipe, generatedTarget));
         }
 
-        //        methodContext.recordAudit(this, "Extract mixin to target %s", targetClassName);
+        context.recordCtxAudit("Extract mixin to target %s", targetClassName);
         // Remove original method
-        //        methodContext.recordAudit(this, "Remove original method");
         context.patchContext().postApply(() -> classNode.methods.removeAll(candidates.methods));
         return result.or(PatchResult.APPLY);
     }

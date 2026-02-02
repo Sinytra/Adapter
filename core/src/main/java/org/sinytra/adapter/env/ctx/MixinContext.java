@@ -14,6 +14,7 @@ import org.sinytra.adapter.types.TypeAdapter;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.provider.ClassLookup;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -28,6 +29,7 @@ public class MixinContext implements RefMapper, Auditor {
     
     private final AnnotationHandle methodAnnotation;
     private final AnnotationHandle injectionPointAnnotation;
+    private final List<Object> auditContext = new ArrayList<>();
 
     private final String mixinId;
     private final MethodHelper methodHelper;
@@ -133,9 +135,25 @@ public class MixinContext implements RefMapper, Auditor {
     public PatchEnvironment environment() {
         return patchContext().environment();
     }
+    
+    public void pushAudit(Object actor) {
+        this.auditContext.add(actor);
+    }
+
+    public void popAudit() {
+        this.auditContext.removeLast();
+    }
+
+    public void recordCtxAudit(String message, Object... args) {
+        if (this.auditContext.isEmpty()) {
+            throw new RuntimeException("Missing audit context object");
+        }
+        Object ctx = this.auditContext.getLast();
+        recordAudit(ctx, message, args);
+    }
 
     @Override
-    public void recordAudit(Object transform, String message, Object... args) {
-        environment().auditTrail().recordAudit(transform, this, message, args);
+    public void recordAudit(Object actor, String message, Object... args) {
+        environment().auditTrail().recordAudit(actor, this, message, args);
     }
 }

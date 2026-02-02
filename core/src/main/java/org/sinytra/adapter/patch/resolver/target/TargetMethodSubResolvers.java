@@ -89,7 +89,10 @@ public class TargetMethodSubResolvers {
             .sorted(Comparator.<MethodNode>comparingInt(m -> Parameters.getParameterTypes(m.desc).size()).reversed())
             .<Pair<MethodNode, Configuration>>flatMap(m -> {
                 Configuration dirtyCopy = recipe.dirty().copy().setTargetMethod(m);
-                return resolver.resolve(context, recipe.withDirtyConfig(dirtyCopy))
+                context.pushAudit(resolver);
+                Resolver.ResolutionResult result = resolver.resolve(context, recipe.withDirtyConfig(dirtyCopy));
+                context.popAudit();
+                return result
                     .maybePatch()
                     .stream()
                     .map(c -> Pair.of(m, c.copyClean().setTargetMethod(m)));

@@ -24,6 +24,8 @@ public class ParametersProcessor implements Processor {
         MethodParameters cleanParams = recipe.clean().getParameters();
         MethodParameters dirtyParams = dirty.getParameters();
         if (dirtyParams == null) return TxResult.FAIL;
+        if (cleanParams.merge().equals(dirtyParams.merge()))
+            return TxResult.PASS;
 
         // Apply mappings of params that will be removed in dirty
         Map<VarInsnNode, Pair<Integer, Type>> oldVarMap = Parameters.gatherVarMappings(context.methodNode(), cleanParams.merge(), dirtyParams.merge(), dirtyParams.getMapping());

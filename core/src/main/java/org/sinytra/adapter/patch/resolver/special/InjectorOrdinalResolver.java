@@ -139,7 +139,7 @@ public class InjectorOrdinalResolver implements Resolver {
             Optional<U> updatedValue = this.handler.apply(mixinContext, cleanTarget, dirtyTarget, this.context);
             if (updatedValue.isPresent()) {
                 U value = updatedValue.get();
-//                methodContext.recordAudit(transform, "Update injection point ordinal from %s to %s", this.context, value);
+                mixinContext.recordCtxAudit("Update injection point ordinal from %s to %s", this.context, value);
                 return this.applicator.apply(value);
             }
             return null;

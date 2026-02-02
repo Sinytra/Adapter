@@ -58,10 +58,9 @@ public class LocalCaptureUpgradeTransformer implements MethodTransformer {
         for (int i = start; i < args.length; i++) {
             methodNode.visitParameterAnnotation(i, MixinAnnotations.LOCAL, false);
         }
-        
-        AuditTrail auditTrail = context.environment().auditTrail();
-//        auditTrail.recordAudit(this, methodContext, "Upgrade captured locals");
-        auditTrail.recordResult(context, config, AuditTrail.Match.FULL);
+
+        context.recordCtxAudit("Upgrade captured locals");
+        context.environment().auditTrail().recordResult(context, config, AuditTrail.Match.FULL);
         return result;
     }
 }

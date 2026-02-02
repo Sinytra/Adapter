@@ -85,7 +85,7 @@ public class WrapOpParamsProcessor implements Processor {
             .mapToObj(i -> {
                 Parameter param = params.get(i);
                 int index = lookup.getByParameterOrdinal(i).index;
-                return WrapOpOriginalCall.CallArg.create(i, List.of(AdapterUtil.loadType(param.getType(), index)));
+                return WrapOpOriginalCall.CallArg.create(i, List.of(AdapterUtil.loadType(param.type(), index)));
             })
             .toList();
         WrapOpOriginalCall reconstruct = new WrapOpOriginalCall(args);

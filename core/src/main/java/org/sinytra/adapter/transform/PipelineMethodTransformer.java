@@ -88,7 +88,9 @@ public class PipelineMethodTransformer implements MethodTransformer {
         // 2. Run Resolvers
         resolvers.freeze();
         for (Resolver resolver : resolvers.getAll()) {
+            context.pushAudit(resolver);
             Resolver.ResolutionResult res = resolver.resolve(context, recipe);
+            context.popAudit();
             Objects.requireNonNull(res, "BUG: Received null from resolver " + resolver.getClass());
 
             if (res.type() == Resolver.ResultType.SUCCESS || res.type() == Resolver.ResultType.REPLACE) {
@@ -126,7 +128,9 @@ public class PipelineMethodTransformer implements MethodTransformer {
         // 4. Run Processors
         processors.freeze();
         for (Processor processor : processors.getAll()) {
+            context.pushAudit(processor);
             TxResult res = processor.process(context, dirtyConfig, recipe);
+            context.popAudit();
             if (res == TxResult.FINALIZE) {
                 break;
             }

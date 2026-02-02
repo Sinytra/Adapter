@@ -28,6 +28,9 @@ public class PropertyProcessor implements Processor {
         ACCEPTED_KEYS.forEach(k -> dirty.getProperty(k)
             .ifPresent(v -> subConfig.setProperty((PropertyKey) k, v)));
 
+        subConfig.getProperties().forEach((k, v) ->
+            context.recordCtxAudit("Set property '%s' to: %s", k.name(), v));
+
         // Apply new props
         subConfig.apply(handle);
 

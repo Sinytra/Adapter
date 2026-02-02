@@ -37,7 +37,7 @@ public class SplitTargetMethodSubResolver implements SubResolver {
 
         if (candidates.size() == 1) {
             MethodNode method = candidates.getFirst().method();
-//            methodContext.recordAudit(this, "Adjusting split method target to %s", newTarget);
+            context.recordCtxAudit("Adjusting split method target to %s", MethodQualifier.create(method).asDescriptor());
 
             // TODO Move to processor
             if (recipe.clean().isCancellable()) {

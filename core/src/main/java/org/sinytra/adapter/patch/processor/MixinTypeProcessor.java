@@ -22,7 +22,7 @@ public class MixinTypeProcessor implements Processor {
             AnnotationNode methodAnn = methodNode.visibleAnnotations.get(i);
             if (methodAnn == annotation.unwrap()) {
                 methodAnn.desc = dirty.getMixinType();
-//                methodContext.recordAudit(this, "Modify type to %s", this.replacementDesc);
+                context.recordCtxAudit("Modify type to %s", methodAnn.desc);
                 return TxResult.SUCCESS;
             }
         }

@@ -1,6 +1,7 @@
 package org.sinytra.adapter.patch.mixin;
 
 import org.objectweb.asm.Type;
+import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.config.ConfigurationTemplates;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.param.MethodParameters;
@@ -18,8 +19,10 @@ import org.sinytra.adapter.patch.resolver.injection.AtVariableAssignStoreSubReso
 import org.sinytra.adapter.patch.resolver.injection.ComparingInjectionPointResolver;
 import org.sinytra.adapter.patch.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.patch.resolver.special.InjectorOrdinalResolver;
+import org.sinytra.adapter.util.MethodQualifier;
 
 import java.util.List;
+import java.util.Objects;
 
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.*;
 
@@ -59,7 +62,7 @@ public class InjectMixin implements MixinType {
             return TxResult.SUCCESS;
         }
 
-        if (dirty.getTargetMethod().desc().equals(clean.getTargetMethod().desc())) {
+        if (sameTarget(recipe)) {
             dirty.inheritParameters();
         } else {
             List<Type> cleanParams = clean.getParameters().getTypes(METHOD_PARAMS);
@@ -87,5 +90,18 @@ public class InjectMixin implements MixinType {
         }
 
         return TxResult.SUCCESS;
+    }
+
+    private boolean sameTarget(Recipe recipe) {
+        MethodQualifier cleanQ = recipe.clean().getTargetMethod();
+        MethodQualifier dirtyQ = recipe.dirty().getTargetMethod();
+        if (cleanQ != null && dirtyQ != null && Objects.equals(cleanQ.name(), dirtyQ.name()) && Objects.equals(cleanQ.desc(), dirtyQ.desc())) {
+            return true;
+        }
+
+        TargetPair cleanTarget = recipe.getCleanTarget();
+        TargetPair dirtyTarget = recipe.getDirtyTarget();
+        return cleanTarget != null && dirtyTarget != null
+            && MethodQualifier.create(cleanTarget.methodNode()).matches(MethodQualifier.create(dirtyTarget.methodNode()));
     }
 }

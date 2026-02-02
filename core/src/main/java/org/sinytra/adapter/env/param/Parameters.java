@@ -63,7 +63,7 @@ public final class Parameters {
                 LocalVariableNode newVar = lookup.getByParameterOrdinal(newIndex);
                 if (newVar == null) return null;
 
-                return Pair.of(oldVar.index, Pair.of(newVar.index, entry.getValue().getType()));
+                return Pair.of(oldVar.index, Pair.of(newVar.index, entry.getValue().type()));
             })
             .filter(Objects::nonNull)
             .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
@@ -87,7 +87,7 @@ public final class Parameters {
 
             // TODO Always re-apply all annotations or?
             // Remove old annotations
-            Set<String> descs = param.getAnnotations().stream().map(Annotation::getDesc).collect(Collectors.toSet());
+            Set<String> descs = param.annotations().stream().map(Annotation::getDesc).collect(Collectors.toSet());
             final int finalI = i;
             Stream.of(method.visibleParameterAnnotations, method.invisibleParameterAnnotations)
                 .filter(Objects::nonNull)
@@ -95,7 +95,7 @@ public final class Parameters {
                 .filter(Objects::nonNull)
                 .forEach(list -> list.removeIf(n -> descs.contains(n.desc)));
 
-            for (Annotation annotation : param.getAnnotations()) {
+            for (Annotation annotation : param.annotations()) {
                 AnnotationVisitor visitor = method.visitParameterAnnotation(i, annotation.getDesc(), annotation.isVisible());
                 annotation.accept(visitor);
             }

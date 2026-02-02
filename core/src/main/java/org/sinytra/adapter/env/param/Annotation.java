@@ -6,6 +6,7 @@ import org.objectweb.asm.tree.AnnotationNode;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 public class Annotation {
     private final String desc;
@@ -35,7 +36,19 @@ public class Annotation {
     public boolean isVisible() {
         return this.visible;
     }
-    
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Annotation that = (Annotation) o;
+        return visible == that.visible && Objects.equals(desc, that.desc) && Objects.equals(properties, that.properties);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(desc, visible, properties);
+    }
+
     public static Annotation parse(AnnotationNode node, boolean visible) {
         Builder builder = builder(node.desc).visible(visible);
         if (node.values != null) {

@@ -8,27 +8,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-public class Parameter {
-    private final Type type;
-    private final List<Annotation> annotations;
+public record Parameter(Type type, List<Annotation> annotations) {
 
     public Parameter(Type type, List<Annotation> annotations) {
         this.type = type;
         this.annotations = ImmutableList.copyOf(annotations);
     }
 
-    public Type getType() {
-        return this.type;
-    }
-
-    public List<Annotation> getAnnotations() {
-        return this.annotations;
-    }
-
     public boolean isLocalOrShare() {
         return isLocal() || isShare();
     }
-    
+
     public boolean isLocal() {
         return hasAnnotation(MixinAnnotations.LOCAL);
     }

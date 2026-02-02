@@ -95,6 +95,8 @@ public class MirrorableExtractMixin {
         gen.returnValue();
         gen.newLabel();
         gen.endMethod();
+
+        context.recordCtxAudit("Extract (mirror) mixin to target %s", destinationClass);
         return PatchResult.APPLY;
     }
 }

@@ -83,10 +83,15 @@ public class Patcher {
         MutableConfiguration configuration = MutableConfiguration.create(template);
         configuration.mergeFrom(mixin.properties());
 
+        this.environment.auditTrail().prepareMethod(mixinContext);
+
         PatchResult result = PatchResult.PASS;
         // << RUN EARLY PHASE
         for (MethodTransformer transformer : getTransformers(TxPhase.EARLY)) {
+            mixinContext.pushAudit(transformer);
             PatchResult txResult = transformer.apply(mixinContext, configuration);
+            mixinContext.popAudit();
+
             result = result.or(txResult);
         }
 
@@ -99,7 +104,9 @@ public class Patcher {
 
         // << RUN LOADED PHASE
         for (MethodTransformer transformer : getTransformers(TxPhase.LOADED)) {
+            mixinContext.pushAudit(transformer);
             PatchResult txResult = transformer.apply(mixinContext, configuration);
+            mixinContext.popAudit();
             result = result.or(txResult);
         }
 
@@ -109,11 +116,10 @@ public class Patcher {
             return PatchResult.PASS;
         }
 
-        // TODO Audit trail
-        this.environment.auditTrail().prepareMethod(mixinContext);
-
         for (MethodTransformer transformer : getTransformers(TxPhase.VALIDATED)) {
+            mixinContext.pushAudit(transformer);
             PatchResult txResult = transformer.apply(mixinContext, configuration);
+            mixinContext.popAudit();
             result = result.or(txResult);
         }
 
