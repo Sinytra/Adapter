@@ -207,7 +207,7 @@ public final class AdapterUtil {
         TargetPair target = recipe.getDirtyTarget();
         if (target == null) return null;
 
-        return getCapturedLocals(context, target);        
+        return getCapturedLocals(context, target);
     }
 
     // TODO Better way?
@@ -221,7 +221,7 @@ public final class AdapterUtil {
             LOGGER.debug("Missing CI or CIR argument in injector of type {}", context.methodAnnotation().getDesc());
             return null;
         }
-        
+
         List<Type> ignored = getAnnotatedParameters(methodNode, params, MixinAnnotations.SHARE, (node, type) -> type);
         Type[] availableParams = Stream.of(params).filter(t -> !ignored.contains(t)).toArray(Type[]::new);
 
@@ -341,6 +341,32 @@ public final class AdapterUtil {
     public static AbstractInsnNode getSingleInsn(List<? extends SourceValue> values, int index) {
         SourceValue value = values.get(index);
         return getSingleInsn(value);
+    }
+
+    public static MethodInsnNode box(Type primitive) {
+        Type boxed = boxedType(primitive);
+        return new MethodInsnNode(
+            Opcodes.INVOKESTATIC,
+            boxed.getInternalName(),
+            "valueOf",
+            Type.getMethodDescriptor(boxed, primitive),
+            false
+        );
+    }
+
+    private static Type boxedType(Type type) {
+        return switch (type.getSort()) {
+            case Type.BOOLEAN -> Type.getObjectType("java/lang/Boolean");
+            case Type.BYTE -> Type.getObjectType("java/lang/Byte");
+            case Type.CHAR -> Type.getObjectType("java/lang/Character");
+            case Type.SHORT -> Type.getObjectType("java/lang/Short");
+            case Type.INT -> Type.getObjectType("java/lang/Integer");
+            case Type.FLOAT -> Type.getObjectType("java/lang/Float");
+            case Type.LONG -> Type.getObjectType("java/lang/Long");
+            case Type.DOUBLE -> Type.getObjectType("java/lang/Double");
+            case Type.VOID -> Type.getObjectType("java/lang/Void");
+            default -> throw new IllegalStateException("Not a primitive type: " + type);
+        };
     }
 
     private AdapterUtil() {

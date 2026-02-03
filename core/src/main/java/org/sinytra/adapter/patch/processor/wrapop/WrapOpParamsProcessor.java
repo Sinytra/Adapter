@@ -4,6 +4,8 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
+import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.env.param.Parameter;
@@ -11,8 +13,6 @@ import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.processor.Processor;
-import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
 
@@ -85,7 +85,15 @@ public class WrapOpParamsProcessor implements Processor {
             .mapToObj(i -> {
                 Parameter param = params.get(i);
                 int index = lookup.getByParameterOrdinal(i).index;
-                return WrapOpOriginalCall.CallArg.create(i, List.of(AdapterUtil.loadType(param.type(), index)));
+                Type type = param.type();
+
+                List<AbstractInsnNode> loadInsns = new ArrayList<>();
+                loadInsns.add(AdapterUtil.loadType(type, index));
+                if (type.getSort() != Type.OBJECT) {
+                    loadInsns.add(AdapterUtil.box(type));
+                }
+
+                return WrapOpOriginalCall.CallArg.create(i, loadInsns);
             })
             .toList();
         WrapOpOriginalCall reconstruct = new WrapOpOriginalCall(args);
