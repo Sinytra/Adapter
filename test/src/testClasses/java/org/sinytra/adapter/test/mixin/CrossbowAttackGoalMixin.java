@@ -28,12 +28,24 @@ public abstract class CrossbowAttackGoalMixin<T extends Monster & CrossbowAttack
     private Mob mobExpected;
 
     // https://github.com/SolipIngen/minecraft.progressivearchery/blob/7af8bdb7ddc24d73163d17de082add89716755cb/src/main/java/solipingen/progressivearchery/mixin/entity/ai/goal/CrossbowAttackGoalMixin.java#L42
-    @Redirect(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/projectile/ProjectileUtil;getWeaponHoldingHand(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/Item;)Lnet/minecraft/world/InteractionHand;"))
+    @Redirect(
+        method = "tick()V",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/world/entity/projectile/ProjectileUtil;getWeaponHoldingHand(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/Item;)Lnet/minecraft/world/InteractionHand;"
+        )
+    )
     private InteractionHand redirectedGetHandPossiblyHolding(LivingEntity entity, Item item) {
         return ProjectileUtil.getWeaponHoldingHand(entity, item);
     }
 
-    @Redirect(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/projectile/ProjectileUtil;getWeaponHoldingHand(Lnet/minecraft/world/entity/LivingEntity;Ljava/util/function/Predicate;)Lnet/minecraft/world/InteractionHand;"))
+    @Redirect(
+        method = "tick()V",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/world/entity/projectile/ProjectileUtil;getWeaponHoldingHand(Lnet/minecraft/world/entity/LivingEntity;Ljava/util/function/Predicate;)Lnet/minecraft/world/InteractionHand;"
+        )
+    )
     private InteractionHand redirectedGetHandPossiblyHoldingExpected(LivingEntity entity, Predicate<Item> item) {
         return ProjectileUtil.getWeaponHoldingHand(entity, item);
     }

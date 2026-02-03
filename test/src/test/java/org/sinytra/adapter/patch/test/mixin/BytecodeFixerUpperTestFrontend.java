@@ -6,14 +6,14 @@ import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.InsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.TypeInsnNode;
-import org.sinytra.adapter.patch.fixes.BytecodeFixerUpper;
-import org.sinytra.adapter.patch.fixes.SimpleTypeAdapter;
-import org.sinytra.adapter.patch.fixes.TypeAdapter;
-import org.sinytra.adapter.patch.util.provider.ClassLookup;
+import org.sinytra.adapter.types.BytecodeFixerUpper;
+import org.sinytra.adapter.types.SimpleTypeAdapter;
+import org.sinytra.adapter.types.TypeAdapter;
+import org.sinytra.adapter.util.provider.ClassLookup;
 
 import java.util.List;
 
-import static org.sinytra.adapter.patch.util.AdapterUtil.insnList;
+import static org.sinytra.adapter.util.AdapterUtil.insnList;
 
 public class BytecodeFixerUpperTestFrontend {
     private static final List<TypeAdapter> FIELD_TYPE_ADAPTERS = List.of(

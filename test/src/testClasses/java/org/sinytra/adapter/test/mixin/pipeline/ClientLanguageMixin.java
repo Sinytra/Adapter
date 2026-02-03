@@ -1,11 +1,14 @@
 package org.sinytra.adapter.test.mixin.pipeline;
 
+import com.google.common.collect.Maps;
 import net.minecraft.client.resources.language.ClientLanguage;
+import net.minecraft.locale.Language;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 import java.io.InputStream;
+import java.util.Map;
 import java.util.function.BiConsumer;
 
 @Mixin(ClientLanguage.class)
@@ -18,14 +21,13 @@ public class ClientLanguageMixin {
         )
     )
     private static void saveSeparately(InputStream inputStream, BiConsumer entryConsumer, String langCode) {
-        // TODO Patch code as well
-//        Map<String, Map<Object, Object>> map = Maps.newHashMap();
-//
-//        Language.loadFromJson(inputStream, entryConsumer.andThen((key, value) ->
-//            map.computeIfAbsent(langCode, k -> Maps.newHashMap())
-//                .put(key, value)));
-//
-//        Language.loadFromJson(inputStream, entryConsumer);
+        Map<String, Map<Object, Object>> map = Maps.newHashMap();
+
+        Language.loadFromJson(inputStream, entryConsumer.andThen((key, value) ->
+            map.computeIfAbsent(langCode, k -> Maps.newHashMap())
+                .put(key, value)));
+
+        Language.loadFromJson(inputStream, entryConsumer);
     }
 
     @Redirect(
@@ -36,13 +38,13 @@ public class ClientLanguageMixin {
         )
     )
     private static void saveSeparatelyExpected(InputStream inputStream, BiConsumer entryConsumer, BiConsumer adapter_injected_2, String langCode) {
-//        Map<String, Map<Object, Object>> map = Maps.newHashMap();
-//
-//        Language.loadFromJson(inputStream, entryConsumer.andThen((key, value) ->
-//            map.computeIfAbsent(langCode, k -> Maps.newHashMap())
-//                .put(key, value)), consumer); // Added consumer arg
-//
-//        // Added consumer arg
-//        Language.loadFromJson(inputStream, entryConsumer, consumer);
+        Map<String, Map<Object, Object>> map = Maps.newHashMap();
+
+        Language.loadFromJson(inputStream, entryConsumer.andThen((key, value) ->
+            map.computeIfAbsent(langCode, k -> Maps.newHashMap())
+                .put(key, value)), adapter_injected_2); // Added consumer arg
+
+        // Added consumer arg
+        Language.loadFromJson(inputStream, entryConsumer, adapter_injected_2);
     }
 }

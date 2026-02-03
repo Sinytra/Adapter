@@ -4,29 +4,23 @@ import com.mojang.logging.LogUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 import org.objectweb.asm.tree.ClassNode;
-import org.sinytra.adapter.next.PipelineLegacyMethodTransformer;
-import org.sinytra.adapter.patch.api.Patch;
-import org.sinytra.adapter.patch.api.PatchEnvironment;
-import org.sinytra.adapter.patch.api.RefmapHolder;
-import org.sinytra.adapter.patch.fixes.FieldTypeUsageTransformer;
-import org.sinytra.adapter.patch.transformer.dynfix.DynamicInjectionPointPatch;
-import org.sinytra.adapter.patch.util.provider.ClassLookup;
+import org.sinytra.adapter.env.ctx.PatchEnvironment;
+import org.sinytra.adapter.env.ctx.RefmapHolder;
+import org.sinytra.adapter.patch.DynamicPatches;
+import org.sinytra.adapter.patch.Patcher;
+import org.sinytra.adapter.types.FieldTypeUsageTransformer;
+import org.sinytra.adapter.util.provider.ClassLookup;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.FabricUtil;
 
 import java.util.List;
 
 public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
-    private static final List<Patch> DYNAMIC_PATCHES = List.of(
-        Patch.builder()
-            .transform(new DynamicInjectionPointPatch())
-            .transform(new PipelineLegacyMethodTransformer())
-            .transform(new FieldTypeUsageTransformer())
-            .build()
-    );
     private static final Logger LOGGER = LogUtils.getLogger();
 
+    private static Patcher patcher;
     private static PatchEnvironment patchEnvironment;
 
     @BeforeAll
@@ -49,6 +43,10 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
             new BytecodeFixerUpperTestFrontend(cleanLookup, dirtyLookup).unwrap(),
             FabricUtil.COMPATIBILITY_LATEST
         );
+        patcher = Patcher.builder(patchEnvironment)
+            .classTransformer(new FieldTypeUsageTransformer())
+            .methodTransformers(DynamicPatches.methodTransformers(List.of()))
+            .build();
     }
 
     @AfterAll
@@ -257,6 +255,15 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     }
 
     @Test
+    void testUpdatedInjectionPointModifyExprValConst() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/FarmLandBlockMixin",
+            "changeIFrames",
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
     void testSplitMethodInjectionTarget() throws Exception {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/GuiMixin",
@@ -428,11 +435,44 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    @Test
+    void testModifiedVariableIndex() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/GuiGraphicsMixin",
+            "modifyRenderX",
+            assertTargetMethod(),
+            assertInjectionPoint(),
+            assertIndex()
+        );
+    }
+
+    // Disabled in CI as the resulting ordinal is the same when decomp/recomp is disabled
+    @Test
+    @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
+    void testModifiedReturnIndex() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/MaceItemMixin",
+            "rebalanceEquipment",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
+    void testAmbigousOverloadedTarget() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/GuiMixin",
+            "renderSelectedItemName",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
     @Override
     protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
-        final ClassNode patched = loadClass(className);
+        ClassNode patched = loadClass(className);
         patched.methods.removeIf(m -> !allowedMethods.contains(m.name));
-        DYNAMIC_PATCHES.forEach(p -> p.apply(patched, patchEnvironment));
+        patcher.process(patched);
         return new LoadResult(patchEnvironment, patched, loadClass(className));
     }
 }

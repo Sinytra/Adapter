@@ -41,8 +41,7 @@ public class ItemInHandRendererMixin {
         method = "renderArmWithItem",
         at = @At(
             value = "sinytra:INSTANCEOF",
-            target = "net/minecraft/world/item/CrossbowItem",
-            ordinal = 1
+            target = "net/minecraft/world/item/CrossbowItem"
         )
     )
     private boolean renderFirstPersonItemMEVExpected(boolean original) {

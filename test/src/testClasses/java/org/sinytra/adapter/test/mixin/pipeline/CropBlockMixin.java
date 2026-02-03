@@ -14,10 +14,10 @@ import org.spongepowered.asm.mixin.injection.At;
 public class CropBlockMixin {
     @WrapOperation(
         method = "getGrowthSpeed(Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)F",
-        at = {@At(
+        at = @At(
             value = "INVOKE",
             target = "Lnet/minecraft/world/level/block/state/BlockState;is(Lnet/minecraft/world/level/block/Block;)Z"
-        )}
+        )
     )
     private static boolean isOnFarmland(BlockState instance, Block block, Operation<Boolean> original) {
         return Blocks.FARMLAND.equals(block) || original.call(instance, block);
@@ -25,10 +25,10 @@ public class CropBlockMixin {
 
     @WrapOperation(
         method = "getGrowthSpeed(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)F",
-        at = {@At(
+        at = @At(
             value = "INVOKE",
             target = "Lnet/minecraft/world/level/block/state/BlockState;is(Lnet/minecraft/world/level/block/Block;)Z"
-        )}
+        )
     )
     private static boolean isOnFarmlandExpected(BlockState instance, Block block, Operation<Boolean> original) {
         return Blocks.FARMLAND.equals(block) || original.call(instance, block);

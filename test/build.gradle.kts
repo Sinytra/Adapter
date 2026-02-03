@@ -24,8 +24,8 @@ configurations {
 }
 
 dependencies {
-    testImplementation(group = "org.sinytra.adapter", name = "definition")
-    "neoForgeTestLibraries"(group = "org.sinytra.adapter", name = "definition") {
+    testImplementation(group = "org.sinytra.adapter", name = "core")
+    "neoForgeTestLibraries"(group = "org.sinytra.adapter", name = "core") {
         isTransitive = false
     }
 
@@ -41,7 +41,7 @@ dependencies {
 tasks {
     test {
         useJUnitPlatform()
-        systemProperty("adapter.definition.paramdiff.debug", true)
+        systemProperty("adapter.core.paramdiff.debug", true)
         systemProperty("adapter.clean.path", neoForge.additionalMinecraftArtifacts.getting("vanillaDeobfuscated").get().absolutePath)
         systemProperty("forge.logging.console.level", "debug")
         outputs.upToDateWhen { false }

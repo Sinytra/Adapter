@@ -23,12 +23,27 @@ import java.util.Iterator;
 @Mixin(Gui.class)
 public class GuiMixin {
     // https://github.com/juancarloscp52/BedrockIfy/blob/c4bc4f425adffaab1a7bdf4c8740f12281e94668/src/main/java/me/juancarloscp52/bedrockify/mixin/client/features/screenSafeArea/InGameHudMixin.java#L122
-    @ModifyArg(method = "renderPlayerHealth", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;blitSprite(Lnet/minecraft/resources/ResourceLocation;IIII)V"), index = 2)
+    @ModifyArg(
+        method = "renderPlayerHealth",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/client/gui/GuiGraphics;blitSprite(Lnet/minecraft/resources/ResourceLocation;IIII)V"
+        )
+        ,
+        index = 2
+    )
     public int modifyTextureStatusBar(int y) {
         return y;
     }
 
-    @ModifyArg(method = "renderAirLevel(Lnet/minecraft/client/gui/GuiGraphics;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;blitSprite(Lnet/minecraft/resources/ResourceLocation;IIII)V"), index = 2)
+    @ModifyArg(
+        method = "renderAirLevel(Lnet/minecraft/client/gui/GuiGraphics;)V",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/client/gui/GuiGraphics;blitSprite(Lnet/minecraft/resources/ResourceLocation;IIII)V"
+        ),
+        index = 2
+    )
     public int modifyTextureStatusBarExpected(int y) {
         return y;
     }
