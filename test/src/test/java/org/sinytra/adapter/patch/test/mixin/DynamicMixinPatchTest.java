@@ -254,6 +254,15 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     }
 
     @Test
+    void testUpdatedInjectionPointModifyExprValConst() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/FarmLandBlockMixin",
+            "changeIFrames",
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
     void testSplitMethodInjectionTarget() throws Exception {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/GuiMixin",
