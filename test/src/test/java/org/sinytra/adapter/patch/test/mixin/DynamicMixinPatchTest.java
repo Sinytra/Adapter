@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 import org.objectweb.asm.tree.ClassNode;
 import org.sinytra.adapter.env.ctx.PatchEnvironment;
 import org.sinytra.adapter.env.ctx.RefmapHolder;
@@ -445,7 +446,9 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    // Disabled in CI as the resulting ordinal is the same when decomp/recomp is disabled
     @Test
+    @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
     void testModifiedReturnIndex() throws Exception {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/pipeline/MaceItemMixin",
