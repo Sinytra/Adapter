@@ -7,15 +7,13 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.*;
+import org.sinytra.adapter.analysis.selector.FrameUtil;
+import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.env.util.TypeConstants;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
-import org.sinytra.adapter.util.OpcodeUtil;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
+import java.util.*;
 import java.util.function.BiPredicate;
 
 public class MethodAnalyzer {
@@ -26,32 +24,47 @@ public class MethodAnalyzer {
             && AdapterUtil.hasAnnotation(dirty.visibleAnnotations, TypeConstants.DEPRECATED);
     }
 
-    @Nullable
-    public static List<MethodNode> collectMethodInvocations(ClassNode cls, MethodNode mtd) {
-        // Iterate over isns, leave out first and last elements
-        // Collect method invocations
-        // All labels must be finalized by a method invocation to pass
-        List<MethodNode> invocations = new ArrayList<>();
-        for (int i = 1; i < mtd.instructions.size(); i++) {
-            AbstractInsnNode insn = mtd.instructions.get(i);
-            if (insn instanceof LabelNode) {
-                AbstractInsnNode previous = insn.getPrevious();
-                AbstractInsnNode effectivePrevious = previous;
-                if (OpcodeUtil.isReturnOpcode(previous.getOpcode())) {
-                    effectivePrevious = previous.getPrevious();
-                }
+    public static List<MethodNode> getOwnMethodCalls(TargetPair targetPair) {
+        MethodNode methodNode = targetPair.methodNode();
+        Frame<SourceValue>[] frames = FrameUtil.getFrames(methodNode);
+        
+        Set<MethodInsnNode> consumedCalls = new HashSet<>();
+        for (AbstractInsnNode insn : methodNode.instructions) {
+            if (!(insn instanceof MethodInsnNode call)) continue;
 
-                if (effectivePrevious instanceof MethodInsnNode methodInsn && methodInsn.owner.equals(cls.name)) {
-                    cls.methods.stream()
-                        .filter(m -> m.name.equals(methodInsn.name) && m.desc.equals(methodInsn.desc))
-                        .findFirst()
-                        .ifPresent(invocations::add);
-                } else if (previous == null || !OpcodeUtil.isReturnOpcode(previous.getOpcode())) {
-                    return null;
+            int index = methodNode.instructions.indexOf(insn);
+            Frame<SourceValue> frame = frames[index];
+            if (frame == null) continue;
+
+            int argCount = FrameUtil.getPopCount(call);
+            int stackTop = frame.getStackSize();
+
+            // Look at arguments consumed by this call
+            for (int i = 0; i < argCount; i++) {
+                SourceValue arg = frame.getStack(stackTop - 1 - i);
+
+                for (AbstractInsnNode producer : arg.insns) {
+                    if (producer instanceof MethodInsnNode producerCall) {
+                        consumedCalls.add(producerCall);
+                    }
                 }
             }
         }
-        return invocations;
+
+        List<MethodNode> topTierCalls = new ArrayList<>();
+        ClassNode classNode = targetPair.classNode();
+        for (AbstractInsnNode insn : methodNode.instructions) {
+            if (insn instanceof MethodInsnNode call && call.owner.equals(classNode.name)) {
+                if (!consumedCalls.contains(call)) {
+                    classNode.methods.stream()
+                        .filter(m -> m.name.equals(call.name) && m.desc.equals(call.desc))
+                        .findFirst()
+                        .ifPresent(topTierCalls::add);
+                }
+            }
+        }
+
+        return topTierCalls;
     }
 
     public static List<String> findLambdasInMethod(ClassNode cls, MethodNode method, @Nullable Multimap<String, MethodNode> methods) {

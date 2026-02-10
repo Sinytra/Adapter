@@ -7,6 +7,7 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.env.param.Parameters;
@@ -32,6 +33,9 @@ public class TargetMethodSubResolvers {
      * DIRTY: <code>Lnet/minecraft/server/level/ServerEntity;sendPairingData(Lnet/minecraft/server/level/ServerPlayer;Lnet/neoforged/neoforge/network/bundle/PacketAndPayloadAcceptor;)V</code>
      */
     public static final SubResolver CHANGED_METHOD_PARAMS = (MixinContext context, Recipe recipe) -> {
+        Configuration overloaded = resolveOverloadedReplacement(context, recipe);
+        if (overloaded != null) return overloaded;
+
         MethodQualifier cleanQualifier = recipe.clean().getTargetMethod();
 
         Pair<ClassNode, List<MethodNode>> candidates = context.methods().findOwnMethodsByName(context.dirtyLookup(), cleanQualifier);
@@ -75,6 +79,24 @@ public class TargetMethodSubResolvers {
 
         return null;
     };
+
+    // Resolve overloaded method by call for when the name doesn't match. Original method must be marked @Deprecated
+    // Example: BoneMealItem#growCrop -> applyBonemeal
+    @Nullable
+    private static Configuration resolveOverloadedReplacement(MixinContext context, Recipe recipe) {
+        TargetPair dirtyTarget = recipe.getNewCleanTarget();
+        if (dirtyTarget == null || !AdapterUtil.isDeprecated(dirtyTarget.methodNode())) return null;
+
+        List<MethodNode> invocations = MethodAnalyzer.getOwnMethodCalls(dirtyTarget);
+        for (MethodNode invocation : invocations) {
+            if (context.methods().hasInjectionTargetInsns(new TargetPair(dirtyTarget.classNode(), invocation))) {
+                return MutableConfiguration.create()
+                    .setTargetMethod(invocation);
+            }
+        }
+
+        return null;
+    }
 
     @Nullable
     private static Configuration resolveReplacementCandidate(MixinContext context, Recipe recipe, List<MethodNode> methods) {

@@ -42,7 +42,7 @@ public class FrameUtil {
             int args = Type.getArgumentsAndReturnSizes(((MethodInsnNode) insn).desc) >> 2;
             boolean isStatic = op == Opcodes.INVOKESTATIC;
             // INVOKEDYNAMIC is complex, but usually acts like static for the bootstrap
-            if (op == org.objectweb.asm.Opcodes.INVOKEDYNAMIC) isStatic = true;
+            if (op == Opcodes.INVOKEDYNAMIC) isStatic = true;
 
             return isStatic ? args : args + 1;
         }
