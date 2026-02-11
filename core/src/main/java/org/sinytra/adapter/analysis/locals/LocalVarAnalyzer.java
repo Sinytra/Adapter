@@ -89,9 +89,9 @@ public final class LocalVarAnalyzer {
                 if (node == null) {
                     continue;
                 }
-                int ordinal = table.getOrdinal(node);
+                int ordinal = table.getParameterOrdinal(node);
                 if (ordinal >= paramLocalStart && ordinal <= capturedLocals.paramLocalEnd()) {
-                    used.add(ordinal - 1); // Subtract 1, which represents the CI param
+                    used.add(ordinal);
                     usedLocalNodes.add(node);
                 }
             }

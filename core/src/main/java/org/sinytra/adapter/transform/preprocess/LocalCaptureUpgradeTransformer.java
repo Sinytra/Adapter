@@ -1,10 +1,12 @@
 package org.sinytra.adapter.transform.preprocess;
 
 import com.mojang.datafixers.util.Pair;
+import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.AuditTrail;
 import org.sinytra.adapter.env.ctx.TargetPair;
@@ -16,8 +18,9 @@ import org.sinytra.adapter.analysis.locals.LocalVarAnalyzer;
 import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.util.AdapterUtil;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+
+import static org.sinytra.adapter.env.util.MixinAnnotationConstants.PROPERTY_ORDINAL;
 
 public class LocalCaptureUpgradeTransformer implements MethodTransformer {
     @Override
@@ -41,23 +44,45 @@ public class LocalCaptureUpgradeTransformer implements MethodTransformer {
         if (info == null || info.diff().isEmpty()) return PatchResult.PASS;
 
         LocalVarAnalyzer.CapturedLocalsTransform transform = LocalVarAnalyzer.analyzeCapturedLocals(info.capturedLocals(), methodNode);
-        List<Type> availableTypes = new ArrayList<>(info.availableTypes());
+
+        LocalVariableLookup cleanLookup = new LocalVariableLookup(cleanTarget.methodNode());
+        LocalVariableLookup dirtyLookup = new LocalVariableLookup(dirtyTarget.methodNode());
+        LocalVariableLookup lookup = info.capturedLocals().lvt();
+
+        Map<Integer, Integer> parameterToOrdinal = new HashMap<>();
+        Set<Integer> usedOrdinals = new HashSet<>();
         for (LocalVariableNode node : transform.usedLocalNodes()) {
             Type expected = Type.getType(node.desc);
-            List<Type> available = availableTypes.stream().filter(expected::equals).toList();
-            if (available.size() != 1) return PatchResult.PASS;
 
-            availableTypes.remove(available.getFirst());
+            List<LocalVariableNode> cleanLocals = cleanLookup.getForType(expected);
+            List<LocalVariableNode> dirtyLocals = dirtyLookup.getForType(expected);
+            if (cleanLocals.size() != dirtyLocals.size())
+                return PatchResult.PASS;
+
+            List<LocalVariableNode> sameType = methodNode.localVariables.stream()
+                .filter(l -> Type.getType(l.desc).equals(expected))
+                .toList();
+            int localOrdinal = sameType.indexOf(node);
+            if (localOrdinal == -1) return PatchResult.PASS;
+
+            int paramOrdinal = lookup.getParameterOrdinal(node);
+            parameterToOrdinal.put(paramOrdinal, localOrdinal);
+            usedOrdinals.add(paramOrdinal);
+        }
+
+        Type[] args = Type.getArgumentTypes(methodNode.desc);
+        int start = info.capturedLocals().paramLocalStart();
+        for (int i = start; i < args.length; i++) {
+            if (!usedOrdinals.contains(i)) continue;
+
+            AnnotationVisitor visitor = methodNode.visitParameterAnnotation(i, MixinAnnotations.LOCAL, false);
+            if (parameterToOrdinal.containsKey(i)) {
+                visitor.visit(PROPERTY_ORDINAL, parameterToOrdinal.get(i));
+            }
         }
 
         PatchResult result = transform.remover().apply(context);
         if (result == PatchResult.PASS) return PatchResult.PASS;
-
-        int start = info.capturedLocals().paramLocalStart();
-        Type[] args = Type.getArgumentTypes(methodNode.desc);
-        for (int i = start; i < args.length; i++) {
-            methodNode.visitParameterAnnotation(i, MixinAnnotations.LOCAL, false);
-        }
 
         context.recordCtxAudit("Upgrade captured locals");
         context.environment().auditTrail().recordResult(context, config, AuditTrail.Match.FULL);
