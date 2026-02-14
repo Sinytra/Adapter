@@ -231,7 +231,8 @@ public final class AdapterUtil {
         int paramLocalPosVal = paramLocalPos.getAsInt();
         // Get expected local variables from method parameters
         List<Type> expected = AdapterUtil.summariseLocals(availableParams, paramLocalPosVal);
-        return new CapturedLocals(dirtyTarget, isStatic, paramLocalPosVal, paramLocalPosVal + expected.size(), lvtOffset, expected, new LocalVariableLookup(methodNode));
+        int paramLocalPosEnd = paramLocalPosVal + expected.size() - 1;
+        return new CapturedLocals(dirtyTarget, isStatic, paramLocalPosVal, paramLocalPosEnd, lvtOffset, expected, new LocalVariableLookup(methodNode));
     }
 
     private static OptionalInt getCapturedLocalStartingIndex(Type[] params) {

@@ -13,6 +13,7 @@ import java.util.*;
 public class LocalVariableLookup {
     private final List<LocalVariableNode> sortedLocals;
     private final boolean isNonStatic;
+    private final int lastParamLVTIndex;
     private final Int2ObjectMap<LocalVariableNode> byIndex = new Int2ObjectOpenHashMap<>();
     private final Map<Type, List<LocalVariableNode>> byType = new HashMap<>();
 
@@ -22,6 +23,7 @@ public class LocalVariableLookup {
         for (LocalVariableNode node : this.sortedLocals) {
             this.byIndex.put(node.index, node);
         }
+        this.lastParamLVTIndex = Type.getArgumentTypes(methodNode.desc).length + (this.isNonStatic ? 1 : 0);
     }
 
     public LocalVariableNode getByOrdinal(int ordinal) {
@@ -46,6 +48,9 @@ public class LocalVariableLookup {
     }
 
     public int getParameterOrdinal(LocalVariableNode node) {
+        if (node.index > this.lastParamLVTIndex) {
+            return -1;
+        }
         return getOrdinal(node) - (this.isNonStatic ? 1 : 0);
     }
 

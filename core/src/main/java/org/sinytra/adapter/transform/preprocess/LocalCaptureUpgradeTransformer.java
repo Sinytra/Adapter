@@ -59,15 +59,15 @@ public class LocalCaptureUpgradeTransformer implements MethodTransformer {
             if (cleanLocals.size() != dirtyLocals.size())
                 return PatchResult.PASS;
 
-            List<LocalVariableNode> sameType = methodNode.localVariables.stream()
-                .filter(l -> Type.getType(l.desc).equals(expected))
-                .toList();
-            int localOrdinal = sameType.indexOf(node);
+            int localOrdinal = lookup.getTypedOrdinal(node).orElse(-1);
             if (localOrdinal == -1) return PatchResult.PASS;
 
             int paramOrdinal = lookup.getParameterOrdinal(node);
-            parameterToOrdinal.put(paramOrdinal, localOrdinal);
             usedOrdinals.add(paramOrdinal);
+
+            if (cleanLocals.size() > 1) {
+                parameterToOrdinal.put(paramOrdinal, localOrdinal);
+            }
         }
 
         Type[] args = Type.getArgumentTypes(methodNode.desc);

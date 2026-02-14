@@ -7,19 +7,16 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.env.ctx.MixinContext;
-import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.analysis.params.ParamsDiffSnapshot;
 import org.sinytra.adapter.env.ctx.LocalVariable;
+import org.sinytra.adapter.env.ctx.MixinContext;
+import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.transform.param.TransformParameters;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.OpcodeUtil;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.IntStream;
 
 public final class LocalVarAnalyzer {
@@ -64,7 +61,7 @@ public final class LocalVarAnalyzer {
     public record CapturedLocalsUsage(LocalVariableLookup targetTable, Int2IntMap usageCount, Int2ObjectMap<InsnList> varInsnLists) {
     }
 
-    public record CapturedLocalsTransform(List<Integer> used, TransformParameters remover, List<LocalVariableNode> usedLocalNodes) {
+    public record CapturedLocalsTransform(List<Integer> used, TransformParameters remover, Collection<LocalVariableNode> usedLocalNodes) {
         public CapturedLocalsUsage getUsage(AdapterUtil.CapturedLocals capturedLocals) {
             LocalVariableLookup targetTable = new LocalVariableLookup(capturedLocals.target().methodNode());
             Int2ObjectMap<InsnList> varInsnLists = new Int2ObjectOpenHashMap<>();
@@ -82,14 +79,15 @@ public final class LocalVarAnalyzer {
         int paramLocalStart = capturedLocals.paramLocalStart();
         LocalVariableLookup table = capturedLocals.lvt();
         List<Integer> used = new ArrayList<>();
-        List<LocalVariableNode> usedLocalNodes = new ArrayList<>();
+        Set<LocalVariableNode> usedLocalNodes = new HashSet<>();
         for (AbstractInsnNode insn : methodNode.instructions) {
             if (insn instanceof VarInsnNode varInsn) {
                 LocalVariableNode node = table.getByIndexOrNull(varInsn.var);
-                if (node == null) {
+                if (node == null) 
                     continue;
-                }
                 int ordinal = table.getParameterOrdinal(node);
+                if (ordinal == -1)
+                    continue;
                 if (ordinal >= paramLocalStart && ordinal <= capturedLocals.paramLocalEnd()) {
                     used.add(ordinal);
                     usedLocalNodes.add(node);
