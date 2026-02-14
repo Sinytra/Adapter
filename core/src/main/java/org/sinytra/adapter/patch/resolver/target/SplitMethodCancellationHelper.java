@@ -23,10 +23,12 @@ public final class SplitMethodCancellationHelper {
 
     public static void handle(MixinContext context, Recipe recipe, MethodNode newTarget) {
         TargetPair cleanTarget = recipe.getCleanTarget();
-        TargetPair originalTarget = recipe.getDirtyTarget();
+        if (cleanTarget == null) return;
+        TargetPair newCleanTarget = recipe.getNewCleanTarget();
+        if (newCleanTarget == null) return;
 
-        ClassNode originalClassTarget = originalTarget.classNode();
-        MethodNode originalMethodTarget = originalTarget.methodNode();
+        ClassNode originalClassTarget = newCleanTarget.classNode();
+        MethodNode originalMethodTarget = newCleanTarget.methodNode();
 
         if (!MethodAnalyzer.isDirtyDeprecatedMethod(cleanTarget.methodNode(), originalMethodTarget) || Type.getReturnType(originalMethodTarget.desc) != Type.VOID_TYPE) {
             return;
@@ -35,7 +37,7 @@ public final class SplitMethodCancellationHelper {
         MixinClassGenerator generator = context.patchContext().environment().classGenerator();
         ClassNode generatedTarget = generator.getOrGenerateMixinClass(context.classNode(), originalClassTarget.name, null);
 
-        List<MethodNode> invocations = MethodAnalyzer.getOwnMethodCalls(originalTarget);
+        List<MethodNode> invocations = MethodAnalyzer.getOwnMethodCalls(newCleanTarget);
         if (invocations == null) {
             return;
         }

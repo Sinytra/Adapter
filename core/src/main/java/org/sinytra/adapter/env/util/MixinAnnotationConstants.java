@@ -9,6 +9,7 @@ public class MixinAnnotationConstants {
     public static final String AT_VAL_INVOKE_ASSIGN = "INVOKE_ASSIGN";
     public static final String AT_VAL_RETURN = "RETURN";
     public static final String AT_VAL_STORE = "STORE";
+    public static final String AT_VAL_CONST = "CONSTANT";
     public static final String AT_VAL_SINYTRA_INSTANCEOF = "sinytra:INSTANCEOF";
     public static final String AT_SHIFT = "shift";
 

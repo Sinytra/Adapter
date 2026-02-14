@@ -14,13 +14,14 @@ import org.sinytra.adapter.patch.config.PropertyKey;
 import org.sinytra.adapter.util.MethodQualifier;
 import org.spongepowered.asm.mixin.injection.At;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 public class AtData {
     public static final PropertyContainerTemplate TEMPLATE = PropertyContainerTemplate.builder()
         .require(Keys.VALUE)
-        .keys(Keys.TARGET, Keys.ORDINAL, Keys.SHIFT, Keys.BY)
+        .keys(Keys.TARGET, Keys.ORDINAL, Keys.SHIFT, Keys.BY, Keys.ARGS)
         .build();
 
     private final PropertyContainer properties;
@@ -156,6 +157,7 @@ public class AtData {
         }
     }
 
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public static class Keys {
         public static final PropertyKey<String> VALUE = PropertyKey.create("value", String.class);
         public static final PropertyKey<String> TARGET = PropertyKey.<String>builder("target")
@@ -165,5 +167,6 @@ public class AtData {
         public static final PropertyKey<Integer> ORDINAL = PropertyKey.create("ordinal", Integer.class);
         public static final PropertyKey<At.Shift> SHIFT = PropertyKey.create("shift", At.Shift.class);
         public static final PropertyKey<Integer> BY = PropertyKey.create("by", Integer.class);
+        public static final PropertyKey<List<String>> ARGS = (PropertyKey) PropertyKey.create("args", List.class);
     }
 }

@@ -54,8 +54,14 @@ public class ModifyExpressionValueMixin implements MixinType {
 
     @Override
     public TxResult postProcess(MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
-        if (dirty.getTargetMethod() == null || dirty.getAtData() == null || !dirty.getAtData().getValue().equals(AT_VAL_INVOKE)) {
+        if (dirty.getTargetMethod() == null || dirty.getAtData() == null) {
             return TxResult.FAIL;
+        }
+        // Best effort for non-INVOKE
+        if (!dirty.getAtData().getValue().equals(AT_VAL_INVOKE)) {
+            dirty.inheritParameters();
+            dirty.inheritReturnType();
+            return TxResult.SUCCESS;
         }
 
         MethodQualifier targetDesc = dirty.getAtData().getTarget().flatMap(MethodQualifier::parse).orElse(null);

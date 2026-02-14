@@ -4,9 +4,10 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.commons.InstructionAdapter;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.param.MethodParameters;
+import org.sinytra.adapter.env.util.MixinAnnotationConstants;
 import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.sinytra.adapter.patch.config.MutableConfiguration;
+import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.sinytra.adapter.patch.config.key.SpecialKeys;
 import org.sinytra.adapter.transform.MethodTransformer;
 import org.sinytra.adapter.util.MethodQualifier;
@@ -21,12 +22,14 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
 import static java.util.function.Predicate.isEqual;
-import static org.sinytra.adapter.patch.config.key.ControlKeys.*;
+import static org.sinytra.adapter.patch.config.key.ControlKeys.MIXIN_TYPE;
+import static org.sinytra.adapter.patch.config.key.ControlKeys.TARGET_CLASS;
 
 public class MethodPatchBuilderImpl implements MethodPatchBuilder {
     private final ConfigurationMatcher.Builder matcher = ConfigurationMatcher.builder();
     private final MutableConfiguration config = MutableConfiguration.create();
-    private BiConsumer<Configuration, MutableConfiguration> configCompleter = (a, b) -> {};
+    private BiConsumer<Configuration, MutableConfiguration> configCompleter = (a, b) -> {
+    };
     private final List<MethodTransformer> transforms = new ArrayList<>();
 
     @Override
@@ -71,10 +74,18 @@ public class MethodPatchBuilderImpl implements MethodPatchBuilder {
 
     @Override
     public MethodPatchBuilder targetConstant(double doubleValue) {
-        this.matcher.match(MixinKeys.TARGET_CONSTANT, c -> {
-            // TODO OR check at const value
-            Optional<Double> opt = c.doubleValue();
-            return opt.isPresent() && opt.get() == doubleValue;
+        this.matcher.or(sub -> {
+            sub.match(MixinKeys.TARGET_CONSTANT, c -> {
+                Optional<Double> opt = c.doubleValue();
+                return opt.isPresent() && opt.get() == doubleValue;
+            });
+            sub.match(MixinKeys.TARGET_AT, at -> {
+                if (!at.getValue().equals(MixinAnnotationConstants.AT_VAL_CONST)) {
+                    return false;
+                }
+                List<String> args = at.getProperty(AtData.Keys.ARGS).orElseGet(List::of);
+                return args.contains("doubleValue=" + doubleValue + "D");
+            });
         });
         return this;
     }
@@ -123,9 +134,9 @@ public class MethodPatchBuilderImpl implements MethodPatchBuilder {
     @Override
     public MethodPatchBuilder modifyParams(UnaryOperator<MethodParameters> op) {
         this.configCompleter = this.configCompleter.andThen((clean, dirty) -> {
-           MethodParameters params = clean.getParameters().copy();
-           MethodParameters newParams = op.apply(params);
-           dirty.setParameters(newParams);
+            MethodParameters params = clean.getParameters().copy();
+            MethodParameters newParams = op.apply(params);
+            dirty.setParameters(newParams);
         });
         return this;
     }
