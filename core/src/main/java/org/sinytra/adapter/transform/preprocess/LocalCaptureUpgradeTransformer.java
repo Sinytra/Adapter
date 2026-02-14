@@ -81,7 +81,7 @@ public class LocalCaptureUpgradeTransformer implements MethodTransformer {
             }
         }
 
-        PatchResult result = transform.remover().apply(context);
+        PatchResult result = transform.remover().isEmpty() ? PatchResult.APPLY : transform.remover().apply(context);
         if (result == PatchResult.PASS) return PatchResult.PASS;
 
         context.recordCtxAudit("Upgrade captured locals");

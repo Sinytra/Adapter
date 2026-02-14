@@ -38,6 +38,10 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
         return result;
     }
 
+    public boolean isEmpty() {
+        return this.transformers.isEmpty();
+    }
+
     private void updateDescription(MixinContext context, MethodNode methodNode, List<Type> parameters) {
         Type returnType = Type.getReturnType(methodNode.desc);
         methodNode.desc = Type.getMethodDescriptor(returnType, parameters.toArray(Type[]::new));
