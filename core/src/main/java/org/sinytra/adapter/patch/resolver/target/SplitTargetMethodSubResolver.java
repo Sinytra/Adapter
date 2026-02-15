@@ -17,7 +17,6 @@ import org.sinytra.adapter.analysis.method.MethodInsnMatcher;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.util.MethodQualifier;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -85,8 +84,8 @@ public class SplitTargetMethodSubResolver implements SubResolver {
 
     // Handle cases where only part of the method is moved away
     private static List<CandidateMethod> tryFindPartialCandidates(MethodNode cleanTargetMethod, ClassNode dirtyTargetClass, MethodNode dirtyTargetMethod, MixinContext context) {
-        Multimap<String, MethodInsnNode> cleanMethodCalls = MethodAnalyzer.getMethodCalls(cleanTargetMethod, new ArrayList<>());
-        Multimap<String, MethodInsnNode> dirtyMethodCalls = MethodAnalyzer.getMethodCalls(dirtyTargetMethod, new ArrayList<>());
+        Multimap<String, MethodInsnNode> cleanMethodCalls = MethodAnalyzer.getMethodCalls(cleanTargetMethod);
+        Multimap<String, MethodInsnNode> dirtyMethodCalls = MethodAnalyzer.getMethodCalls(dirtyTargetMethod);
 
         List<TargetPair> dirtyOnlyCalls = dirtyMethodCalls.entries().stream()
             .filter(e -> !cleanMethodCalls.containsKey(e.getKey()) && e.getValue().owner.equals(dirtyTargetClass.name))

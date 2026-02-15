@@ -91,13 +91,12 @@ public class MethodAnalyzer {
         return list;
     }
 
-    public static Multimap<String, MethodInsnNode> getMethodCalls(MethodNode node, List<String> callOrder) {
+    public static Multimap<String, MethodInsnNode> getMethodCalls(MethodNode node) {
         ImmutableMultimap.Builder<String, MethodInsnNode> calls = ImmutableMultimap.builder();
         for (AbstractInsnNode insn : node.instructions) {
             if (insn instanceof MethodInsnNode minsn) {
                 String qualifier = MethodQualifier.create(minsn).asDescriptor();
                 calls.put(qualifier, minsn);
-                callOrder.add(qualifier);
             }
         }
         return calls.build();

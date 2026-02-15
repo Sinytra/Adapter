@@ -159,8 +159,8 @@ public class InjectorOrdinalResolver implements Resolver {
             String target = context.target();
             int ordinal = context.ordinal();
 
-            Multimap<String, MethodInsnNode> cleanCallsMap = MethodAnalyzer.getMethodCalls(cleanTarget.methodNode(), new ArrayList<>());
-            Multimap<String, MethodInsnNode> dirtyCallsMap = MethodAnalyzer.getMethodCalls(dirtyTarget.methodNode(), new ArrayList<>());
+            Multimap<String, MethodInsnNode> cleanCallsMap = MethodAnalyzer.getMethodCalls(cleanTarget.methodNode());
+            Multimap<String, MethodInsnNode> dirtyCallsMap = MethodAnalyzer.getMethodCalls(dirtyTarget.methodNode());
 
             PatchContext patchContext = mixinContext.patchContext();
             String cleanValue = patchContext.remap(target);

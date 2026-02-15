@@ -18,9 +18,7 @@ import org.sinytra.adapter.patch.config.MutableConfiguration;
 import org.sinytra.adapter.patch.resolver.SubResolver;
 import org.sinytra.adapter.util.MethodQualifier;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 public class InjectionPointSubResolvers {
     public static final SubResolver REPLACED_TYPE = (MixinContext context, Recipe recipe) -> {
@@ -31,7 +29,7 @@ public class InjectionPointSubResolvers {
         if (insns.isEmpty() || !(insns.getFirst() instanceof MethodInsnNode cleanInsn)) return null;
 
         InstructionMatcher cleanMatcher = MethodInsnMatcher.findSurroundingInstructions(cleanInsn);
-        Multimap<String, MethodInsnNode> dirtyCalls = MethodAnalyzer.getMethodCalls(dirtyTarget.methodNode(), new ArrayList<>());
+        Multimap<String, MethodInsnNode> dirtyCalls = MethodAnalyzer.getMethodCalls(dirtyTarget.methodNode());
         List<InstructionMatcher> dirtyMatchers = dirtyCalls.values().stream()
             .map(MethodInsnMatcher::findSurroundingInstructions)
             .toList();
@@ -47,6 +45,40 @@ public class InjectionPointSubResolvers {
         if (replacement != null) {
             return MutableConfiguration.create()
                 .setAtData(recipe.clean().getAtData().withTarget(replacement));
+        }
+
+        return null;
+    };
+
+    public static final SubResolver EXTRACTED_CALL = (MixinContext context, Recipe recipe) -> {
+        TargetPair cleanPair = recipe.getCleanTarget();
+        if (cleanPair == null) return null;
+        TargetPair dirtyTarget = recipe.getDirtyTarget();
+        if (dirtyTarget == null) return null;
+
+        Multimap<String, MethodInsnNode> cleanCalls = MethodAnalyzer.getMethodCalls(cleanPair.methodNode());
+        Multimap<String, MethodInsnNode> dirtyCalls = MethodAnalyzer.getMethodCalls(dirtyTarget.methodNode());
+
+        Set<String> dirtyOnly = new HashSet<>(dirtyCalls.keySet());
+        dirtyOnly.removeAll(cleanCalls.keySet());
+
+        for (String qualifier : dirtyOnly) {
+            Collection<MethodInsnNode> calls = dirtyCalls.get(qualifier);
+            if (calls.size() != 1) continue;
+
+            MethodInsnNode minsn = calls.iterator().next();
+            // We only want external methods
+            if (minsn.owner.equals(dirtyTarget.classNode().name))
+                continue;
+
+            MethodQualifier target = MethodQualifier.create(minsn);
+            TargetPair pair = context.methods().findMethodPair(context.dirtyLookup(), target);
+            if (pair != null && context.methods().hasInjectionTargetInsns(pair)) {
+                return recipe.dirty().copyClean()
+                    .setTargetClass(minsn.owner)
+                    .setTargetMethod(pair.methodNode())
+                    .inheritAtData();
+            }
         }
 
         return null;
