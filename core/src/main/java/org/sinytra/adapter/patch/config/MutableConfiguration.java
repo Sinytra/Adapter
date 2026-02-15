@@ -60,5 +60,5 @@ public interface MutableConfiguration extends Configuration, MutablePropertyCont
 
     MutableConfiguration mergeFrom(@Nullable PropertyContainer other);
 
-    void inheritProperyIfAbsent(PropertyKey<?> key);
+    MutableConfiguration inheritProperyIfAbsent(PropertyKey<?> key);
 }

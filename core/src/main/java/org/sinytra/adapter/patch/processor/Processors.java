@@ -2,6 +2,7 @@ package org.sinytra.adapter.patch.processor;
 
 import org.sinytra.adapter.env.util.OrderedRegistry;
 import org.sinytra.adapter.patch.processor.extract.ExtractMixinProcessor;
+import org.sinytra.adapter.patch.processor.extract.ProxyExtractMixinSub;
 
 public class Processors extends OrderedRegistry<Processor> {
 
@@ -31,5 +32,8 @@ public class Processors extends OrderedRegistry<Processor> {
         add(new ReturnTypeProcessor());
         // Static access modifier
         add(new StaticAccessProcessor());
+
+        // Late extract processor - must come last
+        add(ProxyExtractMixinSub.INSTANCE);
     }
 }

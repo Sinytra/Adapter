@@ -1,13 +1,12 @@
 package org.sinytra.adapter.patch.resolver.injection;
 
 import com.google.common.collect.Multimap;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.MethodInsnNode;
-import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.InstructionMatcher;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
+import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodInsnMatcher;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
@@ -15,6 +14,8 @@ import org.sinytra.adapter.env.param.Parameters;
 import org.sinytra.adapter.env.util.WeighedDisambiguation;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.config.MutableConfiguration;
+import org.sinytra.adapter.patch.config.key.MixinKeys;
+import org.sinytra.adapter.patch.config.key.SpecialKeys;
 import org.sinytra.adapter.patch.resolver.SubResolver;
 import org.sinytra.adapter.util.MethodQualifier;
 
@@ -51,6 +52,8 @@ public class InjectionPointSubResolvers {
     };
 
     public static final SubResolver EXTRACTED_CALL = (MixinContext context, Recipe recipe) -> {
+        if (context.isStatic()) return null;
+
         TargetPair cleanPair = recipe.getCleanTarget();
         if (cleanPair == null) return null;
         TargetPair dirtyTarget = recipe.getDirtyTarget();
@@ -67,17 +70,29 @@ public class InjectionPointSubResolvers {
             if (calls.size() != 1) continue;
 
             MethodInsnNode minsn = calls.iterator().next();
-            // We only want external methods
-            if (minsn.owner.equals(dirtyTarget.classNode().name))
+            // We only want static external methods
+            if (minsn.getOpcode() != Opcodes.INVOKESTATIC || minsn.owner.equals(dirtyTarget.classNode().name))
                 continue;
 
+            List<AbstractInsnNode> argInsns = MethodCallAnalyzer.getMethodCallSrcInsns(dirtyTarget.methodNode(), minsn);
+            AbstractInsnNode self = argInsns.stream()
+                .filter(i -> i instanceof VarInsnNode vinsn && vinsn.var == 0)
+                .findFirst()
+                .orElse(null);
+            if (self == null) continue;
+
+            int selfParamIndex = argInsns.indexOf(self);
             MethodQualifier target = MethodQualifier.create(minsn);
+
             TargetPair pair = context.methods().findMethodPair(context.dirtyLookup(), target);
             if (pair != null && context.methods().hasInjectionTargetInsns(pair)) {
                 return recipe.dirty().copyClean()
                     .setTargetClass(minsn.owner)
-                    .setTargetMethod(pair.methodNode())
-                    .inheritAtData();
+                    .setTargetMethod(minsn)
+                    .inheritAtData()
+                    .setProperty(SpecialKeys.EXTRACT_ORIGIN_PARAM, selfParamIndex)
+                    .inheritProperyIfAbsent(MixinKeys.INDEX)
+                    .inheritProperyIfAbsent(MixinKeys.ORDINAL);
             }
         }
 

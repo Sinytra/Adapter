@@ -14,6 +14,7 @@ public class MixinAnnotationConstants {
     public static final String AT_SHIFT = "shift";
 
     public static final String PROPERTY_AT = "at";
+    public static final String PROPERTY_ARGS_ONLY = "argsOnly";
     public static final String PROPERTY_ORDINAL = "ordinal";
     public static final String PROPERTY_SLICE = "slice";
     public static final String PROPERTY_INDEX = "index";

@@ -169,13 +169,14 @@ public class ConfigurationImpl extends BasePropertyContainer implements MutableC
     }
 
     @Override
-    public void inheritProperyIfAbsent(PropertyKey<?> key) {
+    public MutableConfiguration inheritProperyIfAbsent(PropertyKey<?> key) {
         if (this.parent == null) {
             throw new IllegalStateException("Missing parent, cannot inherit property " + key);
         }
         if (!hasProperty(key)) {
             inheritProperty(key);
         }
+        return this;
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

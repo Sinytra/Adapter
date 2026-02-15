@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
+// TODO Cleanup extraction process + proxy/mirroring
 public class ExtractMixinProcessor implements Processor {
     @Override
     public TxResult process(MixinContext context, Configuration dirty, Recipe recipe) {
@@ -37,6 +38,10 @@ public class ExtractMixinProcessor implements Processor {
             MethodInsnNode minsn = dirty.getProperty(SpecialKeys.EXTRACT_TARGET).orElseThrow();
             result = MirrorableExtractMixin.apply(context, recipe, dirty.getTargetClass(), minsn);
         }
+
+        // Defer to ProxyExtractMixinSub
+        if (result == PatchResult.PASS && dirty.hasProperty(SpecialKeys.EXTRACT_ORIGIN_PARAM))
+            return TxResult.PASS;
 
         return result == PatchResult.PASS ? TxResult.FAIL : TxResult.SUCCESS;
     }
