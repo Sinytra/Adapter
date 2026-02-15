@@ -180,7 +180,8 @@ public class PipelineMethodTransformer implements MethodTransformer {
             target,
             context::injectionPointAnnotation,
             (ctx, h) -> InjectionPoint.parse(ctx, context.methodNode(), context.methodAnnotation().unwrap(), at.toAnnotationNode()),
-            false
+            false,
+            true
         );
         return !insns.isEmpty();
     }

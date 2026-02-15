@@ -23,7 +23,8 @@ public class LocalVariableLookup {
         for (LocalVariableNode node : this.sortedLocals) {
             this.byIndex.put(node.index, node);
         }
-        this.lastParamLVTIndex = Type.getArgumentTypes(methodNode.desc).length + (this.isNonStatic ? 1 : 0);
+        int paramCount = Type.getArgumentTypes(methodNode.desc).length;
+        this.lastParamLVTIndex = paramCount == 0 ? -1 : getByParameterOrdinal(paramCount - 1).index;
     }
 
     public LocalVariableNode getByOrdinal(int ordinal) {

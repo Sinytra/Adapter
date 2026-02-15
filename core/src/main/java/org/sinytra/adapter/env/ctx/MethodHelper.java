@@ -164,6 +164,11 @@ public class MethodHelper {
 
     @Nullable
     public List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable TargetPair target, Supplier<AnnotationHandle> atNodeSupplier, BiFunction<IMixinContext, AnnotationHandle, InjectionPoint> injectionPointParser, boolean ignoreShift) {
+        return computeInjectionTargetInsns(target, atNodeSupplier, injectionPointParser, ignoreShift, false);
+    }
+
+    @Nullable
+    public List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable TargetPair target, Supplier<AnnotationHandle> atNodeSupplier, BiFunction<IMixinContext, AnnotationHandle, InjectionPoint> injectionPointParser, boolean ignoreShift, boolean ignoreSlice) {
         if (target == null) {
             return List.of();
         }
@@ -182,7 +187,7 @@ public class MethodHelper {
         InjectionPoint injectionPoint = injectionPointParser.apply(mixinContext, atNodeCopy);
         Target mixinTarget = MockMixinRuntime.createMixinTarget(target);
         // Find target instructions
-        InsnList instructions = getSlicedInsns(this.context.methodAnnotation(), this.context.classNode(), this.context.methodNode(), target.classNode(), target.methodNode(), patchContext, mixinTarget);
+        InsnList instructions = ignoreSlice ? target.methodNode().instructions : getSlicedInsns(this.context.methodAnnotation(), this.context.classNode(), this.context.methodNode(), target.classNode(), target.methodNode(), patchContext, mixinTarget);
         List<AbstractInsnNode> targetInsns = new ArrayList<>();
         try {
             if (MockMixinRuntime.injectionPointNeedsSpecialCare(injectionPoint)) {

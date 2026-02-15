@@ -61,7 +61,7 @@ public final class LocalVarAnalyzer {
     public record CapturedLocalsUsage(LocalVariableLookup targetTable, Int2IntMap usageCount, Int2ObjectMap<InsnList> varInsnLists) {
     }
 
-    public record CapturedLocalsTransform(List<Integer> used, TransformParameters remover, Collection<LocalVariableNode> usedLocalNodes) {
+    public record CapturedLocalsTransform(Collection<Integer> used, TransformParameters remover, Collection<LocalVariableNode> usedLocalNodes) {
         public CapturedLocalsUsage getUsage(AdapterUtil.CapturedLocals capturedLocals) {
             LocalVariableLookup targetTable = new LocalVariableLookup(capturedLocals.target().methodNode());
             Int2ObjectMap<InsnList> varInsnLists = new Int2ObjectOpenHashMap<>();
@@ -78,7 +78,7 @@ public final class LocalVarAnalyzer {
         // Find used captured locals
         int paramLocalStart = capturedLocals.paramLocalStart();
         LocalVariableLookup table = capturedLocals.lvt();
-        List<Integer> used = new ArrayList<>();
+        Set<Integer> used = new HashSet<>();
         Set<LocalVariableNode> usedLocalNodes = new HashSet<>();
         for (AbstractInsnNode insn : methodNode.instructions) {
             if (insn instanceof VarInsnNode varInsn) {
