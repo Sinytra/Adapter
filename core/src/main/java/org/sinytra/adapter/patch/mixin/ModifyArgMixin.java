@@ -15,7 +15,6 @@ import org.sinytra.adapter.patch.config.MutableConfiguration;
 import org.sinytra.adapter.patch.config.PropertyContainerTemplate;
 import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.sinytra.adapter.patch.processor.Processors;
-import org.sinytra.adapter.patch.processor.extract.ProxyExtractMixinSub;
 import org.sinytra.adapter.patch.resolver.Resolvers;
 import org.sinytra.adapter.patch.resolver.injection.ArbitraryInjectionPointSubResolver;
 import org.sinytra.adapter.patch.resolver.injection.InjectionPointResolver;
@@ -50,14 +49,13 @@ public class ModifyArgMixin implements MixinType {
 
     @Override
     public TxResult postProcess(MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
+        dirty.inheritProperyIfAbsent(MixinKeys.ORDINAL);
+        dirty.inheritProperyIfAbsent(MixinKeys.INDEX);
+
         if (clean.getAtData().equals(dirty.getAtData())) {
             dirty.inheritParameters();
             dirty.inheritReturnType();
             return TxResult.SUCCESS;
-        }
-
-        if (clean.hasProperty(INDEX) && !dirty.hasProperty(INDEX)) {
-            dirty.setProperty(INDEX, clean.getProperty(INDEX).orElseThrow());
         }
 
         Type type = findArgType(context, recipe.clean().getAtData(), dirty.getAtData(), dirty);
