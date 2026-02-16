@@ -263,6 +263,10 @@ public final class AdapterUtil {
         return list.toArray(arrayGen);
     }
 
+    /**
+     * @param paramLocalStart inclusive
+     * @param paramLocalEnd inclusive
+     */
     public record CapturedLocals(TargetPair target, boolean isStatic, int paramLocalStart, int paramLocalEnd, int lvtOffset,
                                  List<Type> expected, LocalVariableLookup lvt) {
     }

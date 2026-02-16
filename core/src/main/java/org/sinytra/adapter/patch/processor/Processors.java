@@ -14,8 +14,6 @@ public class Processors extends OrderedRegistry<Processor> {
         // === Major changes first ===
         // Handle deleted mixins
         add(new DisableMixinProcessor());
-        // Changed class target
-        add(new ExtractMixinProcessor());
         // Replaced mixin types
         add(new MixinTypeProcessor());
 
@@ -34,6 +32,7 @@ public class Processors extends OrderedRegistry<Processor> {
         add(new StaticAccessProcessor());
 
         // Late extract processor - must come last
-        add(ProxyExtractMixinSub.INSTANCE);
+        // Changed class target
+        add(new ExtractMixinProcessor());
     }
 }

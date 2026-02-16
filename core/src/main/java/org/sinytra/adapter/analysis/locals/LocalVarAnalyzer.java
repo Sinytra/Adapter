@@ -96,7 +96,7 @@ public final class LocalVarAnalyzer {
         }
         // Remove unused captured locals
         TransformParameters remover = TransformParameters.builder()
-            .chain(b -> IntStream.range(paramLocalStart, capturedLocals.paramLocalEnd())
+            .chain(b -> IntStream.range(paramLocalStart, capturedLocals.paramLocalEnd() + 1)
                 .filter(i -> !used.contains(i))
                 .boxed().sorted(Collections.reverseOrder())
                 .forEach(b::remove))

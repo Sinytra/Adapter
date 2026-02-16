@@ -40,8 +40,9 @@ public class ExtractMixinProcessor implements Processor {
         }
 
         // Defer to ProxyExtractMixinSub
-        if (result == PatchResult.PASS && dirty.hasProperty(SpecialKeys.EXTRACT_ORIGIN_PARAM))
-            return TxResult.PASS;
+        if (result == PatchResult.PASS && dirty.hasProperty(SpecialKeys.EXTRACT_ORIGIN_PARAM)) {
+            return ProxyExtractMixinSub.INSTANCE.process(context, dirty, recipe);
+        }
 
         return result == PatchResult.PASS ? TxResult.FAIL : TxResult.SUCCESS;
     }

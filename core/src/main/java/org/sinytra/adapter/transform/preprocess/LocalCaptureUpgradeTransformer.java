@@ -53,11 +53,19 @@ public class LocalCaptureUpgradeTransformer implements MethodTransformer {
         Set<Integer> usedOrdinals = new HashSet<>();
         for (LocalVariableNode node : transform.usedLocalNodes()) {
             Type expected = Type.getType(node.desc);
+            boolean addOrdinal = true;
 
             List<LocalVariableNode> cleanLocals = cleanLookup.getForType(expected);
             List<LocalVariableNode> dirtyLocals = dirtyLookup.getForType(expected);
-            if (cleanLocals.size() != dirtyLocals.size())
-                return PatchResult.PASS;
+            if (cleanLocals.size() != dirtyLocals.size()) {
+                long matching = info.availableTypes().stream()
+                    .filter(expected::equals)
+                    .count();
+                if (matching != 1)
+                    return PatchResult.PASS;
+
+                addOrdinal = false;
+            }
 
             int localOrdinal = lookup.getTypedOrdinal(node).orElse(-1);
             if (localOrdinal == -1) return PatchResult.PASS;
@@ -65,7 +73,7 @@ public class LocalCaptureUpgradeTransformer implements MethodTransformer {
             int paramOrdinal = lookup.getParameterOrdinal(node);
             usedOrdinals.add(paramOrdinal);
 
-            if (cleanLocals.size() > 1) {
+            if (addOrdinal && cleanLocals.size() > 1) {
                 parameterToOrdinal.put(paramOrdinal, localOrdinal);
             }
         }
