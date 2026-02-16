@@ -18,6 +18,14 @@ import java.util.function.BiPredicate;
 
 public class MethodAnalyzer {
     public static final String LAMBDA_PREFIX = "lambda$";
+    
+    public static boolean isLambda(MethodNode methodNode) {
+        return methodNode.name.startsWith(LAMBDA_PREFIX);
+    }
+
+    public static boolean isLambda(MethodQualifier qualifier) {
+        return qualifier.name() != null && qualifier.name().startsWith(LAMBDA_PREFIX);
+    }
 
     public static boolean isDirtyDeprecatedMethod(MethodNode clean, MethodNode dirty) {
         return !AdapterUtil.hasAnnotation(clean.visibleAnnotations, TypeConstants.DEPRECATED)

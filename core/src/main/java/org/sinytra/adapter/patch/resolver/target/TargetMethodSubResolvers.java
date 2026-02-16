@@ -25,6 +25,28 @@ import java.util.List;
 
 public class TargetMethodSubResolvers {
     /**
+     * For example:
+     * CLEAN: net/minecraft/server/MinecraftServer.lambda$reloadResources$28(Lcom/google/common/collect/ImmutableList;)Ljava/util/concurrent/CompletionStage;
+     * DIRTY: net/minecraft/server/MinecraftServer.lambda$reloadResources$29(Lcom/google/common/collect/ImmutableList;)Ljava/util/concurrent/CompletionStage;
+     */
+    public static final SubResolver CHANGED_LAMBDA_INDEX = (MixinContext context, Recipe recipe) -> {
+        MethodQualifier cleanQualifier = recipe.clean().getTargetMethod();
+        if (!MethodAnalyzer.isLambda(cleanQualifier)) return null;
+        
+        ClassNode targetClass = context.dirtyLookup().getClass(recipe.clean().getTargetClass()).orElse(null);
+        if (targetClass == null) return null;
+        
+        List<MethodNode> candidateMethods = targetClass.methods.stream()
+            .filter(m -> MethodAnalyzer.isLambda(m) && m.desc.equals(cleanQualifier.desc()))
+            .toList();
+        if (candidateMethods.size() != 1) return null;
+
+        MethodNode newTarget = candidateMethods.getFirst();
+        return MutableConfiguration.create()
+            .setTargetMethod(newTarget);
+    };
+    
+    /**
      * Handle cases where the target method's parameters have changed
      * <p>
      * For example:

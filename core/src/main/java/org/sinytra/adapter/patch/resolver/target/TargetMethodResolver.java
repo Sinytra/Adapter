@@ -10,6 +10,7 @@ import org.sinytra.adapter.util.MethodQualifier;
 public class TargetMethodResolver extends CompoundResolver {
     public TargetMethodResolver() {
         addSubResolver(new SplitTargetMethodSubResolver());
+        addSubResolver(TargetMethodSubResolvers.CHANGED_LAMBDA_INDEX);
         addSubResolver(TargetMethodSubResolvers.CHANGED_METHOD_PARAMS);
         addSubResolver(TargetMethodSubResolvers.MOVED_INTO_LAMBDA);
     }

@@ -478,6 +478,16 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    @Test
+    void testChangedLambdaIndex() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/MinecraftServerMixin",
+            "thenCompose",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
     @Override
     protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
         ClassNode patched = loadClass(className);
