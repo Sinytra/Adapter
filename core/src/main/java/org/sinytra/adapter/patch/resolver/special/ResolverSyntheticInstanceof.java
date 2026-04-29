@@ -1,6 +1,7 @@
 package org.sinytra.adapter.patch.resolver.special;
 
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.patch.config.Configurations;
 import org.sinytra.adapter.env.ctx.MixinContext;
@@ -58,6 +59,15 @@ public record ResolverSyntheticInstanceof(boolean skipInsnComparison) implements
                 if (cleanMatcher.test(dirtyMatcher)) {
                     // ModifyExpressionValue doesn't include the original instanceof call, so we can skip comparing instructions
                     if (this.skipInsnComparison) {
+                        // Only convert to @ModifyInstanceofValue if the handler returns boolean.
+                        // If it returns a non-boolean type (e.g. Block), the mixin is modifying the
+                        // value fed into the instanceof check, not the boolean result of it.
+                        // Converting in that case produces an invalid (Block)Block handler where (Z)Z is expected.
+                        Type handlerReturnType = Type.getReturnType(context.methodNode().desc);
+                        if (!handlerReturnType.equals(Type.BOOLEAN_TYPE)) {
+                            return ResolutionResult.pass();
+                        }
+
                         TypeInsnNode instanceOfInsn = (TypeInsnNode) findLabelInsns(insn).stream().filter(i -> i.getOpcode() == Opcodes.INSTANCEOF).findFirst().orElse(null);
                         if (instanceOfInsn == null) {
                             return ResolutionResult.pass();
