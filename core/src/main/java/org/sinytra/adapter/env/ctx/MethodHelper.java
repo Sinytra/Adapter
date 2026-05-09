@@ -22,6 +22,7 @@ import org.spongepowered.asm.mixin.injection.InjectionPoint;
 import org.spongepowered.asm.mixin.injection.code.ISliceContext;
 import org.spongepowered.asm.mixin.injection.code.MethodSlice;
 import org.spongepowered.asm.mixin.injection.struct.Target;
+import org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionException;
 import org.spongepowered.asm.mixin.refmap.IMixinContext;
 import org.spongepowered.asm.util.Locals;
 
@@ -184,7 +185,13 @@ public class MethodHelper {
         // Provide a minimum implementation of IMixinContext
         IMixinContext mixinContext = MockMixinRuntime.forClass(this.context.classNode().name, target.classNode().name, patchContext.environment());
         // Parse injection point
-        InjectionPoint injectionPoint = injectionPointParser.apply(mixinContext, atNodeCopy);
+        InjectionPoint injectionPoint;
+        try {
+            injectionPoint = injectionPointParser.apply(mixinContext, atNodeCopy);
+        } catch (InvalidInjectionException e) {
+            LOGGER.debug("Skipping unsupported injection point for {}", this.context.getMixinId(), e);
+            return List.of();
+        }
         Target mixinTarget = MockMixinRuntime.createMixinTarget(target);
         // Find target instructions
         InsnList instructions = ignoreSlice ? target.methodNode().instructions : getSlicedInsns(this.context.methodAnnotation(), this.context.classNode(), this.context.methodNode(), target.classNode(), target.methodNode(), patchContext, mixinTarget);

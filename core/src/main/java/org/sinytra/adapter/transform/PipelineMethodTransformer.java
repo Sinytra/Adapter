@@ -4,8 +4,8 @@ import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
-import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ann.AtData;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ann.SliceData;
 import org.sinytra.adapter.env.ctx.AuditTrail;
 import org.sinytra.adapter.env.ctx.PatchResult;
@@ -31,6 +31,7 @@ import org.spongepowered.asm.mixin.injection.points.BeforeConstant;
 import java.util.List;
 import java.util.Objects;
 
+import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_MIXINEXTRAS_EXPRESSION;
 import static org.sinytra.adapter.util.AdapterUtil.MIXINPATCH;
 
 public class PipelineMethodTransformer implements MethodTransformer {
@@ -46,6 +47,11 @@ public class PipelineMethodTransformer implements MethodTransformer {
 
     @Override
     public PatchResult apply(MixinContext context, Configuration config) {
+        if (hasMixinExtrasExpressionInjectionPoint(config)) {
+            LOGGER.debug(MIXINPATCH, "Skipping MixinExtras expression injection point for {}", context.getMixinId());
+            return PatchResult.PASS;
+        }
+
         TargetPair cleanTarget = context.methods().findOwnMethodPair(context.cleanLookup(), config.getTargetMethod());
         if (cleanTarget == null) return PatchResult.PASS;
 
@@ -184,5 +190,10 @@ public class PipelineMethodTransformer implements MethodTransformer {
             true
         );
         return !insns.isEmpty();
+    }
+
+    private static boolean hasMixinExtrasExpressionInjectionPoint(Configuration config) {
+        AtData atData = config.getAtData();
+        return atData != null && AT_VAL_MIXINEXTRAS_EXPRESSION.equals(atData.getValue());
     }
 }
