@@ -140,6 +140,13 @@ public class PipelineMethodTransformer implements MethodTransformer {
             }
         }
 
+        // Remove parameters debug info if invalid due to params having changed
+        if (context.methodNode().parameters != null
+            && Type.getArgumentCount(context.methodNode().desc) != context.methodNode().parameters.size()
+        ) {
+            context.methodNode().parameters = null;
+        }
+
         return PatchResult.APPLY;
     }
 

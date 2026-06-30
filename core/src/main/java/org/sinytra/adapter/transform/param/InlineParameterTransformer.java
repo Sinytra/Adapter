@@ -26,10 +26,6 @@ public record InlineParameterTransformer(int target, Consumer<InstructionAdapter
         final int replaceIndex = -999 + index;
 
         LVTSnapshot.with(methodNode, () -> {
-            if (index < methodNode.parameters.size()) {
-                methodNode.parameters.remove(index);
-            }
-
             methodNode.localVariables.sort(Comparator.comparingInt(lvn -> lvn.index));
             LocalVariableNode lvn = methodNode.localVariables.remove(index + (context.isStatic() ? 0 : 1));
             AdapterUtil.replaceLVT(methodNode, idx -> idx == lvn.index ? replaceIndex : idx);

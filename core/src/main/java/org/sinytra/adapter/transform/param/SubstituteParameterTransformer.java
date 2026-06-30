@@ -4,8 +4,8 @@ import com.mojang.logging.LogUtils;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.analysis.locals.LVTSnapshot;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.slf4j.Logger;
@@ -24,14 +24,13 @@ public record SubstituteParameterTransformer(int target, int substitute) impleme
         boolean isNonStatic = !context.isStatic();
         int localIndex = calculateLVTIndex(parameters, isNonStatic, paramIndex);
 
-        if (methodNode.parameters.size() <= paramIndex) {
+        if (Type.getArgumentCount(methodNode.desc) <= paramIndex) {
             return PatchResult.PASS;
         }
 
         LVTSnapshot.with(methodNode, () -> {
             LOGGER.info("Substituting parameter {} for {} in {}.{}", paramIndex, substituteParamIndex, classNode.name, methodNode.name);
             parameters.remove(paramIndex);
-            methodNode.parameters.remove(paramIndex);
             methodNode.localVariables.removeIf(lvn -> lvn.index == localIndex);
 
             int substituteIndex = calculateLVTIndex(parameters, isNonStatic, substituteParamIndex);

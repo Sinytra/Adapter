@@ -5,10 +5,9 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.objectweb.asm.tree.ParameterNode;
-import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.analysis.locals.LVTSnapshot;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.slf4j.Logger;
@@ -28,11 +27,6 @@ public record MoveParametersTransformer(int from, int to) implements ParameterTr
 
         LocalVariableLookup lookup = new LocalVariableLookup(methodNode);
         LocalVariableNode localVar = lookup.getByParameterOrdinal(paramIndex);
-
-        if (paramIndex < methodNode.parameters.size()) {
-            ParameterNode parameter = methodNode.parameters.remove(paramIndex);
-            methodNode.parameters.add(this.to > paramIndex ? this.to - 1 : this.to, parameter);
-        }
 
         int tempIndex = -999;
         AdapterUtil.replaceLVT(methodNode, idx -> idx == localVar.index ? tempIndex : idx);

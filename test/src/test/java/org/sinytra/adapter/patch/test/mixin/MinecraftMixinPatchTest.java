@@ -61,14 +61,6 @@ public abstract class MinecraftMixinPatchTest {
 
         LOGGER.info("Patched node: \n{}", AdapterUtil.methodNodeToString(patched));
 
-        Assertions.assertThat(patched.parameters)
-            .as("Parameters")
-            .usingElementComparator(Comparator.comparing(p -> p.name))
-            .withRepresentation(object -> ((List<ParameterNode>) object)
-                .stream().map(par -> par.name)
-                .collect(Collectors.joining("\n")))
-            .isEqualTo(expected.parameters);
-
         final Predicate<AbstractInsnNode> dontTest = i -> i instanceof LineNumberNode || i instanceof FrameNode;
         Assertions.assertThat(patched.instructions.iterator())
             .toIterable()

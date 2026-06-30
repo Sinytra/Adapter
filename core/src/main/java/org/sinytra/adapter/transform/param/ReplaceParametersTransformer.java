@@ -31,7 +31,7 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
     public PatchResult apply(ClassNode classNode, MethodNode methodNode, MixinContext context, List<Type> parameters, int offset) {
         final int paramIndex = this.index + offset;
 
-        if (methodNode.parameters.size() <= paramIndex) {
+        if (Type.getArgumentCount(methodNode.desc) <= paramIndex) {
             return PatchResult.PASS;
         }
 

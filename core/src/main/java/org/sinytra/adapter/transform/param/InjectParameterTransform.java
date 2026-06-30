@@ -50,7 +50,6 @@ public record InjectParameterTransform(int index, Type type) implements Paramete
         LVTSnapshot.with(methodNode, () -> {
             ParameterNode newParameter = new ParameterNode("adapter_injected_" + index, Opcodes.ACC_SYNTHETIC);
             parameters.add(index, type);
-            methodNode.parameters.add(index, newParameter);
 
             offsetParameters(methodNode, index);
 

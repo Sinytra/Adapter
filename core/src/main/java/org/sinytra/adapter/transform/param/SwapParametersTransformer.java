@@ -2,7 +2,10 @@ package org.sinytra.adapter.transform.param;
 
 import com.mojang.logging.LogUtils;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.*;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.LocalVariableNode;
+import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.util.AdapterUtil;
@@ -22,8 +25,6 @@ public record SwapParametersTransformer(int from, int to) implements ParameterTr
         int from = offset + this.from;
         int to = offset + this.to;
         boolean nonStatic = !context.isStatic();
-        ParameterNode fromNode = methodNode.parameters.get(from);
-        ParameterNode toNode = methodNode.parameters.get(to);
 
         int fromOldLVT = ParamTransformationUtil.calculateLVTIndex(parameters, nonStatic, from);
         int toOldLVT = ParamTransformationUtil.calculateLVTIndex(parameters, nonStatic, to);
@@ -33,10 +34,7 @@ public record SwapParametersTransformer(int from, int to) implements ParameterTr
         parameters.set(from, toType);
         parameters.set(to, fromType);
 
-        methodNode.parameters.set(from, toNode);
-        methodNode.parameters.set(to, fromNode);
-
-        LOGGER.info(MIXINPATCH, "Swapped parameters at positions {}({}) and {}({}) in {}.{}", from, fromNode.name, to, toNode.name, classNode.name, methodNode.name);
+        LOGGER.info(MIXINPATCH, "Swapped parameters at positions {} and {} in {}.{}", from, to, classNode.name, methodNode.name);
 
         int fromNewLVT = ParamTransformationUtil.calculateLVTIndex(parameters, nonStatic, from);
         int toNewLVT = ParamTransformationUtil.calculateLVTIndex(parameters, nonStatic, to);

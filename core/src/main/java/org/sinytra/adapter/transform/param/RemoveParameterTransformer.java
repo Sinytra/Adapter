@@ -34,7 +34,6 @@ public record RemoveParameterTransformer(int index, boolean invalidateUsage) imp
             }
         });
 
-        methodNode.parameters.remove(target);
         methodNode.visibleParameterAnnotations = AdapterUtil.removeArrayElement(methodNode.visibleParameterAnnotations, this.index, List[]::new);
         methodNode.invisibleParameterAnnotations = AdapterUtil.removeArrayElement(methodNode.invisibleParameterAnnotations, this.index, List[]::new);
         parameters.remove(target);
