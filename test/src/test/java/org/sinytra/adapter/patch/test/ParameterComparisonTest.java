@@ -7,7 +7,7 @@ import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.analysis.params.ParametersDiff;
-import org.sinytra.adapter.patch.test.mixin.MinecraftMixinPatchTest;
+import org.sinytra.adapter.patch.test_main.mixin.MinecraftMixinPatchTest;
 
 import java.io.IOException;
 import java.util.List;
@@ -94,8 +94,8 @@ public class ParameterComparisonTest {
 
     @Test
     public void testMethodParameterNameComparison() throws IOException {
-        ClassNode cleanNode = MinecraftMixinPatchTest.loadClass("org/sinytra/adapter/test/CleanDummyClass");
-        ClassNode dirtyNode = MinecraftMixinPatchTest.loadClass("org/sinytra/adapter/test/DirtyDummyClass");
+        ClassNode cleanNode = MinecraftMixinPatchTest.loadClass("org/sinytra/adapter/test_cls/common/CleanDummyClass");
+        ClassNode dirtyNode = MinecraftMixinPatchTest.loadClass("org/sinytra/adapter/test_cls/common/DirtyDummyClass");
 
         MethodNode cleanMethod = cleanNode.methods.stream().filter(m -> m.name.equals("namedInsertionTest")).findFirst().orElseThrow();
         MethodNode dirtyMethod = dirtyNode.methods.stream().filter(m -> m.name.equals("namedInsertionTest")).findFirst().orElseThrow();

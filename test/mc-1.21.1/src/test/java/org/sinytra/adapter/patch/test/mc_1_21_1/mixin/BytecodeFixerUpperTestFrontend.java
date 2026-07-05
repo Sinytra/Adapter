@@ -1,4 +1,4 @@
-package org.sinytra.adapter.patch.test.mixin;
+package org.sinytra.adapter.patch.test.mc_1_21_1.mixin;
 
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;

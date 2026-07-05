@@ -1,4 +1,4 @@
-package org.sinytra.adapter.patch.test.mixin;
+package org.sinytra.adapter.patch.test_main.mixin;
 
 import com.mojang.logging.LogUtils;
 import org.apache.commons.lang3.tuple.Pair;

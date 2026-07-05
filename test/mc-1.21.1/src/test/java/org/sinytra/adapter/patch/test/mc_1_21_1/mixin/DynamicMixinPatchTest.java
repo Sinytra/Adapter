@@ -1,4 +1,4 @@
-package org.sinytra.adapter.patch.test.mixin;
+package org.sinytra.adapter.patch.test.mc_1_21_1.mixin;
 
 import com.mojang.logging.LogUtils;
 import org.junit.jupiter.api.AfterAll;
@@ -10,6 +10,7 @@ import org.sinytra.adapter.env.ctx.PatchEnvironment;
 import org.sinytra.adapter.env.ctx.RefmapHolder;
 import org.sinytra.adapter.patch.DynamicPatches;
 import org.sinytra.adapter.patch.Patcher;
+import org.sinytra.adapter.patch.test_main.mixin.MinecraftMixinPatchTest;
 import org.sinytra.adapter.types.FieldTypeUsageTransformer;
 import org.sinytra.adapter.util.provider.ClassLookup;
 import org.slf4j.Logger;

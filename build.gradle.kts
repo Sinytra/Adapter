@@ -1,7 +1,6 @@
 plugins {
     id("net.neoforged.moddev")
-    id("org.sinytra.adapter.userdev")
-    id("net.neoforged.gradleutils") version("3.0.0")
+    id("net.neoforged.gradleutils") version ("3.0.0")
     `maven-publish`
 }
 
@@ -33,8 +32,10 @@ allprojects {
         withSourcesJar()
     }
 
-    neoForge {
-        version = versionNeoForge
+    if (!project.path.startsWith(":test")) {
+        neoForge {
+            version = versionNeoForge
+        }
     }
 
     repositories {
@@ -42,7 +43,7 @@ allprojects {
         maven("https://maven.su5ed.dev/releases")
     }
 
-    if (name !== "test") {
+    if (name != "test") {
         apply(plugin = "maven-publish")
 
         publishing {
