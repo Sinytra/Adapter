@@ -19,6 +19,7 @@ pluginManagement {
 
     plugins {
         id("net.neoforged.moddev") version versionModDevGradle
+        id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
     }
 }
 

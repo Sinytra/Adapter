@@ -12,7 +12,7 @@ neoForge {
 
 allprojects {
     apply(plugin = "net.neoforged.moddev")
-    
+
     val testClasses: SourceSet by sourceSets.creating
 
     configurations {
@@ -22,7 +22,7 @@ allprojects {
     }
 
     val requestedOutput = file("build/createCleanArtifact/minecraft-renamed.jar")
-    
+
     neoForge {
         additionalMinecraftArtifacts.put("vanillaDeobfuscated", requestedOutput)
     }

@@ -1,5 +1,5 @@
-val runtimeVersion: String by project
-val versionMc: String by project
+val runtimeVersion = project.property("runtimeVersion") as String
+val versionMc = project.property("versionMc") as String
 
 version = "$runtimeVersion+$versionMc"
 

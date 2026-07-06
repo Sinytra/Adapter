@@ -1,10 +1,8 @@
 plugins {
-    `java-library`
-    `maven-publish`
     id("net.neoforged.gradleutils") version ("3.0.0")
 }
 
-val versionMc: String by project
+val versionMc = project.property("versionMc") as String
 
 gradleutils.version {
     branches {
@@ -20,11 +18,11 @@ allprojects {
 
     group = "org.sinytra.adapter"
 
-    base {
+    configure<BasePluginExtension> {
         archivesName.set(project.name.lowercase())
     }
 
-    java {
+    configure<JavaPluginExtension> {
         toolchain {
             languageVersion.set(JavaLanguageVersion.of(21))
         }
@@ -38,22 +36,22 @@ allprojects {
     }
     
     dependencies {
-        implementation(platform("org.ow2.asm:asm-bom:9.8"))
-        implementation("org.ow2.asm:asm")
-        implementation("org.ow2.asm:asm-analysis")
-        implementation("org.ow2.asm:asm-commons")
-        implementation("org.ow2.asm:asm-tree")
-        implementation("org.ow2.asm:asm-util")
+        "implementation"(platform("org.ow2.asm:asm-bom:9.8"))
+        "implementation"("org.ow2.asm:asm")
+        "implementation"("org.ow2.asm:asm-analysis")
+        "implementation"("org.ow2.asm:asm-commons")
+        "implementation"("org.ow2.asm:asm-tree")
+        "implementation"("org.ow2.asm:asm-util")
     }
 
     if (name != "test") {
         apply(plugin = "maven-publish")
 
-        publishing {
+        configure<PublishingExtension> {
             publications {
                 create<MavenPublication>("mavenJava") {
                     from(components["java"])
-                    artifactId = project.base.archivesName.get()
+                    artifactId = project.extensions.getByType<BasePluginExtension>().archivesName.get()
                 }
             }
             repositories {

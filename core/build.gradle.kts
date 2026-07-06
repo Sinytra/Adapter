@@ -4,7 +4,7 @@ plugins {
     id("net.neoforged.gradleutils") version("3.0.0")
 }
 
-val versionMc: String by project
+val versionMc = project.property("versionMc") as String
 
 group = "org.sinytra.adapter"
 gradleutils.version {
