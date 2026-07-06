@@ -33,7 +33,7 @@ public class LivingEntityMixin {
     }
 
     @ModifyVariable(
-        method = "travel",
+        method = "travel(Lnet/minecraft/world/phys/Vec3;)V",
         at = @At(
             value = "INVOKE_ASSIGN",
             target = "Lnet/minecraft/world/entity/LivingEntity;onGround()Z"

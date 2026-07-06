@@ -62,7 +62,7 @@ public class DynamicAnonClassIndexPatch implements ClassTransformer {
 
     private static void updateMixinTargetOwners(ClassNode classNode, ClassTarget classTarget, PatchContext context, String newOwner) {
         for (MethodNode method : classNode.methods) {
-            MixinParser.MixinMethodHandle handle = MixinParser.parseMixin(classTarget, method, context);
+            MixinParser.MixinMethodHandle handle = MixinParser.parseMixin(classTarget, method, context, context.environment());
             if (handle == null) continue;
 
             handle.properties().getProperty(MixinKeys.TARGET_METHOD)

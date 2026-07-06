@@ -87,7 +87,7 @@ public class RedirectMixin implements MixinType {
             return TxResult.FAIL;
 
         MethodQualifier targetDesc = dirty.getAtData().getTarget().flatMap(MethodQualifier::parse).orElse(null);
-        if (targetDesc == null)
+        if (targetDesc == null || targetDesc.desc() == null)
             return TxResult.FAIL;
 
         TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), targetDesc);

@@ -38,7 +38,7 @@ public class ItemInHandRendererMixin {
     }
 
     @ModifyInstanceofValue(
-        method = "renderArmWithItem",
+        method = "renderArmWithItem(Lnet/minecraft/client/player/AbstractClientPlayer;FFLnet/minecraft/world/InteractionHand;FLnet/minecraft/world/item/ItemStack;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",
         at = @At(
             value = "sinytra:INSTANCEOF",
             target = "net/minecraft/world/item/CrossbowItem"

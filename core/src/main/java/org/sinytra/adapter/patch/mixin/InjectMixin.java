@@ -58,7 +58,7 @@ public class InjectMixin implements MixinType {
     @Override
     public TxResult postProcess(MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
         dirty.setReturnType(Type.VOID_TYPE);
-        if (dirty.getTargetMethod() == null) {
+        if (dirty.getTargetMethod() == null || dirty.getTargetMethod().desc() == null) {
             return TxResult.SUCCESS;
         }
 

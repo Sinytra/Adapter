@@ -50,11 +50,11 @@ public class ModifyReturnValueMixin implements MixinType {
     // 2. Locals
     @Override
     public TxResult postProcess(MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
-        if (dirty.getTargetMethod() == null) {
+        MethodQualifier target = dirty.getTargetMethod();
+        if (target == null || target.desc() == null) {
             return TxResult.FAIL;
         }
 
-        MethodQualifier target = dirty.getTargetMethod();
         List<Type> dirtyCaptured = context.methods().resolveCapturedMethodParams(recipe.clean(), recipe.dirty());
         Type modifyingType = Type.getReturnType(target.desc());
 
