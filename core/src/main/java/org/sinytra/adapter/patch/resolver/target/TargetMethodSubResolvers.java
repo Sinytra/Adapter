@@ -166,6 +166,6 @@ public class TargetMethodSubResolvers {
 
     public static boolean isDirtyDeprecatedMethod(MixinContext context, MethodNode dirty) {
         TargetPair pair = context.methods().findOwnMethodPair(context.cleanLookup(), MethodQualifier.create(dirty));
-        return (pair == null || !AdapterUtil.isDeprecated(pair.methodNode())) && !AdapterUtil.isDeprecated(dirty);
+        return (pair == null || !AdapterUtil.isDeprecated(pair.methodNode())) && AdapterUtil.isDeprecated(dirty);
     }
 }
