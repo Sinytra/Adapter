@@ -19,6 +19,7 @@ public class InjectionPointResolver extends CompoundResolver {
         addSubResolver(new InheritedInjectionPointSubResolver());
         addSubResolver(InjectionPointSubResolvers.REPLACED_TYPE);
         addSubResolver(InjectionPointSubResolvers.EXTRACTED_CALL);
+        addSubResolver(InjectionPointSubResolvers.EXTRACTED_CODEPATH_CALL);
     }
 
     @Override

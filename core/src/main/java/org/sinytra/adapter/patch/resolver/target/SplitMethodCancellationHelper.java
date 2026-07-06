@@ -37,7 +37,7 @@ public final class SplitMethodCancellationHelper {
         MixinClassGenerator generator = context.patchContext().environment().classGenerator();
         ClassNode generatedTarget = generator.getOrGenerateMixinClass(context.classNode(), originalClassTarget.name, null);
 
-        List<MethodNode> invocations = MethodAnalyzer.getOwnMethodCalls(newCleanTarget);
+        List<MethodNode> invocations = MethodAnalyzer.getSelfTopTierMethodCalls(newCleanTarget);
         if (invocations == null) {
             return;
         }

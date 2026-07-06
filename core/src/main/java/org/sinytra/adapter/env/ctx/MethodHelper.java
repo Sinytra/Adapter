@@ -50,9 +50,14 @@ public class MethodHelper {
 
     @Nullable
     public MethodNode findInheritedMethod(ClassLookup lookup, MethodQualifier qualifier) {
-        return Optional.ofNullable(this.methodFinder.findInheritedMethod(lookup, qualifier))
+        return Optional.ofNullable(findInheritedMethodPair(lookup, qualifier))
             .map(TargetPair::methodNode)
             .orElse(null);
+    }
+
+    @Nullable
+    public TargetPair findInheritedMethodPair(ClassLookup lookup, MethodQualifier qualifier) {
+        return this.methodFinder.findInheritedMethod(lookup, qualifier);
     }
 
     @Nullable

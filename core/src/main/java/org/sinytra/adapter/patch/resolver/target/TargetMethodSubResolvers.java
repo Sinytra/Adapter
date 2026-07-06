@@ -32,10 +32,10 @@ public class TargetMethodSubResolvers {
     public static final SubResolver CHANGED_LAMBDA_INDEX = (MixinContext context, Recipe recipe) -> {
         MethodQualifier cleanQualifier = recipe.clean().getTargetMethod();
         if (!MethodAnalyzer.isLambda(cleanQualifier)) return null;
-        
+
         ClassNode targetClass = context.dirtyLookup().getClass(recipe.clean().getTargetClass()).orElse(null);
         if (targetClass == null) return null;
-        
+
         List<MethodNode> candidateMethods = targetClass.methods.stream()
             .filter(m -> MethodAnalyzer.isLambda(m) && m.desc.equals(cleanQualifier.desc()))
             .toList();
@@ -45,7 +45,7 @@ public class TargetMethodSubResolvers {
         return MutableConfiguration.create()
             .setTargetMethod(newTarget);
     };
-    
+
     /**
      * Handle cases where the target method's parameters have changed
      * <p>
@@ -109,7 +109,7 @@ public class TargetMethodSubResolvers {
         TargetPair dirtyTarget = recipe.getNewCleanTarget();
         if (dirtyTarget == null || !AdapterUtil.isDeprecated(dirtyTarget.methodNode())) return null;
 
-        List<MethodNode> invocations = MethodAnalyzer.getOwnMethodCalls(dirtyTarget);
+        List<MethodNode> invocations = MethodAnalyzer.getSelfTopTierMethodCalls(dirtyTarget);
         for (MethodNode invocation : invocations) {
             if (context.methods().hasInjectionTargetInsns(new TargetPair(dirtyTarget.classNode(), invocation))) {
                 return MutableConfiguration.create()

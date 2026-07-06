@@ -1,23 +1,22 @@
 plugins {
-    id("net.neoforged.moddev")
-    id("net.neoforged.gradleutils") version ("3.0.0")
+    `java-library`
     `maven-publish`
+    id("net.neoforged.gradleutils") version ("3.0.0")
 }
 
 val versionMc: String by project
-val versionNeoForge: String by project
 
 gradleutils.version {
     branches {
         suffixBranch()
-        suffixExemptedBranches("1.21.x")
+        suffixExemptedBranches("26.1.x")
     }
 }
 
 version = gradleutils.version.toString() + "+$versionMc"
 
 allprojects {
-    apply(plugin = "net.neoforged.moddev")
+    apply(plugin = "java-library")
 
     group = "org.sinytra.adapter"
 
@@ -32,15 +31,19 @@ allprojects {
         withSourcesJar()
     }
 
-    if (!project.path.startsWith(":test")) {
-        neoForge {
-            version = versionNeoForge
-        }
-    }
-
     repositories {
         mavenCentral()
         maven("https://maven.su5ed.dev/releases")
+        maven("https://maven.fabricmc.net")
+    }
+    
+    dependencies {
+        implementation(platform("org.ow2.asm:asm-bom:9.8"))
+        implementation("org.ow2.asm:asm")
+        implementation("org.ow2.asm:asm-analysis")
+        implementation("org.ow2.asm:asm-commons")
+        implementation("org.ow2.asm:asm-tree")
+        implementation("org.ow2.asm:asm-util")
     }
 
     if (name != "test") {

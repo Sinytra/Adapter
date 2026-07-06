@@ -48,8 +48,22 @@ public abstract class MinecraftMixinPatchTest {
         String testName,
         AssertCallback... assertions
     ) throws Exception {
+        assertSameCodeExtracted(className, testName, null, assertions);
+    }
+
+    protected final void assertSameCodeExtracted(
+        String className,
+        String testName,
+        String newClassName,
+        AssertCallback... assertions
+    ) throws Exception {
         final LoadResult result = load(className, List.of(testName));
-        final MethodNode patched = result.patched.methods
+
+        final ClassNode outputClass = newClassName != null
+            ? result.env().classGenerator().getGeneratedMixinClasses().get(newClassName).node()
+            : result.patched;
+
+        final MethodNode patched = outputClass.methods
             .stream().filter(m -> m.name.equals(testName))
             .findFirst().orElse(null);
         final MethodNode expected = result.expected.methods
@@ -74,7 +88,12 @@ public abstract class MinecraftMixinPatchTest {
             .as("LVT")
             .usingElementComparator(Comparator.<LocalVariableNode>comparingInt(n -> n.index)
                 .thenComparing(n -> n.name)
-                .thenComparing(n -> n.desc))
+                .thenComparing((a, b) -> {
+                    if (newClassName != null && a.desc.contains(newClassName) && b.desc.contains(className)) {
+                        return 0;
+                    }
+                    return a.desc.compareTo(b.desc);
+                }))
             .withRepresentation(object -> {
                 if (object instanceof LocalVariableNode[] lvn) {
                     object = List.of(lvn);

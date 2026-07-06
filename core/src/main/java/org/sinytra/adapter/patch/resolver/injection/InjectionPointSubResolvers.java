@@ -1,6 +1,7 @@
 package org.sinytra.adapter.patch.resolver.injection;
 
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -8,6 +9,9 @@ import org.sinytra.adapter.analysis.InstructionMatcher;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodInsnMatcher;
+import org.sinytra.adapter.analysis.tree.CodePaths;
+import org.sinytra.adapter.analysis.tree.CodePaths.CodePath;
+import org.sinytra.adapter.analysis.tree.CodePaths.CodePathStep;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.env.param.Parameters;
@@ -19,7 +23,10 @@ import org.sinytra.adapter.patch.config.key.SpecialKeys;
 import org.sinytra.adapter.patch.resolver.SubResolver;
 import org.sinytra.adapter.util.MethodQualifier;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 public class InjectionPointSubResolvers {
     public static final SubResolver REPLACED_TYPE = (MixinContext context, Recipe recipe) -> {
@@ -62,8 +69,7 @@ public class InjectionPointSubResolvers {
         Multimap<String, MethodInsnNode> cleanCalls = MethodAnalyzer.getMethodCalls(cleanPair.methodNode());
         Multimap<String, MethodInsnNode> dirtyCalls = MethodAnalyzer.getMethodCalls(dirtyTarget.methodNode());
 
-        Set<String> dirtyOnly = new HashSet<>(dirtyCalls.keySet());
-        dirtyOnly.removeAll(cleanCalls.keySet());
+        Set<String> dirtyOnly = Sets.difference(dirtyCalls.keySet(), cleanCalls.keySet());
 
         for (String qualifier : dirtyOnly) {
             Collection<MethodInsnNode> calls = dirtyCalls.get(qualifier);
@@ -93,6 +99,41 @@ public class InjectionPointSubResolvers {
                     .setProperty(SpecialKeys.EXTRACT_ORIGIN_PARAM, selfParamIndex)
                     .inheritProperyIfAbsent(MixinKeys.INDEX)
                     .inheritProperyIfAbsent(MixinKeys.ORDINAL);
+            }
+        }
+
+        return null;
+    };
+
+    public static final SubResolver EXTRACTED_CODEPATH_CALL = (MixinContext context, Recipe recipe) -> {
+        TargetPair cleanPair = recipe.getCleanTarget();
+        if (cleanPair == null) return null;
+
+        TargetPair dirtyTarget = recipe.getDirtyTarget();
+        if (dirtyTarget == null) return null;
+
+        if (!(context.methods().findInjectionTargetInsn(cleanPair) instanceof MethodInsnNode minsn)) return null;
+
+        Multimap<String, MethodInsnNode> cleanCalls = MethodAnalyzer.getMethodCalls(cleanPair.methodNode());
+        Multimap<String, MethodInsnNode> dirtyCalls = MethodAnalyzer.getMethodCalls(dirtyTarget.methodNode());
+
+        Set<String> dirtyOnly = Sets.difference(dirtyCalls.keySet(), cleanCalls.keySet());
+        Set<Integer> trackLocals = context.isStatic() ? Set.of() : Set.of(0);
+
+        for (String qualifier : dirtyOnly) {
+            Collection<MethodInsnNode> calls = dirtyCalls.get(qualifier);
+            if (calls.size() != 1) continue;
+
+            TargetPair to = context.methods().findInheritedMethodPair(context.dirtyLookup(), MethodQualifier.create(minsn));
+            CodePath path = CodePaths.findCodePath(dirtyTarget, to, trackLocals, context);
+
+            if (path != null) {
+                CodePathStep last = path.steps().getLast();
+
+                return recipe.dirty().copyClean()
+                    .setTargetClass(last.from().classNode())
+                    .setTargetMethod(last.from().methodNode())
+                    .inheritAtData();
             }
         }
 

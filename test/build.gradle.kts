@@ -1,4 +1,5 @@
 plugins {
+    id("net.neoforged.moddev")
 }
 
 neoForge {
@@ -10,12 +11,20 @@ neoForge {
 }
 
 allprojects {
+    apply(plugin = "net.neoforged.moddev")
+    
     val testClasses: SourceSet by sourceSets.creating
 
     configurations {
         named("testClassesCompileClasspath") {
             extendsFrom(testCompileClasspath.get())
         }
+    }
+
+    val requestedOutput = file("build/createCleanArtifact/minecraft-renamed.jar")
+    
+    neoForge {
+        additionalMinecraftArtifacts.put("vanillaDeobfuscated", requestedOutput)
     }
 
     dependencies {
@@ -40,7 +49,7 @@ allprojects {
         test {
             useJUnitPlatform()
             systemProperty("adapter.core.paramdiff.debug", true)
-            systemProperty("adapter.clean.path", neoForge.additionalMinecraftArtifacts.getting("vanillaDeobfuscated").get().absolutePath)
+            systemProperty("adapter.clean.path", requestedOutput)
             systemProperty("forge.logging.console.level", "debug")
             outputs.upToDateWhen { false }
         }

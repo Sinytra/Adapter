@@ -18,7 +18,7 @@ import java.util.function.BiPredicate;
 
 public class MethodAnalyzer {
     public static final String LAMBDA_PREFIX = "lambda$";
-    
+
     public static boolean isLambda(MethodNode methodNode) {
         return methodNode.name.startsWith(LAMBDA_PREFIX);
     }
@@ -32,43 +32,39 @@ public class MethodAnalyzer {
             && AdapterUtil.hasAnnotation(dirty.visibleAnnotations, TypeConstants.DEPRECATED);
     }
 
-    public static List<MethodNode> getOwnMethodCalls(TargetPair targetPair) {
+    // Return outer method calls where receiver = this
+    public static List<MethodNode> getSelfTopTierMethodCalls(TargetPair targetPair) {
+        ClassNode classNode = targetPair.classNode();
+
+        List<MethodInsnNode> topTierCalls = getTopTierMethodCalls(targetPair);
+        List<MethodNode> ownCalls = new ArrayList<>();
+
+        for (MethodInsnNode insn : topTierCalls) {
+            classNode.methods.stream()
+                .filter(m -> m.name.equals(insn.name) && m.desc.equals(insn.desc))
+                .findFirst()
+                .ifPresent(ownCalls::add);
+        }
+
+        return ownCalls;
+    }
+
+    // Return outer method calls
+    public static List<MethodInsnNode> getTopTierMethodCalls(TargetPair targetPair) {
         MethodNode methodNode = targetPair.methodNode();
         Frame<SourceValue>[] frames = FrameUtil.getFrames(methodNode);
-        
+
         Set<MethodInsnNode> consumedCalls = new HashSet<>();
         for (AbstractInsnNode insn : methodNode.instructions) {
-            if (!(insn instanceof MethodInsnNode call)) continue;
-
-            int index = methodNode.instructions.indexOf(insn);
-            Frame<SourceValue> frame = frames[index];
-            if (frame == null) continue;
-
-            int argCount = FrameUtil.getPopCount(call);
-            int stackTop = frame.getStackSize();
-
-            // Look at arguments consumed by this call
-            for (int i = 0; i < argCount; i++) {
-                SourceValue arg = frame.getStack(stackTop - 1 - i);
-
-                for (AbstractInsnNode producer : arg.insns) {
-                    if (producer instanceof MethodInsnNode producerCall) {
-                        consumedCalls.add(producerCall);
-                    }
-                }
+            if (insn instanceof MethodInsnNode call) {
+                traceInputs(call, frames, methodNode.instructions, consumedCalls, new HashSet<>());
             }
         }
 
-        List<MethodNode> topTierCalls = new ArrayList<>();
-        ClassNode classNode = targetPair.classNode();
+        List<MethodInsnNode> topTierCalls = new ArrayList<>();
         for (AbstractInsnNode insn : methodNode.instructions) {
-            if (insn instanceof MethodInsnNode call && call.owner.equals(classNode.name)) {
-                if (!consumedCalls.contains(call)) {
-                    classNode.methods.stream()
-                        .filter(m -> m.name.equals(call.name) && m.desc.equals(call.desc))
-                        .findFirst()
-                        .ifPresent(topTierCalls::add);
-                }
+            if (insn instanceof MethodInsnNode call && !consumedCalls.contains(call)) {
+                topTierCalls.add(call);
             }
         }
 
@@ -144,6 +140,35 @@ public class MethodAnalyzer {
             return values.iterator().next();
         }
         return null;
+    }
+
+    private static void collectProducerCalls(SourceValue value, Frame<SourceValue>[] frames, InsnList indices, Set<MethodInsnNode> consumedCalls, Set<AbstractInsnNode> visited) {
+        for (AbstractInsnNode producer : value.insns) {
+            if (!visited.add(producer)) continue;
+
+            if (producer instanceof MethodInsnNode producerCall) {
+                consumedCalls.add(producerCall);
+                continue;
+            }
+
+            traceInputs(producer, frames, indices, consumedCalls, visited);
+        }
+    }
+
+    private static void traceInputs(AbstractInsnNode insn, Frame<SourceValue>[] frames, InsnList indices, Set<MethodInsnNode> consumedCalls, Set<AbstractInsnNode> visited) {
+        int index = indices.indexOf(insn);
+        Frame<SourceValue> frame = frames[index];
+        if (frame == null) return;
+
+        int popCount = FrameUtil.getPopCount(insn);
+        int stackTop = frame.getStackSize();
+        for (int j = 0; j < popCount; j++) {
+            int slot = stackTop - 1 - j;
+            if (slot < 0) break;
+
+            SourceValue input = frame.getStack(slot);
+            collectProducerCalls(input, frames, indices, consumedCalls, visited);
+        }
     }
 
     public interface NaryOperationHandler<T> {

@@ -6,6 +6,7 @@ version = "$runtimeVersion+$versionMc"
 println("Runtime version: $version")
 
 dependencies {
+    implementation("net.fabricmc:sponge-mixin:0.14.0+mixin.0.8.6")
     implementation(annotationProcessor("io.github.llamalad7:mixinextras-common:0.3.6")!!)
 }
 

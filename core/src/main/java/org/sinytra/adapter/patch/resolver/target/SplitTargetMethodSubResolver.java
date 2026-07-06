@@ -60,7 +60,7 @@ public class SplitTargetMethodSubResolver implements SubResolver {
             return tryFindPartialCandidates(cleanTargetMethod, dirtyTargetClass, dirtyTargetMethod, context);
         }
 
-        List<MethodNode> invocations = MethodAnalyzer.getOwnMethodCalls(dirtyTarget);
+        List<MethodNode> invocations = MethodAnalyzer.getSelfTopTierMethodCalls(dirtyTarget);
         if (invocations == null) {
             return List.of();
         }

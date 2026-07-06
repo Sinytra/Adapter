@@ -470,14 +470,14 @@ public class EnhancedParamsDiff {
         StringBuilder builder = new StringBuilder();
         builder.append("\t| %5s | %25s%s%26s | %25s%s%26s |\n".formatted("Index", "", "Clean", "", "", "Dirty", ""));
         builder.append("\t");
-        builder.append("=".repeat(127));
+        builder.repeat("=", 127);
         builder.append("\n");
         int max = Math.max(clean.size(), dirty.size());
         for (int i = 0; i < max; i++) {
             builder.append("\t| %-5s | %56s | %-56s |\n".formatted(i, i < clean.size() ? clean.get(i).type() : "", i < dirty.size() ? dirty.get(i).type() : ""));
         }
         builder.append("\t");
-        builder.append("=".repeat(127));
+        builder.repeat("=", 127);
         return builder.toString();
     }
 

@@ -10,7 +10,7 @@ group = "org.sinytra.adapter"
 gradleutils.version {
     branches {
         suffixBranch()
-        suffixExemptedBranches("1.21.x")
+        suffixExemptedBranches("26.1.x")
     }
 }
 
@@ -37,20 +37,20 @@ repositories {
 }
 
 dependencies {
-    api(group = "com.mojang", name = "datafixerupper", version = "8.0.16")
-    implementation(group = "com.mojang", name = "logging", version = "1.1.1")
-    implementation(group = "com.google.guava", "guava", version = "32.1.2-jre")
-    implementation(group = "org.slf4j", "slf4j-api", "2.0.0")
-    implementation(group = "net.fabricmc", name = "sponge-mixin", version = "0.14.0+mixin.0.8.6")
-    compileOnly(group = "org.jetbrains", name = "annotations", version = "24.0.1")
-    implementation(group = "io.github.llamalad7", name = "mixinextras-common", version = "0.3.1")
+    api("com.mojang:datafixerupper:8.0.16")
+    implementation("com.mojang:logging:1.1.1")
+    implementation("com.google.guava:guava:32.1.2-jre")
+    implementation("org.slf4j:slf4j-api:2.0.0")
+    implementation("net.fabricmc:sponge-mixin:0.14.0+mixin.0.8.6")
+    implementation("io.github.llamalad7:mixinextras-common:0.3.1")
+    compileOnly("org.jetbrains:annotations:24.0.1")
 
     api(platform("org.ow2.asm:asm-bom:9.8"))
-    api(group = "org.ow2.asm", name = "asm")
-    api(group = "org.ow2.asm", name = "asm-commons")
-    api(group = "org.ow2.asm", name = "asm-tree")
-    api(group = "org.ow2.asm", name = "asm-analysis")
-    api(group = "org.ow2.asm", name = "asm-util")
+    api("org.ow2.asm:asm")
+    api("org.ow2.asm:asm-commons")
+    api("org.ow2.asm:asm-tree")
+    api("org.ow2.asm:asm-analysis")
+    api("org.ow2.asm:asm-util")
 }
 
 tasks {
