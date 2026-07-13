@@ -11,16 +11,16 @@ import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.SourceValue;
 import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceMethodVisitor;
-import org.sinytra.adapter.env.ctx.MixinContext;
+import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
+import org.sinytra.adapter.analysis.selector.AnnotationHandle;
+import org.sinytra.adapter.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.env.ctx.MethodHelper;
+import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.PatchEnvironment;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.env.util.TypeConstants;
 import org.sinytra.adapter.patch.Recipe;
-import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.analysis.selector.AnnotationValueHandle;
 import org.slf4j.Logger;
 import org.slf4j.Marker;
 import org.slf4j.MarkerFactory;
@@ -30,14 +30,11 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.*;
 import java.util.function.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public final class AdapterUtil {
     public static final String LAMBDA_PREFIX = "lambda$";
     public static final Marker MIXINPATCH = MarkerFactory.getMarker("MIXINPATCH");
-    private static final Pattern FIELD_REF_PATTERN = Pattern.compile("^(?<owner>L.+?;)?(?<name>[^:]+)?:(?<desc>.+)?$");
     private static final String DEPRECATED = "Ljava/lang/Deprecated;";
     private static final Logger LOGGER = LogUtils.getLogger();
 
@@ -78,18 +75,6 @@ public final class AdapterUtil {
             .filter(str -> !str.isEmpty())
             .or(() -> Optional.ofNullable(AccessorInfo.AccessorName.of(method.name))
                 .map(name -> environment.refmapHolder().remap(owner, name.name)));
-    }
-
-    public static String maybeRemapFieldRef(String reference) {
-        Matcher matcher = FIELD_REF_PATTERN.matcher(reference);
-        if (matcher.matches()) {
-            String name = matcher.group("name");
-            String desc = matcher.group("desc");
-            if (name != null && desc != null) {
-                return Objects.requireNonNullElse(matcher.group("owner"), "") + name + ":" + desc;
-            }
-        }
-        return reference;
     }
 
     @Nullable
@@ -232,7 +217,7 @@ public final class AdapterUtil {
         // Get expected local variables from method parameters
         List<Type> expected = AdapterUtil.summariseLocals(availableParams, paramLocalPosVal);
         int paramLocalPosEnd = paramLocalPosVal + expected.size() - 1;
-        return new CapturedLocals(dirtyTarget, isStatic, paramLocalPosVal, paramLocalPosEnd, lvtOffset, expected, new LocalVariableLookup(methodNode));
+        return new CapturedLocals(dirtyTarget, isStatic, paramLocalPosVal, paramLocalPosEnd, lvtOffset, expected, context.methods().getLVT(methodNode));
     }
 
     private static OptionalInt getCapturedLocalStartingIndex(Type[] params) {

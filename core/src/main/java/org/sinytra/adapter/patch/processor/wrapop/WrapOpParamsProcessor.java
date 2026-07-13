@@ -80,7 +80,7 @@ public class WrapOpParamsProcessor implements Processor {
         AbstractInsnNode arrayInit = dirtyCallInsns.get(1);
         List<Parameter> params = dirty.getParameters().get(MethodParameters.ParamGroup.METHOD_PARAMS);
 
-        LocalVariableLookup lookup = new LocalVariableLookup(context.methodNode());
+        LocalVariableLookup lookup = context.methods().getLVT(context.methodNode());
         List<WrapOpOriginalCall.CallArg> args = IntStream.range(0, params.size())
             .mapToObj(i -> {
                 Parameter param = params.get(i);

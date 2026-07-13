@@ -58,10 +58,10 @@ public final class Recipe {
         });
 
         this.cleanLocalsTableCache = Suppliers.memoize(() -> Optional.ofNullable(getCleanTarget())
-            .map(pair -> new LocalVariableLookup(pair.methodNode()))
+            .map(pair -> context.methods().getLVT(pair.methodNode()))
             .orElse(null));
         this.dirtyLocalsTableCache = Suppliers.memoize(() -> Optional.ofNullable(getDirtyTarget())
-            .map(pair -> new LocalVariableLookup(pair.methodNode()))
+            .map(pair -> context.methods().getLVT(pair.methodNode()))
             .orElse(null));
     }
 

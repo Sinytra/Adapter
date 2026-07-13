@@ -50,7 +50,7 @@ public class ParametersPostProcessor implements Processor {
         List<Type> dirtyTypes = recipe.dirty().getParameters().getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
         ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(cleanTypes, dirtyTypes);
         MethodNode methodNode = context.methodNode();
-        LocalVariableLookup lookup = new LocalVariableLookup(context.methodNode());
+        LocalVariableLookup lookup = context.methods().getLVT(context.methodNode());
 
         boolean matched = false;
         for (Pair<Integer, Type> replacement : diff.replacements()) {

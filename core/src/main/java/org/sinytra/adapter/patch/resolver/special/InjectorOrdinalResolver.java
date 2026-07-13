@@ -317,7 +317,7 @@ public class InjectorOrdinalResolver implements Resolver {
                 return Optional.empty();
             }
 
-            return tryFindUpdatedIndex(targetType, cleanTarget, dirtyTarget, local)
+            return tryFindUpdatedIndex(targetType, cleanTarget, dirtyTarget, local, mixinContext)
                 .<Pair<LocalVar, Configuration>>map(var -> Pair.of(var, null))
                 .or(() -> tryFindSyntheticVariableIndex(mixinContext, methodNode, cleanTarget, dirtyTarget, local));
         }
@@ -350,17 +350,17 @@ public class InjectorOrdinalResolver implements Resolver {
          *    INVOKEVIRTUAL net/minecraft/world/entity/player/Player.setHealth (F)V
          * }</pre>
          */
-        private static Optional<Pair<LocalVar, @Nullable Configuration>> tryFindSyntheticVariableIndex(MixinContext mixinContext, MethodNode methodNode, TargetPair cleanTarget, TargetPair dirtyTarget, LocalVar local) {
+        private static Optional<Pair<LocalVar, @Nullable Configuration>> tryFindSyntheticVariableIndex(MixinContext context, MethodNode methodNode, TargetPair cleanTarget, TargetPair dirtyTarget, LocalVar local) {
             int ordinal = local.ordinal();
             Type variableType = Type.getReturnType(methodNode.desc);
-            LocalVariableLookup cleanTable = new LocalVariableLookup(cleanTarget.methodNode());
-            LocalVariableLookup dirtyTable = new LocalVariableLookup(dirtyTarget.methodNode());
+            LocalVariableLookup cleanTable = context.methods().getLVT(cleanTarget.methodNode());
+            LocalVariableLookup dirtyTable = context.methods().getLVT(dirtyTarget.methodNode());
             if (cleanTable.getForType(variableType).size() == dirtyTable.getForType(variableType).size()) {
                 List<LocalVariableNode> available = dirtyTable.getForType(variableType);
                 if (available.size() > ordinal) {
                     int variableIndex = available.get(ordinal).index;
-                    AbstractInsnNode cleanInsn = mixinContext.methods().findInjectionTargetInsn(cleanTarget);
-                    AbstractInsnNode dirtyInsn = mixinContext.methods().findInjectionTargetInsn(dirtyTarget);
+                    AbstractInsnNode cleanInsn = context.methods().findInjectionTargetInsn(cleanTarget);
+                    AbstractInsnNode dirtyInsn = context.methods().findInjectionTargetInsn(dirtyTarget);
                     if (cleanInsn != null && dirtyInsn != null) {
                         for (AbstractInsnNode insn = cleanInsn; insn != null; insn = insn.getNext()) {
                             if (insn instanceof LabelNode) {
@@ -409,7 +409,7 @@ public class InjectorOrdinalResolver implements Resolver {
             return list;
         }
 
-        private static Optional<LocalVar> tryFindUpdatedIndex(Type targetType, TargetPair cleanTarget, TargetPair dirtyTarget, LocalVar local) {
+        private static Optional<LocalVar> tryFindUpdatedIndex(Type targetType, TargetPair cleanTarget, TargetPair dirtyTarget, LocalVar local, MixinContext context) {
             int ordinal = local.ordinal();
             List<LocalVariableNode> cleanLocals = cleanTarget.methodNode().localVariables.stream()
                 .filter(l -> Type.getType(l.desc) == targetType)
@@ -423,7 +423,7 @@ public class InjectorOrdinalResolver implements Resolver {
                 return Optional.empty();
             }
 
-            LocalVariableLookup dirtyVarLookup = new LocalVariableLookup(dirtyTarget.methodNode());
+            LocalVariableLookup dirtyVarLookup = context.methods().getLVT(dirtyTarget.methodNode());
             List<LocalVariableNode> dirtyLocals = dirtyVarLookup.getForType(targetType);
             if (cleanLocals.size() != dirtyLocals.size() || dirtyLocals.size() <= ordinal) {
                 return findReplacementLocal(cleanTarget.methodNode(), dirtyTarget.methodNode(), cleanLocal)

@@ -103,7 +103,7 @@ public class ModifyVariableMixin implements MixinType {
             if (target == null) return false;
 
             Integer index = config.getProperty(MixinKeys.INDEX).orElseThrow();
-            LocalVariableLookup lookup = new LocalVariableLookup(target);
+            LocalVariableLookup lookup = context.methods().getLVT(target);
 
             LocalVariableNode node = lookup.getByIndexOrNull(index);
             if (node == null) return false;

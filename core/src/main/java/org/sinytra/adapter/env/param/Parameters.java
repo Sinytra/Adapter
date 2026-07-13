@@ -10,6 +10,7 @@ import org.objectweb.asm.tree.analysis.Frame;
 import org.objectweb.asm.tree.analysis.SourceValue;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.selector.FrameUtil;
+import org.sinytra.adapter.env.ctx.MixinContext;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -47,8 +48,8 @@ public final class Parameters {
         return new ArrayList<>(Arrays.asList(Type.getArgumentTypes(desc)));
     }
 
-    public static Map<VarInsnNode, Pair<Integer, Type>> gatherVarMappings(MethodNode method, List<Parameter> cleanParameters, List<Parameter> dirtyParameters, Map<Parameter, Parameter> replacements) {
-        LocalVariableLookup lookup = new LocalVariableLookup(method);
+    public static Map<VarInsnNode, Pair<Integer, Type>> gatherVarMappings(MethodNode method, List<Parameter> cleanParameters, List<Parameter> dirtyParameters, Map<Parameter, Parameter> replacements, MixinContext context) {
+        LocalVariableLookup lookup = context.methods().getLVT(method);
         Map<Integer, Pair<Integer, Type>> map = replacements.entrySet().stream()
             .map(entry -> {
                 int oldIndex = cleanParameters.indexOf(entry.getKey());

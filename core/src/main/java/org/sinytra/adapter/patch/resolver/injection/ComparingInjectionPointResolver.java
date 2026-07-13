@@ -137,7 +137,7 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
             TypeInsnNode instanceOfCall = instanceOfCalls.getFirst();
 
             MethodNode methodNode = context.methodNode();
-            LocalVariableLookup mixinLocals = new LocalVariableLookup(methodNode);
+            LocalVariableLookup mixinLocals = context.methods().getLVT(methodNode);
             LocalVariableNode instanceLocal = mixinLocals.getByParameterOrdinal(0);
 
             Configuration clean = recipe.clean();

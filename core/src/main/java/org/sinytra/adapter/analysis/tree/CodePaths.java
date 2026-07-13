@@ -5,6 +5,7 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
+import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.env.ctx.MixinContext;
@@ -59,18 +60,22 @@ public class CodePaths {
             TargetPair nextFrom = context.methods().findInheritedMethodPair(context.dirtyLookup(), MethodQualifier.create(minsn));
             if (nextFrom == null) continue;
 
-            // Map: local index in `from` -> argument position in the call to `nextFrom`
-            Map<Integer, Integer> locals = new Int2IntOpenHashMap();
+            LocalVariableLookup lvt = context.methods().getLVT(nextFrom.methodNode());
+            if (lvt == null) {
+                continue;
+            }
 
+            Map<Integer, Integer> locals = new Int2IntOpenHashMap();
             List<List<AbstractInsnNode>> receiverInsns = MethodCallAnalyzer.getMethodCallArgInsns(from.methodNode(), minsn);
+
             for (int i = 0; i < receiverInsns.size(); i++) {
                 List<AbstractInsnNode> argInsns = receiverInsns.get(i);
                 if (argInsns.size() != 1 || !(argInsns.getFirst() instanceof VarInsnNode varInsn)) continue;
 
                 for (Integer index : trackLocals) {
                     if (varInsn.var == index) {
-                        // FIXME This doesn't work with long/doubles !!!
-                        locals.put(index, i); // TODO Handle existing
+                        int varIndex = lvt.getByOrdinal(i).index;
+                        locals.put(index, varIndex);
                     }
                 }
             }
@@ -81,7 +86,6 @@ public class CodePaths {
 
             CodePathStep step = new CodePathStep(from, nextFrom, locals);
 
-            // Base case: this call directly reaches the target method.
             if (nextFrom.classNode().name.equals(to.classNode().name)
                 && nextFrom.methodNode().name.equals(to.methodNode().name)) {
                 return new CodePath(from, to, List.of(step), Map.of());

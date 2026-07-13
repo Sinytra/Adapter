@@ -6,6 +6,7 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.analysis.selector.AnnotationHandle;
@@ -259,6 +260,14 @@ public class MethodHelper {
             .map(lv -> new LocalVariable(lv.index, Type.getType(lv.desc)))
             .toArray(LocalVariable[]::new);
         return AdapterUtil.summariseLocals(locals, startPos);
+    }
+
+    @Nullable
+    public LocalVariableLookup getLVT(MethodNode method) {
+        if (method.localVariables == null) {
+            return null;
+        }
+        return new LocalVariableLookup(method);
     }
 
     public static boolean isStatic(MethodNode node) {

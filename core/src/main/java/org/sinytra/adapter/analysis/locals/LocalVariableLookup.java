@@ -19,7 +19,9 @@ public class LocalVariableLookup {
 
     public LocalVariableLookup(MethodNode methodNode) {
         this.isNonStatic = !MethodHelper.isStatic(methodNode);
-        this.sortedLocals = methodNode.localVariables.stream().sorted(Comparator.comparingInt(lvn -> lvn.index)).toList();
+        this.sortedLocals = Objects.requireNonNull(methodNode.localVariables, "Missing local var info").stream()
+            .sorted(Comparator.comparingInt(lvn -> lvn.index))
+            .toList();
         for (LocalVariableNode node : this.sortedLocals) {
             this.byIndex.put(node.index, node);
         }

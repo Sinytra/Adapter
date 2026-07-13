@@ -25,7 +25,7 @@ public record MoveParametersTransformer(int from, int to) implements ParameterTr
 
         LOGGER.info(MIXINPATCH, "Moving parameter from index {} to {} in method {}.{}", this.from, this.to, classNode.name, methodNode.name);
 
-        LocalVariableLookup lookup = new LocalVariableLookup(methodNode);
+        LocalVariableLookup lookup = context.methods().getLVT(methodNode);
         LocalVariableNode localVar = lookup.getByParameterOrdinal(paramIndex);
 
         int tempIndex = -999;

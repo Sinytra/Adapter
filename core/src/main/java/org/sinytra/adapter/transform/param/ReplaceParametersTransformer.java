@@ -38,7 +38,7 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
         LOGGER.info(MIXINPATCH, "Replacing parameter {} with type {} in {}.{}", paramIndex, this.type, classNode.name, methodNode.name);
         parameters.set(paramIndex, this.type);
 
-        LocalVariableLookup lvtLookup = new LocalVariableLookup(methodNode);
+        LocalVariableLookup lvtLookup = context.methods().getLVT(methodNode);
         LocalVariableNode localVar = lvtLookup.getByParameterOrdinal(paramIndex);
         Type originalType = Type.getType(localVar.desc);
         localVar.desc = this.type.getDescriptor();

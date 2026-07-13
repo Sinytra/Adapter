@@ -28,7 +28,7 @@ public class WrapOpSurgeon {
 
     public static boolean tryUpgrade(MixinContext context, Recipe recipe, List<Type> methodParams, MethodInsnNode cleanInsn, MethodInsnNode dirtyInsn) {
         MethodNode methodNode = context.methodNode();
-        LocalVariableLookup mixinLocals = new LocalVariableLookup(methodNode);
+        LocalVariableLookup mixinLocals = context.methods().getLVT(methodNode);
 
         Multimap<Integer, VarInsnNode> usedVars = getUsedVars(mixinLocals, methodParams, context);
         Map<Integer, Pair<TypeAdapter, @Nullable Consumer<InsnList>>> adapters = new HashMap<>();

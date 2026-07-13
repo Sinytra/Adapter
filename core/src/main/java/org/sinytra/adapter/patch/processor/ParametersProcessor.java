@@ -28,7 +28,7 @@ public class ParametersProcessor implements Processor {
             return TxResult.PASS;
 
         // Apply mappings of params that will be removed in dirty
-        Map<VarInsnNode, Pair<Integer, Type>> oldVarMap = Parameters.gatherVarMappings(context.methodNode(), cleanParams.merge(), dirtyParams.merge(), dirtyParams.getMapping());
+        Map<VarInsnNode, Pair<Integer, Type>> oldVarMap = Parameters.gatherVarMappings(context.methodNode(), cleanParams.merge(), dirtyParams.merge(), dirtyParams.getMapping(), context);
 
         if (cleanParams.getOrder().equals(dirtyParams.getOrder())) {
             List<MethodParameters.ParamGroup> order = dirtyParams.getOrder();
@@ -49,7 +49,7 @@ public class ParametersProcessor implements Processor {
         }
 
         // Apply mappings of params that only exist in dirty
-        Parameters.applyVarMappings(context.methodNode(), Parameters.gatherVarMappings(context.methodNode(), dirtyParams.merge(), dirtyParams.merge(), dirtyParams.getMapping()));
+        Parameters.applyVarMappings(context.methodNode(), Parameters.gatherVarMappings(context.methodNode(), dirtyParams.merge(), dirtyParams.merge(), dirtyParams.getMapping(), context));
         Parameters.applyVarMappings(context.methodNode(), oldVarMap);
         Parameters.applyAnnotations(context.methodNode(), dirtyParams.merge());
 

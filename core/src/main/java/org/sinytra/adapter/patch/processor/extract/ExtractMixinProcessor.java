@@ -265,7 +265,7 @@ public class ExtractMixinProcessor implements Processor {
 
         // Mixin requires capturing locals in their original order, so we must filter out unused ones 
         LocalVarAnalyzer.CapturedLocalsTransform transform = LocalVarAnalyzer.analyzeCapturedLocals(capturedLocals, methodNode);
-        LocalVarAnalyzer.CapturedLocalsUsage usage = transform.getUsage(capturedLocals);
+        LocalVarAnalyzer.CapturedLocalsUsage usage = transform.getUsage(capturedLocals, context);
         Collection<Integer> used = transform.used();
         LocalVariableLookup targetTable = usage.targetTable();
         Int2ObjectMap<InsnList> varInsnLists = usage.varInsnLists();
