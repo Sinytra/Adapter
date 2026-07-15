@@ -30,6 +30,10 @@ public interface MethodPatchBuilder {
     
     MethodPatchBuilder modifyTarget(String method);
 
+    MethodPatchBuilder modifyOrdinal(int ordinal);
+
+    MethodPatchBuilder modifyInjectionPointOrdinal(int ordinal);
+
     MethodPatchBuilder modifyInjectionPoint(String target);
 
     MethodPatchBuilder modifyInjectionPoint(String value, String target);

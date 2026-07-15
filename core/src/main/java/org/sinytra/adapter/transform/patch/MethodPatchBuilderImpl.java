@@ -110,6 +110,21 @@ public class MethodPatchBuilderImpl implements MethodPatchBuilder {
     }
 
     @Override
+    public MethodPatchBuilder modifyOrdinal(int ordinal) {
+        this.config.setProperty(MixinKeys.ORDINAL, ordinal);
+        return this;
+    }
+
+    @Override
+    public MethodPatchBuilder modifyInjectionPointOrdinal(int ordinal) {
+        this.configCompleter = this.configCompleter.andThen((clean, dirty) -> {
+            AtData at = dirty.getAtData() == null ? clean.getAtData() : dirty.getAtData();
+            dirty.setAtData(at.withOrdinal(ordinal));
+        });
+        return this;
+    }
+
+    @Override
     public MethodPatchBuilder modifyInjectionPoint(String target) {
         // AtData requires value which must be copied at transform time
         this.configCompleter = this.configCompleter.andThen((clean, dirty) ->

@@ -13,7 +13,7 @@ import java.util.Optional;
 
 public class ConstantData {
     private static final PropertyContainerTemplate TEMPLATE = PropertyContainerTemplate.builder()
-        .requireOne(Keys.DOUBLE_VALUE, Keys.CLASS_VALUE)
+        .requireOne(Keys.INT_VALUE, Keys.DOUBLE_VALUE, Keys.CLASS_VALUE)
         .build();
 
     private final PropertyContainer properties;
@@ -47,6 +47,7 @@ public class ConstantData {
     }
 
     public static class Keys {
+        public static final PropertyKey<Integer> INT_VALUE = PropertyKey.create("intValue", Integer.class);
         public static final PropertyKey<Double> DOUBLE_VALUE = PropertyKey.create("doubleValue", Double.class);
         public static final PropertyKey<Type> CLASS_VALUE = PropertyKey.create("classValue", Type.class);
     }
