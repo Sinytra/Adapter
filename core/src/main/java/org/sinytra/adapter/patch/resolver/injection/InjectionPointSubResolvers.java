@@ -30,10 +30,12 @@ import java.util.Set;
 
 public class InjectionPointSubResolvers {
     public static final SubResolver REPLACED_TYPE = (MixinContext context, Recipe recipe) -> {
-        TargetPair cleanPair = recipe.getCleanTarget();
+        TargetPair cleanTarget = recipe.getCleanTarget();
         TargetPair dirtyTarget = recipe.getDirtyTarget();
+        if (cleanTarget == null | dirtyTarget == null) return null;
+
         // Find single clean target minsn
-        List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(cleanPair);
+        List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(cleanTarget);
         if (insns.isEmpty() || !(insns.getFirst() instanceof MethodInsnNode cleanInsn)) return null;
 
         InstructionMatcher cleanMatcher = MethodInsnMatcher.findSurroundingInstructions(cleanInsn);
@@ -45,7 +47,7 @@ public class InjectionPointSubResolvers {
         WeighedDisambiguation<MethodQualifier> magicBlackBox = WeighedDisambiguation.<MethodQualifier>builder()
             .match(() -> testMatchers(context, cleanInsn, cleanMatcher, dirtyMatchers, false))
             .match(() -> testMatchers(context, cleanInsn, cleanMatcher, dirtyMatchers, true))
-            .match(() -> testOverloadedMethods(context, cleanInsn, cleanPair, dirtyTarget))
+            .match(() -> testOverloadedMethods(context, cleanInsn, cleanTarget, dirtyTarget))
             .resultsEqual(MethodQualifier::equals)
             .build();
 
