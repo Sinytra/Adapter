@@ -10,12 +10,15 @@ import org.sinytra.adapter.env.ctx.RefmapHolder;
 import org.sinytra.adapter.patch.DynamicPatches;
 import org.sinytra.adapter.patch.Patcher;
 import org.sinytra.adapter.patch.test_main.mixin.MinecraftMixinPatchTest;
+import org.sinytra.adapter.transform.patch.MethodPatch;
 import org.sinytra.adapter.types.FieldTypeUsageTransformer;
 import org.sinytra.adapter.util.provider.ClassLookup;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.FabricUtil;
 
 import java.util.List;
+
+import static org.sinytra.adapter.env.util.MixinAnnotations.MODIFY_CONST;
 
 public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -45,7 +48,14 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
         patcher = Patcher.builder(patchEnvironment)
             .classTransformer(new FieldTypeUsageTransformer())
-            .methodTransformers(DynamicPatches.methodTransformers(List.of()))
+            .methodTransformers(DynamicPatches.methodTransformers(List.of(
+                MethodPatch.builder()
+                    .targetClass("net/minecraft/world/inventory/AnvilMenu")
+                    .targetMethod("createResult")
+                    .targetMixinType(MODIFY_CONST)
+                    .modifyTarget("createResultInternal")
+                    .build()
+            )))
             .build();
     }
 
@@ -61,6 +71,21 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
             "playSoundCorrectlyForBlocks",
             "org/sinytra/adapter/test/mc_26_1_2/mixin/adapter_generated_IBlockExtension",
             assertTargetMethod()
+        );
+    }
+
+    /**
+     * Reproduces Origins Classes' efficient-repairs mixin, whose integer
+     * {@code @ModifyConstant} target moves from {@code AnvilMenu#createResult}
+     * to NeoForge's {@code AnvilMenu#createResultInternal}.
+     */
+    @Test
+    void testModifyConstantTarget() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mc_26_1_2/mixin/AnvilMenuMixin",
+            "halfRepairMaterialCost",
+            assertTargetMethod(),
+            assertTargetsConstant()
         );
     }
 

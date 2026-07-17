@@ -11,7 +11,14 @@ import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
+/**
+ * Tests extension points used by explicit platform compatibility patches.
+ */
 class MethodPatchExtensionTest {
+    /**
+     * Verifies that standard {@link ModifyConstant} injectors are dispatched to
+     * the configuration model that resolves their nested {@code @Constant} target.
+     */
     @Test
     void recognizesModifyConstantMixins() {
         assertSame(
@@ -20,6 +27,10 @@ class MethodPatchExtensionTest {
         );
     }
 
+    /**
+     * Verifies that an injector ordinal and its nested injection-point ordinal can
+     * be changed independently without either update discarding the other.
+     */
     @Test
     void updatesMethodAndInjectionPointOrdinalsTogether() {
         MethodPatch patch = MethodPatch.builder()
