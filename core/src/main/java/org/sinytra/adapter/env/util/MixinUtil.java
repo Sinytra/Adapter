@@ -4,6 +4,7 @@ import org.spongepowered.asm.mixin.injection.InjectionPoint;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
+import java.util.Locale;
 import java.util.Map;
 
 public class MixinUtil {
@@ -22,6 +23,6 @@ public class MixinUtil {
     @SuppressWarnings("unchecked")
     public static boolean isKnownInjectionPointType(String value) {
         Map<String, Class<? extends InjectionPoint>> types = (Map<String, Class<? extends InjectionPoint>>) TYPES_HANDLE.get();
-        return types.containsKey(value) || value.matches(CLS_REGEX);
+        return types.containsKey(value.toUpperCase(Locale.ROOT)) || value.matches(CLS_REGEX);
     }
 }
