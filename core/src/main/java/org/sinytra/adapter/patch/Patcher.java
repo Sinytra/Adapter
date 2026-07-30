@@ -4,10 +4,12 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.mojang.logging.LogUtils;
 import org.objectweb.asm.tree.ClassNode;
+import org.sinytra.adapter.analysis.MixinGroups;
 import org.sinytra.adapter.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.env.ann.ClassTarget;
 import org.sinytra.adapter.env.ctx.*;
 import org.sinytra.adapter.env.util.MixinAnnotationConstants;
+import org.sinytra.adapter.patch.MixinParser.MixinMethodHandle;
 import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.sinytra.adapter.patch.config.MutableConfiguration;
 import org.sinytra.adapter.patch.config.PropertyContainerTemplate;
@@ -63,6 +65,8 @@ public class Patcher {
         }
 
         context.run();
+        MixinGroups groups = MixinGroups.create(mixinClass.mixins().stream().map(MixinMethodHandle::methodNode).toList());
+        this.environment.auditTrail().processGroups(classNode, groups);
 
         return result;
     }

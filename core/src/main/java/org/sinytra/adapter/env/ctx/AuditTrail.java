@@ -4,6 +4,7 @@ import it.unimi.dsi.fastutil.Pair;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.analysis.MixinGroups;
 import org.sinytra.adapter.patch.config.Configuration;
 
 import java.util.ArrayList;
@@ -23,6 +24,8 @@ public interface AuditTrail {
     void recordAudit(Object transform, MixinContext context, String message, Object... args);
 
     void recordResult(MixinContext context, Configuration configuration, Match match);
+
+    void processGroups(ClassNode classNode, MixinGroups groups);
 
     String getCompleteReport();
 

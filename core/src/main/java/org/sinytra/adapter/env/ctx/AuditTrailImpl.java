@@ -5,12 +5,15 @@ import it.unimi.dsi.fastutil.Pair;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.analysis.MixinGroups;
+import org.sinytra.adapter.analysis.MixinGroups.GroupInfo;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.slf4j.Logger;
 
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.sinytra.adapter.util.AdapterUtil.MIXINPATCH;
@@ -151,6 +154,36 @@ public class AuditTrailImpl implements AuditTrail {
                 }
             }
         }
+    }
+
+    @Override
+    public void processGroups(ClassNode classNode, MixinGroups groups) {
+        synchronized (this.candidates) {
+            for (Entry<Candidate, Match> entry : Set.copyOf(this.candidates.entrySet())) {
+                if (entry.getValue() != Match.NONE) continue;
+                
+                Candidate candidate = entry.getKey();
+                GroupInfo group = groups.getGroupInfo(candidate.methodNode());
+                if (group == null) continue;
+
+                if (isGroupSatisfied(classNode, group)) {
+                    this.candidates.put(candidate, Match.IGNORED);
+                }
+            }
+        }
+    }
+
+    private boolean isGroupSatisfied(ClassNode classNode, GroupInfo info) {
+        int passing = 0;
+
+        for (MethodNode method : info.members()) {
+            Candidate candidate = new Candidate(classNode, method);
+            if (this.auditTrail.containsKey(candidate) && this.candidates.get(candidate) != Match.NONE) {
+                passing++;
+            }
+        }
+        
+        return passing >= info.minRequired();
     }
 
     private List<String> getSummaryLines() {
