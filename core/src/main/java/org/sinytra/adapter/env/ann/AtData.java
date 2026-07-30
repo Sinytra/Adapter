@@ -7,6 +7,7 @@ import org.objectweb.asm.tree.MethodInsnNode;
 import org.sinytra.adapter.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.env.ctx.RefMapper;
 import org.sinytra.adapter.env.util.MixinAnnotations;
+import org.sinytra.adapter.env.util.MixinUtil;
 import org.sinytra.adapter.patch.config.MutablePropertyContainer;
 import org.sinytra.adapter.patch.config.PropertyContainer;
 import org.sinytra.adapter.patch.config.PropertyContainerTemplate;
@@ -22,6 +23,7 @@ public class AtData {
     public static final PropertyContainerTemplate TEMPLATE = PropertyContainerTemplate.builder()
         .require(Keys.VALUE)
         .keys(Keys.TARGET, Keys.ORDINAL, Keys.SHIFT, Keys.BY, Keys.ARGS)
+        .addConstraint(AtData::validateInjectionPointType)
         .build();
 
     private final PropertyContainer properties;
@@ -130,6 +132,12 @@ public class AtData {
 
     public static Builder builder(String value) {
         return new Builder(value);
+    }
+
+    private static boolean validateInjectionPointType(PropertyContainer container) {
+        return container.getProperty(Keys.VALUE)
+            .map(MixinUtil::isKnownInjectionPointType)
+            .orElse(true);
     }
 
     public static class Builder {
