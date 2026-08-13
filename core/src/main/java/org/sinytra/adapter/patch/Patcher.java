@@ -120,6 +120,11 @@ public class Patcher {
             LOGGER.debug(MIXINPATCH, "Skipping mixin {} due to invalid CLEAN config", mixinId);
             return PatchResult.PASS;
         }
+        
+        // Temporarily set this to a high number for frame analysis to work
+        // Will be set correctly by ClassWriter after patching
+        MethodNode methodNode = mixinContext.methodNode();
+        methodNode.maxLocals = methodNode.maxStack = 999;
 
         for (MethodTransformer transformer : getTransformers(TxPhase.VALIDATED)) {
             mixinContext.pushAudit(transformer);
@@ -127,11 +132,6 @@ public class Patcher {
             mixinContext.popAudit();
             result = result.or(txResult);
         }
-
-        // Temporarily set this to a high number for frame analysis to work
-        // Will be set correctly by ClassWriter after patching
-        MethodNode methodNode = mixinContext.methodNode();
-        methodNode.maxLocals = methodNode.maxStack = 999;
 
         return result;
     }
