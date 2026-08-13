@@ -17,9 +17,16 @@ import java.util.stream.Stream;
 
 public final class Parameters {
     public static List<Parameter> parse(MethodNode method) {
+        return parse(method, -1, -1);
+    }
+
+    public static List<Parameter> parse(MethodNode method, int start, int end) {
         List<Type> types = getParameterTypes(method.desc);
         List<Parameter> parameters = new ArrayList<>();
-        for (int i = 0; i < types.size(); i++) {
+        
+        int first = start == -1 ? 0 : start;
+        int last = end == -1 ? types.size() : end;
+        for (int i = first; i < last; i++) {
             Type type = types.get(i);
             Parameter.Builder builder = Parameter.builder(type);
             parseAnnotations(builder, method.invisibleParameterAnnotations, false, i);
@@ -28,6 +35,7 @@ public final class Parameters {
 
             parameters.add(parameter);
         }
+
         return parameters;
     }
 

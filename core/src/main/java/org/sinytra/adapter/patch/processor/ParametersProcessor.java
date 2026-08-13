@@ -2,7 +2,6 @@ package org.sinytra.adapter.patch.processor;
 
 import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.VarInsnNode;
 import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.analysis.params.ParamsDiffSnapshot;
@@ -52,11 +51,6 @@ public class ParametersProcessor implements Processor {
         Parameters.applyVarMappings(context.methodNode(), Parameters.gatherVarMappings(context.methodNode(), dirtyParams.merge(), dirtyParams.merge(), dirtyParams.getMapping()));
         Parameters.applyVarMappings(context.methodNode(), oldVarMap);
         Parameters.applyAnnotations(context.methodNode(), dirtyParams.merge());
-
-        // Temporarily set this to a high number for frame analysis to work
-        // Will be set correctly by ClassWriter after patching
-        MethodNode methodNode = context.methodNode();
-        methodNode.maxLocals = methodNode.maxStack = 999;
 
         return TxResult.SUCCESS;
     }

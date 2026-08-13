@@ -4,6 +4,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.mojang.logging.LogUtils;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.analysis.MixinGroups;
 import org.sinytra.adapter.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.env.ann.ClassTarget;
@@ -126,6 +127,11 @@ public class Patcher {
             mixinContext.popAudit();
             result = result.or(txResult);
         }
+
+        // Temporarily set this to a high number for frame analysis to work
+        // Will be set correctly by ClassWriter after patching
+        MethodNode methodNode = mixinContext.methodNode();
+        methodNode.maxLocals = methodNode.maxStack = 999;
 
         return result;
     }

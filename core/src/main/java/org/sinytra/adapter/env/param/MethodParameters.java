@@ -113,12 +113,18 @@ public class MethodParameters implements Copiable<MethodParameters> {
         return new MethodParameters(groups, order, mapping);
     }
 
+    public MethodParameters.Builder mutableCopy() {
+         MethodParameters.Builder builder = builder();
+         this.order.forEach(group -> builder.put(group, new ArrayList<>(this.groups.get(group))));
+         return builder;
+    }
+
     public static MethodParameters create(MethodNode method, List<ParamGroup> groups) {
         List<Parameter> parameters = Parameters.parse(method);
         return create(parameters, groups);
     }
 
-    private static MethodParameters create(List<Parameter> params, List<ParamGroup> groups) {
+    public static MethodParameters create(List<Parameter> params, List<ParamGroup> groups) {
         Map<ParamGroup, List<Parameter>> results = new HashMap<>();
         for (ParamGroup type : groups) {
             results.put(type, new ArrayList<>());
@@ -187,12 +193,10 @@ public class MethodParameters implements Copiable<MethodParameters> {
         }
 
         public Builder put(ParamGroup group, List<Parameter> params) {
-            if (this.order.contains(group)) {
-                throw new IllegalStateException("Duplicate group " + group);
-            }
-
             this.groups.put(group, new ArrayList<>(params));
-            this.order.add(group);
+            if (!this.order.contains(group)) {
+                this.order.add(group);
+            }
 
             return this;
         }

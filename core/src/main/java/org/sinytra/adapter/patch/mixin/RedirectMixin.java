@@ -5,14 +5,13 @@ import org.sinytra.adapter.env.ctx.MethodHelper;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.env.param.MethodParameters;
+import org.sinytra.adapter.env.param.MethodParameters.ParamGroup;
 import org.sinytra.adapter.env.param.Parameters;
 import org.sinytra.adapter.env.util.MixinAnnotationConstants;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
-import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.patch.config.ConfigurationTemplates;
-import org.sinytra.adapter.patch.config.MutableConfiguration;
-import org.sinytra.adapter.patch.config.PropertyContainerTemplate;
+import org.sinytra.adapter.patch.config.*;
+import org.sinytra.adapter.patch.config.key.ControlKeys;
 import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.sinytra.adapter.patch.processor.ParametersProcessor;
 import org.sinytra.adapter.patch.processor.Processors;
@@ -23,13 +22,11 @@ import org.sinytra.adapter.patch.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.patch.resolver.special.ResolverSyntheticInstanceof;
 import org.sinytra.adapter.util.MethodQualifier;
 
-import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
-import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.CAPTURED_PARAMS;
-import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.METHOD_PARAMS;
+import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.*;
 
 public class RedirectMixin implements MixinType {
     private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
@@ -68,12 +65,15 @@ public class RedirectMixin implements MixinType {
             callTypes.addFirst(methodParams.getFirst());
         }
 
-        List<Type> methodTypes = Parameters.getParameterTypes(context.methodNode().desc);
-        List<Type> capturedMethodParams = new ArrayList<>(methodTypes.subList(callTypes.size(), methodTypes.size()));
+        MethodParameters capturedMethodParams = MethodParameters.create(
+            Parameters.parse(context.methodNode(), callTypes.size(), -1),
+            List.of(ParamGroup.CAPTURED_PARAMS, ParamGroup.LOCALS)
+        );
 
         MethodParameters params = MethodParameters.builder()
             .putTypes(METHOD_PARAMS, callTypes)
-            .putTypes(CAPTURED_PARAMS, capturedMethodParams)
+            .putTypes(CAPTURED_PARAMS, capturedMethodParams.getTypes(CAPTURED_PARAMS))
+            .putTypes(LOCALS, capturedMethodParams.getTypes(LOCALS))
             .build();
 
         clean.setParameters(params);
@@ -101,7 +101,8 @@ public class RedirectMixin implements MixinType {
             callTypes.addFirst(owner);
         }
 
-        MethodParameters params = MethodParameters.builder()
+        dirty.inheritProperyIfAbsent(ControlKeys.PARAMETERS);
+        MethodParameters params = (dirty.getParameters() != null ? dirty.getParameters().mutableCopy() : MethodParameters.builder())
             .putTypes(METHOD_PARAMS, callTypes)
             .putTypes(CAPTURED_PARAMS, dirtyCaptured)
             .build();
