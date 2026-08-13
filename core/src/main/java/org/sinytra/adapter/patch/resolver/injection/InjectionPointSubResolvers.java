@@ -25,6 +25,8 @@ public class InjectionPointSubResolvers {
     public static final SubResolver REPLACED_TYPE = (MixinContext context, Recipe recipe) -> {
         TargetPair cleanPair = recipe.getCleanTarget();
         TargetPair dirtyTarget = recipe.getDirtyTarget();
+        if (cleanPair == null || dirtyTarget == null) return null;
+
         // Find single clean target minsn
         List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(cleanPair);
         if (insns.isEmpty() || !(insns.getFirst() instanceof MethodInsnNode cleanInsn)) return null;
