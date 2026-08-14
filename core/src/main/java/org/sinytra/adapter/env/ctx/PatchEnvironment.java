@@ -5,9 +5,12 @@ import org.sinytra.adapter.analysis.InheritanceHandler;
 import org.sinytra.adapter.types.BytecodeFixerUpper;
 import org.sinytra.adapter.util.provider.ClassLookup;
 
+import java.util.Collection;
+
 public interface PatchEnvironment {
-    static PatchEnvironment create(RefmapHolder refmapHolder, ClassLookup cleanClassLookup, @Nullable BytecodeFixerUpper bytecodeFixerUpper, int fabricLVTCompatibility, AuditTrail auditTrail) {
-        return new PatchEnvironmentImpl(refmapHolder, cleanClassLookup, bytecodeFixerUpper, fabricLVTCompatibility, auditTrail);
+    static PatchEnvironment create(RefmapHolder refmapHolder, ClassLookup cleanClassLookup, @Nullable BytecodeFixerUpper bytecodeFixerUpper,
+                                   int fabricLVTCompatibility, AuditTrail auditTrail, @Nullable Collection<String> pkgNamespaces) {
+        return new PatchEnvironmentImpl(refmapHolder, cleanClassLookup, bytecodeFixerUpper, fabricLVTCompatibility, auditTrail, pkgNamespaces);
     }
 
     static PatchEnvironment create(RefmapHolder refmapHolder, ClassLookup cleanClassLookup, ClassLookup dirtyClassLookup, @Nullable BytecodeFixerUpper bytecodeFixerUpper, int fabricLVTCompatibility) {
@@ -30,4 +33,9 @@ public interface PatchEnvironment {
     int fabricLVTCompatibility();
 
     AuditTrail auditTrail();
+
+    @Nullable
+    Collection<String> getKnownNamespaces();
+
+    boolean isKnownPackage(String pkg);
 }

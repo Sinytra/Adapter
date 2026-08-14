@@ -359,6 +359,19 @@ public final class AdapterUtil {
         };
     }
 
+    public static String shortenPackage(String pkg) {
+        int first = pkg.indexOf('.');
+        if (first < 0) return pkg;
+        int second = pkg.indexOf('.', first + 1);
+        return second < 0 ? pkg : pkg.substring(0, second);
+    }
+
+    public static String internalNameToPkg(String internalName) {
+        int lastSlash = internalName.lastIndexOf('/');
+        if (lastSlash < 0) return "";
+        return internalName.substring(0, lastSlash).replace('/', '.');
+    }
+
     private AdapterUtil() {
     }
 }

@@ -3,9 +3,11 @@ package org.sinytra.adapter.env.ctx;
 import org.jetbrains.annotations.Nullable;
 import org.sinytra.adapter.analysis.InheritanceHandler;
 import org.sinytra.adapter.types.BytecodeFixerUpper;
+import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.provider.ClassLookup;
 import org.sinytra.adapter.util.provider.MixinClassLookup;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -17,6 +19,7 @@ public final class PatchEnvironmentImpl implements PatchEnvironment {
     private final MixinClassGenerator classGenerator;
     private final int fabricLVTCompatibility;
     private final AuditTrail auditTrail;
+    private final @Nullable Collection<String> pkgNamespaces;
     
     private final Map<ClassLookup, InheritanceHandler> inheritanceHandlers = new HashMap<>();
 
@@ -26,7 +29,8 @@ public final class PatchEnvironmentImpl implements PatchEnvironment {
         @Nullable BytecodeFixerUpper bytecodeFixerUpper,
         MixinClassGenerator classGenerator,
         int fabricLVTCompatibility,
-        AuditTrail auditTrail
+        AuditTrail auditTrail,
+        @Nullable Collection<String> pkgNamespaces
     ) {
         this.refmapHolder = refmapHolder;
         this.cleanClassLookup = cleanClassLookup;
@@ -35,14 +39,15 @@ public final class PatchEnvironmentImpl implements PatchEnvironment {
         this.classGenerator = classGenerator;
         this.fabricLVTCompatibility = fabricLVTCompatibility;
         this.auditTrail = auditTrail;
+        this.pkgNamespaces = pkgNamespaces;
     }
 
-    public PatchEnvironmentImpl(RefmapHolder refmapHolder, ClassLookup cleanClassLookup, @Nullable BytecodeFixerUpper bytecodeFixerUpper, int fabricLVTCompatibility, AuditTrail auditTrail) {
-        this(refmapHolder, cleanClassLookup, MixinClassLookup.INSTANCE, bytecodeFixerUpper, new MixinClassGeneratorImpl(), fabricLVTCompatibility, auditTrail);
+    public PatchEnvironmentImpl(RefmapHolder refmapHolder, ClassLookup cleanClassLookup, @Nullable BytecodeFixerUpper bytecodeFixerUpper, int fabricLVTCompatibility, AuditTrail auditTrail, @Nullable Collection<String> pkgNamespaces) {
+        this(refmapHolder, cleanClassLookup, MixinClassLookup.INSTANCE, bytecodeFixerUpper, new MixinClassGeneratorImpl(), fabricLVTCompatibility, auditTrail, pkgNamespaces);
     }
 
     public PatchEnvironmentImpl(RefmapHolder refmapHolder, ClassLookup cleanClassLookup, ClassLookup dirtyClassLookup, @Nullable BytecodeFixerUpper bytecodeFixerUpper, int fabricLVTCompatibility) {
-        this(refmapHolder, cleanClassLookup, dirtyClassLookup, bytecodeFixerUpper, new MixinClassGeneratorImpl(), fabricLVTCompatibility, new AuditTrailImpl());
+        this(refmapHolder, cleanClassLookup, dirtyClassLookup, bytecodeFixerUpper, new MixinClassGeneratorImpl(), fabricLVTCompatibility, new AuditTrailImpl(), null);
     }
 
     @Override
@@ -83,5 +88,16 @@ public final class PatchEnvironmentImpl implements PatchEnvironment {
     @Override
     public AuditTrail auditTrail() {
         return auditTrail;
+    }
+
+    @Nullable
+    @Override
+    public Collection<String> getKnownNamespaces() {
+        return this.pkgNamespaces;
+    }
+
+    @Override
+    public boolean isKnownPackage(String pkg) {
+        return this.pkgNamespaces == null || this.pkgNamespaces.contains(AdapterUtil.shortenPackage(pkg));
     }
 }

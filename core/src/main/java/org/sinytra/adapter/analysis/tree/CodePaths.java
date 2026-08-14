@@ -10,6 +10,7 @@ import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
+import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
 
 import java.util.ArrayList;
@@ -20,6 +21,10 @@ import java.util.Set;
 public class CodePaths {
     @Nullable
     public static CodePath findCodePath(TargetPair from, TargetPair to, Set<Integer> trackLocals, MixinContext context) {
+        if (from == null || to == null) {
+            return null;
+        }
+
         CodePath path = findCodePathRecursive(from, to, trackLocals, context, 0, 5);
         if (path == null) {
             return null;
@@ -57,7 +62,7 @@ public class CodePaths {
         List<MethodInsnNode> topTierCalls = MethodAnalyzer.getTopTierMethodCalls(from);
 
         for (MethodInsnNode minsn : topTierCalls) {
-            if (minsn.owner.startsWith("java/")) {
+            if (!context.patchContext().environment().isKnownPackage(AdapterUtil.internalNameToPkg(minsn.owner))) {
                 continue;
             }
 
