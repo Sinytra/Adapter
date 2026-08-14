@@ -6,6 +6,7 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.config.Configuration;
+import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.sinytra.adapter.patch.resolver.CompoundResolver;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.util.MethodQualifier;
@@ -24,7 +25,8 @@ public class InjectionPointResolver extends CompoundResolver {
 
     @Override
     protected boolean canApply(Recipe recipe) {
-        return recipe.dirty().getAtData() == null;
+        return recipe.dirty().getAtData() == null
+            && !recipe.clean().hasProperty(MixinKeys.TARGET_CONSTANT);
     }
 
     @Nullable

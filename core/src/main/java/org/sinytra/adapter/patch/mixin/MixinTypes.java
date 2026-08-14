@@ -4,6 +4,7 @@ import org.jetbrains.annotations.Nullable;
 import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
+import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
@@ -14,12 +15,13 @@ public class MixinTypes {
     private static final Map<String, MixinType> MIXIN_TYPES = new HashMap<>();
     
     // TODO:
-    // MixinConstants.MODIFY_ARGS, MixinConstants.MODIFY_CONST, MixinConstants.WRAP_WITH_CONDITION,
+    // MixinConstants.MODIFY_ARGS, MixinConstants.WRAP_WITH_CONDITION,
     // MixinConstants.OVERWRITE (dont forget special modifyTarget handling)
     // MixinConstants.ACCESSOR
     public static final MixinType INJECT = new InjectMixin();
     public static final MixinType MODIFY_VAR = new ModifyVariableMixin();
     public static final MixinType MODIFY_ARG = new ModifyArgMixin();
+    public static final MixinType MODIFY_CONST = new ModifyConstantMixin();
     public static final MixinType MODIFY_RET = new ModifyReturnValueMixin();
     public static final MixinType REDIRECT = new RedirectMixin();
     public static final MixinType WRAP_OP = new WrapOperationMixin();
@@ -29,6 +31,7 @@ public class MixinTypes {
         registerMixinType(Inject.class, INJECT);
         registerMixinType(ModifyVariable.class, MODIFY_VAR);
         registerMixinType(ModifyArg.class, MODIFY_ARG);
+        registerMixinType(ModifyConstant.class, MODIFY_CONST);
         registerMixinType(MixinAnnotations.MODIFY_RETURN_VAL_INTERNAL_NAME, MODIFY_RET);
         registerMixinType(Redirect.class, REDIRECT);
         registerMixinType(MixinAnnotations.WRAP_OPERATION_INTERNAL_NAME, WRAP_OP);
