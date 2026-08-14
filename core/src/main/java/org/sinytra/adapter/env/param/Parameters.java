@@ -66,10 +66,10 @@ public final class Parameters {
                 int newIndex = dirtyParameters.indexOf(entry.getValue());
                 if (newIndex == -1) return null;
 
-                LocalVariableNode oldVar = lookup.getByParameterOrdinal(oldIndex);
+                LocalVariableNode oldVar = lookup == null ? null : lookup.getByParameterOrdinalOrNull(oldIndex);
                 if (oldVar == null) return null;
 
-                LocalVariableNode newVar = lookup.getByParameterOrdinal(newIndex);
+                LocalVariableNode newVar = lookup.getByParameterOrdinalOrNull(newIndex);
                 if (newVar == null) return null;
 
                 return Pair.of(oldVar.index, Pair.of(newVar.index, entry.getValue().type()));

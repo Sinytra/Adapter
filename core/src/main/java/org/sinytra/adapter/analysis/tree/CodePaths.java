@@ -3,6 +3,7 @@ package org.sinytra.adapter.analysis.tree;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
@@ -59,7 +60,7 @@ public class CodePaths {
             return null;
         }
 
-        List<MethodInsnNode> topTierCalls = MethodAnalyzer.getTopTierMethodCalls(from);
+        List<MethodInsnNode> topTierCalls = MethodAnalyzer.getTopTierMethodCalls(from, true);
 
         for (MethodInsnNode minsn : topTierCalls) {
             if (!context.patchContext().environment().isKnownPackage(AdapterUtil.internalNameToPkg(minsn.owner))) {
@@ -77,14 +78,18 @@ public class CodePaths {
             Map<Integer, Integer> locals = new Int2IntOpenHashMap();
             List<List<AbstractInsnNode>> receiverInsns = MethodCallAnalyzer.getMethodCallArgInsns(from.methodNode(), minsn);
 
-            for (int i = 0; i < receiverInsns.size(); i++) {
-                List<AbstractInsnNode> argInsns = receiverInsns.get(i);
-                if (argInsns.size() != 1 || !(argInsns.getFirst() instanceof VarInsnNode varInsn)) continue;
+            if (!trackLocals.isEmpty()) {
+                for (int i = 0; i < receiverInsns.size(); i++) {
+                    List<AbstractInsnNode> argInsns = receiverInsns.get(i);
+                    if (argInsns.size() != 1 || !(argInsns.getFirst() instanceof VarInsnNode varInsn)) continue;
 
-                for (Integer index : trackLocals) {
-                    if (varInsn.var == index) {
-                        int varIndex = lvt.getByOrdinal(i).index;
-                        locals.put(index, varIndex);
+                    LocalVariableNode local = lvt.getByOrdinalOrNull(i);
+                    if (local == null) continue;
+
+                    for (Integer index : trackLocals) {
+                        if (varInsn.var == index) {
+                            locals.put(index, local.index);
+                        }
                     }
                 }
             }

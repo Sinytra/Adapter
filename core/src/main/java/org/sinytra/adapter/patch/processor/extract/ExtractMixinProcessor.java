@@ -270,6 +270,11 @@ public class ExtractMixinProcessor implements Processor {
         LocalVariableLookup targetTable = usage.targetTable();
         Int2ObjectMap<InsnList> varInsnLists = usage.varInsnLists();
         Int2IntMap usageCount = usage.usageCount();
+
+        if (table.isEmpty() || targetTable == null || used.stream().anyMatch(ordinal -> targetTable.getByOrdinalOrNull(ordinal) == null)) {
+            return PatchResult.PASS;
+        }
+
         PatchResult result = transform.remover().apply(context);
         if (result == PatchResult.PASS) {
             return PatchResult.PASS;

@@ -489,6 +489,16 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    @Test
+    void testExtractByCodePath() throws Exception {
+        assertSameCodeExtracted(
+            "org/sinytra/adapter/test/mixin/pipeline/BeaconBlockEntityMixin",
+            "replaceDyeColor",
+            "org/sinytra/adapter/test/mixin/pipeline/adapter_generated_IBlockExtension",
+            assertTargetMethod()
+        );
+    }
+
     @Override
     protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
         ClassNode patched = loadClass(className);

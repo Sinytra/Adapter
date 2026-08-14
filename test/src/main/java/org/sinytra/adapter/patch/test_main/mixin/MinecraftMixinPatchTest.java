@@ -60,7 +60,7 @@ public abstract class MinecraftMixinPatchTest {
         final LoadResult result = load(className, List.of(testName));
 
         final ClassNode outputClass = newClassName != null
-            ? result.env().classGenerator().getGeneratedMixinClasses().get(newClassName).node()
+            ? Objects.requireNonNull(result.env().classGenerator().getGeneratedMixinClasses().get(newClassName), "Missing generated class").node()
             : result.patched;
 
         final MethodNode patched = outputClass.methods

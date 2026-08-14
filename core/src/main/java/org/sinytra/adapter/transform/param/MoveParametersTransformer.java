@@ -23,10 +23,15 @@ public record MoveParametersTransformer(int from, int to) implements ParameterTr
     public PatchResult apply(ClassNode classNode, MethodNode methodNode, MixinContext context, List<Type> parameters, int offset) {
         final int paramIndex = this.from + offset;
 
-        LOGGER.info(MIXINPATCH, "Moving parameter from index {} to {} in method {}.{}", this.from, this.to, classNode.name, methodNode.name);
-
         LocalVariableLookup lookup = context.methods().getLVT(methodNode);
-        LocalVariableNode localVar = lookup.getByParameterOrdinal(paramIndex);
+        LocalVariableNode localVar = lookup == null ? null : lookup.getByParameterOrdinalOrNull(paramIndex);
+        LocalVariableNode destVar = lookup == null ? null : lookup.getByParameterOrdinalOrNull(this.to);
+        if (localVar == null || destVar == null) {
+            LOGGER.info(MIXINPATCH, "Cannot move parameter from index {} to {}, missing local variable info in method {}.{}", this.from, this.to, classNode.name, methodNode.name);
+            return PatchResult.PASS;
+        }
+
+        LOGGER.info(MIXINPATCH, "Moving parameter from index {} to {} in method {}.{}", this.from, this.to, classNode.name, methodNode.name);
 
         int tempIndex = -999;
         AdapterUtil.replaceLVT(methodNode, idx -> idx == localVar.index ? tempIndex : idx);
@@ -35,7 +40,7 @@ public record MoveParametersTransformer(int from, int to) implements ParameterTr
         parameters.remove(paramIndex);
 
         Type type = Type.getType(localVar.desc);
-        localVar.index = lookup.getByParameterOrdinal(this.to).index + offset;
+        localVar.index = destVar.index + offset;
 
         LVTSnapshot.with(methodNode, () -> methodNode.localVariables.add(localVar.index, localVar));
         AdapterUtil.replaceLVT(methodNode, idx -> idx == tempIndex ? localVar.index : idx);

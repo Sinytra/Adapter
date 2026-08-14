@@ -51,11 +51,14 @@ public class ParametersPostProcessor implements Processor {
         ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(cleanTypes, dirtyTypes);
         MethodNode methodNode = context.methodNode();
         LocalVariableLookup lookup = context.methods().getLVT(context.methodNode());
+        if (lookup == null) return TxResult.PASS;
 
         boolean matched = false;
         for (Pair<Integer, Type> replacement : diff.replacements()) {
             int ordinal = replacement.getFirst();
-            LocalVariableNode node = lookup.getByParameterOrdinal(ordinal);
+            LocalVariableNode node = lookup.getByParameterOrdinalOrNull(ordinal);
+            if (node == null) continue;
+
             Type currentType = Type.getType(node.desc);
 
             for (AbstractInsnNode insn : methodNode.instructions) {

@@ -36,7 +36,10 @@ public class ModifyVarInjectionPointSubResolver implements SubResolver {
 
         TargetPair cleanPair = recipe.getCleanTarget();
         LocalVariableLookup lookup = context.methods().getLVT(cleanPair.methodNode());
-        LocalVariableNode desired = lookup.getByTypedOrdinal(varType, ordinal).orElseThrow();
+        if (lookup == null) return null;
+
+        LocalVariableNode desired = lookup.getByTypedOrdinal(varType, ordinal).orElse(null);
+        if (desired == null) return null;
 
         // Find variable initializer insns
         InsnList desiredInitializerInsns = LocalVarAnalyzer.findInitializerInsns(cleanPair.methodNode(), desired.index);
@@ -44,6 +47,8 @@ public class ModifyVarInjectionPointSubResolver implements SubResolver {
         // Get all matching variables
         for (MethodNode method : dirtyPair.classNode().methods) {
             LocalVariableLookup dirtyLookup = context.methods().getLVT(method);
+            if (dirtyLookup == null) continue;
+
             List<LocalVariableNode> lvs = method.localVariables.stream()
                 .filter(lvn -> desired.desc.equals(lvn.desc))
                 .filter(lvn -> {

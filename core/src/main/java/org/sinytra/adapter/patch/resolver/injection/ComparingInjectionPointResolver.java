@@ -137,12 +137,15 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
             TypeInsnNode instanceOfCall = instanceOfCalls.getFirst();
 
             MethodNode methodNode = context.methodNode();
-            LocalVariableLookup mixinLocals = context.methods().getLVT(methodNode);
-            LocalVariableNode instanceLocal = mixinLocals.getByParameterOrdinal(0);
+            LocalVariableLookup lvt = context.methods().getLVT(methodNode);
+            if (lvt == null) return Optional.empty();
+
+            LocalVariableNode instanceLocal = lvt.getByParameterOrdinalOrNull(0);
+            if (instanceLocal == null) return Optional.empty();
 
             Configuration clean = recipe.clean();
             List<Type> inheritedParams = clean.getParameters().getTypes(ParamGroup.METHOD_PARAMS);
-            Multimap<Integer, VarInsnNode> usedVars = WrapOpSurgeon.getUsedVars(mixinLocals, inheritedParams, context);
+            Multimap<Integer, VarInsnNode> usedVars = WrapOpSurgeon.getUsedVars(lvt, inheritedParams, context);
 
             MutableConfiguration config = recipe.dirty().copyClean()
                 .removeProperty(MixinKeys.TARGET_AT)
@@ -182,10 +185,10 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
                         continue;
                     }
 
-                    LocalVariableNode node = mixinLocals.getByIndex(paramVar);
+                    LocalVariableNode node = lvt.getByIndex(paramVar);
                     if (!loadedType.equals(node.desc)) return Optional.empty();
 
-                    int paramOrdinal = mixinLocals.getParameterOrdinal(node);
+                    int paramOrdinal = lvt.getParameterOrdinal(node);
                     Parameter oldParam = clean.getParameters().get(ParamGroup.METHOD_PARAMS).get(paramOrdinal);
                     parameters.mapParameter(oldParam, newInstanceParam);
                 }

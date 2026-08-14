@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
@@ -29,6 +30,7 @@ public class WrapOpSurgeon {
     public static boolean tryUpgrade(MixinContext context, Recipe recipe, List<Type> methodParams, MethodInsnNode cleanInsn, MethodInsnNode dirtyInsn) {
         MethodNode methodNode = context.methodNode();
         LocalVariableLookup mixinLocals = context.methods().getLVT(methodNode);
+        if (mixinLocals == null) return false;
 
         Multimap<Integer, VarInsnNode> usedVars = getUsedVars(mixinLocals, methodParams, context);
         Map<Integer, Pair<TypeAdapter, @Nullable Consumer<InsnList>>> adapters = new HashMap<>();
@@ -129,7 +131,8 @@ public class WrapOpSurgeon {
         MethodNode methodNode = context.methodNode();
 
         List<Integer> paramVars = IntStream.range(0, methodParams.size())
-            .mapToObj(mixinLocals::getByParameterOrdinal)
+            .mapToObj(mixinLocals::getByParameterOrdinalOrNull)
+            .filter(Objects::nonNull)
             .map(l -> l.index)
             .toList();
 

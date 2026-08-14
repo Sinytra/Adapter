@@ -58,7 +58,7 @@ public final class LocalVarAnalyzer {
         return insns;
     }
 
-    public record CapturedLocalsUsage(LocalVariableLookup targetTable, Int2IntMap usageCount, Int2ObjectMap<InsnList> varInsnLists) {
+    public record CapturedLocalsUsage(@Nullable LocalVariableLookup targetTable, Int2IntMap usageCount, Int2ObjectMap<InsnList> varInsnLists) {
     }
 
     public record CapturedLocalsTransform(Collection<Integer> used, TransformParameters remover, Collection<LocalVariableNode> usedLocalNodes) {
@@ -66,10 +66,14 @@ public final class LocalVarAnalyzer {
             LocalVariableLookup targetTable = context.methods().getLVT(captured.target().methodNode());
             Int2ObjectMap<InsnList> varInsnLists = new Int2ObjectOpenHashMap<>();
             Int2IntMap usageCount = new Int2IntOpenHashMap();
-            this.used.forEach(ordinal -> {
-                int index = targetTable.getByOrdinal(ordinal).index;
-                findVariableInitializerInsns(captured.target().methodNode(), captured.isStatic(), index, varInsnLists, usageCount);
-            });
+            if (targetTable != null) {
+                this.used.forEach(ordinal -> {
+                    LocalVariableNode node = targetTable.getByOrdinalOrNull(ordinal);
+                    if (node != null) {
+                        findVariableInitializerInsns(captured.target().methodNode(), captured.isStatic(), node.index, varInsnLists, usageCount);
+                    }
+                });
+            }
             return new CapturedLocalsUsage(targetTable, usageCount, varInsnLists);
         }
     }

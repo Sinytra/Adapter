@@ -41,6 +41,10 @@ public class ParameterUsageProcessor implements Processor {
         }
 
         LocalVariableLookup lookup = context.methods().getLVT(context.methodNode());
+        if (lookup == null || diff.insertions().stream().anyMatch(i -> lookup.getByParameterOrdinalOrNull(i.getFirst()) == null)) {
+            return TxResult.PASS;
+        }
+
         for (List<AbstractInsnNode> call : callInsns) {
             MethodInsnNode minsn = (MethodInsnNode) call.getLast();
 

@@ -35,11 +35,16 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
             return PatchResult.PASS;
         }
 
+        LocalVariableLookup lvtLookup = context.methods().getLVT(methodNode);
+        LocalVariableNode localVar = lvtLookup == null ? null : lvtLookup.getByParameterOrdinalOrNull(paramIndex);
+        if (localVar == null) {
+            LOGGER.info(MIXINPATCH, "Cannot replace parameter {}, missing local variable info in {}.{}", paramIndex, classNode.name, methodNode.name);
+            return PatchResult.PASS;
+        }
+
         LOGGER.info(MIXINPATCH, "Replacing parameter {} with type {} in {}.{}", paramIndex, this.type, classNode.name, methodNode.name);
         parameters.set(paramIndex, this.type);
 
-        LocalVariableLookup lvtLookup = context.methods().getLVT(methodNode);
-        LocalVariableNode localVar = lvtLookup.getByParameterOrdinal(paramIndex);
         Type originalType = Type.getType(localVar.desc);
         localVar.desc = this.type.getDescriptor();
         localVar.signature = null;
@@ -61,10 +66,11 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
                         // If this is a wrap operation, make an educated guess and try adapting the instance type
                         if (typeFix == null && context.methodAnnotation().matchesDesc(MixinAnnotations.WRAP_OPERATION)) {
                             List<Type> params = Parameters.getParameterTypes(methodNode.desc);
-                            if (!params.isEmpty()) {
+                            LocalVariableNode firstParam = lvtLookup.getByParameterOrdinalOrNull(0);
+                            if (!params.isEmpty() && firstParam != null) {
                                 typeFix = bfu.getTypeAdapter(params.getFirst(), originalType);
                                 if (typeFix != null) {
-                                    varInsn.var = lvtLookup.getByParameterOrdinal(0).index;
+                                    varInsn.var = firstParam.index;
                                 }
                             }
                         }
