@@ -58,7 +58,7 @@ public class ModifyArgMixin implements MixinType {
             return TxResult.SUCCESS;
         }
 
-        Type type = findArgType(context, recipe.clean().getAtData(), dirty.getAtData(), dirty);
+        Type type = findArgType(context, recipe.clean().getAtData(), dirty.getAtData(), clean, dirty);
         if (type != null) {
             MethodParameters parameters = MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY));
             parameters.set(SINGLE_ANY, Parameter.simple(type));
@@ -70,7 +70,7 @@ public class ModifyArgMixin implements MixinType {
     }
 
     @Nullable
-    private static Type findArgType(MixinContext context, AtData cleanAtData, AtData atData, Configuration dirty) {
+    private static Type findArgType(MixinContext context, AtData cleanAtData, AtData atData, Configuration clean, Configuration dirty) {
         MethodQualifier cleanQualifier = cleanAtData.getTarget().flatMap(MethodQualifier::parse).orElse(null);
         MethodQualifier dirtyQualifier = atData.getTarget().flatMap(MethodQualifier::parse).orElse(null);
         if (cleanQualifier != null && dirtyQualifier != null) {
@@ -91,6 +91,16 @@ public class ModifyArgMixin implements MixinType {
                 TypeAdapter adapter = context.getTypeAdapter(cleanArgs.getFirst(), dirtyType);
                 if (adapter != null) {
                     return dirtyType;
+                }
+            }
+
+            if (clean.getParameters() != null) {
+                List<Parameter> list = clean.getParameters().get(SINGLE_ANY);
+                if (!list.isEmpty()) {
+                    Type type = list.getFirst().type();
+                    if (dirtyArgs.contains(type)) {
+                        return type;
+                    }
                 }
             }
         }

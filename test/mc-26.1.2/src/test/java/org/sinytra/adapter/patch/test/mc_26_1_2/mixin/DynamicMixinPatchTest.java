@@ -64,6 +64,16 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    @Test
+    void testModifyArgChangedTargetDesc() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mc_26_1_2/mixin/LevelRendererMixin",
+            "clampMaxValue",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
     @Override
     protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
         ClassNode patched = loadClass(className);
