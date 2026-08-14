@@ -4,6 +4,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.FieldInsnNode;
+import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.Analyzer;
@@ -31,39 +32,28 @@ public class FrameUtil {
         }
     }
 
-    // Helper to determine how many stack items an instruction consumes
     public static int getPopCount(AbstractInsnNode insn) {
         int op = insn.getOpcode();
 
-        // Method Calls
-        if (insn instanceof MethodInsnNode) {
-            // Static: pops args
-            // Virtual/Special/Interface: pops args + receiver (1)
-            int args = Type.getArgumentsAndReturnSizes(((MethodInsnNode) insn).desc) >> 2;
+        if (insn instanceof MethodInsnNode minsn) {
+            int args = Type.getArgumentCount(minsn.desc);
             boolean isStatic = op == Opcodes.INVOKESTATIC;
-            // INVOKEDYNAMIC is complex, but usually acts like static for the bootstrap
             if (op == Opcodes.INVOKEDYNAMIC) isStatic = true;
 
-            return isStatic ? args - 1 : args;
+            return isStatic ? args : args + 1;
         }
 
-        // Field Instructions
+        if (insn instanceof InvokeDynamicInsnNode indy) {
+            return Type.getArgumentCount(indy.desc);
+        }
+
         if (insn instanceof FieldInsnNode) {
-            // PUTFIELD pops [ref, value] (value size depends on type)
-            // PUTSTATIC pops [value]
-            // GETFIELD pops [ref] -> Returns 1
-            // GETSTATIC pops [] -> Returns 0
             if (op == Opcodes.GETSTATIC) return 0;
             if (op == Opcodes.GETFIELD) return 1;
-
-            // PUT logic requires checking field type size
-            boolean isLongOrDouble = ((FieldInsnNode) insn).desc.matches("[JD]");
-            int valSize = isLongOrDouble ? 2 : 1;
-            if (op == Opcodes.PUTSTATIC) return valSize;
-            if (op == Opcodes.PUTFIELD) return valSize + 1;
+            if (op == Opcodes.PUTSTATIC) return 1;
+            if (op == Opcodes.PUTFIELD) return 2;
         }
 
-        // Simple Opcodes (incomplete list, add others as needed)
         return switch (op) {
             case Opcodes.IADD, Opcodes.LADD, Opcodes.FADD, Opcodes.DADD, Opcodes.ISUB, Opcodes.LSUB, Opcodes.FSUB,
                  Opcodes.DSUB, Opcodes.IMUL, Opcodes.LMUL, Opcodes.FMUL, Opcodes.DMUL, Opcodes.IDIV, Opcodes.LDIV,

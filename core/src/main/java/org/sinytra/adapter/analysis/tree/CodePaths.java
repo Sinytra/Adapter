@@ -57,6 +57,10 @@ public class CodePaths {
         List<MethodInsnNode> topTierCalls = MethodAnalyzer.getTopTierMethodCalls(from);
 
         for (MethodInsnNode minsn : topTierCalls) {
+            if (minsn.owner.startsWith("java/")) {
+                continue;
+            }
+
             TargetPair nextFrom = context.methods().findInheritedMethodPair(context.dirtyLookup(), MethodQualifier.create(minsn));
             if (nextFrom == null) continue;
 
