@@ -6,8 +6,10 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.env.ctx.MethodHelper;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
+import org.sinytra.adapter.util.MethodQualifier;
 import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
@@ -60,6 +62,30 @@ public class ExtractMixinProcessor implements Processor {
         Candidates candidates = findCandidates(classNode, methodNode);
         if (!candidates.canMove(classNode, isInherited)) return PatchResult.PASS;
 
+        // The member may have moved to a STATIC method on the new target - a Fabric method mapped onto a
+        // NeoForge static hook. Mixin rejects that combination outright and the error is fatal:
+        //
+        //   InvalidInjectionException: non-static callback method ... targets a static method which is not
+        //   supported
+        //
+        // StaticAccessProcessor cannot catch this: it runs before extraction, when the callback still matches
+        // its original target. So the modifier has to be synced here - but it has to be DECIDED here, before
+        // anything is moved: a body that reads local 0 cannot be made static at all, and bailing out after the
+        // move would leave the member in both the original and the generated class.
+        MethodQualifier movedTarget = recipe.dirty().getTargetMethod();
+        TargetPair movedPair = movedTarget == null ? null
+            : context.methods().findOwnMethodPair(context.dirtyLookup(), movedTarget);
+        boolean syncModifier = movedPair != null && MethodHelper.isStatic(movedPair.methodNode()) && !MethodHelper.isStatic(methodNode);
+        if (syncModifier && readsReceiverSlot(methodNode)) {
+            // A @Shadow field or method access compiles to "aload 0 + getfield/invokevirtual", and exactly that
+            // shape is allowed through Candidates#canMove (a shadowed member does not count as "accessing the
+            // class instance"). A static target has no receiver, so there is nothing local 0 could hold.
+            // Report the mixin as unadapted instead: Patcher#stripFailedMixins then drops the handler and the
+            // mod loads with the feature disabled, which is strictly better than emitting a class that no
+            // longer passes verification.
+            return PatchResult.PASS;
+        }
+
         ClassNode targetClass = context.environment().dirtyClassLookup().getClass(targetClassName).orElse(null);
         // Get or generate new mixin class
         ClassNode generatedTarget = context.environment().classGenerator().getOrGenerateMixinClass(classNode, targetClassName, targetClass != null ? targetClass.superName : null);
@@ -76,8 +102,39 @@ public class ExtractMixinProcessor implements Processor {
 
         candidates.handleUpdates().forEach(c -> c.accept(generatedTarget));
 
+        if (syncModifier) {
+            context.recordCtxAudit("Made extracted callback static to match static target %s", movedTarget.asDescriptor());
+            methodNode.access |= Opcodes.ACC_STATIC;
+
+            // The callback keeps its original body, and as an instance method that body reserved local 0 for the
+            // receiver - its parameters sat at 1..n. Now that the receiver is gone everything shifts down by one,
+            // exactly as StaticAccessProcessor does in the opposite direction ("Remove static"). Slot numbers are
+            // fixed at compile time and do not depend on branches, exception handlers or variable lifetimes, so
+            // the uniform shift is correct; the one shape it is NOT safe for - a body that reads local 0 - was
+            // rejected before anything was moved. Without the shift Mixin sees a body whose locals no longer line
+            // up and the game dies with "VerifyError: Bad local variable type" (locals[3] = top).
+            if (methodNode.localVariables != null) {
+                for (LocalVariableNode lvn : methodNode.localVariables) {
+                    lvn.index--;
+                }
+                methodNode.localVariables.removeIf(lvn -> lvn.index < 0);
+            }
+            for (AbstractInsnNode insn : methodNode.instructions) {
+                if (insn instanceof VarInsnNode varInsn) {
+                    varInsn.var--;
+                } else if (insn instanceof IincInsnNode iincInsn) {
+                    iincInsn.var--;
+                }
+            }
+            methodNode.maxLocals = Math.max(0, methodNode.maxLocals - 1);
+        }
+
         // Take care of captured locals
-        PatchResult result = PatchResult.PASS;
+        // Dropping the receiver also invalidates the method's StackMapTable: a full_frame still describes local 0
+        // and every slot after it. Connector only recomputes frames when the result is COMPUTE_FRAMES, so ask
+        // for them here - the uniform shift above is exactly the kind of change that silently leaves stale
+        // frames behind (measured: delta frames survive, an explicit full_frame fails verification).
+        PatchResult result = syncModifier ? PatchResult.COMPUTE_FRAMES : PatchResult.PASS;
         boolean capturesLocals = recipe.clean().hasProperty(MixinKeys.LOCALS);
         if (capturesLocals) {
             result = result.or(recreateLocalVariables(methodNode, context, recipe, generatedTarget));
@@ -185,6 +242,27 @@ public class ExtractMixinProcessor implements Processor {
             return OpcodeUtil.setAccessVisibility(visibility, Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC);
         }
         return access;
+    }
+
+    /**
+     * Whether the body reads local 0, which is the receiver of an instance method.
+     * <p>
+     * javac never assigns to slot 0 of an instance method, so any reference at all means the body uses
+     * {@code this}. A {@code @Shadow} field or method access compiles to exactly that shape ({@code aload 0}
+     * followed by {@code getfield}/{@code invokevirtual}), and a lambda that captured {@code this} is reached
+     * through the same {@code aload 0}. Checking only the handler (not the moved lambdas) is sufficient for the
+     * same reason: a lambda that needs the receiver forces the handler to load it.
+     */
+    private static boolean readsReceiverSlot(MethodNode methodNode) {
+        for (AbstractInsnNode insn : methodNode.instructions) {
+            if (insn instanceof VarInsnNode varInsn && varInsn.var == 0) {
+                return true;
+            }
+            if (insn instanceof IincInsnNode iincInsn && iincInsn.var == 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -376,3 +454,5 @@ public class ExtractMixinProcessor implements Processor {
         return PatchResult.COMPUTE_FRAMES;
     }
 }
+
+
