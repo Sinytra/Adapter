@@ -3,11 +3,18 @@ package org.sinytra.adapter.analysis;
 import org.objectweb.asm.tree.ClassNode;
 import org.sinytra.adapter.util.provider.ClassLookup;
 
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.*;
 
 public class InheritanceHandler {
     private final ClassLookup classProvider;
-    private final Map<String, Collection<String>> parentCache = new HashMap<>();
+    // ConcurrentHashMap, not HashMap: ONE handler instance is shared by every mixin that uses the same class
+    // lookup (PatchEnvironmentImpl caches them with putIfAbsent), while ART drives the transformation from a
+    // ForkJoinPool. Concurrent put() on a plain HashMap corrupts its internal table, so get() could return
+    // null or a wrong entry - which made inheritance lookups (and therefore "does this target method exist")
+    // depend on thread interleaving. That is the non-determinism behind onBlockBroken/onExplosionDone
+    // sometimes being adapted and sometimes being stripped from the same build. See 12-issue草案.md entry 13.
+    private final Map<String, Collection<String>> parentCache = new ConcurrentHashMap<>();
 
     public InheritanceHandler(ClassLookup classProvider) {
         this.classProvider = classProvider;
@@ -24,11 +31,14 @@ public class InheritanceHandler {
 
     public Collection<String> getClassParents(String name) {
         Collection<String> parents = this.parentCache.get(name);
-        if (parents == null) {
-            parents = computeClassParents(name);
-            this.parentCache.put(name, parents);
+        if (parents != null) {
+            return parents;
         }
-        return parents;
+        // get/compute/putIfAbsent rather than computeIfAbsent: computeClassParents recurses into
+        // getClassParents, which ConcurrentHashMap.computeIfAbsent rejects as a recursive update.
+        Collection<String> computed = computeClassParents(name);
+        Collection<String> prev = this.parentCache.putIfAbsent(name, computed);
+        return prev != null ? prev : computed;
     }
 
     private Collection<String> computeClassParents(String name) {
@@ -51,3 +61,4 @@ public class InheritanceHandler {
         return parents;
     }
 }
+
