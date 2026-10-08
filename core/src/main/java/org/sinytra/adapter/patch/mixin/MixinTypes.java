@@ -14,9 +14,6 @@ public class MixinTypes {
     private static final Map<String, MixinType> MIXIN_TYPES = new HashMap<>();
     
     // TODO:
-    // MixinConstants.WRAP_WITH_CONDITION
-    // Measured 2026-09: @WrapWithCondition appears in 0 of the 46 mods of the reference corpus
-    // (it is a MixinExtras annotation and rare in practice), so it is deliberately left out.
     public static final MixinType INJECT = new InjectMixin();
     public static final MixinType MODIFY_VAR = new ModifyVariableMixin();
     public static final MixinType MODIFY_ARG = new ModifyArgMixin();
@@ -34,8 +31,8 @@ public class MixinTypes {
         registerMixinType(Inject.class, INJECT);
         registerMixinType(ModifyVariable.class, MODIFY_VAR);
         registerMixinType(ModifyArg.class, MODIFY_ARG);
-        // NOTE: this map is keyed by annotation *internal names* (MixinParser passes
-        // Type.getType(desc).getInternalName()), so the "L...;" descriptor form would never match.
+        // MixinConstants.WRAP_WITH_CONDITION is deliberately left out; it appears in none of the corpus mods.
+        // The map is keyed by annotation internal names, so the "L...;" descriptor form would never match.
         registerMixinType(MixinAnnotations.MODIFY_ARGS_INTERNAL_NAME, MODIFY_ARGS);
         registerMixinType(MixinAnnotations.MODIFY_CONST_INTERNAL_NAME, MODIFY_CONST);
         registerMixinType(MixinAnnotations.MODIFY_RETURN_VAL_INTERNAL_NAME, MODIFY_RET);

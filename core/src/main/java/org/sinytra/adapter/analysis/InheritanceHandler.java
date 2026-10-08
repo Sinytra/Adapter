@@ -8,12 +8,8 @@ import java.util.*;
 
 public class InheritanceHandler {
     private final ClassLookup classProvider;
-    // ConcurrentHashMap, not HashMap: ONE handler instance is shared by every mixin that uses the same class
-    // lookup (PatchEnvironmentImpl caches them with putIfAbsent), while ART drives the transformation from a
-    // ForkJoinPool. Concurrent put() on a plain HashMap corrupts its internal table, so get() could return
-    // null or a wrong entry - which made inheritance lookups (and therefore "does this target method exist")
-    // depend on thread interleaving. That is the non-determinism behind onBlockBroken/onExplosionDone
-    // sometimes being adapted and sometimes being stripped from the same build. See 12-issue草案.md entry 13.
+    // ConcurrentHashMap: one handler instance is shared by every mixin using the same class lookup, and the
+    // transformation is driven from a ForkJoinPool.
     private final Map<String, Collection<String>> parentCache = new ConcurrentHashMap<>();
 
     public InheritanceHandler(ClassLookup classProvider) {
@@ -34,8 +30,7 @@ public class InheritanceHandler {
         if (parents != null) {
             return parents;
         }
-        // get/compute/putIfAbsent rather than computeIfAbsent: computeClassParents recurses into
-        // getClassParents, which ConcurrentHashMap.computeIfAbsent rejects as a recursive update.
+        // Not computeIfAbsent: computeClassParents recurses into getClassParents, which it rejects.
         Collection<String> computed = computeClassParents(name);
         Collection<String> prev = this.parentCache.putIfAbsent(name, computed);
         return prev != null ? prev : computed;

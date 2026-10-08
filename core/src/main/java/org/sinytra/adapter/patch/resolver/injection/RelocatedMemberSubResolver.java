@@ -23,43 +23,12 @@ import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_INVOK
 import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_INVOKE_ASSIGN;
 
 /**
- * Handles injection points whose target member MOVED to a different owner.
+ * Handles injection points whose target member MOVED to a different owner: NeoForge lifts a private static
+ * helper onto the class of its first parameter, so owner and name change while the call keeps its shape. The
+ * new name is deliberately ignored.
  * <p>
- * The reference case is NeoForge lifting a private static helper onto the class of its first parameter:
- *
- * <pre>
- *   vanilla      PistonStructureResolver.canStickToEachOther(BlockState, BlockState)Z   (private static)
- *   NeoForge     BlockState.canStickTo(BlockState)Z                                     (instance)
- * </pre>
- *
- * Both the owner and the name changed, so every owner/name based lookup - including
- * {@link ChangedMemberDescriptorSubResolver}, which keeps owner + name and only ignores the descriptor -
- * finds nothing, and the injection point is reported as unresolvable.
- * <p>
- * The relocation survives in the SHAPE of the call: the receiver is dropped and the remaining parameters
- * plus the return type stay identical. That is what this resolver matches on, deliberately without looking
- * at the new name.
- * <p>
- * <b>Why it scans the target method instead of the receiving class.</b> The natural approach - look for a
- * method with the shifted signature on the first parameter's class - does not work here, and that is not an
- * accident of this one case: NeoForge implements such helpers as {@code default} methods on its extension
- * interfaces, so the member is NOT declared by the receiving class at all. {@code canStickTo} lives on
- * {@code net/neoforged/neoforge/common/extensions/IBlockStateExtension} and {@code BlockState} merely
- * implements it. (The same holds for the {@code isStickyBlock} half of this pair.) A scan of the class
- * therefore finds nothing, and scanning interfaces instead would widen the search surface rather than
- * sharpen it.
- * <p>
- * Scanning the patched target method for the call itself is both simpler and better grounded: the call has to
- * actually be there, it carries the real owner and descriptor, and the instruction it yields is exactly what
- * the {@code @At} target has to be rewritten to.
- * <p>
- * Accepted only when unambiguous - the old member must be gone and have been static, the first parameter type
- * must be an object type, and exactly one call in the patched method must match the shifted shape. Anything
- * else bails out and leaves the original failure in place: guessing would silently point an injection at an
- * unrelated member, which is worse than an honest failure.
- * <p>
- * Only {@code @At} INVOKE targets are considered. A mixin that injects INTO a method which was itself moved
- * (carpet's {@code @Inject(at = @At("HEAD"), method = "isSticky")}) is a different mechanism.
+ * Matches the calls in the patched target method, not the receiving class: these helpers are usually
+ * {@code default} methods on extension interfaces.
  */
 public class RelocatedMemberSubResolver implements SubResolver {
     @Nullable
@@ -88,8 +57,7 @@ public class RelocatedMemberSubResolver implements SubResolver {
             return null;
         }
 
-        // The member has to be gone under its old owner+name. If it is still there, this resolver has nothing
-        // to contribute - ChangedMemberDescriptorSubResolver covers descriptor-only changes.
+        // ChangedMemberDescriptorSubResolver covers descriptor-only changes; this one needs the member gone.
         if (context.methods().findOwnMethodPair(context.dirtyLookup(), original.ignoreDesc()) != null) {
             return null;
         }
@@ -112,10 +80,7 @@ public class RelocatedMemberSubResolver implements SubResolver {
         Type[] newArgs = Arrays.copyOfRange(oldArgs, 1, oldArgs.length);
 
         List<MethodInsnNode> matches = findShiftedCalls(dirtyTarget.methodNode(), receiver, newArgs, newReturn);
-        // Several call sites to the SAME member are fine and expected - Mixin's @At without an ordinal
-        // addresses the member, not one particular occurrence (carpet's addBlockLine calls canStickTo twice).
-        // What has to be unambiguous is which MEMBER the call was relocated to, so compare the distinct
-        // owner+name+descriptor, not the instruction count.
+        // Several call sites are fine; what must be unambiguous is the distinct owner+name+descriptor.
         if (matches.stream().map(call -> call.owner + call.name + call.desc).distinct().limit(2).count() != 1) {
             return null;
         }
@@ -128,11 +93,7 @@ public class RelocatedMemberSubResolver implements SubResolver {
             .setAtData(at.withTarget(call));
     }
 
-    /**
-     * Finds the calls in {@code target} that match the relocated shape: made on {@code receiver}, taking
-     * {@code newArgs} and returning {@code newReturn} - i.e. the old call with its receiver lifted out of the
-     * argument list.
-     */
+    /** Finds the calls matching the shifted shape: the old call with its receiver lifted out of the arguments. */
     private static List<MethodInsnNode> findShiftedCalls(MethodNode target, Type receiver, Type[] newArgs, Type newReturn) {
         List<MethodInsnNode> matches = new ArrayList<>();
         for (AbstractInsnNode insn = target.instructions.getFirst(); insn != null; insn = insn.getNext()) {

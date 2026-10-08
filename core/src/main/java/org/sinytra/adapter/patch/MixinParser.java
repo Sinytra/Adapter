@@ -65,9 +65,8 @@ public class MixinParser {
             properties.setProperty(ControlKeys.TARGET_CLASS, targetClass);
             properties.setProperty(ControlKeys.RETURN_TYPE, Type.getReturnType(method.desc));
             properties.setProperty(SpecialKeys.STATIC, MethodHelper.isStatic(method));
-            // @Overwrite / @Invoker name no "method": their target is derived from the mixin method
-            // itself. Set the qualifier so postProcessMixin below can complete the descriptor from the
-            // dirty target class, exactly like an annotation that omitted its descriptor.
+            // @Overwrite / @Invoker name no "method"; set the qualifier derived from the mixin method so
+            // postProcessMixin below can complete the descriptor from the dirty target class.
             if (!properties.hasProperty(MixinKeys.TARGET_METHOD)) {
                 MethodQualifier derived = mixinType.deriveTarget(properties, method);
                 if (derived != null) {
@@ -112,11 +111,9 @@ public class MixinParser {
                 .filter(m -> target.matches(MethodQualifier.create(m)))
                 .toList();
 
-            // Fall back to the superclass chain. An injector may name a method the mixin's target class only
-            // INHERITS - carve's @Redirect(method = "causeExtraKnockback") on @Mixin(Player.class), where the
-            // method is declared on LivingEntity, is the reference case. Mixin itself resolves the target
-            // through the hierarchy, so mirroring that here is what lets the descriptor be completed (and the
-            // mixin stop being reported as an unexplained failure).
+            // Fall back to the superclass chain: an injector may name a method its target class only
+            // inherits (carve's @Redirect on Player, declared on LivingEntity), and Mixin resolves the target
+            // through the hierarchy too.
             for (ClassNode cls = dirtyTarget; targets.isEmpty() && cls.superName != null; ) {
                 ClassNode parent = environment.dirtyClassLookup().getClass(cls.superName).orElse(null);
                 if (parent == null) break;

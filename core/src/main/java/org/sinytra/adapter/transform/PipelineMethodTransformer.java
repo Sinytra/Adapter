@@ -48,39 +48,12 @@ public class PipelineMethodTransformer implements MethodTransformer {
     public PatchResult apply(MixinContext context, Configuration config) {
         TargetPair cleanTarget = context.methods().findOwnMethodPair(context.cleanLookup(), config.getTargetMethod());
         if (cleanTarget == null) {
-            // The target class may exist only in the patched view: it can be supplied by the mod itself or by
-            // one of its libraries (io/github/axolotlclient/..., io/jsonwebtoken/..., de/.../classic4j/...), or
-            // it can be a platform class that the mod was never compiled against. Corpus-wide,
-            // "target method not found in the clean (vanilla) class" accounts for 763 of 922 skips and 91-94%
-            // of the sampled ones are the mod-own-class case. (12-issue草案.md entry 16, class A.)
-            //
-            // The two cases must NOT be treated alike: a mod-own class needs no adaptation (NeoForge never
-            // rewrites it), while a platform class usually DOES need adaptation and simply has no clean
-            // counterpart to compare against - passing those through unmapped produced a fatal, non-strippable
-            // InvalidInjectionException at runtime (create-fly's adapter_generated_CommonHooks targeting
-            // net/neoforged/neoforge/common/CommonHooks).
-            //
-            // Deciding by namespace would be wrong in both directions (it killed 18 legitimate mixins whose
-            // target is a platform class but which already resolve correctly). So decide by the only thing that
-            // actually matters: whether the injection point already resolves in the PATCHED class. If it does,
-            // there is genuinely nothing to adapt; if it does not, fall through and let the safety net strip the
-            // handler instead of shipping a mixin that aborts the game.
+            // The target class can exist only in the patched view: supplied by the mod, by one of its
+            // libraries, or by the platform. Mod-supplied classes never need adaptation; platform classes pass
+            // only when the injection point already resolves in the patched class.
             String targetClass = config.getProperty(ControlKeys.TARGET_CLASS).orElse(null);
             TargetPair dirtyCandidate = context.methods().findOwnMethodPair(context.dirtyLookup(), config.getTargetMethod());
 
-            // Two very different situations hide behind "not found in the vanilla class":
-            //
-            //  * the target class is the mod's own (or one of its libraries). NeoForge never rewrites those, so
-            //    there is genuinely nothing to adapt and no clean counterpart to compare with. Pass them - this
-            //    is the 91-94% case measured corpus-wide.
-            //
-            //  * the target class belongs to the platform (net/minecraft, net/neoforged, ...). Those usually DO
-            //    need adaptation, and passing them through unmapped produced a fatal, non-strippable
-            //    InvalidInjectionException at runtime (create-fly's adapter_generated_CommonHooks targeting
-            //    net/neoforged/neoforge/common/CommonHooks). For these, pass ONLY when the injection point already
-            //    resolves in the patched class - which is exactly the question that matters. Deciding by
-            //    namespace alone instead killed 18 legitimate mixins that target a platform class and already
-            //    resolve correctly.
             boolean modSupplied = !isPlatformClass(targetClass);
             boolean platformButAlreadyResolvable = !modSupplied
                 && dirtyCandidate != null
@@ -101,20 +74,16 @@ public class PipelineMethodTransformer implements MethodTransformer {
                 return PatchResult.PASS;
             }
 
-            // Publish the injection point here too: leaving it unset meant every later stage saw "unknown",
-            // which is indistinguishable from "no adaptation ran" and silently disabled capture re-derivation.
+            // Publish the injection point: later stages need it, and leaving it unset disables capture re-derivation.
             context.setEffectiveInjectionPoint(config.getAtData(), config.getTargetMethod());
             return skip(context, config, "target method not found in the clean (vanilla) class");
         }
 
         TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), config.getTargetMethod());
         if (!this.patchResolver.matches(config) && !failsDirtyInjectionCheck(context, config, dirtyTarget) && hasValidSlice(context, config, dirtyTarget)) {
-            // NOT a failure: failsDirtyInjectionCheck() returning false means the mixin can already inject
-            // into the patched target as-is, i.e. no adaptation is required. Record it as a success so it
-            // is visible as "considered and fine" rather than never-considered.
+            // Not a failure: the mixin already injects into the patched target as-is.
             context.environment().auditTrail().recordResult(context, config, AuditTrail.Match.FULL);
-            // Still publish the injection point: it resolves here, and later transformers (captured-locals)
-            // need to know where it is even when nothing had to be rewritten.
+            // It resolves here, and captured-local transformers need the site even when nothing was rewritten.
             context.setEffectiveInjectionPoint(config.getAtData(), config.getTargetMethod());
             try {
                 context.recordCtxAudit("No adaptation required: injection point already resolves in the patched target");
@@ -138,19 +107,13 @@ public class PipelineMethodTransformer implements MethodTransformer {
         return PatchResult.PASS;
     }
 
-    /**
-     * The pipeline has several "give up quietly" exits. Each of them used to return PASS without
-     * recording anything, so the mixin vanished from the audit trail and the jar was reported as
-     * compatible. Record the skip so it shows up in the report. AuditTrailImpl downgrades it to
-     * IGNORED when the mixin is not required, so non-applicable mixins do not fail the mod.
-     */
+    /** Records a give-up exit so the mixin shows up in the audit trail instead of vanishing from the report. */
     private static PatchResult skip(MixinContext context, Configuration config, String reason, Object... args) {
         context.environment().auditTrail().recordResult(context, config, AuditTrail.Match.NONE);
         try {
             context.recordCtxAudit("Skipped mixin: " + reason, args);
         } catch (RuntimeException ignored) {
-            // Not every exit runs inside an audit frame (pushAudit/popAudit). recordResult above is
-            // what actually makes the skip visible; the reason is best-effort.
+            // Not every exit runs inside an audit frame; the reason is best-effort.
         }
         return PatchResult.PASS;
     }
@@ -235,10 +198,7 @@ public class PipelineMethodTransformer implements MethodTransformer {
             context.methodNode().parameters = null;
         }
 
-        // Publish where the injection point ended up. The adapted values only exist inside this method's
-        // dirty config, so anything that runs afterwards and needs the effective site (notably
-        // LocalCaptureUpgradeTransformer, which has to read the locals live at THAT point) has no other way
-        // to see them.
+        // Publish where the injection point ended up; later transformers need the effective site.
         context.setEffectiveInjectionPoint(dirtyConfig.getAtData(), dirtyConfig.getTargetMethod());
 
         return PatchResult.APPLY;
@@ -287,13 +247,7 @@ public class PipelineMethodTransformer implements MethodTransformer {
         return !insns.isEmpty();
     }
 
-    /**
-     * Whether the name belongs to a platform namespace (the game or the mod loader) rather than to a mod.
-     * <p>
-     * Used to decide whether passing a handler through unmapped is safe. A mod-supplied target needs no
-     * adaptation at all; a platform target only qualifies when its injection point already resolves in the
-     * patched class (see the class-A branch in {@link #apply}).
-     */
+    /** Whether the name belongs to a platform namespace (game or mod loader) rather than to a mod. */
     private static boolean isPlatformClass(String internalName) {
         return internalName.startsWith("net/minecraft/")
             || internalName.startsWith("net/neoforged/")

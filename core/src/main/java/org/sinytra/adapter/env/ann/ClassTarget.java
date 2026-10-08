@@ -44,11 +44,8 @@ public class ClassTarget {
             .or(() -> handle.<List<String>>getValue(MIXIN_TARGETS).map(v -> {
                 List<Type> types = v.get().stream()
                     .map(mapper::remap)
-                    // "targets" holds dotted binary names (net.minecraft.Foo$Bar), while Type.getObjectType
-                    // expects an internal name (net/minecraft/Foo$Bar). Passing the dotted form through
-                    // produced a Type whose internal name kept the dots, so every subsequent class lookup
-                    // missed and the mixin was reported as "target method not found". Note that the '$' of
-                    // an inner class must be preserved - only '.' becomes '/'.
+                    // "targets" holds dotted binary names while Type.getObjectType expects an internal name;
+                    // only '.' becomes '/', the '$' of an inner class stays.
                     .map(name -> name.replace('.', '/'))
                     .map(Type::getObjectType)
                     .toList();

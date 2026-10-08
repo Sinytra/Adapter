@@ -99,38 +99,16 @@ public class MethodFinder {
         }
 
         if (candidates.isEmpty() && targetClass.superName != null) {
-            // Returns unconditionally on purpose.
-            //
-            // Letting this fall through makes the interface traversal below reachable, and it can then hand
-            // back INTERFACE declarations as if they were owners. That used to abort server startup with
-            // "Found unexpected argument type ...LevelAccessor at index 0, expected ...Level".
-            //
-            // RedirectMixin no longer derives the @At owner from a lookup - it takes it from the actual call
-            // instruction inside the injected method (12-issue草案.md entry 8) - so re-enabling this is now
-            // SAFE, and it was tried on a real server: `Done`, no InvalidInjectionException. But it brought NO
-            // benefit either: carpet stayed at 301/0 offline and 8 stripped in-game, and
-            // onBlockBroken/onExplosionDone remained stripped. Reverted for that reason alone - no benefit,
-            // plus a history of breaking startup. See 12-issue草案.md entry 13.
+            // Returns unconditionally: falling through would make the interface traversal below reachable,
+            // and interface declarations returned as owners break startup.
             return findMethods(lookup,
                 new MethodQualifier(Type.getObjectType(targetClass.superName).getDescriptor(), qualifier.name(), qualifier.desc()), flags);
         }
 
         if (candidates.isEmpty()) {
-            // The walk above follows superName, which reaches superclasses only. A target can equally be
-            // declared as an interface DEFAULT method - that is precisely how NeoForge attaches helpers to
-            // the game's classes: BlockState#canStickTo / isStickyBlock are declared on
-            // net/neoforged/neoforge/common/extensions/IBlockStateExtension, and BlockState merely implements
-            // it.
-            //
-            // This only runs once the class and its whole superclass chain have come up empty. When more than
-            // one interface declares a match it declines, because picking one would be a guess.
-            //
-            // WARNING: do NOT make this reachable by falling through the superName branch above. It returns
-            // interface declarations as if they were injection owners; mixin then validates the handler
-            // against the @At string (which still names the class) and aborts server startup with
-            //   InvalidInjectionException: Found unexpected argument type ...LevelAccessor at index 0,
-            //   expected ...Level
-            // See 12-issue草案.md entry 13.
+            // superName reaches superclasses only; a target can equally be a default method on an interface,
+            // which is how NeoForge attaches helpers (BlockState#canStickTo is declared on
+            // IBlockStateExtension). Declines when more than one interface matches.
             Pair<ClassNode, List<MethodNode>> viaInterface = null;
             for (String itf : targetClass.interfaces) {
                 Pair<ClassNode, List<MethodNode>> found = findMethods(lookup,

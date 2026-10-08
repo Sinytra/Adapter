@@ -39,9 +39,7 @@ public class MixinContext implements RefMapper, Auditor {
     private final Processors processors = new Processors();
 
     /**
-     * Where the injection point ended up after adaptation, published by PipelineMethodTransformer. The
-     * adapted values only exist in its private dirty config, so later transformers (which need to read the
-     * locals live at that site) would otherwise still see the annotation as the mod wrote it.
+     * Where the injection point ended up after adaptation, published by PipelineMethodTransformer.
      */
     @Nullable
     private AtData effectiveAtData;
@@ -54,8 +52,7 @@ public class MixinContext implements RefMapper, Auditor {
     }
 
     /**
-     * The {@code @At} data that actually applies to this handler, or {@code null} when adaptation did not run
-     * (in which case the annotation as written is still the truth).
+     * The {@code @At} data that applies to this handler, or {@code null} when adaptation did not run.
      */
     @Nullable
     public AtData effectiveAtData() {

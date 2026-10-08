@@ -62,27 +62,16 @@ public class ExtractMixinProcessor implements Processor {
         Candidates candidates = findCandidates(classNode, methodNode);
         if (!candidates.canMove(classNode, isInherited)) return PatchResult.PASS;
 
-        // The member may have moved to a STATIC method on the new target - a Fabric method mapped onto a
-        // NeoForge static hook. Mixin rejects that combination outright and the error is fatal:
-        //
-        //   InvalidInjectionException: non-static callback method ... targets a static method which is not
-        //   supported
-        //
-        // StaticAccessProcessor cannot catch this: it runs before extraction, when the callback still matches
-        // its original target. So the modifier has to be synced here - but it has to be DECIDED here, before
-        // anything is moved: a body that reads local 0 cannot be made static at all, and bailing out after the
-        // move would leave the member in both the original and the generated class.
+        // The member may have moved to a STATIC method on the new target, which Mixin rejects outright.
+        // StaticAccessProcessor runs before extraction and cannot catch it, so the modifier is synced here -
+        // decided before anything is moved, since a body reading local 0 cannot be made static.
         MethodQualifier movedTarget = recipe.dirty().getTargetMethod();
         TargetPair movedPair = movedTarget == null ? null
             : context.methods().findOwnMethodPair(context.dirtyLookup(), movedTarget);
         boolean syncModifier = movedPair != null && MethodHelper.isStatic(movedPair.methodNode()) && !MethodHelper.isStatic(methodNode);
         if (syncModifier && readsReceiverSlot(methodNode)) {
-            // A @Shadow field or method access compiles to "aload 0 + getfield/invokevirtual", and exactly that
-            // shape is allowed through Candidates#canMove (a shadowed member does not count as "accessing the
-            // class instance"). A static target has no receiver, so there is nothing local 0 could hold.
-            // Report the mixin as unadapted instead: Patcher#stripFailedMixins then drops the handler and the
-            // mod loads with the feature disabled, which is strictly better than emitting a class that no
-            // longer passes verification.
+            // A @Shadow access compiles to "aload 0 + getfield/invokevirtual", which Candidates#canMove lets
+            // through, but a static target has no receiver. Bail out so Patcher#stripFailedMixins drops it.
             return PatchResult.PASS;
         }
 
@@ -106,13 +95,7 @@ public class ExtractMixinProcessor implements Processor {
             context.recordCtxAudit("Made extracted callback static to match static target %s", movedTarget.asDescriptor());
             methodNode.access |= Opcodes.ACC_STATIC;
 
-            // The callback keeps its original body, and as an instance method that body reserved local 0 for the
-            // receiver - its parameters sat at 1..n. Now that the receiver is gone everything shifts down by one,
-            // exactly as StaticAccessProcessor does in the opposite direction ("Remove static"). Slot numbers are
-            // fixed at compile time and do not depend on branches, exception handlers or variable lifetimes, so
-            // the uniform shift is correct; the one shape it is NOT safe for - a body that reads local 0 - was
-            // rejected before anything was moved. Without the shift Mixin sees a body whose locals no longer line
-            // up and the game dies with "VerifyError: Bad local variable type" (locals[3] = top).
+            // The body reserved local 0 for the receiver, so its parameters shift down by one.
             if (methodNode.localVariables != null) {
                 for (LocalVariableNode lvn : methodNode.localVariables) {
                     lvn.index--;
@@ -130,10 +113,7 @@ public class ExtractMixinProcessor implements Processor {
         }
 
         // Take care of captured locals
-        // Dropping the receiver also invalidates the method's StackMapTable: a full_frame still describes local 0
-        // and every slot after it. Connector only recomputes frames when the result is COMPUTE_FRAMES, so ask
-        // for them here - the uniform shift above is exactly the kind of change that silently leaves stale
-        // frames behind (measured: delta frames survive, an explicit full_frame fails verification).
+        // Dropping the receiver invalidates the StackMapTable, so ask for a full recomputation.
         PatchResult result = syncModifier ? PatchResult.COMPUTE_FRAMES : PatchResult.PASS;
         boolean capturesLocals = recipe.clean().hasProperty(MixinKeys.LOCALS);
         if (capturesLocals) {
@@ -244,15 +224,7 @@ public class ExtractMixinProcessor implements Processor {
         return access;
     }
 
-    /**
-     * Whether the body reads local 0, which is the receiver of an instance method.
-     * <p>
-     * javac never assigns to slot 0 of an instance method, so any reference at all means the body uses
-     * {@code this}. A {@code @Shadow} field or method access compiles to exactly that shape ({@code aload 0}
-     * followed by {@code getfield}/{@code invokevirtual}), and a lambda that captured {@code this} is reached
-     * through the same {@code aload 0}. Checking only the handler (not the moved lambdas) is sufficient for the
-     * same reason: a lambda that needs the receiver forces the handler to load it.
-     */
+    /** Whether the body reads local 0, i.e. uses {@code this}. */
     private static boolean readsReceiverSlot(MethodNode methodNode) {
         for (AbstractInsnNode insn : methodNode.instructions) {
             if (insn instanceof VarInsnNode varInsn && varInsn.var == 0) {

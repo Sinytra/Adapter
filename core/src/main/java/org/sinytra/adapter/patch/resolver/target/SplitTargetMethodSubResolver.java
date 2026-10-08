@@ -132,14 +132,10 @@ public class SplitTargetMethodSubResolver implements SubResolver {
             .map(pair -> {
                 List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(pair);
                 if (insns.isEmpty() && context.methodAnnotation().getNested("constant").isPresent()) {
-                    // A constant injector (@ModifyConstant) has no @At - its injection point IS the constant - so
-                    // the @At-based lookup above can never match it. Without asking the constant point instead, a
-                    // method that was split away TOGETHER WITH ITS CONSTANT is never even considered a candidate,
-                    // and the mixin fails with "failed resolver InjectionPointResolver" while the constant sits
-                    // right there in the new method.
-                    //
-                    // Example: carpet's @ModifyConstant(intValue = 16, method = "setBlock(...)"). NeoForge moved
-                    // that code (and the constant) into Level#markAndNotifyBlock.
+                    // A constant injector (@ModifyConstant) has no @At, so the lookup above can never match it;
+                    // without asking the constant point, a method split away together with its constant is never
+                    // considered a candidate (carpet's @ModifyConstant on Level#setBlock, moved by NeoForge into
+                    // Level#markAndNotifyBlock).
                     insns = context.methods().computeInjectionTargetInsns(
                         pair,
                         () -> context.methodAnnotation().getNested("constant").orElse(null),

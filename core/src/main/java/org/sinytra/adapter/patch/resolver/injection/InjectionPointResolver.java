@@ -22,8 +22,7 @@ public class InjectionPointResolver extends CompoundResolver {
         addSubResolver(InjectionPointSubResolvers.REPLACED_TYPE);
         addSubResolver(InjectionPointSubResolvers.EXTRACTED_CALL);
         addSubResolver(InjectionPointSubResolvers.EXTRACTED_CODEPATH_CALL);
-        // Last on purpose: this is the most structural guess of the lot (the member moved to a different
-        // class entirely), so it only gets a turn once every narrower strategy has declined.
+        // Last on purpose: this is the most structural guess, so every narrower strategy declines first.
         addSubResolver(new RelocatedMemberSubResolver());
     }
 
@@ -49,11 +48,8 @@ public class InjectionPointResolver extends CompoundResolver {
         // Try reusing the original
         List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(dirtyTarget);
         if (insns.isEmpty() && context.methodAnnotation().getNested("constant").isPresent()) {
-            // @ModifyConstant has no @At: its injection point IS the constant. The @At-based lookup above can
-            // therefore never match it, and the whole resolver reported "failed resolver InjectionPointResolver"
-            // even after the target method had been retargeted to where the constant moved. Ask the constant
-            // point instead. (Reference case: carpet's @ModifyConstant(intValue = 16) on Level#setBlock, whose
-            // code NeoForge moved into Level#markAndNotifyBlock.)
+            // @ModifyConstant has no @At, so the lookup above can never match it even after the target method
+            // was retargeted; ask the constant point instead.
             insns = context.methods().computeInjectionTargetInsns(
                 dirtyTarget,
                 () -> context.methodAnnotation().getNested("constant").orElse(null),

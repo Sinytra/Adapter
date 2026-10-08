@@ -21,9 +21,7 @@ public final class PatchEnvironmentImpl implements PatchEnvironment {
     private final AuditTrail auditTrail;
     private final @Nullable Collection<String> pkgNamespaces;
     
-    // The transformer processes classes in parallel (ForkJoinPool via AsyncHelper), so this cache is
-    // touched from multiple threads. A plain HashMap.computeIfAbsent throws ConcurrentModificationException
-    // under concurrent modification (and also when the mapping function re-enters this method).
+    // Classes are processed in parallel, so the cache is shared across threads.
     private final Map<ClassLookup, InheritanceHandler> inheritanceHandlers = new ConcurrentHashMap<>();
 
     public PatchEnvironmentImpl(
@@ -80,8 +78,7 @@ public final class PatchEnvironmentImpl implements PatchEnvironment {
 
     @Override
     public InheritanceHandler inheritanceHandler(ClassLookup lookup) {
-        // get-then-putIfAbsent instead of computeIfAbsent: the handler constructor can re-enter this
-        // method, which ConcurrentHashMap.computeIfAbsent would reject as a recursive update.
+        // Not computeIfAbsent: the handler constructor can re-enter this method.
         InheritanceHandler existing = this.inheritanceHandlers.get(lookup);
         if (existing != null) {
             return existing;

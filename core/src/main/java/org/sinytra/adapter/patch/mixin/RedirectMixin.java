@@ -58,12 +58,8 @@ public class RedirectMixin implements MixinType {
         if (clean.getAtData() == null)
             return TxResult.FAIL;
         if (!MixinAnnotationConstants.AT_VAL_INVOKE.equals(clean.getAtData().getValue())) {
-            // @Redirect is legal for FIELD (and other) targets too - e.g. carpet's
-            // @Redirect(method = "causeExtraKnockback", at = @At(value = "FIELD",
-            // target = "Lnet/minecraft/world/entity/Entity;hurtMarked:Z")). Failing unconditionally here
-            // dropped such mixins outright even though the referenced member still exists and needs no
-            // rewriting. Model the handler as written and let the pipeline's "does the injection point still
-            // resolve?" check decide instead.
+            // @Redirect is also legal for FIELD targets. Failing unconditionally dropped such mixins even
+            // when the referenced member still exists, so model the handler and let the pipeline decide.
             clean.setParameters(MethodParameters.create(context.methodNode(),
                 List.of(MethodParameters.ParamGroup.SINGLE_ANY)));
             clean.setReturnType(Type.getReturnType(context.methodNode().desc));
@@ -102,8 +98,7 @@ public class RedirectMixin implements MixinType {
         if (dirty.getTargetMethod() == null)
             return TxResult.FAIL;
 
-        // A non-INVOKE @Redirect (e.g. FIELD) targets a member, not a call: there is no method to
-        // resolve or re-describe, and the ref the mod wrote stays valid. Nothing to adapt.
+        // A non-INVOKE @Redirect targets a member, not a call: nothing to resolve and the ref stays valid.
         if (!MixinAnnotationConstants.AT_VAL_INVOKE.equals(dirty.getAtData().getValue()))
             return TxResult.SUCCESS;
 
@@ -111,13 +106,8 @@ public class RedirectMixin implements MixinType {
         if (targetDesc == null || targetDesc.desc() == null)
             return TxResult.FAIL;
 
-        // Locate the call this @At addresses. The injection point IS a call instruction inside the method
-        // being injected into, so find it THERE rather than resolving the @At's target through a class
-        // lookup. That lookup has to see the declaring class, and NeoForge routinely declares such members on
-        // its extension INTERFACES (BlockState implements IBlockStateExtension, which declares canStickTo) -
-        // a lookup of the @At's owner then misses it and the mixin is dropped as "failed postProcess". The
-        // call itself carries the real owner and descriptor regardless. What we find here is also exactly
-        // what Mixin binds to, so the handler is built to match.
+        // Find the call inside the patched method instead of resolving the @At's owner through a class lookup:
+        // NeoForge declares such members on extension interfaces, which that lookup misses.
         TargetPair injected = context.methods().findOwnMethodPair(context.dirtyLookup(), dirty.getTargetMethod());
         MethodInsnNode callInsn = null;
         if (injected != null) {
@@ -127,10 +117,7 @@ public class RedirectMixin implements MixinType {
                     calls.add(mi);
                 }
             }
-            // Several call sites to the SAME member are normal and expected - Mixin's @At without an ordinal
-            // addresses the member, not one occurrence (carpet calls canStickTo twice inside addBlockLine).
-            // What has to be unambiguous is which MEMBER it is, so compare the distinct owner+name+descriptor
-            // rather than the instruction count.
+            // Several call sites are normal; what must be unambiguous is the distinct owner+name+descriptor.
             if (calls.stream().map(c -> c.owner + c.name + c.desc).distinct().limit(2).count() == 1) {
                 callInsn = calls.getFirst();
             }
@@ -138,23 +125,17 @@ public class RedirectMixin implements MixinType {
 
         TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), targetDesc);
         if (dirtyTarget == null) {
-            // Fall back to the descriptor being ignored (MethodQualifier#ignoreDesc leaves desc null, which
-            // matches any descriptor) - the same owner+name strategy ChangedMemberDescriptorSubResolver
-            // applies to call sites.
+            // Fall back to owner+name only, the same strategy ChangedMemberDescriptorSubResolver uses.
             dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), targetDesc.ignoreDesc());
         }
-        // Either the call itself or a resolvable target is enough - see the comment above for why the call is
-        // the better source when both exist.
+        // Either the call or a resolvable target is enough.
         if (dirtyTarget == null && callInsn == null)
             return TxResult.FAIL;
 
         List<Type> dirtyCaptured = context.methods().resolveCapturedMethodParams(recipe.clean(), recipe.dirty());
 
-        // Build the handler's parameter model from the call we located when there is one. Deriving it from the
-        // resolved method instead is what broke carpet's updateNeighborsMaybe: the @At names the CALL
-        // (Level#updateNeighborsAt(BlockPos, Block)V, still 2-arg) while the method DECLARATION gained an
-        // Orientation parameter, so the two disagree and Mixin rejected the handler.
-        // See 12-issue草案.md entry 15.
+        // Prefer the call: the @At may name a call whose descriptor differs from the (since changed) method
+        // declaration, and Mixin binds the handler to the call.
         List<Type> callTypes = callInsn != null
             ? Parameters.getParameterTypes(callInsn.desc)
             : Parameters.getParameterTypes(targetDesc.desc());

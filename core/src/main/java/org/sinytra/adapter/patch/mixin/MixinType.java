@@ -31,14 +31,8 @@ public interface MixinType {
     }
 
     /**
-     * Types whose target is not named by a {@code method} property derive it from the mixin method
-     * itself: {@code @Overwrite} replaces the method of the same name, while {@code @Invoker} calls
-     * the method named by its {@code value} (falling back to {@code callXxx} -&gt; {@code xxx}).
-     * <p>
-     * Parsers use this to fill in the target qualifier before the usual resolution runs.
-     *
-     * @return the qualifier to use as {@code TARGET_METHOD}, or {@code null} when this type does not
-     * derive one
+     * Derives the target qualifier from the mixin method for types whose target is not named by a
+     * {@code method} property, e.g. {@code @Overwrite} and {@code @Invoker}.
      */
     @Nullable
     default MethodQualifier deriveTarget(PropertyContainer properties, MethodNode method) {
@@ -46,21 +40,14 @@ public interface MixinType {
     }
 
     /**
-     * Whether this handler targets a method (and therefore belongs in the method-target pipeline).
-     * <p>
-     * {@code @Accessor} returns {@code false}: it exposes a field, so the method-first pipeline would
-     * report every accessor as unadapted. Such types instead implement
-     * {@link #validateNonMethodTarget(MixinContext, Configuration)} and are dispatched there.
+     * Whether this handler targets a method and therefore belongs in the method-target pipeline.
+     * {@code @Accessor} returns false.
      */
     default boolean targetsMethod() {
         return true;
     }
 
-    /**
-     * Validation for types that opted out of the method pipeline via {@link #targetsMethod()}.
-     * Implementations must record an audit result themselves - the pipeline does not run for them.
-     * The default does nothing, so no result is recorded and the mixin stays invisible.
-     */
+    /** Validation for types that opted out of the method pipeline; they must record their own audit result. */
     default void validateNonMethodTarget(MixinContext context, Configuration config) {
     }
 

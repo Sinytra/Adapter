@@ -25,17 +25,9 @@ public class DynamicPatches {
         return ImmutableMultimap.of(
             TxPhase.LOADED, new FieldAccessorTypeTransformer(),
             TxPhase.VALIDATED, new PipelineMethodTransformer(patches, false),
-            // Captured-locals ("locals = LocalCapture...") signatures have to be re-derived from the PATCHED
-            // method at the ADAPTED injection point, so this has to run after the pipeline: only then has
-            // preProcess/the pipeline finished rewriting "method" and "at". Running it earlier (it used to be
-            // in EARLY) meant it read the pre-adaptation target, found no injection point, and quietly left a
-            // stale capture list behind - which Mixin then aborted on at runtime ("Critical injection failure:
-            // LVT in ...", exactly what CAPTURE_FAILHARD is for).
-            //
-            // This ordering only became safe once Patcher#normalizeParameterAnnotations also re-derived the
-            // annotableParameterCount values; without that, adding the captured parameters here while the
-            // pipeline had already changed the descriptor threw ArrayIndexOutOfBoundsException inside ASM and
-            // failed the whole mod's transform.
+            // Must run after the pipeline: captured-locals signatures are re-derived from the patched method
+            // at the adapted injection point. Safe only because Patcher#normalizeParameterAnnotations keeps the
+            // parameter annotation counts in sync when captured parameters are added here.
             TxPhase.VALIDATED, new LocalCaptureUpgradeTransformer()
         );
     }

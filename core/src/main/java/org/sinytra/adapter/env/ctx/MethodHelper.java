@@ -247,15 +247,7 @@ public class MethodHelper {
         return getTargetMethodLocals(target, findInjectionTargetInsns(target), startPos, lvtCompatLevel);
     }
 
-    /**
-     * Like {@link #findInjectionTargetInsns(TargetPair)}, but locates the injection point from the given
-     * {@code @At} data rather than from the annotation as originally written.
-     * <p>
-     * Adaptation can rewrite {@code @At}, after which the raw annotation points at an injection site that
-     * no longer exists. Anything derived from that site - notably the locals captured by a
-     * {@code locals = LocalCapture...} handler - would then be computed from the wrong place, or not at
-     * all.
-     */
+    /** Like {@link #findInjectionTargetInsns(TargetPair)}, but from the given {@code @At} data. */
     public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable TargetPair target, @Nullable AtData atData) {
         if (target == null) return List.of();
         if (atData == null) return findInjectionTargetInsns(target);
@@ -274,10 +266,7 @@ public class MethodHelper {
         );
     }
 
-    /**
-     * Variant of {@link #getTargetMethodLocals(TargetPair)} that uses the effective {@code @At} data.
-     * See {@link #findInjectionTargetInsns(TargetPair, AtData)}.
-     */
+    /** Variant of {@link #getTargetMethodLocals(TargetPair)} using the effective {@code @At} data. */
     @Nullable
     public List<LocalVariable> getTargetMethodLocals(TargetPair target, @Nullable AtData atData) {
         Type[] targetParams = Type.getArgumentTypes(target.methodNode().desc);

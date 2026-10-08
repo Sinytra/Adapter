@@ -18,18 +18,9 @@ import org.sinytra.adapter.patch.resolver.Resolvers;
 import org.sinytra.adapter.util.MethodQualifier;
 
 /**
- * Handles {@code @Invoker} mixins.
- * <p>
- * Like {@code @Accessor}, an invoker is an <em>interface mixin</em>: Mixin <em>generates</em> a
- * method that calls the target, it does not inject into an existing method body. Running the
- * method-target injection pipeline on it therefore always finds no injection point and reports a
- * failure, which is why this type opts out with {@link #targetsMethod()} and validates itself
- * instead - the target method named by {@code value} (or {@code callXxx} -&gt; {@code xxx}) is looked
- * up in the patched target class, and only a genuinely missing method is reported.
- * <p>
- * Registering the type matters for the same reason as the others: before this, {@code MixinParser}
- * skipped invokers entirely, so an invoker whose target had moved stayed in the jar and failed at
- * runtime. {@code @Invoker} appears in 23 of the 46 mods of the reference corpus.
+ * Handles {@code @Invoker} mixins. Like {@code @Accessor} an invoker is an interface mixin - Mixin generates a
+ * method that calls the target rather than injecting into a body - so the injection pipeline would always
+ * report a failure. It opts out with {@link #targetsMethod()} and looks the named method up instead.
  */
 public class InvokerMixin implements MixinType {
     private static final PropertyContainerTemplate TEMPLATE = PropertyContainerTemplate.builder()
@@ -72,10 +63,7 @@ public class InvokerMixin implements MixinType {
             found ? AuditTrail.Match.FULL : AuditTrail.Match.NONE);
     }
 
-    /**
-     * The invoker names its target with {@code value}; without one Mixin falls back to the handler's
-     * own name with a {@code call}/{@code invoke}/{@code invoker} prefix removed.
-     */
+    /** The invoker names its target with {@code value}; without one Mixin strips a call/invoke prefix. */
     @Nullable
     @Override
     public MethodQualifier deriveTarget(PropertyContainer properties, MethodNode method) {

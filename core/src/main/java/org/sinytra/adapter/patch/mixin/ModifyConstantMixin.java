@@ -22,23 +22,9 @@ import java.util.List;
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.SINGLE_ANY;
 
 /**
- * Handles {@code @ModifyConstant} mixins.
- * <p>
- * Unlike the other handlers, {@code @ModifyConstant} does not carry an {@code @At}: the injection
- * point is derived from the {@code @Constant} annotation itself. The pipeline already knows how to
- * locate such constants ({@link PipelineMethodTransformer#computeConstantTargetInsns}), but until
- * this type existed the annotation was not registered in {@link MixinTypes}, so
- * {@code MixinParser} skipped the method outright: it was never resolved, never validated and never
- * recorded. A handler whose target constant had moved therefore stayed in the transformed jar and
- * blew up at runtime with {@code InjectionError: ... failed injection check, (0/1) succeeded}.
- * <p>
- * Registering the type fixes two things at once:
- * <ul>
- *     <li>mixins whose constant still resolves take the pipeline's normal path, and</li>
- *     <li>mixins whose constant no longer exists fail in {@link #postProcess} - which both drops
- *     them from the jar and, crucially, records the failure so Connector's mixin safeguard can
- *     refuse the mod instead of letting the game crash later.</li>
- * </ul>
+ * Handles {@code @ModifyConstant} mixins, which carry no {@code @At}: the injection point comes from the
+ * {@code @Constant} annotation. Handlers whose constant no longer resolves fail in {@link #postProcess}, so
+ * they are dropped and reported rather than left in the jar to abort at runtime.
  */
 public class ModifyConstantMixin implements MixinType {
     private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_BASE.extend()
@@ -53,7 +39,6 @@ public class ModifyConstantMixin implements MixinType {
 
     @Override
     public TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers, Processors processors) {
-        // The handler receives the constant it replaces and returns the replacement value.
         clean.setParameters(MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY)));
 
         return TxResult.SUCCESS;
@@ -63,19 +48,15 @@ public class ModifyConstantMixin implements MixinType {
     public TxResult postProcess(MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
         dirty.inheritProperyIfAbsent(MixinKeys.ORDINAL);
 
-        // The template declares TARGET_CONSTANT, but nothing ever put a value in it: PropertyProcessor only
-        // forwards keys that are ALREADY set, it does not read them off the annotation. A dirty config with
-        // "constant" missing therefore failed validation ("invalid DIRTY config") and the mixin was dropped --
-        // even after its target had been successfully retargeted to the method the constant moved into.
+        // PropertyProcessor only forwards keys that are already set, so TARGET_CONSTANT has to be read off the
+        // annotation here; without it the dirty config fails validation and the mixin is dropped.
         if (!dirty.hasProperty(MixinKeys.TARGET_CONSTANT)) {
             context.methodAnnotation().getNested("constant")
                 .flatMap(ConstantData::parse)
                 .ifPresent(constant -> dirty.setProperty(MixinKeys.TARGET_CONSTANT, constant));
         }
 
-        // MIXIN_BASE.require() mandates PARAMETERS and RETURN_TYPE, and every other mixin type populates both
-        // here. This one did not, so its dirty config never validated ("invalid DIRTY config") and the handler
-        // was dropped - even once its target had been retargeted and its constant resolved.
+        // MIXIN_BASE.require() mandates PARAMETERS and RETURN_TYPE, which every mixin type populates here.
         dirty.setParameters(MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY)));
         dirty.setReturnType(Type.getReturnType(context.methodNode().desc));
 
@@ -88,8 +69,7 @@ public class ModifyConstantMixin implements MixinType {
             return TxResult.FAIL;
         }
 
-        // Ask the same machinery the pipeline uses, so that "can this constant be found?" is answered
-        // exactly the way Mixin will answer it at runtime.
+        // Use the pipeline's own machinery so the answer matches what Mixin does at runtime.
         List<AbstractInsnNode> constantInsns = context.methods().computeInjectionTargetInsns(
             dirtyTarget,
             () -> context.methodAnnotation().getNested("constant").orElse(null),

@@ -31,9 +31,8 @@ public final class LocalVarAnalyzer {
     }
 
     /**
-     * @param atData the effective {@code @At} data, or {@code null} to fall back to the annotation as written.
-     *               Adaptation may have moved the injection site, in which case the locals available there
-     *               have to be read from the new one.
+     * @param atData the effective {@code @At} data, or {@code null} to fall back to the annotation as written
+     *               (adaptation may have moved the injection site)
      */
     @Nullable
     public static CapturedLocalsInfo getCapturedLocals(MixinContext context, TargetPair dirtyTarget, @Nullable AtData atData) {

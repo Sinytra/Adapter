@@ -26,11 +26,8 @@ public class TargetMethodProcessor implements Processor {
         AdapterUtil.CapturedLocals capturedLocals = AdapterUtil.getCapturedLocals(context, recipe);
         if (capturedLocals == null) return;
 
-        // NOTE: passing recipe.dirty().getAtData() here (to read the locals at the ADAPTED injection point)
-        // changes this processor from "no-op" to "rewrites the handler's parameter list" for far more
-        // mixins, which in testing broke unrelated mods (owo-lib failed with ClassNotFoundException while
-        // unused parameters were being removed mid-pipeline). Enable it together with the parameter
-        // annotation fix, not before.
+        // NOTE: passing the adapted @At data here makes this processor rewrite the parameter list of far
+        // more mixins and broke unrelated mods; enable it only together with the parameter annotation fix.
         List<LocalVariable> availableLocals = context.methods().getTargetMethodLocals(capturedLocals.target());
         // For now, only handle cases where all locals are part of the method's params, convenient when switching the target to a lambda
         if (availableLocals == null || !availableLocals.isEmpty()) return;

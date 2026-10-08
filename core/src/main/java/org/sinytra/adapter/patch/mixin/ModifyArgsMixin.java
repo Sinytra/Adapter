@@ -19,13 +19,8 @@ import java.util.List;
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.SINGLE_ANY;
 
 /**
- * Handles {@code @ModifyArgs} mixins.
- * <p>
- * The handler signature is fixed - {@code void handler(Args args)} - no matter what the injection
- * point looks like, so unlike {@link ModifyArgMixin} there is no argument type to re-derive. The
- * work here is registering the type at all: previously {@code MixinParser} skipped it, so a
- * {@code @ModifyArgs} mixin that could not be injected was neither adapted nor recorded and only
- * blew up at runtime.
+ * Handles {@code @ModifyArgs} mixins. The handler signature is fixed - {@code void handler(Args args)} -
+ * whatever the injection point looks like, so there is no argument type to re-derive.
  */
 public class ModifyArgsMixin implements MixinType {
     private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
@@ -51,8 +46,7 @@ public class ModifyArgsMixin implements MixinType {
     public TxResult postProcess(MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
         dirty.inheritProperyIfAbsent(MixinKeys.ORDINAL);
 
-        // The handler always takes the argument list and returns void, so its signature never has to
-        // follow the (possibly re-targeted) injection point.
+        // The handler always takes the argument list and returns void.
         dirty.inheritParameters();
         dirty.inheritReturnType();
 

@@ -8,11 +8,7 @@ import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.Slice;
 
 /**
- * ASM turns a repeated annotation into a List, and a parser that assumes a single annotation then either
- * dereferences null or casts the list straight to AnnotationNode - either way aborting the transform for the
- * whole mod instead of skipping the property. TARGET_CONSTANT had exactly that bug: the repeated {@code constant}
- * below used to reach {@code new AnnotationHandle(null)} and throw a NullPointerException inside MixinParser
- * (reference case: shuttfup's DefaultLANPort). This fixture is the real-world shape that has to be parsed.
+ * Fixture for the real-world shape of a repeated annotation, which ASM stores as a List.
  */
 @Mixin(LivingEntity.class)
 public class RepeatedAnnotationsMixin {

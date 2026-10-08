@@ -81,9 +81,8 @@ public class Patcher {
         MixinGroups groups = MixinGroups.create(mixinClass.mixins().stream().map(MixinMethodHandle::methodNode).toList());
         this.environment.auditTrail().processGroups(classNode, groups);
 
-        // Must be the very last thing: context.run() applies deferred changes that can still add parameter
-        // annotations, and ASM sizes their arrays from the descriptor as it stood when the array was first
-        // created, so they can end up shorter than the descriptor.
+        // Must run last: context.run() can still add parameter annotations, and ASM sizes their arrays from
+        // the descriptor as it stood when the array was created, so they can end up shorter.
         if (normalizeParameterAnnotations(classNode)) {
             result = result.or(PatchResult.COMPUTE_FRAMES);
         }
@@ -91,16 +90,10 @@ public class Patcher {
         return result;
     }
 
-    /**
-     * See PipelineMethodTransformer#skip: every "give up quietly" exit must record the mixin,
-     * otherwise it disappears from the audit trail and the jar is reported as compatible.
-     */
+    /** See PipelineMethodTransformer#skip: every give-up exit must record the mixin, or the jar is reported as compatible. */
     private static PatchResult skip(MixinContext context, org.sinytra.adapter.patch.config.Configuration config, String reason) {
         context.environment().auditTrail().recordResult(context, config, org.sinytra.adapter.env.ctx.AuditTrail.Match.NONE);
-        // The early exits in #processMixin run OUTSIDE any pushAudit/popAudit frame (only the EARLY/LOADED/
-        // VALIDATED transformer loops open one), so recordCtxAudit used to throw here and the reason was
-        // swallowed - the mixin showed up in the failure list with no explanation at all, which is very
-        // expensive to diagnose. Open a frame so the reason is always reported.
+        // These early exits run outside any pushAudit/popAudit frame, so open one to report the reason.
         context.pushAudit(SKIP_REASON_FRAME);
         try {
             context.recordCtxAudit("Skipped mixin: %s", reason);
@@ -123,9 +116,7 @@ public class Patcher {
     private PatchResult processMixin(ClassNode classNode, ClassTarget classTarget, PatchContext patchContext, MixinParser.MixinMethodHandle mixin, List<MixinParser.MixinMethodHandle> failed) {
         MixinType handlerType = mixin.mixinType();
 
-        // Types that do not target a method (@Accessor exposes a field) have no TARGET_METHOD, so the
-        // early return below used to drop them silently: no adaptation, no audit entry, nothing.
-        // Dispatch them to their own validation instead, which records the result itself.
+        // Types without a method target (@Accessor) carry no TARGET_METHOD; send them to their own validation.
         if (!handlerType.targetsMethod()) {
             MixinContext nonMethodContext = new MixinContext(handlerType, patchContext, classTarget, classNode,
                 mixin.methodNode(), mixin.methodAnnotation(), null, handlerType.getFlags());
@@ -200,20 +191,16 @@ public class Patcher {
             result = result.or(txResult);
         }
 
-        // A "locals = LocalCapture..." handler's capture list is compiled against the injection site as it
-        // was when the mod was built, and Mixin aborts at runtime when that list no longer lines up with the
-        // patched method ("Critical injection failure: LVT in ..." - CAPTURE_FAILHARD exists to do exactly
-        // that). LocalCaptureUpgradeTransformer marks the config once it has confirmed or re-derived the
-        // list; a handler without that mark cannot be trusted, so treat it as failed. Note this cannot go
-        // through the audit trail: Match.or() is a maximum, so a later success would overwrite a NONE.
+        // A "locals = LocalCapture..." list is compiled against the injection site as it was when the mod was
+        // built, and Mixin aborts at runtime when it no longer lines up. A handler without the mark set by
+        // LocalCaptureUpgradeTransformer is failed via the failure list, as Match.or() would overwrite a NONE.
         if (configuration.hasProperty(MixinKeys.LOCALS)
             && !configuration.hasProperty(SpecialKeys.LOCALS_UPGRADED)) {
             LOGGER.debug(MIXINPATCH, "Mixin {} captures locals that could not be verified; it would abort at runtime", mixinId);
             failed.add(mixin);
         }
 
-        // A resolver failure inside the pipeline records Match.NONE rather than throwing, so the audit
-        // trail is the only place that knows this handler did not make it.
+        // A resolver failure records Match.NONE rather than throwing, so the audit trail is the only witness.
         if (this.environment.auditTrail().getMatch(mixinContext) == AuditTrail.Match.NONE) {
             failed.add(mixin);
         }
@@ -221,13 +208,7 @@ public class Patcher {
         return result;
     }
 
-    /**
-     * Removes handlers that could not be adapted, so Mixin never registers them and the mod loads with
-     * those features disabled instead of crashing at runtime.
-     * <p>
-     * A handler is only removed when nothing else in the class calls it - dropping a referenced method
-     * would produce a broken class, which is worse than the failure we are working around.
-     */
+    /** Removes handlers that could not be adapted so Mixin never registers them; only when nothing calls them. */
     private PatchResult stripFailedMixins(ClassNode classNode, List<MixinParser.MixinMethodHandle> failed) {
         boolean removedAny = false;
         for (MixinParser.MixinMethodHandle mixin : failed) {
@@ -248,25 +229,8 @@ public class Patcher {
     }
 
     /**
-     * Keeps a method's parameter-annotation bookkeeping consistent with its descriptor.
-     * <p>
-     * ASM tracks two separate things: the annotation arrays themselves, and
-     * {@code visible/invisibleAnnotableParameterCount} - the {@code num_parameters} value of the
-     * RuntimeVisible/InvisibleParameterAnnotations attributes, which {@code MethodWriter} copies straight
-     * into its own arrays and then walks in
-     * {@code AnnotationWriter.computeParameterAnnotationsSize(String, AnnotationWriter[], int)}:
-     * <pre>
-     *   for (int i = 0; i &lt; annotableParameterCount; ++i) {
-     *     AnnotationWriter annotationWriter = annotationWriters[i];   // &lt;- IndexOutOfBounds here
-     * </pre>
-     * Transformers here add and remove handler parameters, so a count captured for the old descriptor
-     * outlives the array that matched it and the write blows up with
-     * {@code ArrayIndexOutOfBoundsException: Index N out of bounds for length N}. Because the failure
-     * happens while writing - outside this method - it takes the whole mod's transform down.
-     * <p>
-     * Resizing the arrays alone is not enough; the counts have to be re-derived too.
-     *
-     * @return whether anything changed
+     * Keeps a method's parameter-annotation arrays and counts in sync with its descriptor; a stale count
+     * aborts the whole mod's transform inside ASM's {@code MethodWriter}.
      */
     private static boolean normalizeParameterAnnotations(ClassNode classNode) {
         boolean changed = false;

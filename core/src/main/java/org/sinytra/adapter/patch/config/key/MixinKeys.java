@@ -43,10 +43,8 @@ public class MixinKeys {
         .build();
     public static final PropertyKey<ConstantData> TARGET_CONSTANT = PropertyKey.<ConstantData>builder("constant")
         .parser((value, mapper) -> {
-            // Same null guard as TARGET_AT above. Without it, a @ModifyConstant whose "constant" is not a single
-            // annotation (a repeated/array form, or a plain int) reached new AnnotationHandle(null) and blew up
-            // with a NullPointerException inside MixinParser - which aborted the whole transform for that mod
-            // instead of simply skipping the property. Reference case: shuttfup's DefaultLANPort.
+            // Same null guard as TARGET_AT above: "constant" is not always a single annotation, and the null
+            // would reach new AnnotationHandle(null) inside MixinParser and abort the whole transform.
             AnnotationNode node = ControlKeys.parseSingle(value, AnnotationNode.class);
             if (node == null) return null;
 
@@ -63,12 +61,8 @@ public class MixinKeys {
     public static final PropertyKey<Integer> ORDINAL = PropertyKey.create("ordinal", Integer.class);
     public static final PropertyKey<Boolean> ARGS_ONLY = PropertyKey.create("argsOnly", Boolean.class);
     public static final PropertyKey<SliceData> SLICE = PropertyKey.<SliceData>builder("slice")
-        // ASM stores a repeated annotation as a List, so the bare cast (AnnotationNode) value threw
-        // ClassCastException: ArrayList cannot be cast to AnnotationNode, aborting the transform for the whole mod.
-        // parseSingle unwraps the single-element case and yields null otherwise ("no slice"; the multi-element
-        // form is handled by SLICES above). A/B verified: this does NOT change carpet's outcome - the
-        // onBlockBroken/onExplosionDone strip count stayed identical with and without this change.
-        // Reference case: cookeymod (CRASH -> 61/7).
+        // A repeated annotation arrives as a List, so the bare cast to AnnotationNode throws; parseSingle
+        // unwraps the single element and yields null otherwise (the multi-element form is handled by SLICES).
         .parser((value, mapper) -> {
             AnnotationNode node = ControlKeys.parseSingle(value, AnnotationNode.class);
             return node == null ? null : SliceData.parse(new AnnotationHandle(node), mapper);

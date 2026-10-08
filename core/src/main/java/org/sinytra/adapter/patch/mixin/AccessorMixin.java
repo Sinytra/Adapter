@@ -14,17 +14,8 @@ import org.sinytra.adapter.patch.processor.Processors;
 import org.sinytra.adapter.patch.resolver.Resolvers;
 
 /**
- * Handles {@code @Accessor} mixins.
- * <p>
- * Accessors are the one handler that does <em>not</em> target a method at all: they expose a field of
- * the target class. The usual pipeline is method-first - {@code PipelineMethodTransformer.apply}
- * resolves a target method before doing anything else and records a failure when it cannot - so
- * simply registering this type would have marked <em>every</em> accessor as unadapted
- * ({@code @Accessor} appears in 280 classes across 31 mods of the reference corpus) and made
- * Connector's mixin safeguard reject all of them.
- * <p>
- * That is why this type opts out with {@link #targetsMethod()} and validates itself instead: the
- * field is looked up in the patched target class and only a genuinely missing field is reported.
+ * Handles {@code @Accessor} mixins, the one handler that does not target a method at all. It opts out with
+ * {@link #targetsMethod()} because the method-first pipeline would mark every accessor as unadapted.
  */
 public class AccessorMixin implements MixinType {
     private static final PropertyContainerTemplate TEMPLATE = PropertyContainerTemplate.builder()
@@ -69,10 +60,7 @@ public class AccessorMixin implements MixinType {
             found ? AuditTrail.Match.FULL : AuditTrail.Match.NONE);
     }
 
-    /**
-     * Mixin infers the field for {@code @Accessor} from the method name when no value is given:
-     * {@code getFoo}/{@code setFoo}/{@code isFoo} access the field {@code foo}.
-     */
+    /** Mixin infers the field from the method name when no value is given: {@code getFoo} accesses {@code foo}. */
     private static String inferFieldName(String methodName) {
         String base;
         if (methodName.startsWith("get") || methodName.startsWith("set")) {

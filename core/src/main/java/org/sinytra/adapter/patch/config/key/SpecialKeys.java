@@ -16,9 +16,8 @@ public final class SpecialKeys {
     public static final PropertyKey<Consumer<InstructionAdapter>> REDIRECT_ADAPTER = PropertyKey.create("_redirect_adapter");
     public static final PropertyKey<Boolean> STATIC = PropertyKey.create("_static");
     /**
-     * Set by {@code LocalCaptureUpgradeTransformer} once it has re-derived a {@code locals = LocalCapture...}
-     * handler's capture list. {@code Patcher} uses it to tell an upgraded capture apart from one it could
-     * not verify, instead of inferring that from the audit trail.
+     * Set by {@code LocalCaptureUpgradeTransformer} once it has re-derived a capture list, so {@code Patcher}
+     * can tell an upgraded capture apart from one it could not verify.
      */
     public static final PropertyKey<Boolean> LOCALS_UPGRADED = PropertyKey.create("_locals_upgraded");
 

@@ -78,9 +78,8 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
 
     @Test
     void testRepeatedAnnotationsAreParsed() throws Exception {
-        // ASM stores a repeated annotation as a List. TARGET_CONSTANT used to dereference the null result of
-        // parseSingle and throw a NullPointerException inside MixinParser, aborting the transform for the whole
-        // mod instead of skipping the property. Verified by removing that null guard again: this test fails.
+        // TARGET_CONSTANT used to dereference the null result of parseSingle for a repeated annotation and
+        // abort the transform for the whole mod. This test fails again if that null guard is removed.
         LoadResult result = load(
             "org/sinytra/adapter/test/mc_26_1_2/mixin/RepeatedAnnotationsMixin",
             List.of("repeatedAnnotations")

@@ -18,17 +18,8 @@ import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_INVOK
 import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_INVOKE_ASSIGN;
 
 /**
- * Handles injection points whose target member survived but changed its descriptor.
- * <p>
- * Example: {@code Level.updateNeighborsAt(BlockPos, Block)} became
- * {@code Level.updateNeighborsAt(BlockPos, Block, Orientation)}. The owner and name still match, so the
- * call site is still there - only the original {@code @At} descriptor no longer matches anything, which
- * made the whole injection point unresolvable.
- * <p>
- * {@link OverloadedInjectionPointSubResolver} covers a related but narrower situation (the old
- * overload is still present and marked {@code @Deprecated}); when the old member is gone entirely that
- * resolver bails out, which is exactly the case handled here. Note that this is deliberately
- * conservative: the replacement has to be unambiguous, otherwise changing the target would be a guess.
+ * Handles injection points whose target member survived but changed its descriptor, e.g. a method that gained
+ * a parameter; only the old {@code @At} descriptor is stale.
  */
 public class ChangedMemberDescriptorSubResolver implements SubResolver {
     @Nullable
@@ -70,7 +61,6 @@ public class ChangedMemberDescriptorSubResolver implements SubResolver {
 
         MethodInsnNode call = calls.getFirst();
         if (call.desc.equals(original.desc())) {
-            // Descriptor unchanged - this resolver has nothing to contribute.
             return null;
         }
 

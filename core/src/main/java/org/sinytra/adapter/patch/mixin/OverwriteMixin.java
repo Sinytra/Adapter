@@ -21,23 +21,12 @@ import java.util.List;
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.METHOD_PARAMS;
 
 /**
- * Handles {@code @Overwrite} mixins.
- * <p>
- * {@code @Overwrite} is the one handler that carries no target information at all: it replaces the
- * target method wholesale, and the target is identified by the <em>handler's own name</em>. That is
- * why it needs {@link MixinType#derivesTargetFromMixinMethod()} and a template that does not require
- * {@code method} - see {@code MixinParser}, which fills in the qualifier (name only) so the usual
- * "resolve by name inside the target class" step can complete it.
- * <p>
- * Registering the type is what makes an unadaptable overwrite visible: previously
- * {@code MixinParser} skipped it entirely, so a handler whose target had moved stayed in the jar
- * and failed only at runtime.
+ * Handles {@code @Overwrite} mixins, the one handler that carries no target information at all: it replaces
+ * the target method wholesale and is identified by the handler's own name, which {@link MixinType#deriveTarget}
+ * supplies (name only) so the usual name resolution can complete it.
  */
 public class OverwriteMixin implements MixinType {
-    /**
-     * Note the difference from {@code MIXIN_BASE}: {@code TARGET_METHOD} is not required, because
-     * {@code @Overwrite} has no {@code method} property - it is derived from the handler instead.
-     */
+    /** TARGET_METHOD is not required here: {@code @Overwrite} derives it from the handler. */
     private static final PropertyContainerTemplate TEMPLATE = PropertyContainerTemplate.builder()
         .require(ControlKeys.MIXIN_TYPE, ControlKeys.TARGET_CLASS, ControlKeys.PARAMETERS, ControlKeys.RETURN_TYPE)
         .keys(MixinKeys.LOCALS, MixinKeys.REQUIRE)
@@ -51,7 +40,6 @@ public class OverwriteMixin implements MixinType {
 
     @Override
     public MethodQualifier deriveTarget(PropertyContainer properties, MethodNode method) {
-        // @Overwrite has no target information: it replaces the method with its own name.
         return new MethodQualifier(method.name, null);
     }
 
@@ -66,7 +54,6 @@ public class OverwriteMixin implements MixinType {
     @Override
     public TxResult postProcess(MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
         if (dirty.getTargetMethod() == null || dirty.getTargetMethod().desc() == null) {
-            // No method of that name exists in the patched target class any more.
             return TxResult.FAIL;
         }
 
