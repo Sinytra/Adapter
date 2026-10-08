@@ -6,8 +6,10 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.env.ctx.MethodHelper;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
+import org.sinytra.adapter.util.MethodQualifier;
 import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
@@ -60,6 +62,19 @@ public class ExtractMixinProcessor implements Processor {
         Candidates candidates = findCandidates(classNode, methodNode);
         if (!candidates.canMove(classNode, isInherited)) return PatchResult.PASS;
 
+        // The member may have moved to a STATIC method on the new target, which Mixin rejects outright.
+        // StaticAccessProcessor runs before extraction and cannot catch it, so the modifier is synced here -
+        // decided before anything is moved, since a body reading local 0 cannot be made static.
+        MethodQualifier movedTarget = recipe.dirty().getTargetMethod();
+        TargetPair movedPair = movedTarget == null ? null
+            : context.methods().findOwnMethodPair(context.dirtyLookup(), movedTarget);
+        boolean syncModifier = movedPair != null && MethodHelper.isStatic(movedPair.methodNode()) && !MethodHelper.isStatic(methodNode);
+        if (syncModifier && readsReceiverSlot(methodNode)) {
+            // A @Shadow access compiles to "aload 0 + getfield/invokevirtual", which Candidates#canMove lets
+            // through, but a static target has no receiver. Bail out so Patcher#stripFailedMixins drops it.
+            return PatchResult.PASS;
+        }
+
         ClassNode targetClass = context.environment().dirtyClassLookup().getClass(targetClassName).orElse(null);
         // Get or generate new mixin class
         ClassNode generatedTarget = context.environment().classGenerator().getOrGenerateMixinClass(classNode, targetClassName, targetClass != null ? targetClass.superName : null);
@@ -76,8 +91,30 @@ public class ExtractMixinProcessor implements Processor {
 
         candidates.handleUpdates().forEach(c -> c.accept(generatedTarget));
 
+        if (syncModifier) {
+            context.recordCtxAudit("Made extracted callback static to match static target %s", movedTarget.asDescriptor());
+            methodNode.access |= Opcodes.ACC_STATIC;
+
+            // The body reserved local 0 for the receiver, so its parameters shift down by one.
+            if (methodNode.localVariables != null) {
+                for (LocalVariableNode lvn : methodNode.localVariables) {
+                    lvn.index--;
+                }
+                methodNode.localVariables.removeIf(lvn -> lvn.index < 0);
+            }
+            for (AbstractInsnNode insn : methodNode.instructions) {
+                if (insn instanceof VarInsnNode varInsn) {
+                    varInsn.var--;
+                } else if (insn instanceof IincInsnNode iincInsn) {
+                    iincInsn.var--;
+                }
+            }
+            methodNode.maxLocals = Math.max(0, methodNode.maxLocals - 1);
+        }
+
         // Take care of captured locals
-        PatchResult result = PatchResult.PASS;
+        // Dropping the receiver invalidates the StackMapTable, so ask for a full recomputation.
+        PatchResult result = syncModifier ? PatchResult.COMPUTE_FRAMES : PatchResult.PASS;
         boolean capturesLocals = recipe.clean().hasProperty(MixinKeys.LOCALS);
         if (capturesLocals) {
             result = result.or(recreateLocalVariables(methodNode, context, recipe, generatedTarget));
@@ -185,6 +222,19 @@ public class ExtractMixinProcessor implements Processor {
             return OpcodeUtil.setAccessVisibility(visibility, Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC);
         }
         return access;
+    }
+
+    /** Whether the body reads local 0, i.e. uses {@code this}. */
+    private static boolean readsReceiverSlot(MethodNode methodNode) {
+        for (AbstractInsnNode insn : methodNode.instructions) {
+            if (insn instanceof VarInsnNode varInsn && varInsn.var == 0) {
+                return true;
+            }
+            if (insn instanceof IincInsnNode iincInsn && iincInsn.var == 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -376,3 +426,5 @@ public class ExtractMixinProcessor implements Processor {
         return PatchResult.COMPUTE_FRAMES;
     }
 }
+
+

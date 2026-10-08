@@ -23,9 +23,12 @@ public class DynamicPatches {
 
     public static Multimap<TxPhase, MethodTransformer> methodTransformers(List<MethodPatch> patches) {
         return ImmutableMultimap.of(
-            TxPhase.EARLY, new LocalCaptureUpgradeTransformer(),
             TxPhase.LOADED, new FieldAccessorTypeTransformer(),
-            TxPhase.VALIDATED, new PipelineMethodTransformer(patches, false) 
+            TxPhase.VALIDATED, new PipelineMethodTransformer(patches, false),
+            // Must run after the pipeline: captured-locals signatures are re-derived from the patched method
+            // at the adapted injection point. Safe only because Patcher#normalizeParameterAnnotations keeps the
+            // parameter annotation counts in sync when captured parameters are added here.
+            TxPhase.VALIDATED, new LocalCaptureUpgradeTransformer()
         );
     }
 }

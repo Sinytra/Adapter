@@ -81,9 +81,11 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
                 }
 
                 if (insn instanceof MethodInsnNode minsn && minsn.owner.equals(originalType.getInternalName())) {
+                    // getMethodCallInsns is @Nullable: it returns null when the call source cannot be
+                    // determined statically. Skip the rewrite instead of killing the whole jar transform.
                     List<AbstractInsnNode> insns = MethodCallAnalyzer.getMethodCallInsns(methodNode, minsn);
                     // Find var load instruction
-                    for (AbstractInsnNode callInsn : insns) {
+                    for (AbstractInsnNode callInsn : insns == null ? List.<AbstractInsnNode>of() : insns) {
                         if (callInsn instanceof VarInsnNode varInsn && varInsn.var == localVar.index) {
                             minsn.owner = this.type.getInternalName();
                         }

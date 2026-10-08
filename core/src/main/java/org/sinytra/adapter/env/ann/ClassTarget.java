@@ -44,6 +44,9 @@ public class ClassTarget {
             .or(() -> handle.<List<String>>getValue(MIXIN_TARGETS).map(v -> {
                 List<Type> types = v.get().stream()
                     .map(mapper::remap)
+                    // "targets" holds dotted binary names while Type.getObjectType expects an internal name;
+                    // only '.' becomes '/', the '$' of an inner class stays.
+                    .map(name -> name.replace('.', '/'))
                     .map(Type::getObjectType)
                     .toList();
                 return new ClassTarget(types, Either.right(v));

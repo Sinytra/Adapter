@@ -1,6 +1,7 @@
 package org.sinytra.adapter.patch.resolver.target;
 
 import com.google.common.collect.Multimap;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodInsnNode;
@@ -16,6 +17,7 @@ import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodInsnMatcher;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.util.MethodQualifier;
+import org.spongepowered.asm.mixin.injection.points.BeforeConstant;
 
 import java.util.List;
 import java.util.Map;
@@ -129,6 +131,18 @@ public class SplitTargetMethodSubResolver implements SubResolver {
         return methods.stream()
             .map(pair -> {
                 List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(pair);
+                if (insns.isEmpty() && context.methodAnnotation().getNested("constant").isPresent()) {
+                    // A constant injector (@ModifyConstant) has no @At, so the lookup above can never match it;
+                    // without asking the constant point, a method split away together with its constant is never
+                    // considered a candidate (carpet's @ModifyConstant on Level#setBlock, moved by NeoForge into
+                    // Level#markAndNotifyBlock).
+                    insns = context.methods().computeInjectionTargetInsns(
+                        pair,
+                        () -> context.methodAnnotation().getNested("constant").orElse(null),
+                        (ctx, h) -> new BeforeConstant(ctx, h.unwrap(), Type.getReturnType(context.methodNode().desc).getDescriptor()),
+                        false
+                    );
+                }
                 return !insns.isEmpty() ? new CandidateMethod(pair.methodNode(), insns) : null;
             })
             .filter(Objects::nonNull)
@@ -138,3 +152,5 @@ public class SplitTargetMethodSubResolver implements SubResolver {
     private record CandidateMethod(MethodNode method, List<AbstractInsnNode> insns) {
     }
 }
+
+

@@ -61,7 +61,18 @@ public class BytecodeFixerJarGenerator {
                 jarEntry.setTime(ZIP_TIME);
                 jos.putNextEntry(jarEntry);
 
-                ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
+                ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES) {
+                    @Override
+                    protected String getCommonSuperClass(String type1, String type2) {
+                        try {
+                            return super.getCommonSuperClass(type1, type2);
+                        } catch (Throwable t) {
+                            // The default implementation resolves types through this class loader, which cannot
+                            // see Minecraft classes. Degrade to Object so jar generation still succeeds.
+                            return "java/lang/Object";
+                        }
+                    }
+                };
                 entry.getValue().accept(cw);
                 byte[] bytes = cw.toByteArray();
                 jos.write(bytes);

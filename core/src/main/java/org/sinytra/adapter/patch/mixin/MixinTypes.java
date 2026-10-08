@@ -14,25 +14,34 @@ public class MixinTypes {
     private static final Map<String, MixinType> MIXIN_TYPES = new HashMap<>();
     
     // TODO:
-    // MixinConstants.MODIFY_ARGS, MixinConstants.MODIFY_CONST, MixinConstants.WRAP_WITH_CONDITION,
-    // MixinConstants.OVERWRITE (dont forget special modifyTarget handling)
-    // MixinConstants.ACCESSOR
     public static final MixinType INJECT = new InjectMixin();
     public static final MixinType MODIFY_VAR = new ModifyVariableMixin();
     public static final MixinType MODIFY_ARG = new ModifyArgMixin();
+    public static final MixinType MODIFY_ARGS = new ModifyArgsMixin();
+    public static final MixinType MODIFY_CONST = new ModifyConstantMixin();
     public static final MixinType MODIFY_RET = new ModifyReturnValueMixin();
     public static final MixinType REDIRECT = new RedirectMixin();
     public static final MixinType WRAP_OP = new WrapOperationMixin();
     public static final MixinType MODIFY_EXPR_VAL = new ModifyExpressionValueMixin();
+    public static final MixinType OVERWRITE = new OverwriteMixin();
+    public static final MixinType ACCESSOR = new AccessorMixin();
+    public static final MixinType INVOKER = new InvokerMixin();
 
     static {
         registerMixinType(Inject.class, INJECT);
         registerMixinType(ModifyVariable.class, MODIFY_VAR);
         registerMixinType(ModifyArg.class, MODIFY_ARG);
+        // MixinConstants.WRAP_WITH_CONDITION is deliberately left out; it appears in none of the corpus mods.
+        // The map is keyed by annotation internal names, so the "L...;" descriptor form would never match.
+        registerMixinType(MixinAnnotations.MODIFY_ARGS_INTERNAL_NAME, MODIFY_ARGS);
+        registerMixinType(MixinAnnotations.MODIFY_CONST_INTERNAL_NAME, MODIFY_CONST);
         registerMixinType(MixinAnnotations.MODIFY_RETURN_VAL_INTERNAL_NAME, MODIFY_RET);
         registerMixinType(Redirect.class, REDIRECT);
         registerMixinType(MixinAnnotations.WRAP_OPERATION_INTERNAL_NAME, WRAP_OP);
         registerMixinType(MixinAnnotations.MODIFY_EXPR_VAL_INTERNAL_NAME, MODIFY_EXPR_VAL);
+        registerMixinType(MixinAnnotations.OVERWRITE_INTERNAL_NAME, OVERWRITE);
+        registerMixinType(MixinAnnotations.ACCESSOR_INTERNAL_NAME, ACCESSOR);
+        registerMixinType(MixinAnnotations.INVOKER_INTERNAL_NAME, INVOKER);
     }
 
     @Nullable

@@ -88,7 +88,7 @@ public class SliceBoundaryResolver implements Resolver {
     private static boolean passesSliceCheck(SliceData slice, MixinContext context, TargetPair dirtyTarget) {
         Target mixinTarget = MockMixinRuntime.createMixinTarget(dirtyTarget);
         IMixinContext mixinContext = MockMixinRuntime.forClass(context.classNode().name, dirtyTarget.classNode().name, context.patchContext().environment());
-        ISliceContext sliceContext = MockMixinRuntime.forSlice(mixinContext, context.methodNode());
+        ISliceContext sliceContext = MockMixinRuntime.forSlice(mixinContext, context.methodNode(), slice.toAnnotationNode());
         MethodSlice methodSlice = MethodSlice.parse(sliceContext, slice.toAnnotationNode());
         InsnList insns = methodSlice.getSlice(mixinTarget);
 

@@ -47,11 +47,51 @@ public class PipelineMethodTransformer implements MethodTransformer {
     @Override
     public PatchResult apply(MixinContext context, Configuration config) {
         TargetPair cleanTarget = context.methods().findOwnMethodPair(context.cleanLookup(), config.getTargetMethod());
-        if (cleanTarget == null) return PatchResult.PASS;
+        if (cleanTarget == null) {
+            // The target class can exist only in the patched view: supplied by the mod, by one of its
+            // libraries, or by the platform. Mod-supplied classes never need adaptation; platform classes pass
+            // only when the injection point already resolves in the patched class.
+            String targetClass = config.getProperty(ControlKeys.TARGET_CLASS).orElse(null);
+            TargetPair dirtyCandidate = context.methods().findOwnMethodPair(context.dirtyLookup(), config.getTargetMethod());
+
+            boolean modSupplied = !isPlatformClass(targetClass);
+            boolean platformButAlreadyResolvable = !modSupplied
+                && dirtyCandidate != null
+                && context.methods().hasInjectionTargetInsns(dirtyCandidate);
+
+            if (targetClass != null
+                && context.dirtyLookup().getClass(targetClass).isPresent()
+                && context.cleanLookup().getClass(targetClass).isEmpty()
+                && (modSupplied || platformButAlreadyResolvable)) {
+                context.environment().auditTrail().recordResult(context, config, AuditTrail.Match.FULL);
+                context.setEffectiveInjectionPoint(config.getAtData(), config.getTargetMethod());
+                try {
+                    context.recordCtxAudit("No adaptation required: target class %s is not in the vanilla jar (%s)",
+                        targetClass, modSupplied ? "supplied by the mod itself" : "injection point already resolves");
+                } catch (RuntimeException ignored) {
+                    // no audit frame at this exit
+                }
+                return PatchResult.PASS;
+            }
+
+            // Publish the injection point: later stages need it, and leaving it unset disables capture re-derivation.
+            context.setEffectiveInjectionPoint(config.getAtData(), config.getTargetMethod());
+            return skip(context, config, "target method not found in the clean (vanilla) class");
+        }
 
         TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), config.getTargetMethod());
-        if (!this.patchResolver.matches(config) && !failsDirtyInjectionCheck(context, config, dirtyTarget) && hasValidSlice(context, config, dirtyTarget))
+        if (!this.patchResolver.matches(config) && !failsDirtyInjectionCheck(context, config, dirtyTarget) && hasValidSlice(context, config, dirtyTarget)) {
+            // Not a failure: the mixin already injects into the patched target as-is.
+            context.environment().auditTrail().recordResult(context, config, AuditTrail.Match.FULL);
+            // It resolves here, and captured-local transformers need the site even when nothing was rewritten.
+            context.setEffectiveInjectionPoint(config.getAtData(), config.getTargetMethod());
+            try {
+                context.recordCtxAudit("No adaptation required: injection point already resolves in the patched target");
+            } catch (RuntimeException ignored) {
+                // no audit frame at this exit
+            }
             return PatchResult.PASS;
+        }
 
         LOGGER.debug(MIXINPATCH, "Considering method {}", context.getMixinId());
 
@@ -64,6 +104,17 @@ public class PipelineMethodTransformer implements MethodTransformer {
             return result;
         }
 
+        return PatchResult.PASS;
+    }
+
+    /** Records a give-up exit so the mixin shows up in the audit trail instead of vanishing from the report. */
+    private static PatchResult skip(MixinContext context, Configuration config, String reason, Object... args) {
+        context.environment().auditTrail().recordResult(context, config, AuditTrail.Match.NONE);
+        try {
+            context.recordCtxAudit("Skipped mixin: " + reason, args);
+        } catch (RuntimeException ignored) {
+            // Not every exit runs inside an audit frame; the reason is best-effort.
+        }
         return PatchResult.PASS;
     }
 
@@ -102,7 +153,7 @@ public class PipelineMethodTransformer implements MethodTransformer {
                 }
             } else if (res.type() == Resolver.ResultType.FAIL) {
                 LOGGER.debug(MIXINPATCH, "Skipping mixin {} due to failed RESOLVER {}", mixinId, resolver.getClass().getSimpleName());
-                return PatchResult.PASS;
+                return skip(context, config, "failed resolver %s", resolver.getClass().getSimpleName());
             }
         }
 
@@ -114,7 +165,7 @@ public class PipelineMethodTransformer implements MethodTransformer {
                 TxResult postResult = lateMixinType.postProcess(context, cleanConfig, dirtyConfig, recipe);
                 if (postResult == TxResult.FAIL) {
                     LOGGER.debug(MIXINPATCH, "Skipping mixin {} due to failed postProcess", mixinId);
-                    return PatchResult.PASS;
+                    return skip(context, config, "failed postProcess");
                 }
             }
         }
@@ -122,7 +173,7 @@ public class PipelineMethodTransformer implements MethodTransformer {
         // 3.1. Validate dirty config
         if (!dirtyConfig.validate()) {
             LOGGER.debug(MIXINPATCH, "Skipping mixin {} due to invalid DIRTY config", mixinId);
-            return PatchResult.PASS;
+            return skip(context, config, "invalid DIRTY config");
         }
 
         // 4. Run Processors
@@ -136,7 +187,7 @@ public class PipelineMethodTransformer implements MethodTransformer {
             }
             if (res == TxResult.FAIL) {
                 LOGGER.debug(MIXINPATCH, "Skipping mixin {} due to failed PROCESSOR {}", mixinId, processor.getClass().getSimpleName());
-                return PatchResult.PASS;
+                return skip(context, config, "failed processor %s", processor.getClass().getSimpleName());
             }
         }
 
@@ -146,6 +197,9 @@ public class PipelineMethodTransformer implements MethodTransformer {
         ) {
             context.methodNode().parameters = null;
         }
+
+        // Publish where the injection point ended up; later transformers need the effective site.
+        context.setEffectiveInjectionPoint(dirtyConfig.getAtData(), dirtyConfig.getTargetMethod());
 
         return PatchResult.APPLY;
     }
@@ -192,4 +246,21 @@ public class PipelineMethodTransformer implements MethodTransformer {
         );
         return !insns.isEmpty();
     }
+
+    /** Whether the name belongs to a platform namespace (game or mod loader) rather than to a mod. */
+    private static boolean isPlatformClass(String internalName) {
+        return internalName.startsWith("net/minecraft/")
+            || internalName.startsWith("net/neoforged/")
+            || internalName.startsWith("com/mojang/")
+            || internalName.startsWith("net/fabricmc/")
+            || internalName.startsWith("org/spongepowered/");
+    }
 }
+
+
+
+
+
+
+
+

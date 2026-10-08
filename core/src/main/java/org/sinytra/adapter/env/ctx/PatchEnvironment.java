@@ -38,4 +38,13 @@ public interface PatchEnvironment {
     Collection<String> getKnownNamespaces();
 
     boolean isKnownPackage(String pkg);
+
+    /**
+     * When enabled, mixin handlers that could not be adapted are removed from their class rather than left in
+     * the jar, so the mod loads with those features disabled. Read from the
+     * {@code connector.stripFailingMixins} system property.
+     */
+    default boolean stripFailingMixins() {
+        return Boolean.getBoolean("connector.stripFailingMixins");
+    }
 }

@@ -63,7 +63,8 @@ public class ModifyVariableMixin implements MixinType {
 
     @Override
     public TxResult postProcess(MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
-        if (dirty.getTargetMethod() == null || dirty.getTargetMethod().desc() == null) {
+        if (dirty.getTargetMethod() == null || dirty.getTargetMethod().desc() == null
+            || clean.getTargetMethod() == null || clean.getTargetMethod().desc() == null) {
             return TxResult.FAIL;
         }
         

@@ -93,11 +93,21 @@ public class ArbitraryInjectionPointSubResolver implements SubResolver {
 
     private static MethodInsnNode findReplacementInjectionPoint(AbstractInsnNode lastInsn, UnaryOperator<AbstractInsnNode> flow, MixinContext context, @Nullable String injectionPointTarget) {
         // Require matching return types for ModifyExpressionValue mixins
-        if (context.hasFlag(MixinFlag.RETURN_TYPE_SENSITIVE) && injectionPointTarget != null) {
+        if (context.hasFlag(MixinFlag.RETURN_TYPE_SENSITIVE) && injectionPointTarget != null
+            && isCompleteMethodDescriptor(injectionPointTarget)) {
             Type desiredReturnType = Type.getReturnType(injectionPointTarget);
             return (MethodInsnNode) AdapterUtil.iterateInsns(lastInsn, flow,
                 v -> v instanceof MethodInsnNode minsn && Type.getReturnType(minsn.desc).equals(desiredReturnType));
         }
         return (MethodInsnNode) AdapterUtil.iterateInsns(lastInsn, flow, v -> v instanceof MethodInsnNode);
+    }
+
+    /**
+     * ASM's {@code Type.getReturnType} computes {@code desc.indexOf(')') + 1} and immediately reads that
+     * character, so a descriptor that ends right after ')' throws StringIndexOutOfBoundsException.
+     */
+    private static boolean isCompleteMethodDescriptor(String desc) {
+        int paren = desc.indexOf(')');
+        return paren >= 0 && paren + 1 < desc.length();
     }
 }

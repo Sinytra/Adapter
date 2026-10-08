@@ -5,6 +5,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.analysis.selector.AnnotationHandle;
+import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.ann.ClassTarget;
 import org.sinytra.adapter.patch.mixin.MixinFlag;
 import org.sinytra.adapter.patch.mixin.MixinType;
@@ -12,6 +13,7 @@ import org.sinytra.adapter.patch.processor.Processors;
 import org.sinytra.adapter.patch.resolver.Resolvers;
 import org.sinytra.adapter.types.TypeAdapter;
 import org.sinytra.adapter.util.AdapterUtil;
+import org.sinytra.adapter.util.MethodQualifier;
 import org.sinytra.adapter.util.provider.ClassLookup;
 
 import java.util.ArrayList;
@@ -35,6 +37,32 @@ public class MixinContext implements RefMapper, Auditor {
     private final MethodHelper methodHelper;
     private final Resolvers resolvers = new Resolvers();
     private final Processors processors = new Processors();
+
+    /**
+     * Where the injection point ended up after adaptation, published by PipelineMethodTransformer.
+     */
+    @Nullable
+    private AtData effectiveAtData;
+    @Nullable
+    private MethodQualifier effectiveTargetMethod;
+
+    public void setEffectiveInjectionPoint(@Nullable AtData atData, @Nullable MethodQualifier targetMethod) {
+        this.effectiveAtData = atData;
+        this.effectiveTargetMethod = targetMethod;
+    }
+
+    /**
+     * The {@code @At} data that applies to this handler, or {@code null} when adaptation did not run.
+     */
+    @Nullable
+    public AtData effectiveAtData() {
+        return this.effectiveAtData;
+    }
+
+    @Nullable
+    public MethodQualifier effectiveTargetMethod() {
+        return this.effectiveTargetMethod;
+    }
 
     public MixinContext(MixinType mixinType, PatchContext patchContext, ClassTarget classTarget, ClassNode classNode, MethodNode methodNode, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation, Set<MixinFlag> flags) {
         this.mixinType = mixinType;

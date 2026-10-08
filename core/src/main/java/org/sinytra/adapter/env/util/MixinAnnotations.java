@@ -6,12 +6,17 @@ public class MixinAnnotations {
     public static final String REDIRECT = "Lorg/spongepowered/asm/mixin/injection/Redirect;";
     public static final String MODIFY_ARG = "Lorg/spongepowered/asm/mixin/injection/ModifyArg;";
     public static final String MODIFY_ARGS = "Lorg/spongepowered/asm/mixin/injection/ModifyArgs;";
+    public static final String MODIFY_ARGS_INTERNAL_NAME = "org/spongepowered/asm/mixin/injection/ModifyArgs";
     public static final String MODIFY_VAR = "Lorg/spongepowered/asm/mixin/injection/ModifyVariable;";
     public static final String MODIFY_CONST = "Lorg/spongepowered/asm/mixin/injection/ModifyConstant;";
+    public static final String MODIFY_CONST_INTERNAL_NAME = "org/spongepowered/asm/mixin/injection/ModifyConstant";
     public static final String OVERWRITE = "Lorg/spongepowered/asm/mixin/Overwrite;";
+    public static final String OVERWRITE_INTERNAL_NAME = "org/spongepowered/asm/mixin/Overwrite";
     // Interface mixins
     public static final String ACCESSOR = "Lorg/spongepowered/asm/mixin/gen/Accessor;";
+    public static final String ACCESSOR_INTERNAL_NAME = "org/spongepowered/asm/mixin/gen/Accessor";
     public static final String INVOKER = "Lorg/spongepowered/asm/mixin/gen/Invoker;";
+    public static final String INVOKER_INTERNAL_NAME = "org/spongepowered/asm/mixin/gen/Invoker";
     // Mixinextras annotations
     public static final String MODIFY_EXPR_VAL = "Lcom/llamalad7/mixinextras/injector/ModifyExpressionValue;";
     public static final String MODIFY_EXPR_VAL_INTERNAL_NAME = "com/llamalad7/mixinextras/injector/ModifyExpressionValue";

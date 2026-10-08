@@ -3,6 +3,8 @@ package org.sinytra.adapter.patch.resolver.target;
 import com.mojang.datafixers.util.Pair;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Handle;
+import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.InvokeDynamicInsnNode;
@@ -35,6 +37,7 @@ public class TargetMethodSubResolvers {
 
         ClassNode targetClass = context.dirtyLookup().getClass(recipe.clean().getTargetClass()).orElse(null);
         if (targetClass == null) return null;
+
 
         List<MethodNode> candidateMethods = targetClass.methods.stream()
             .filter(m -> MethodAnalyzer.isLambda(m) && m.desc.equals(cleanQualifier.desc()))
@@ -79,6 +82,11 @@ public class TargetMethodSubResolvers {
      * Handle cases where the target instructions have been moved into a lambda inside the target method
      */
     public static final SubResolver MOVED_INTO_LAMBDA = (MixinContext context, Recipe recipe) -> {
+        // Decline relocation for handlers using mixinextras' @Local sugar: MixinExtras resolves the sugar
+        // against the local frame at the injection point, so re-pointing it at a lambda can fail validation at
+        // runtime, too late to strip the handler. @Local is the only sugar that depends on the injection point.
+        if (hasLocalSugar(context)) return null;
+
         MethodQualifier cleanQualifier = recipe.clean().getTargetMethod();
 
         TargetPair target = context.methods().findOwnMethodPair(context.dirtyLookup(), cleanQualifier);
@@ -87,8 +95,10 @@ public class TargetMethodSubResolvers {
         for (AbstractInsnNode insn : target.methodNode().instructions) {
             // Find lambda invocations and search for target insns inside the lambda
             if (insn instanceof InvokeDynamicInsnNode indy && indy.bsmArgs.length > 1 && indy.bsmArgs[1] instanceof Handle handle) {
+                // Keep the handle's owner: an owner-less lookup starts at the mixin's target class.
                 TargetPair lambda = MethodQualifier.parse(handle.getName())
-                    .map(q -> context.methods().findOwnMethodPair(context.dirtyLookup(), q))
+                    .map(q -> context.methods().findOwnMethodPair(context.dirtyLookup(),
+                        new MethodQualifier(Type.getObjectType(handle.getOwner()).getDescriptor(), q.name(), q.desc())))
                     .orElse(null);
                 if (lambda == null) return null;
 
@@ -168,4 +178,36 @@ public class TargetMethodSubResolvers {
         TargetPair pair = context.methods().findOwnMethodPair(context.cleanLookup(), MethodQualifier.create(dirty));
         return (pair == null || !AdapterUtil.isDeprecated(pair.methodNode())) && AdapterUtil.isDeprecated(dirty);
     }
+
+    /** Whether any parameter of the handler is annotated with mixinextras' {@code @Local}. */
+    private static boolean hasLocalSugar(MixinContext context) {
+        MethodNode method = context.methodNode();
+        return hasLocalSugar(method.visibleParameterAnnotations) || hasLocalSugar(method.invisibleParameterAnnotations);
+    }
+
+    private static boolean hasLocalSugar(java.util.List<AnnotationNode>[] parameterAnnotations) {
+        if (parameterAnnotations == null) {
+            return false;
+        }
+        for (java.util.List<AnnotationNode> annotations : parameterAnnotations) {
+            if (annotations == null) {
+                continue;
+            }
+            for (AnnotationNode annotation : annotations) {
+                if (isLocalSugar(annotation.desc)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Matches by simple name: MixinExtras can be relocated into another package. */
+    private static boolean isLocalSugar(String desc) {
+        return desc != null && desc.endsWith("/sugar/Local;");
+    }
 }
+
+
+
+

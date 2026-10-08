@@ -3,11 +3,14 @@ package org.sinytra.adapter.analysis;
 import org.objectweb.asm.tree.ClassNode;
 import org.sinytra.adapter.util.provider.ClassLookup;
 
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.*;
 
 public class InheritanceHandler {
     private final ClassLookup classProvider;
-    private final Map<String, Collection<String>> parentCache = new HashMap<>();
+    // ConcurrentHashMap: one handler instance is shared by every mixin using the same class lookup, and the
+    // transformation is driven from a ForkJoinPool.
+    private final Map<String, Collection<String>> parentCache = new ConcurrentHashMap<>();
 
     public InheritanceHandler(ClassLookup classProvider) {
         this.classProvider = classProvider;
@@ -24,11 +27,13 @@ public class InheritanceHandler {
 
     public Collection<String> getClassParents(String name) {
         Collection<String> parents = this.parentCache.get(name);
-        if (parents == null) {
-            parents = computeClassParents(name);
-            this.parentCache.put(name, parents);
+        if (parents != null) {
+            return parents;
         }
-        return parents;
+        // Not computeIfAbsent: computeClassParents recurses into getClassParents, which it rejects.
+        Collection<String> computed = computeClassParents(name);
+        Collection<String> prev = this.parentCache.putIfAbsent(name, computed);
+        return prev != null ? prev : computed;
     }
 
     private Collection<String> computeClassParents(String name) {
@@ -51,3 +56,4 @@ public class InheritanceHandler {
         return parents;
     }
 }
+

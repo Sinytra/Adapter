@@ -99,7 +99,31 @@ public class MethodFinder {
         }
 
         if (candidates.isEmpty() && targetClass.superName != null) {
-            return findMethods(lookup, new MethodQualifier(Type.getObjectType(targetClass.superName).getDescriptor(), qualifier.name(), qualifier.desc()), flags);
+            // Returns unconditionally: falling through would make the interface traversal below reachable,
+            // and interface declarations returned as owners break startup.
+            return findMethods(lookup,
+                new MethodQualifier(Type.getObjectType(targetClass.superName).getDescriptor(), qualifier.name(), qualifier.desc()), flags);
+        }
+
+        if (candidates.isEmpty()) {
+            // superName reaches superclasses only; a target can equally be a default method on an interface,
+            // which is how NeoForge attaches helpers (BlockState#canStickTo is declared on
+            // IBlockStateExtension). Declines when more than one interface matches.
+            Pair<ClassNode, List<MethodNode>> viaInterface = null;
+            for (String itf : targetClass.interfaces) {
+                Pair<ClassNode, List<MethodNode>> found = findMethods(lookup,
+                    new MethodQualifier(Type.getObjectType(itf).getDescriptor(), qualifier.name(), qualifier.desc()), flags);
+                if (found == null || found.getSecond().isEmpty()) {
+                    continue;
+                }
+                if (viaInterface != null) {
+                    return Pair.of(targetClass, List.of());
+                }
+                viaInterface = found;
+            }
+            if (viaInterface != null) {
+                return viaInterface;
+            }
         }
 
         return Pair.of(targetClass, candidates);
@@ -109,3 +133,5 @@ public class MethodFinder {
         return (flags & flag) != 0;
     }
 }
+
+

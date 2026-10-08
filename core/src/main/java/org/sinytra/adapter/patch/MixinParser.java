@@ -65,6 +65,14 @@ public class MixinParser {
             properties.setProperty(ControlKeys.TARGET_CLASS, targetClass);
             properties.setProperty(ControlKeys.RETURN_TYPE, Type.getReturnType(method.desc));
             properties.setProperty(SpecialKeys.STATIC, MethodHelper.isStatic(method));
+            // @Overwrite / @Invoker name no "method"; set the qualifier derived from the mixin method so
+            // postProcessMixin below can complete the descriptor from the dirty target class.
+            if (!properties.hasProperty(MixinKeys.TARGET_METHOD)) {
+                MethodQualifier derived = mixinType.deriveTarget(properties, method);
+                if (derived != null) {
+                    properties.setProperty(MixinKeys.TARGET_METHOD, derived);
+                }
+            }
             if (!postProcessMixin(properties, environment)) {
                 continue;
             }
@@ -102,6 +110,19 @@ public class MixinParser {
             List<MethodNode> targets = dirtyTarget.methods.stream()
                 .filter(m -> target.matches(MethodQualifier.create(m)))
                 .toList();
+
+            // Fall back to the superclass chain: an injector may name a method its target class only
+            // inherits (carve's @Redirect on Player, declared on LivingEntity), and Mixin resolves the target
+            // through the hierarchy too.
+            for (ClassNode cls = dirtyTarget; targets.isEmpty() && cls.superName != null; ) {
+                ClassNode parent = environment.dirtyClassLookup().getClass(cls.superName).orElse(null);
+                if (parent == null) break;
+                targets = parent.methods.stream()
+                    .filter(m -> target.matches(MethodQualifier.create(m)))
+                    .toList();
+                cls = parent;
+            }
+
             if (targets.size() == 1) {
                 properties.setProperty(MixinKeys.TARGET_METHOD, MethodQualifier.create(targets.getFirst()));
             }

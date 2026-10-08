@@ -15,6 +15,8 @@ import org.sinytra.adapter.util.provider.ClassLookup;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.FabricUtil;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 import java.util.List;
 
 public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
@@ -74,6 +76,18 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    @Test
+    void testRepeatedAnnotationsAreParsed() throws Exception {
+        // TARGET_CONSTANT used to dereference the null result of parseSingle for a repeated annotation and
+        // abort the transform for the whole mod. This test fails again if that null guard is removed.
+        LoadResult result = load(
+            "org/sinytra/adapter/test/mc_26_1_2/mixin/RepeatedAnnotationsMixin",
+            List.of("repeatedAnnotations")
+        );
+
+        assertNotNull(result.patched(), "the mixin should be parsed instead of aborting the transform");
+    }
+
     @Override
     protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
         ClassNode patched = loadClass(className);
@@ -82,3 +96,4 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         return new LoadResult(patchEnvironment, patched, loadClass(className));
     }
 }
+

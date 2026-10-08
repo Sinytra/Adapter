@@ -43,7 +43,11 @@ public class MixinKeys {
         .build();
     public static final PropertyKey<ConstantData> TARGET_CONSTANT = PropertyKey.<ConstantData>builder("constant")
         .parser((value, mapper) -> {
+            // Same null guard as TARGET_AT above: "constant" is not always a single annotation, and the null
+            // would reach new AnnotationHandle(null) inside MixinParser and abort the whole transform.
             AnnotationNode node = ControlKeys.parseSingle(value, AnnotationNode.class);
+            if (node == null) return null;
+
             AnnotationHandle handle = new AnnotationHandle(node);
             return ConstantData.parse(handle).orElse(null);
         })
@@ -51,11 +55,18 @@ public class MixinKeys {
         .build();
     // Mixin data
     public static final PropertyKey<Boolean> CANCELLABLE = PropertyKey.create("cancellable", Boolean.class);
+    /** {@code @Accessor}/{@code @Invoker} field or method name. */
+    public static final PropertyKey<String> ACCESSOR_VALUE = PropertyKey.create("value", String.class);
     public static final PropertyKey<Integer> INDEX = PropertyKey.create("index", Integer.class);
     public static final PropertyKey<Integer> ORDINAL = PropertyKey.create("ordinal", Integer.class);
     public static final PropertyKey<Boolean> ARGS_ONLY = PropertyKey.create("argsOnly", Boolean.class);
     public static final PropertyKey<SliceData> SLICE = PropertyKey.<SliceData>builder("slice")
-        .parser((value, mapper) -> SliceData.parse(new AnnotationHandle((AnnotationNode) value), mapper))
+        // A repeated annotation arrives as a List, so the bare cast to AnnotationNode throws; parseSingle
+        // unwraps the single element and yields null otherwise (the multi-element form is handled by SLICES).
+        .parser((value, mapper) -> {
+            AnnotationNode node = ControlKeys.parseSingle(value, AnnotationNode.class);
+            return node == null ? null : SliceData.parse(new AnnotationHandle(node), mapper);
+        })
         .serializer(SliceData::toAnnotationNode)
         .build();
     public static final PropertyKey<List<SliceData>> SLICES = PropertyKey.<List<SliceData>>builder("slice")
@@ -68,3 +79,4 @@ public class MixinKeys {
     public static final PropertyKey<LocalCapture> LOCALS = PropertyKey.create("locals", LocalCapture.class);
     public static final PropertyKey<Integer> REQUIRE = PropertyKey.create("require", Integer.class);
 }
+

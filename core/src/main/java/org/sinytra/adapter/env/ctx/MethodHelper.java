@@ -216,7 +216,7 @@ public class MethodHelper {
             })
             .map(sliceAnn -> {
                 IMixinContext mixinContext = MockMixinRuntime.forClass(classNode.name, targetClass.name, context.environment());
-                ISliceContext sliceContext = MockMixinRuntime.forSlice(mixinContext, injectorMethod);
+                ISliceContext sliceContext = MockMixinRuntime.forSlice(mixinContext, injectorMethod, sliceAnn);
                 return computeSlicedInsns(sliceContext, sliceAnn, mixinTarget);
             })
             .orElse(targetMethod.instructions);
@@ -244,7 +244,42 @@ public class MethodHelper {
 
     @Nullable
     public List<LocalVariable> getTargetMethodLocals(TargetPair target, int startPos, int lvtCompatLevel) {
-        List<AbstractInsnNode> targetInsns = findInjectionTargetInsns(target);
+        return getTargetMethodLocals(target, findInjectionTargetInsns(target), startPos, lvtCompatLevel);
+    }
+
+    /** Like {@link #findInjectionTargetInsns(TargetPair)}, but from the given {@code @At} data. */
+    public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable TargetPair target, @Nullable AtData atData) {
+        if (target == null) return List.of();
+        if (atData == null) return findInjectionTargetInsns(target);
+
+        return computeInjectionTargetInsns(
+            target,
+            this.context::injectionPointAnnotation,
+            (ctx, h) -> {
+                AnnotationNode atCopy = atData.toAnnotationNode();
+                AnnotationHandle annCopy = this.context.methodAnnotation().copy();
+                annCopy.setOrAppendNonNull(PROPERTY_AT, atCopy);
+
+                return InjectionPoint.parse(ctx, this.context.methodNode(), annCopy.unwrap(), atCopy);
+            },
+            true
+        );
+    }
+
+    /** Variant of {@link #getTargetMethodLocals(TargetPair)} using the effective {@code @At} data. */
+    @Nullable
+    public List<LocalVariable> getTargetMethodLocals(TargetPair target, @Nullable AtData atData) {
+        Type[] targetParams = Type.getArgumentTypes(target.methodNode().desc);
+        boolean isStatic = isStatic(this.context.methodNode());
+        int lvtOffset = isStatic ? 0 : 1;
+        // The starting LVT index is of the first var after all method parameters. Offset by 1 for instance methods to skip 'this'
+        int targetLocalPos = targetParams.length + lvtOffset;
+        return getTargetMethodLocals(target, findInjectionTargetInsns(target, atData), targetLocalPos,
+            this.context.environment().fabricLVTCompatibility());
+    }
+
+    @Nullable
+    private List<LocalVariable> getTargetMethodLocals(TargetPair target, List<AbstractInsnNode> targetInsns, int startPos, int lvtCompatLevel) {
         if (targetInsns.isEmpty()) {
             LOGGER.debug("Skipping LVT patch, no target instructions found");
             return null;

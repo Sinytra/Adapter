@@ -72,8 +72,8 @@ public class MockMixinRuntime {
         return new ClassMixinContext(className, targetClass, environment);
     }
 
-    public static ISliceContext forSlice(IMixinContext context, MethodNode methodNode) {
-        return new MethodSliceContext(context, methodNode);
+    public static ISliceContext forSlice(IMixinContext context, MethodNode methodNode, AnnotationNode annotation) {
+        return new MethodSliceContext(context, methodNode, annotation);
     }
 
     public static InjectionInfo forInjectionInfo(String className, String targetClass, PatchEnvironment environment) {
@@ -102,7 +102,7 @@ public class MockMixinRuntime {
         return info;
     }
 
-    private record MethodSliceContext(IMixinContext context, MethodNode methodNode) implements ISliceContext {
+    private record MethodSliceContext(IMixinContext context, MethodNode methodNode, AnnotationNode annotation) implements ISliceContext {
         @Override
         public IMixinContext getMixin() {
             return this.context;
@@ -117,7 +117,9 @@ public class MockMixinRuntime {
         @Override public String getElementDescription() {return "dummy";}
         @Override public MethodSlice getSlice(String id) {throw new UnsupportedOperationException();}
         @Override public MethodNode getMethod() {return this.methodNode;}
-        @Override public AnnotationNode getAnnotationNode() {throw new UnsupportedOperationException();}
+        // NOTE: the remaining stubs below deliberately still throw. A loud failure is preferable to a
+        // silent wrong answer: if Mixin reaches another of these entry points we want to see it.
+        @Override public AnnotationNode getAnnotationNode() {return this.annotation;}
         @Override public ISelectorContext getParent() {throw new UnsupportedOperationException();}
         @Override public IAnnotationHandle getAnnotation() {throw new UnsupportedOperationException();}
         @Override public IAnnotationHandle getSelectorAnnotation() {throw new UnsupportedOperationException();}
