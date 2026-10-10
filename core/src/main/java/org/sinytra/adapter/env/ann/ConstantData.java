@@ -35,9 +35,11 @@ public class ConstantData {
         this.properties.apply(handle);
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public AnnotationNode toAnnotationNode() {
-        AnnotationNode node = new AnnotationNode(MixinAnnotations.AT);
-        this.properties.getProperties().forEach((key, value) -> node.visit(key.name(), value));
+        AnnotationNode node = new AnnotationNode(MixinAnnotations.CONSTANT);
+        this.properties.getProperties()
+            .forEach((key, value) -> node.visit(key.name(), ((PropertyKey) key).serialize(value)));
         return node;
     }
 

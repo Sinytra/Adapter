@@ -405,7 +405,7 @@ public class EnhancedParamsDiff {
         List<ParametersDiff.MethodParameter> dirtyTypes = dirty.stream().map(t -> new ParametersDiff.MethodParameter(t.type(), t.isGenerated())).toList();
         ParametersDiff diff = ParametersDiff.compareParameters(cleanTypes, dirtyTypes, false);
         if (DEBUG) {
-            LOGGER.info("Comparison results:\n\tInserted: {}\n\tReplaced: {}\n\tSwapped:  {}\n\tRemoved:  {}", diff.insertions(), diff.removals(), diff.swaps(), diff.removals());
+            LOGGER.info("Comparison results:\n\tInserted: {}\n\tReplaced: {}\n\tSwapped:  {}\n\tRemoved:  {}", diff.insertions(), diff.replacements(), diff.swaps(), diff.removals());
         }
         int indexOffset = !dirty.isEmpty() ? dirty.getFirst().pos() : 0;
         builder.merge(diff.toSnapshot(), indexOffset);

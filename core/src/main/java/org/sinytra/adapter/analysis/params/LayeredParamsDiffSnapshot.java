@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 public record LayeredParamsDiffSnapshot(List<ParamModification> modifications) implements ParamsDiffSnapshot {
-    public static LayeredParamsDiffSnapshot EMPTY = new LayeredParamsDiffSnapshot(List.of());
+    public static final LayeredParamsDiffSnapshot EMPTY = new LayeredParamsDiffSnapshot(List.of());
 
     public sealed interface ParamModification permits InsertParam, ReplaceParam, SwapParam, MoveParam, RemoveParam, InlineParam, SubstituteParam {
         ParamModification offset(int offset);

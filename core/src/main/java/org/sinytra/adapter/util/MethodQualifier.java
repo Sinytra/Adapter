@@ -17,7 +17,6 @@ public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nu
         this(null, name, desc);
     }
 
-    @Nullable
     public static Optional<MethodQualifier> parse(String qualifier) {
         Matcher matcher = METHOD_QUALIFIER_PATTERN.matcher(qualifier);
         if (matcher.matches()) {
@@ -70,7 +69,7 @@ public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nu
         if (this.owner != null) {
             result += this.owner;
         }
-        return result + this.name + (this.desc != null ? this.desc : "");
+        return result + (this.name != null ? this.name : "") + (this.desc != null ? this.desc : "");
     }
 
     public MethodQualifier withOwner(@Nullable Type owner) {

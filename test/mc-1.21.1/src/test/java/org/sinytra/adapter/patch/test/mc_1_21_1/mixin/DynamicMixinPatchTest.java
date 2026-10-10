@@ -325,7 +325,7 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
             "org/sinytra/adapter/test/mixin/LivingEntityMixin",
             "onUnderwater",
             assertUnique(),
-            assertHasGeneratedMethod("org/sinytra/adapter/test/mixin/adapter_generated_CommonHooks")
+            assertHasGeneratedMethod("org/sinytra/adapter/test/mixin/adapter_generated_net_neoforged_neoforge_common_CommonHooks")
         );
     }
 
@@ -335,7 +335,7 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
             "org/sinytra/adapter/test/mixin/LivingEntityMixin",
             "testFrostWalker",
             assertUnique(),
-            assertHasGeneratedMethod("org/sinytra/adapter/test/mixin/adapter_generated_CommonHooks")
+            assertHasGeneratedMethod("org/sinytra/adapter/test/mixin/adapter_generated_net_neoforged_neoforge_common_CommonHooks")
         );
     }
 
@@ -494,7 +494,7 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         assertSameCodeExtracted(
             "org/sinytra/adapter/test/mixin/pipeline/BeaconBlockEntityMixin",
             "replaceDyeColor",
-            "org/sinytra/adapter/test/mixin/pipeline/adapter_generated_IBlockExtension",
+            "org/sinytra/adapter/test/mixin/pipeline/adapter_generated_net_neoforged_neoforge_common_extensions_IBlockExtension",
             assertTargetMethod()
         );
     }

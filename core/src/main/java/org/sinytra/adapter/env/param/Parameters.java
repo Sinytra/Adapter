@@ -75,7 +75,7 @@ public final class Parameters {
                 return Pair.of(oldVar.index, Pair.of(newVar.index, entry.getValue().type()));
             })
             .filter(Objects::nonNull)
-            .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+            .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond, (first, second) -> first));
 
         Map<VarInsnNode, Pair<Integer, Type>> varMap = new HashMap<>();
         for (AbstractInsnNode insn : method.instructions) {

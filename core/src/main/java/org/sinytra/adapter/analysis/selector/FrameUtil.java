@@ -37,10 +37,7 @@ public class FrameUtil {
 
         if (insn instanceof MethodInsnNode minsn) {
             int args = Type.getArgumentCount(minsn.desc);
-            boolean isStatic = op == Opcodes.INVOKESTATIC;
-            if (op == Opcodes.INVOKEDYNAMIC) isStatic = true;
-
-            return isStatic ? args : args + 1;
+            return op == Opcodes.INVOKESTATIC ? args : args + 1;
         }
 
         if (insn instanceof InvokeDynamicInsnNode indy) {

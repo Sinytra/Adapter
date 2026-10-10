@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.ann.SliceData;
@@ -28,6 +29,7 @@ import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.injection.InjectionPoint;
 import org.spongepowered.asm.mixin.injection.points.BeforeConstant;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -141,10 +143,11 @@ public class PipelineMethodTransformer implements MethodTransformer {
         }
 
         // Remove parameters debug info if invalid due to params having changed
-        if (context.methodNode().parameters != null
-            && Type.getArgumentCount(context.methodNode().desc) != context.methodNode().parameters.size()
+        MethodNode methodNode = context.methodNode();
+        if (methodNode.parameters != null
+            && !Arrays.equals(Type.getArgumentTypes(methodNode.desc), Type.getArgumentTypes(context.unmodifiedMethodNode().desc))
         ) {
-            context.methodNode().parameters = null;
+            methodNode.parameters = null;
         }
 
         return PatchResult.APPLY;
@@ -171,15 +174,20 @@ public class PipelineMethodTransformer implements MethodTransformer {
         if (target == null)
             return false;
 
-        SliceData slice = config.getProperty(MixinKeys.SLICE).orElse(null);
-        if (slice == null) return true;
+        List<SliceData> slices = config.getProperty(MixinKeys.SLICE)
+            .map(List::of)
+            .or(() -> config.getProperty(MixinKeys.SLICES))
+            .orElse(List.of());
+        for (SliceData slice : slices) {
+            AtData from = slice.from();
+            if (from != null && !validateAtNode(context, from, target))
+                return false;
 
-        AtData from = slice.from();
-        if (from != null && !validateAtNode(context, from, target))
-            return false;
-
-        AtData to = slice.to();
-        return to == null || validateAtNode(context, to, target);
+            AtData to = slice.to();
+            if (to != null && !validateAtNode(context, to, target))
+                return false;
+        }
+        return true;
     }
 
     private boolean validateAtNode(MixinContext context, AtData at, TargetPair target) {

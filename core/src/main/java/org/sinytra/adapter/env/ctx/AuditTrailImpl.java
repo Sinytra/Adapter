@@ -91,23 +91,25 @@ public class AuditTrailImpl implements AuditTrail {
             builder.append("\n");
         }
 
-        this.auditTrail.forEach((candidate, auditLog) -> {
-            if (auditLog.entries().isEmpty()) {
-                return;
-            }
+        synchronized (this.auditTrail) {
+            this.auditTrail.forEach((candidate, auditLog) -> {
+                if (auditLog.entries().isEmpty()) {
+                    return;
+                }
 
-            if (auditLog.originalMethod() == null) {
-                builder.append("Mixin class ").append(candidate.classNode().name);
-            } else {
-                builder.append("Mixin method ").append(candidate.classNode().name).append(" ").append(auditLog.originalMethod());
-            }
+                if (auditLog.originalMethod() == null) {
+                    builder.append("Mixin class ").append(candidate.classNode().name);
+                } else {
+                    builder.append("Mixin method ").append(candidate.classNode().name).append(" ").append(auditLog.originalMethod());
+                }
 
-            for (Pair<Object, StringBuilder> record : auditLog.entries()) {
-                builder.append(record.right());
-            }
+                for (Pair<Object, StringBuilder> record : auditLog.entries()) {
+                    builder.append(record.right());
+                }
 
-            builder.append("\n\n");
-        });
+                builder.append("\n\n");
+            });
+        }
 
         return builder.toString();
     }
@@ -192,8 +194,8 @@ public class AuditTrailImpl implements AuditTrail {
         int partial = (int) this.candidates.values().stream().filter(m -> m == Match.PARTIAL).count();
         int failed = (int) this.candidates.values().stream().filter(m -> m == Match.NONE).count();
         int silenced = (int) this.candidates.values().stream().filter(m -> m == Match.IGNORED).count();
-        double rate = (successful + partial) / (double) total * 100;
-        double accuracy = (successful / (double) total + partial / (double) total / 2.0) * 100;
+        double rate = total == 0 ? 0 : (successful + partial) / (double) total * 100;
+        double accuracy = total == 0 ? 0 : (successful + partial / 2.0) / total * 100;
 
         return List.of(
             "==== Connector Mixin Patch Audit Summary ====",

@@ -43,11 +43,11 @@ public final class PatchEnvironmentImpl implements PatchEnvironment {
     }
 
     public PatchEnvironmentImpl(RefmapHolder refmapHolder, ClassLookup cleanClassLookup, @Nullable BytecodeFixerUpper bytecodeFixerUpper, int fabricLVTCompatibility, AuditTrail auditTrail, @Nullable Collection<String> pkgNamespaces) {
-        this(refmapHolder, cleanClassLookup, MixinClassLookup.INSTANCE, bytecodeFixerUpper, new MixinClassGeneratorImpl(), fabricLVTCompatibility, auditTrail, pkgNamespaces);
+        this(refmapHolder, cleanClassLookup, MixinClassLookup.INSTANCE, bytecodeFixerUpper, new MixinClassGeneratorImpl(MixinClassLookup.INSTANCE), fabricLVTCompatibility, auditTrail, pkgNamespaces);
     }
 
     public PatchEnvironmentImpl(RefmapHolder refmapHolder, ClassLookup cleanClassLookup, ClassLookup dirtyClassLookup, @Nullable BytecodeFixerUpper bytecodeFixerUpper, int fabricLVTCompatibility) {
-        this(refmapHolder, cleanClassLookup, dirtyClassLookup, bytecodeFixerUpper, new MixinClassGeneratorImpl(), fabricLVTCompatibility, new AuditTrailImpl(), null);
+        this(refmapHolder, cleanClassLookup, dirtyClassLookup, bytecodeFixerUpper, new MixinClassGeneratorImpl(dirtyClassLookup), fabricLVTCompatibility, new AuditTrailImpl(), null);
     }
 
     @Override

@@ -6,14 +6,18 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.sinytra.adapter.env.util.MixinAnnotations;
-import org.spongepowered.asm.service.MixinService;
+import org.sinytra.adapter.util.provider.ClassLookup;
 
-import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class MixinClassGeneratorImpl implements MixinClassGenerator {
     private final Map<String, GeneratedClass> generatedMixinClasses = new ConcurrentHashMap<>();
+    private final ClassLookup classLookup;
+
+    public MixinClassGeneratorImpl(ClassLookup classLookup) {
+        this.classLookup = classLookup;
+    }
 
     @Nullable
     public Map<String, GeneratedClass> getGeneratedMixinClasses() {
@@ -24,8 +28,7 @@ public class MixinClassGeneratorImpl implements MixinClassGenerator {
     public ClassNode getOrGenerateMixinClass(ClassNode original, String targetClass, @Nullable String parent) {
         int lastSeparator = original.name.lastIndexOf('/');
         String pkg = original.name.substring(0, lastSeparator + 1);
-        String[] parts = targetClass.split("/");
-        String className = pkg + "adapter_generated_" + parts[parts.length - 1];
+        String className = pkg + "adapter_generated_" + targetClass.replace('/', '_');
         GeneratedClass generatedClass;
         synchronized (this.generatedMixinClasses) {
             generatedClass = this.generatedMixinClasses.computeIfAbsent(className, s -> {
@@ -37,16 +40,12 @@ public class MixinClassGeneratorImpl implements MixinClassGenerator {
     }
 
     private ClassNode doGenerateMixinClass(String className, String targetClass, @Nullable String parent) {
-        ClassNode targetNode;
-        try {
-            targetNode = MixinService.getService().getBytecodeProvider().getClassNode(targetClass);
-        } catch (ClassNotFoundException | IOException e) {
-            throw new IllegalArgumentException("Target class " + targetClass + " not found", e);
-        }
+        ClassNode targetNode = this.classLookup.getClass(targetClass)
+            .orElseThrow(() -> new IllegalArgumentException("Target class " + targetClass + " not found"));
 
         ClassNode node = new ClassNode();
         boolean itf = (targetNode.access & Opcodes.ACC_INTERFACE) == Opcodes.ACC_INTERFACE;
-        int flags = itf ? Opcodes.ACC_INTERFACE : Opcodes.ACC_FINAL;
+        int flags = itf ? Opcodes.ACC_INTERFACE : 0;
         node.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | flags, className, null, parent != null ? parent : "java/lang/Object", null);
         AnnotationVisitor mixinAnn = node.visitAnnotation(MixinAnnotations.MIXIN, false);
         {

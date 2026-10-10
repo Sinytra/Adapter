@@ -124,7 +124,7 @@ public class AtData {
 
     public static AtData create(String value, @Nullable String target) {
         Builder builder = builder(value);
-        if (value != null) {
+        if (target != null) {
             builder.property(Keys.TARGET, target);
         }
         return builder.build();

@@ -79,14 +79,13 @@ public class InjectMixin implements MixinType {
         // Process static modifier
         if (!clean.getProperty(SpecialKeys.STATIC).orElse(false) && dirty.getProperty(SpecialKeys.STATIC).orElse(false)) {
             List<Type> types = context.targetTypes();
-            if (types.size() == 1) {
-                MethodParameters params = dirty.getParameters();
-                List<Parameter> methodParams = params.get(METHOD_PARAMS);
-                Type targetType = types.getFirst();
-                methodParams.addFirst(Parameter.simple(targetType));
-            } else {
-                throw new IllegalStateException("Cannot automatically determine target instance type for mixin " + context.classNode().name);
+            if (types.size() != 1) {
+                return TxResult.FAIL;
             }
+            MethodParameters params = dirty.getParameters();
+            List<Parameter> methodParams = params.get(METHOD_PARAMS);
+            Type targetType = types.getFirst();
+            methodParams.addFirst(Parameter.simple(targetType));
         }
 
         return TxResult.SUCCESS;

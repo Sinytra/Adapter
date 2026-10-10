@@ -21,4 +21,5 @@ public class MixinAnnotationConstants {
 
     public static final String SLICE_FROM = "from";
     public static final String SLICE_TO = "to";
+    public static final String SLICE_ID = "id";
 }

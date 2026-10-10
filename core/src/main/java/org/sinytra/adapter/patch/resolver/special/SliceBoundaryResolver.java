@@ -9,7 +9,6 @@ import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.ann.SliceData;
 import org.sinytra.adapter.patch.Recipe;
-import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.config.MutableConfiguration;
 import org.sinytra.adapter.patch.resolver.Resolver;
 import org.sinytra.adapter.env.ctx.TargetPair;
@@ -26,6 +25,7 @@ import java.util.Optional;
 
 import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
 import static org.sinytra.adapter.patch.config.key.MixinKeys.SLICE;
+import static org.sinytra.adapter.patch.config.key.MixinKeys.SLICES;
 
 public class SliceBoundaryResolver implements Resolver {
     @Override
@@ -34,17 +34,38 @@ public class SliceBoundaryResolver implements Resolver {
         if (dirtyTarget == null) return ResolutionResult.pass();
 
         SliceData slice = recipe.clean().getProperty(SLICE).orElse(null);
-        if (slice == null || passesSliceCheck(slice, context, dirtyTarget))
+        if (slice != null) {
+            if (passesSliceCheck(slice, context, dirtyTarget))
+                return ResolutionResult.pass();
+
+            SliceData fixedSlice = fixSliceData(slice, dirtyTarget.methodNode());
+            if (fixedSlice == null)
+                return ResolutionResult.pass();
+
+            return ResolutionResult.success(MutableConfiguration.create().setProperty(SLICE, fixedSlice));
+        }
+
+        List<SliceData> slices = recipe.clean().getProperty(SLICES).orElse(null);
+        if (slices == null || slices.isEmpty())
             return ResolutionResult.pass();
 
-        SliceData fixedSlice = fixSliceData(slice, dirtyTarget.methodNode());
-        if (fixedSlice == null)
+        List<SliceData> fixedSlices = new ArrayList<>();
+        boolean changed = false;
+        for (SliceData s : slices) {
+            if (passesSliceCheck(s, context, dirtyTarget)) {
+                fixedSlices.add(s);
+                continue;
+            }
+            SliceData fixedSlice = fixSliceData(s, dirtyTarget.methodNode());
+            if (fixedSlice == null)
+                return ResolutionResult.pass();
+            fixedSlices.add(fixedSlice);
+            changed = true;
+        }
+        if (!changed)
             return ResolutionResult.pass();
 
-        Configuration patch = MutableConfiguration.create()
-            .setProperty(SLICE, fixedSlice);
-
-        return ResolutionResult.success(patch);
+        return ResolutionResult.success(MutableConfiguration.create().setProperty(SLICES, fixedSlices));
     }
 
     @Nullable
@@ -61,7 +82,7 @@ public class SliceBoundaryResolver implements Resolver {
             if (to == null) return null;
         }
 
-        return new SliceData(from, to);
+        return new SliceData(slice.id(), from, to);
     }
 
     private static Optional<AtData> fixSlideInjectionPoint(AtData boundary, MethodNode dirtyMethod) {

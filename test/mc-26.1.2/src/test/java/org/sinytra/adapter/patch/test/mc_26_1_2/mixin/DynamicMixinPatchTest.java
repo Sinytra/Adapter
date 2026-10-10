@@ -59,7 +59,7 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         assertSameCodeExtracted(
             "org/sinytra/adapter/test/mc_26_1_2/mixin/LivingEntityMixin",
             "playSoundCorrectlyForBlocks",
-            "org/sinytra/adapter/test/mc_26_1_2/mixin/adapter_generated_IBlockExtension",
+            "org/sinytra/adapter/test/mc_26_1_2/mixin/adapter_generated_net_neoforged_neoforge_common_extensions_IBlockExtension",
             assertTargetMethod()
         );
     }
