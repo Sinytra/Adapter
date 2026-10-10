@@ -6,6 +6,7 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.env.ctx.LocalVariable;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.env.util.MixinAnnotations;
@@ -260,26 +261,27 @@ public class ExtractMixinProcessor implements Processor {
         if (capturedLocals == null) {
             return PatchResult.PASS;
         }
-        LocalVariableLookup table = capturedLocals.lvt();
         int paramLocalStart = capturedLocals.paramLocalStart();
 
-        // Mixin requires capturing locals in their original order, so we must filter out unused ones 
+        // Mixin requires capturing locals in their original order, so we must filter out unused ones
         LocalVarAnalyzer.CapturedLocalsTransform transform = LocalVarAnalyzer.analyzeCapturedLocals(capturedLocals, methodNode);
         LocalVarAnalyzer.CapturedLocalsUsage usage = transform.getUsage(capturedLocals, context);
-        Collection<Integer> used = transform.used();
+        // Used captured locals in parameter order
+        List<Integer> used = transform.used().stream().sorted().toList();
         LocalVariableLookup targetTable = usage.targetTable();
+        Int2ObjectMap<LocalVariable> usedLocals = usage.usedLocals();
         Int2ObjectMap<InsnList> varInsnLists = usage.varInsnLists();
         Int2IntMap usageCount = usage.usageCount();
 
-        if (table.isEmpty() || targetTable == null || used.stream().anyMatch(ordinal -> targetTable.getByOrdinalOrNull(ordinal) == null)
-            || IntStream.rangeClosed(0, paramLocalStart).anyMatch(i -> table.getByIndexOrNull(i) == null)
+        // Validate all local variable lookups before the method is modified
+        if (targetTable == null || !usedLocals.keySet().containsAll(used)
             || usageCount.int2IntEntrySet().stream().anyMatch(e -> e.getIntValue() > 1 && targetTable.getByIndexOrNull(e.getIntKey()) == null)
         ) {
             return PatchResult.PASS;
         }
 
-        PatchResult result = transform.remover().apply(context);
-        if (result == PatchResult.PASS) {
+        // Remove unused captured locals, if there are any
+        if (!transform.remover().isEmpty() && transform.remover().apply(context) == PatchResult.PASS) {
             return PatchResult.PASS;
         }
 
@@ -295,23 +297,31 @@ public class ExtractMixinProcessor implements Processor {
                 .sorted(Collections.reverseOrder())
                 .forEach(b::remove))
             .build();
-        PatchResult cleanupResult = cleanupPatch.apply(context);
-        if (cleanupResult == PatchResult.PASS) {
-            return PatchResult.PASS;
+        if (!cleanupPatch.isEmpty()) {
+            cleanupPatch.apply(context);
+        }
+
+        // Determine parameter slots of the remaining method parameters
+        Type[] remainingParams = Type.getArgumentTypes(methodNode.desc);
+        int[] paramSlots = new int[remainingParams.length];
+        int nextSlot = capturedLocals.isStatic() ? 0 : 1;
+        for (int i = 0; i < remainingParams.length; i++) {
+            paramSlots[i] = nextSlot;
+            nextSlot += remainingParams[i].getSize();
         }
 
         // Save reused variables. Locals that are only referenced once will be inlined instead
         InsnList replacementInsns = new InsnList();
-        Type lastVar = Type.getType(table.getLast().desc);
-        AtomicInteger nextAvailableIndex = new AtomicInteger(methodNode.localVariables.size() - 1 + AdapterUtil.getLVTOffsetForType(lastVar));
+        AtomicInteger nextAvailableIndex = new AtomicInteger(nextSlot);
         usageCount.forEach((index, count) -> {
             if (count == 1) {
                 int usages = 0;
                 for (Int2ObjectMap.Entry<InsnList> entry : varInsnLists.int2ObjectEntrySet()) {
                     for (AbstractInsnNode insn : entry.getValue()) {
                         if (insn instanceof VarInsnNode varInsn && varInsn.var == index) {
+                            // Copy the initializers, as the variable may be loaded on its own as well
                             InsnList varInitializers = varInsnLists.get(varInsn.var);
-                            entry.getValue().insert(varInsn, varInitializers);
+                            entry.getValue().insert(varInsn, AdapterUtil.insnList(AdapterUtil.cloneInsns(Arrays.asList(varInitializers.toArray()))));
                             entry.getValue().remove(varInsn);
                             usages++;
                         }
@@ -326,14 +336,14 @@ public class ExtractMixinProcessor implements Processor {
         Map<Integer, Integer> newIndices = new HashMap<>();
         usageCount.forEach((index, count) -> {
             if (count > 1) {
-                LocalVariableNode node = targetTable.getByIndex(index);
+                LocalVariableNode node = targetTable.getByIndexOrNull(index);
                 Type type = Type.getType(node.desc);
-                int newIndex = nextAvailableIndex.getAndAdd(AdapterUtil.getLVTOffsetForType(type));
+                int newIndex = nextAvailableIndex.getAndAdd(type.getSize());
                 LabelNode start = new LabelNode();
                 methodNode.localVariables.add(new LocalVariableNode(node.name, node.desc, node.signature, start, end, newIndex));
                 InsnList insns = varInsnLists.get((int) index);
                 replacementInsns.add(insns);
-                replacementInsns.add(new VarInsnNode(OpcodeUtil.getStoreOpcode(type.getSort()), newIndex));
+                replacementInsns.add(new VarInsnNode(type.getOpcode(Opcodes.ISTORE), newIndex));
                 replacementInsns.add(start);
                 // Update initializers to point to the new index instead
                 varInsnLists.remove((int) index);
@@ -348,26 +358,31 @@ public class ExtractMixinProcessor implements Processor {
             }
         });
 
-        // Load parameters
-        for (int i = 0; i < paramLocalStart + 1; i++) {
-            Type type = Type.getType(table.getByIndex(i).desc);
-            replacementInsns.add(AdapterUtil.loadType(type, i));
+        // Load the instance and the parameters preceding the captured locals
+        if (!capturedLocals.isStatic()) {
+            replacementInsns.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        }
+        for (int i = 0; i < paramLocalStart && i < remainingParams.length; i++) {
+            replacementInsns.add(new VarInsnNode(remainingParams[i].getOpcode(Opcodes.ILOAD), paramSlots[i]));
         }
         // Load recreated locals
-        used.forEach(ordinal -> {
-            LocalVariableNode node = targetTable.getByOrdinal(ordinal);
-            InsnList insns = varInsnLists.get(node.index);
+        for (int ordinal : used) {
+            LocalVariable local = usedLocals.get(ordinal);
+            InsnList insns = varInsnLists.get(local.index());
             if (insns != null) {
                 replacementInsns.add(insns);
             } else {
-                Type type = Type.getType(node.desc);
-                int newIndex = newIndices.getOrDefault(node.index, -1);
+                int newIndex = newIndices.getOrDefault(local.index(), -1);
                 if (newIndex == -1) {
-                    throw new IllegalArgumentException("Missing new index for var " + node.index);
+                    throw new IllegalArgumentException("Missing new index for var " + local.index());
                 }
-                replacementInsns.add(new VarInsnNode(OpcodeUtil.getLoadOpcode(type.getSort()), newIndex));
+                replacementInsns.add(new VarInsnNode(local.type().getOpcode(Opcodes.ILOAD), newIndex));
             }
-        });
+        }
+        // Load the remaining parameters following the captured locals (MixinExtras sugar parameters)
+        for (int i = paramLocalStart; i < remainingParams.length; i++) {
+            replacementInsns.add(new VarInsnNode(remainingParams[i].getOpcode(Opcodes.ILOAD), paramSlots[i]));
+        }
         // Call overloaded method
         replacementInsns.add(new MethodInsnNode(capturedLocals.isStatic() ? Opcodes.INVOKESTATIC : Opcodes.INVOKEVIRTUAL, extractClass.name, copy.name, copy.desc));
         replacementInsns.add(new LabelNode());

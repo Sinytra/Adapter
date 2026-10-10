@@ -52,26 +52,14 @@ public class LocalVariableLookup {
         return this.sortedLocals;
     }
 
-    public LocalVariableNode getByOrdinal(int ordinal) {
-        return Objects.requireNonNull(getByOrdinalOrNull(ordinal), () -> "Missing local variable at ordinal " + ordinal);
-    }
-
     @Nullable
     public LocalVariableNode getByOrdinalOrNull(int ordinal) {
         return ordinal >= 0 && ordinal < this.sortedLocals.size() ? this.sortedLocals.get(ordinal) : null;
     }
 
-    public LocalVariableNode getByParameterOrdinal(int ordinal) {
-        return Objects.requireNonNull(getByParameterOrdinalOrNull(ordinal), () -> "Missing parameter at ordinal " + ordinal);
-    }
-
     @Nullable
     public LocalVariableNode getByParameterOrdinalOrNull(int ordinal) {
         return ordinal >= 0 && ordinal < this.paramCount ? getByOrdinalOrNull(this.isNonStatic ? ordinal + 1 : ordinal) : null;
-    }
-
-    public LocalVariableNode getByIndex(int index) {
-        return Objects.requireNonNull(this.byIndex.get(index), "Missing local variable at index " + index);
     }
 
     @Nullable
@@ -93,15 +81,6 @@ public class LocalVariableLookup {
         }
         int paramOrdinal = ordinal - (this.isNonStatic ? 1 : 0);
         return paramOrdinal >= 0 && paramOrdinal < this.paramCount ? paramOrdinal : -1;
-    }
-
-    public LocalVariableNode getLast() {
-        return Objects.requireNonNull(getLastOrNull(), "Empty local variable table");
-    }
-
-    @Nullable
-    public LocalVariableNode getLastOrNull() {
-        return this.sortedLocals.isEmpty() ? null : this.sortedLocals.getLast();
     }
 
     public List<LocalVariableNode> getForType(LocalVariableNode node) {

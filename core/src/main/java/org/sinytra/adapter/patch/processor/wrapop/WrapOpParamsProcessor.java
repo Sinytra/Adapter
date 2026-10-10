@@ -1,5 +1,6 @@
 package org.sinytra.adapter.patch.processor.wrapop;
 
+import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -15,6 +16,7 @@ import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.processor.Processor;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
+import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -22,7 +24,10 @@ import java.util.List;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static org.sinytra.adapter.util.AdapterUtil.MIXINPATCH;
+
 public class WrapOpParamsProcessor implements Processor {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static final MethodQualifier WO_ORIGINAL_CALL = new MethodQualifier("Lcom/llamalad7/mixinextras/injector/wrapoperation/Operation;", "call", "([Ljava/lang/Object;)Ljava/lang/Object;");
 
     @Override
@@ -50,7 +55,9 @@ public class WrapOpParamsProcessor implements Processor {
             AbstractInsnNode dirtyInsn = context.methods().findInjectionTargetInsn(recipe.getDirtyTarget(), dirty.getAtData());
             if (cleanInsn instanceof MethodInsnNode cleanMinsn && dirtyInsn instanceof MethodInsnNode dirtyMinsn) {
                 List<Type> methodParams = dirty.getParameters().getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
-                WrapOpSurgeon.tryUpgrade(context, recipe, methodParams, cleanMinsn, dirtyMinsn);
+                if (!WrapOpSurgeon.tryUpgrade(context, recipe, methodParams, cleanMinsn, dirtyMinsn)) {
+                    LOGGER.debug(MIXINPATCH, "Could not upgrade parameter usages of {}", context.getMixinId());
+                }
             }
         }
 
@@ -88,7 +95,7 @@ public class WrapOpParamsProcessor implements Processor {
         List<WrapOpOriginalCall.CallArg> args = IntStream.range(0, params.size())
             .mapToObj(i -> {
                 Parameter param = params.get(i);
-                int index = lookup.getByParameterOrdinal(i).index;
+                int index = lookup.getByParameterOrdinalOrNull(i).index;
                 Type type = param.type();
 
                 List<AbstractInsnNode> loadInsns = new ArrayList<>();

@@ -4,9 +4,9 @@ import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
-import org.objectweb.asm.commons.Method;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.env.ctx.MethodHelper;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.PatchEnvironment;
 import org.sinytra.adapter.env.ctx.TargetPair;
@@ -15,7 +15,6 @@ import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
 import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.sinytra.adapter.patch.config.key.SpecialKeys;
 import org.sinytra.adapter.patch.processor.Processor;
 import org.sinytra.adapter.util.AdapterUtil;
@@ -36,7 +35,7 @@ public class ProxyExtractMixinSub implements Processor {
         if (recipe.clean().getTargetClass().equals(dirty.getTargetClass()))
             return TxResult.PASS;
 
-        if (!dirty.hasProperty(SpecialKeys.EXTRACT_ORIGIN_PARAM) || recipe.clean().hasProperty(MixinKeys.LOCALS))
+        if (!dirty.hasProperty(SpecialKeys.EXTRACT_ORIGIN_PARAM) || AdapterUtil.capturesLocals(context))
             return TxResult.FAIL;
 
         TargetPair dirtyTarget = recipe.getNewCleanTarget();
@@ -82,11 +81,18 @@ public class ProxyExtractMixinSub implements Processor {
         // Now call the original mixin
         GeneratorAdapter gen = new GeneratorAdapter(invokerMixinMethod, invokerMixinMethod.access, invokerMixinMethod.name, invokerMixinMethod.desc);
         gen.newLabel();
-        gen.loadArg(capturedInstanceParamIndex);
+        // The original handler is merged into the original target class
+        Type handlerOwner = Type.getObjectType(dirtyTarget.classNode().name);
+        if (!MethodHelper.isStatic(methodNode)) {
+            gen.loadArg(capturedInstanceParamIndex);
+            if (!instanceType.equals(handlerOwner)) {
+                gen.checkCast(handlerOwner);
+            }
+        }
         for (int i = 0; i < originalParams.size(); i++) {
             gen.loadArg(i);
         }
-        gen.invokeVirtual(instanceType, new Method(methodNode.name, methodNode.desc));
+        MirrorableExtractMixin.invokeHandler(gen, methodNode, dirtyTarget.classNode());
         gen.newLabel();
         gen.returnValue();
         gen.newLabel();

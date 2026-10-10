@@ -45,11 +45,11 @@ public record ResolverSyntheticInstanceof(boolean skipInsnComparison) implements
         if (targetInsn == null) return ResolutionResult.pass();
 
         List<AbstractInsnNode> labelInsns = findLabelInsns(targetInsn);
-        AbstractInsnNode jumpInsn = labelInsns.getLast();
         // Ensure label contain an if statement
-        if (!(jumpInsn instanceof JumpInsnNode)) return ResolutionResult.pass();
+        if (labelInsns.isEmpty() || !(labelInsns.getLast() instanceof JumpInsnNode)) return ResolutionResult.pass();
 
         InstructionMatcher cleanMatcher = MethodInsnMatcher.findForwardInstructions(targetInsn);
+        if (cleanMatcher.after().isEmpty()) return ResolutionResult.pass();
         int firstOp = cleanMatcher.after().getFirst().getOpcode();
         // Find equivalent dirty code point
         InsnList dirtyInsns = dirtyTarget.methodNode().instructions;
@@ -99,6 +99,9 @@ public record ResolverSyntheticInstanceof(boolean skipInsnComparison) implements
                             continue;
                         }
                         modLabelInsns.add(ins.clone(Map.of()));
+                    }
+                    if (modLabelInsns.size() < 3 || dirtyLabelInsns.isEmpty()) {
+                        continue;
                     }
                     // Remove first and last label insns
                     modLabelInsns.removeFirst();
@@ -159,11 +162,11 @@ public record ResolverSyntheticInstanceof(boolean skipInsnComparison) implements
         return list;
     }
 
-    private static int getInstanceofOrdinal(InsnList insns, AbstractInsnNode insn) {
+    private static int getInstanceofOrdinal(InsnList insns, TypeInsnNode insn) {
         List<AbstractInsnNode> instanceOfInsns = new ArrayList<>();
         for (AbstractInsnNode node : insns) {
-            if (node.getOpcode() == Opcodes.INSTANCEOF) {
-                instanceOfInsns.add(insn);
+            if (node instanceof TypeInsnNode typeInsn && typeInsn.getOpcode() == Opcodes.INSTANCEOF && typeInsn.desc.equals(insn.desc)) {
+                instanceOfInsns.add(node);
             }
         }
         return instanceOfInsns.indexOf(insn);

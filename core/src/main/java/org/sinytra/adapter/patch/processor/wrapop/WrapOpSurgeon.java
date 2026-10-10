@@ -33,12 +33,16 @@ public class WrapOpSurgeon {
         LocalVariableLookup mixinLocals = context.methods().getLVT(methodNode);
         if (mixinLocals == null) return false;
 
+        LocalVariableNode instanceLocal = mixinLocals.getByParameterOrdinalOrNull(0);
+        if (instanceLocal == null) return false;
+        int instanceIndex = instanceLocal.index;
+
         Multimap<Integer, VarInsnNode> usedVars = getUsedVars(mixinLocals, methodParams, context);
         Map<Integer, Pair<TypeAdapter, @Nullable Consumer<InsnList>>> adapters = new HashMap<>();
 
         for (Integer key : usedVars.keys()) {
-            if (key == 0) {
-                Pair<TypeAdapter, @Nullable Consumer<InsnList>> pair = findReplacementForInstance(cleanInsn, dirtyInsn, context, recipe);
+            if (key == instanceIndex) {
+                Pair<TypeAdapter, @Nullable Consumer<InsnList>> pair = findReplacementForInstance(cleanInsn, dirtyInsn, context, recipe, instanceIndex);
                 if (pair != null) {
                     adapters.put(key, pair);
                     continue;
@@ -62,7 +66,7 @@ public class WrapOpSurgeon {
     }
 
     @Nullable
-    private static Pair<TypeAdapter, @Nullable Consumer<InsnList>> findReplacementForInstance(MethodInsnNode cleanInsn, MethodInsnNode dirtyInsn, MixinContext context, Recipe recipe) {
+    private static Pair<TypeAdapter, @Nullable Consumer<InsnList>> findReplacementForInstance(MethodInsnNode cleanInsn, MethodInsnNode dirtyInsn, MixinContext context, Recipe recipe, int instanceIndex) {
         TargetPair cleanTarget = recipe.getCleanTarget();
         if (cleanTarget == null) return null;
 
@@ -102,7 +106,7 @@ public class WrapOpSurgeon {
 
                 list.insert(insn, AdapterUtil.insnList(AdapterUtil.cloneInsns(subList)));
             });
-            Consumer<InsnList> castCheck = subList.getFirst() instanceof TypeInsnNode typeInsn && typeInsn.getOpcode() == Opcodes.CHECKCAST ?
+            Consumer<InsnList> castCheck = !subList.isEmpty() && subList.getFirst() instanceof TypeInsnNode typeInsn && typeInsn.getOpcode() == Opcodes.CHECKCAST ?
                 list -> {
                     List<AbstractInsnNode> originalWOCall = new ArrayList<>(ParamTransformationUtil.findWrapOperationOriginalCallArgs(context.methodNode()));
                     if (originalWOCall.isEmpty()) {
@@ -122,7 +126,7 @@ public class WrapOpSurgeon {
                     LabelNode label = hasLabel ? (LabelNode) list.getFirst() : new LabelNode();
                     InsnList check = AdapterUtil.insnList(
                         new LabelNode(),
-                        new VarInsnNode(Opcodes.ALOAD, 0),
+                        new VarInsnNode(Opcodes.ALOAD, instanceIndex),
                         new TypeInsnNode(Opcodes.INSTANCEOF, typeInsn.desc),
                         new JumpInsnNode(Opcodes.IFNE, label),
                         new LabelNode()

@@ -29,14 +29,15 @@ public class ParameterUsageProcessor implements Processor {
         String dirtyTarget = dirty.getAtData().getTarget().orElse(null);
         if (dirtyTarget == null) return TxResult.PASS;
 
-        MethodQualifier cleanTargetQual = MethodQualifier.parse(cleanTarget).orElseThrow();
-        MethodQualifier dirtyTargetQual = MethodQualifier.parse(dirtyTarget).orElseThrow();
+        MethodQualifier cleanTargetQual = MethodQualifier.parse(cleanTarget).orElse(null);
+        MethodQualifier dirtyTargetQual = MethodQualifier.parse(dirtyTarget).orElse(null);
+        if (cleanTargetQual == null || dirtyTargetQual == null) return TxResult.PASS;
 
-        MethodParameters recipeDirtyParams = recipe.dirty().getParameters();
-        if (recipeDirtyParams == null || !recipeDirtyParams.has(ParamGroup.METHOD_PARAMS)) return TxResult.PASS;
+        MethodParameters dirtyMethodParams = dirty.getParameters();
+        if (dirtyMethodParams == null || !dirtyMethodParams.has(ParamGroup.METHOD_PARAMS)) return TxResult.PASS;
 
         List<Type> cleanParams = recipe.clean().getParameters().getTypes(ParamGroup.METHOD_PARAMS);
-        List<Type> dirtyParams = recipeDirtyParams.getTypes(ParamGroup.METHOD_PARAMS);
+        List<Type> dirtyParams = dirtyMethodParams.getTypes(ParamGroup.METHOD_PARAMS);
         ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(cleanParams, dirtyParams);
 
         List<List<AbstractInsnNode>> callInsns = MethodCallAnalyzer.getAllMethodCallSrcInsnsInclusive(context.methodNode(), cleanTargetQual);
@@ -63,12 +64,13 @@ public class ParameterUsageProcessor implements Processor {
             // Insert new params
             for (Pair<Integer, Type> insertion : diff.insertions()) {
                 int ordinal = insertion.getFirst();
-                LocalVariableNode node = lookup.getByParameterOrdinal(ordinal);
+                LocalVariableNode node = lookup.getByParameterOrdinalOrNull(ordinal);
 
-                AbstractInsnNode nextInsn = call.get(ordinal);
+                int position = Math.min(ordinal, call.size() - 1);
+                AbstractInsnNode nextInsn = call.get(position);
                 AbstractInsnNode insn = AdapterUtil.loadType(insertion.getSecond(), node.index);
                 context.methodNode().instructions.insertBefore(nextInsn, insn);
-                call.add(ordinal, insn);
+                call.add(position, insn);
             }
         }
 

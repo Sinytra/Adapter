@@ -11,9 +11,11 @@ import org.sinytra.adapter.analysis.locals.LVTSnapshot;
 import org.sinytra.adapter.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.patch.mixin.MixinFlag;
+import org.sinytra.adapter.util.AdapterUtil;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 
 import static org.sinytra.adapter.env.util.MixinAnnotationConstants.PROPERTY_INDEX;
@@ -44,8 +46,16 @@ public record InjectParameterTransform(int index, Type type) implements Paramete
             return PatchResult.APPLY;
         }
 
-        LocalVariableNode self = methodNode.localVariables.stream().filter(lvn -> lvn.index == 0).findFirst().orElseThrow();
         int lvtIndex = calculateLVTIndex(parameters, isNonStatic, index);
+        LocalVariableNode scope = methodNode.localVariables.stream().filter(lvn -> lvn.index == 0).findFirst()
+            .or(() -> methodNode.localVariables.stream().min(Comparator.comparingInt(lvn -> lvn.index)))
+            .orElse(null);
+        if (scope == null) {
+            parameters.add(index, type);
+            offsetParameters(methodNode, index);
+            AdapterUtil.replaceLVT(methodNode, idx -> idx >= lvtIndex ? idx + type.getSize() : idx);
+            return PatchResult.APPLY;
+        }
 
         LVTSnapshot.with(methodNode, () -> {
             ParameterNode newParameter = new ParameterNode("adapter_injected_" + index, Opcodes.ACC_SYNTHETIC);
@@ -53,7 +63,8 @@ public record InjectParameterTransform(int index, Type type) implements Paramete
 
             offsetParameters(methodNode, index);
 
-            methodNode.localVariables.add(index + (isNonStatic ? 1 : 0), new LocalVariableNode(newParameter.name, type.getDescriptor(), null, self.start, self.end, lvtIndex));
+            int position = Math.min(index + (isNonStatic ? 1 : 0), methodNode.localVariables.size());
+            methodNode.localVariables.add(position, new LocalVariableNode(newParameter.name, type.getDescriptor(), null, scope.start, scope.end, lvtIndex));
         });
 
         return PatchResult.APPLY;

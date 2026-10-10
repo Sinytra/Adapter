@@ -58,23 +58,34 @@ public final class LocalVarAnalyzer {
         return insns;
     }
 
-    public record CapturedLocalsUsage(@Nullable LocalVariableLookup targetTable, Int2IntMap usageCount, Int2ObjectMap<InsnList> varInsnLists) {
+    public record CapturedLocalsUsage(
+        @Nullable LocalVariableLookup targetTable,
+        Int2ObjectMap<LocalVariable> usedLocals,
+        Int2IntMap usageCount,
+        Int2ObjectMap<InsnList> varInsnLists
+    ) {
     }
 
     public record CapturedLocalsTransform(Collection<Integer> used, TransformParameters remover, Collection<LocalVariableNode> usedLocalNodes) {
         public CapturedLocalsUsage getUsage(AdapterUtil.CapturedLocals captured, MixinContext context) {
             LocalVariableLookup targetTable = context.methods().getLVT(captured.target().methodNode());
+            Int2ObjectMap<LocalVariable> usedLocals = new Int2ObjectOpenHashMap<>();
             Int2ObjectMap<InsnList> varInsnLists = new Int2ObjectOpenHashMap<>();
             Int2IntMap usageCount = new Int2IntOpenHashMap();
-            if (targetTable != null) {
+
+            // Captured locals are the locals available at the injection point, in order
+            List<LocalVariable> available = context.methods().getTargetMethodLocals(captured.target());
+            if (targetTable != null && available != null) {
                 this.used.forEach(ordinal -> {
-                    LocalVariableNode node = targetTable.getByOrdinalOrNull(ordinal);
-                    if (node != null) {
-                        findVariableInitializerInsns(captured.target().methodNode(), captured.isStatic(), node.index, varInsnLists, usageCount);
+                    int localIndex = ordinal - captured.paramLocalStart();
+                    if (localIndex >= 0 && localIndex < available.size()) {
+                        LocalVariable local = available.get(localIndex);
+                        usedLocals.put((int) ordinal, local);
+                        findVariableInitializerInsns(captured.target().methodNode(), captured.isStatic(), local.index(), varInsnLists, usageCount);
                     }
                 });
             }
-            return new CapturedLocalsUsage(targetTable, usageCount, varInsnLists);
+            return new CapturedLocalsUsage(targetTable, usedLocals, usageCount, varInsnLists);
         }
     }
 
@@ -87,7 +98,7 @@ public final class LocalVarAnalyzer {
         for (AbstractInsnNode insn : methodNode.instructions) {
             if (insn instanceof VarInsnNode varInsn) {
                 LocalVariableNode node = table.getByIndexOrNull(varInsn.var);
-                if (node == null) 
+                if (node == null)
                     continue;
                 int ordinal = table.getParameterOrdinal(node);
                 if (ordinal == -1)

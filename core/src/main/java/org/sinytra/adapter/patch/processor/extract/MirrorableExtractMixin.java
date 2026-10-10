@@ -4,9 +4,9 @@ import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
-import org.objectweb.asm.commons.Method;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
+import org.sinytra.adapter.env.ctx.MethodHelper;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.PatchEnvironment;
 import org.sinytra.adapter.env.ctx.PatchResult;
@@ -20,7 +20,6 @@ import org.sinytra.adapter.util.MethodQualifier;
 import org.sinytra.adapter.util.OpcodeUtil;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -65,9 +64,22 @@ public class MirrorableExtractMixin {
         String name = methodNode.name + "$adapter$mirror$" + AdapterUtil.randomString(5);
         List<Type> originalParams = Parameters.getParameterTypes(methodNode.desc);
         List<Type> newParams = ImmutableList.<Type>builder().add(Type.getArgumentTypes(destinationMethodInvocation.desc)).add(TypeConstants.CI_TYPE).build();
-        // Make sure we have all required params
-        if (!new HashSet<>(newParams).containsAll(originalParams)) {
-            return PatchResult.PASS;
+        // Make sure we have all required params, matching parameters of the same type in order
+        int[] argMapping = new int[originalParams.size()];
+        boolean[] mappedArgs = new boolean[newParams.size()];
+        for (int i = 0; i < originalParams.size(); i++) {
+            int argIndex = -1;
+            for (int j = 0; j < newParams.size(); j++) {
+                if (!mappedArgs[j] && newParams.get(j).equals(originalParams.get(i))) {
+                    argIndex = j;
+                    break;
+                }
+            }
+            if (argIndex == -1) {
+                return PatchResult.PASS;
+            }
+            mappedArgs[argIndex] = true;
+            argMapping[i] = argIndex;
         }
 
         String desc = Type.getMethodDescriptor(Type.VOID_TYPE, newParams.toArray(Type[]::new));
@@ -86,11 +98,13 @@ public class MirrorableExtractMixin {
         // Now call the original mixin
         GeneratorAdapter gen = new GeneratorAdapter(invokerMixinMethod, invokerMixinMethod.access, invokerMixinMethod.name, invokerMixinMethod.desc);
         gen.newLabel();
-        gen.loadArg(selfIndex);
-        for (Type type : originalParams) {
-            gen.loadArg(newParams.indexOf(type));
+        if (!MethodHelper.isStatic(methodNode)) {
+            gen.loadArg(selfIndex);
         }
-        gen.invokeVirtual(selfType, new Method(methodNode.name, methodNode.desc));
+        for (int argIndex : argMapping) {
+            gen.loadArg(argIndex);
+        }
+        invokeHandler(gen, methodNode, dirtyTarget.classNode());
         gen.newLabel();
         gen.returnValue();
         gen.newLabel();
@@ -98,5 +112,11 @@ public class MirrorableExtractMixin {
 
         context.recordCtxAudit("Extract (mirror) mixin to target %s", destinationClass);
         return PatchResult.APPLY;
+    }
+
+    static void invokeHandler(GeneratorAdapter gen, MethodNode handler, ClassNode handlerOwner) {
+        boolean isInterface = (handlerOwner.access & Opcodes.ACC_INTERFACE) != 0;
+        int opcode = MethodHelper.isStatic(handler) ? Opcodes.INVOKESTATIC : isInterface ? Opcodes.INVOKEINTERFACE : Opcodes.INVOKEVIRTUAL;
+        gen.visitMethodInsn(opcode, handlerOwner.name, handler.name, handler.desc, isInterface);
     }
 }
