@@ -195,6 +195,13 @@ public final class AdapterUtil {
         return getCapturedLocals(context, target);
     }
 
+    public static boolean capturesLocals(MixinContext context) {
+        MethodNode methodNode = context.methodNode();
+        Type[] params = Type.getArgumentTypes(methodNode.desc);
+        OptionalInt paramLocalPos = getCapturedLocalStartingIndex(params);
+        return paramLocalPos.isPresent() && !getCapturedLocalTypes(methodNode, params, paramLocalPos.getAsInt()).isEmpty();
+    }
+
     // TODO Better way?
     @Nullable
     public static CapturedLocals getCapturedLocals(MixinContext context, TargetPair dirtyTarget) {
@@ -207,15 +214,15 @@ public final class AdapterUtil {
             return null;
         }
 
-        List<Type> ignored = getAnnotatedParameters(methodNode, params, MixinAnnotations.SHARE, (node, type) -> type);
-        Type[] availableParams = Stream.of(params).filter(t -> !ignored.contains(t)).toArray(Type[]::new);
-
         boolean isStatic = MethodHelper.isStatic(methodNode);
         int lvtOffset = isStatic ? 0 : 1;
         // The first local var in the method's params comes after the target's params plus the CI/CIR parameter
         int paramLocalPosVal = paramLocalPos.getAsInt();
         // Get expected local variables from method parameters
-        List<Type> expected = AdapterUtil.summariseLocals(availableParams, paramLocalPosVal);
+        List<Type> expected = getCapturedLocalTypes(methodNode, params, paramLocalPosVal);
+        if (expected.isEmpty()) {
+            return null;
+        }
         int paramLocalPosEnd = paramLocalPosVal + expected.size() - 1;
         LocalVariableLookup lvt = context.methods().getLVT(methodNode);
         if (lvt == null) {
@@ -223,6 +230,24 @@ public final class AdapterUtil {
             return null;
         }
         return new CapturedLocals(dirtyTarget, isStatic, paramLocalPosVal, paramLocalPosEnd, lvtOffset, expected, lvt);
+    }
+
+    private static List<Type> getCapturedLocalTypes(MethodNode methodNode, Type[] params, int start) {
+        List<Type> captured = new ArrayList<>();
+        for (int i = start; i < params.length; i++) {
+            if (isSugarParameter(methodNode, i)) {
+                break;
+            }
+            captured.add(params[i]);
+        }
+        return captured;
+    }
+
+    private static boolean isSugarParameter(MethodNode methodNode, int index) {
+        return Stream.of(methodNode.invisibleParameterAnnotations, methodNode.visibleParameterAnnotations)
+            .filter(arr -> arr != null && index < arr.length && arr[index] != null)
+            .flatMap(arr -> arr[index].stream())
+            .anyMatch(ann -> MixinAnnotations.LOCAL.equals(ann.desc) || MixinAnnotations.SHARE.equals(ann.desc));
     }
 
     private static OptionalInt getCapturedLocalStartingIndex(Type[] params) {

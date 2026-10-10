@@ -77,6 +77,10 @@ public class ModifyVariableMixin implements MixinType {
             int cleanIndex = cleanTargetMethodParams.indexOf(cleanVarType);
 
             List<Type> dirtyTargetMethodParams = Parameters.getParameterTypes(dirty.getTargetMethod().desc());
+            // The modified argument can't be located in the new target method
+            if (cleanIndex == -1 || cleanIndex >= dirtyTargetMethodParams.size()) {
+                return TxResult.FAIL;
+            }
             Type dirtyVarType = dirtyTargetMethodParams.get(cleanIndex);
 
             TypeAdapter adapter = context.getTypeAdapter(cleanVarType, dirtyVarType);

@@ -41,18 +41,13 @@ public class ParametersPostProcessor implements Processor {
     @Override
     public TxResult process(MixinContext context, Configuration dirty, Recipe recipe) {
         MethodParameters cleanParams = recipe.clean().getParameters();
-        MethodParameters dirtyParams = recipe.clean().getParameters();
-        if (!cleanParams.has(MethodParameters.ParamGroup.METHOD_PARAMS) || !dirtyParams.has(MethodParameters.ParamGroup.METHOD_PARAMS)) {
+        MethodParameters dirtyParams = dirty.getParameters();
+        if (dirtyParams == null || !cleanParams.has(MethodParameters.ParamGroup.METHOD_PARAMS) || !dirtyParams.has(MethodParameters.ParamGroup.METHOD_PARAMS)) {
             return TxResult.PASS;
         }
 
-        MethodParameters recipeDirtyParams = recipe.dirty().getParameters();
-        if (recipeDirtyParams == null || !recipeDirtyParams.has(MethodParameters.ParamGroup.METHOD_PARAMS)) {
-            return TxResult.PASS;
-        }
-
-        List<Type> cleanTypes = recipe.clean().getParameters().getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
-        List<Type> dirtyTypes = recipeDirtyParams.getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
+        List<Type> cleanTypes = cleanParams.getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
+        List<Type> dirtyTypes = dirtyParams.getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
         ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(cleanTypes, dirtyTypes);
         MethodNode methodNode = context.methodNode();
         LocalVariableLookup lookup = context.methods().getLVT(context.methodNode());

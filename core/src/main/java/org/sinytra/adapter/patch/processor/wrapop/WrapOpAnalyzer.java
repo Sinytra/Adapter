@@ -31,9 +31,10 @@ public class WrapOpAnalyzer {
                 Frame<SourceValue> frame = frames[i];
                 if (frame == null) continue;
 
-                // Stack for AASTORE: [..., arrayRef, dup, index, value]
-                // arrayRef is at stack size - 4
-                SourceValue arrayRefSource = frame.getStack(frame.getStackSize() - 4);
+                // Stack for AASTORE: [..., arrayRef, index, value]
+                // arrayRef is at stack size - 3
+                if (frame.getStackSize() < 3) continue;
+                SourceValue arrayRefSource = frame.getStack(frame.getStackSize() - 3);
 
                 // Check if this AASTORE is operating on the array created by newArrayInsn
                 if (arrayRefSource.insns.contains(newArrayInsn)) {

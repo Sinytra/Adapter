@@ -309,7 +309,7 @@ public class InjectorOrdinalResolver implements Resolver {
 
             Type targetType = args[0];
             // Gradually expand supported types over time as necessary
-            if (targetType != Type.BOOLEAN_TYPE && targetType != Type.INT_TYPE && targetType != Type.FLOAT_TYPE) {
+            if (!targetType.equals(Type.BOOLEAN_TYPE) && !targetType.equals(Type.INT_TYPE) && !targetType.equals(Type.FLOAT_TYPE)) {
                 return Optional.empty();
             }
 
@@ -422,7 +422,7 @@ public class InjectorOrdinalResolver implements Resolver {
                 return Optional.empty();
             }
             List<LocalVariableNode> cleanLocals = cleanTarget.methodNode().localVariables.stream()
-                .filter(l -> Type.getType(l.desc) == targetType)
+                .filter(l -> Type.getType(l.desc).equals(targetType))
                 .sorted(Comparator.comparingInt(l -> l.index))
                 .toList();
             if (cleanLocals.size() <= ordinal) {

@@ -230,7 +230,7 @@ public class MethodHelper {
     @Nullable
     public List<LocalVariable> getTargetMethodLocals(TargetPair target) {
         Type[] targetParams = Type.getArgumentTypes(target.methodNode().desc);
-        boolean isStatic = isStatic(this.context.methodNode());
+        boolean isStatic = isStatic(target.methodNode());
         int lvtOffset = isStatic ? 0 : 1;
         // The starting LVT index is of the first var after all method parameters. Offset by 1 for instance methods to skip 'this'
         int targetLocalPos = targetParams.length + lvtOffset;

@@ -1,6 +1,7 @@
 package org.sinytra.adapter.patch;
 
 import com.google.common.base.Suppliers;
+import org.jetbrains.annotations.Nullable;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.ctx.MixinContext;
@@ -65,10 +66,12 @@ public final class Recipe {
             .orElse(null));
     }
 
+    @Nullable
     public LocalVariableLookup cleanLocalsTable() {
         return this.cleanLocalsTableCache.get();
     }
 
+    @Nullable
     public LocalVariableLookup dirtyLocalsTable() {
         return this.dirtyLocalsTableCache.get();
     }

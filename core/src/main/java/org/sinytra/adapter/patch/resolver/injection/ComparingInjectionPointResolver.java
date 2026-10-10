@@ -195,7 +195,10 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
                     if (node == null || !loadedType.equals(node.desc)) return Optional.empty();
 
                     int paramOrdinal = lvt.getParameterOrdinal(node);
-                    Parameter oldParam = clean.getParameters().get(ParamGroup.METHOD_PARAMS).get(paramOrdinal);
+                    List<Parameter> cleanParams = clean.getParameters().get(ParamGroup.METHOD_PARAMS);
+                    if (paramOrdinal < 0 || paramOrdinal >= cleanParams.size()) return Optional.empty();
+
+                    Parameter oldParam = cleanParams.get(paramOrdinal);
                     parameters.mapParameter(oldParam, newInstanceParam);
                 }
             }

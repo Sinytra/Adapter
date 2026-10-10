@@ -62,6 +62,8 @@ public class RedirectMixin implements MixinType {
         List<Type> callTypes = Parameters.getParameterTypes(targetDesc.desc());
         boolean isStatic = isStaticRedirect(context, targetDesc, methodParams, callTypes);
         if (!isStatic) {
+            if (methodParams.isEmpty())
+                return TxResult.FAIL;
             callTypes.addFirst(methodParams.getFirst());
         }
 

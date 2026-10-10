@@ -58,7 +58,8 @@ public class ModifyVarInjectionPointSubResolver implements SubResolver {
                 })
                 .toList();
             if (lvs.size() == 1) {
-                int dirtyOrdinal = dirtyLookup.getOrdinal(lvs.getFirst());
+                Integer dirtyOrdinal = dirtyLookup.getTypedOrdinal(lvs.getFirst()).orElse(null);
+                if (dirtyOrdinal == null) continue;
 
                 return recipe.dirty().copyClean()
                     .setProperty(ORDINAL, dirtyOrdinal)

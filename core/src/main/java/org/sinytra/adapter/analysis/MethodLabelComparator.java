@@ -124,6 +124,9 @@ public class MethodLabelComparator {
             }
             workingList.add(insn);
         }
+        if (workingList != null) {
+            list.add(workingList);
+        }
         return list;
     }
 }
