@@ -108,6 +108,8 @@ public class PipelineMethodTransformer implements MethodTransformer {
             }
         }
 
+        recipe = recipe.withDirtyConfig(dirtyConfig);
+
         // 3. Complete dirty config
         if (dirtyConfig.hasProperty(ControlKeys.MIXIN_TYPE)) {
             String type = dirtyConfig.getMixinType();

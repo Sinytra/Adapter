@@ -18,13 +18,13 @@ public class DynamicPatches {
     public static final List<ClassTransformer> CLASS_PATCHES = List.of(
         new DynamicAnonClassIndexPatch(),
         new DynamicAnonymousShadowFieldTypePatch(),
-        new FieldTypeUsageTransformer()
+        new FieldTypeUsageTransformer(),
+        new FieldAccessorTypeTransformer()
     );
 
     public static Multimap<TxPhase, MethodTransformer> methodTransformers(List<MethodPatch> patches) {
         return ImmutableMultimap.of(
             TxPhase.EARLY, new LocalCaptureUpgradeTransformer(),
-            TxPhase.LOADED, new FieldAccessorTypeTransformer(),
             TxPhase.VALIDATED, new PipelineMethodTransformer(patches, false) 
         );
     }

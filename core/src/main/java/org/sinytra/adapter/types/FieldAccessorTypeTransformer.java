@@ -4,48 +4,63 @@ import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.analysis.selector.AnnotationHandle;
+import org.sinytra.adapter.env.ann.ClassTarget;
 import org.sinytra.adapter.env.ctx.MethodHelper;
-import org.sinytra.adapter.env.ctx.MixinContext;
+import org.sinytra.adapter.env.ctx.PatchContext;
 import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.env.util.MixinAnnotations;
-import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.transform.MethodTransformer;
+import org.sinytra.adapter.transform.ClassTransformer;
 import org.sinytra.adapter.util.AdapterUtil;
 
-public class FieldAccessorTypeTransformer implements MethodTransformer {
+public class FieldAccessorTypeTransformer implements ClassTransformer {
     private static final String PREFIX = "adapter$";
     private static final int PRIORITY_MAX = 9999;
 
     @Override
-    public PatchResult apply(MixinContext context, Configuration config) {
+    public PatchResult apply(ClassNode classNode, ClassTarget classTarget, PatchContext context) {
         BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
         if (bfu == null || context.targetTypes().size() != 1) return PatchResult.PASS;
 
-        ClassNode classNode = context.classNode();
-        MethodNode methodNode = context.methodNode();
-        String fieldFqn = AdapterUtil.getAccessorTargetFieldName(classNode.name, methodNode, context.methodAnnotation(), context.environment())
+        Type owner = context.targetTypes().getFirst();
+        PatchResult result = PatchResult.PASS;
+        for (MethodNode methodNode : classNode.methods) {
+            AnnotationNode accessor = methodNode.visibleAnnotations == null ? null : methodNode.visibleAnnotations.stream()
+                .filter(a -> MixinAnnotations.ACCESSOR.equals(a.desc))
+                .findFirst()
+                .orElse(null);
+            if (accessor == null || Type.getArgumentCount(methodNode.desc) != 0 || Type.getReturnType(methodNode.desc) == Type.VOID_TYPE) {
+                continue;
+            }
+            result = result.or(redirectAccessor(classNode, methodNode, accessor, owner, bfu, context));
+        }
+        return result;
+    }
+
+    private PatchResult redirectAccessor(ClassNode classNode, MethodNode methodNode, AnnotationNode accessor, Type owner, BytecodeFixerUpper bfu, PatchContext context) {
+        String fieldFqn = AdapterUtil.getAccessorTargetFieldName(classNode.name, methodNode, new AnnotationHandle(accessor), context.environment())
             .orElse(null);
         if (fieldFqn == null) return PatchResult.PASS;
 
         String fieldName = getFieldName(fieldFqn);
-        Type owner = context.targetTypes().getFirst();
         Pair<Type, Type> updatedTypes = bfu.getFieldTypeChange(owner.getInternalName(), fieldName);
-        if (updatedTypes != null) {
-            TypeAdapter typeAdapter = bfu.getTypeAdapter(updatedTypes.getSecond(), updatedTypes.getFirst());
-            if (typeAdapter != null) {
-                String targetMethod = addRedirectAcceptorField(owner, methodNode, fieldName, typeAdapter, bfu.getGenerator());
+        if (updatedTypes == null) return PatchResult.PASS;
 
-                // Change Accessor to Invoker
-                methodNode.visibleAnnotations.remove(context.methodAnnotation().unwrap());
-                AnnotationVisitor invokerAnn = methodNode.visitAnnotation(MixinAnnotations.INVOKER, true);
-                invokerAnn.visit("value", targetMethod);
-                return PatchResult.APPLY;
-            }
-        }
+        TypeAdapter typeAdapter = bfu.getTypeAdapter(updatedTypes.getSecond(), updatedTypes.getFirst());
+        if (typeAdapter == null) return PatchResult.PASS;
 
-        return PatchResult.PASS;
+        String targetMethod = addRedirectAcceptorField(owner, methodNode, fieldName, typeAdapter, bfu.getGenerator());
+
+        // Change Accessor to Invoker
+        methodNode.visibleAnnotations.remove(accessor);
+        AnnotationVisitor invokerAnn = methodNode.visitAnnotation(MixinAnnotations.INVOKER, true);
+        invokerAnn.visit("value", targetMethod);
+        context.environment().auditTrail().recordAudit(this, classNode, "Redirect accessor %s%s to invoker %s", methodNode.name, methodNode.desc, targetMethod);
+
+        return PatchResult.APPLY;
     }
 
     private String addRedirectAcceptorField(Type owner, MethodNode methodNode, String field, TypeAdapter adapter, BytecodeFixerJarGenerator generator) {

@@ -1,6 +1,5 @@
 package org.sinytra.adapter.patch;
 
-import com.google.common.base.Suppliers;
 import org.jetbrains.annotations.Nullable;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.env.ann.AtData;
@@ -9,13 +8,11 @@ import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.processor.Processors;
 import org.sinytra.adapter.patch.resolver.Resolvers;
+import org.sinytra.adapter.util.Cached;
+import org.sinytra.adapter.util.MethodQualifier;
+import org.sinytra.adapter.util.provider.ClassLookup;
 
 import java.util.Objects;
-import java.util.Optional;
-import java.util.function.Supplier;
-
-// TODO Figure out Recipe and Context or merge them
-// TODO Look for dirty target using clean config?
 
 /**
  * Defines the initial and desired states, which include mixin method metadata and per-mixin-type variables.
@@ -27,57 +24,64 @@ public final class Recipe {
     private final Processors processors;
     private final MixinContext context;
 
-    private final Supplier<TargetPair> cleanTarget;
-    private final Supplier<TargetPair> newCleanTarget;
-    private final Supplier<TargetPair> dirtyTarget;
+    private final Cached<TargetPair> cleanTarget;
+    private final Cached<TargetPair> newCleanTarget;
+    private final Cached<LocalVariableLookup> cleanLocalsTable;
 
-    private final Supplier<LocalVariableLookup> cleanLocalsTableCache;
-    private final Supplier<LocalVariableLookup> dirtyLocalsTableCache;
+    private final Cached<TargetPair> dirtyTarget;
+    private final Cached<LocalVariableLookup> dirtyLocalsTable;
 
     /**
      * @param clean original state before patching
      * @param dirty desired state necessary to fix the mixin
      */
     public Recipe(Configuration clean, Configuration dirty, Resolvers resolvers, Processors processors, MixinContext context) {
+        this(clean, dirty, resolvers, processors, context, null);
+    }
+
+    private Recipe(Configuration clean, Configuration dirty, Resolvers resolvers, Processors processors, MixinContext context, @Nullable Recipe original) {
         this.clean = clean;
         this.dirty = dirty;
         this.resolvers = resolvers;
         this.processors = processors;
         this.context = context;
 
-        this.cleanTarget = Suppliers.memoize(() -> {
-            if (clean.getTargetMethod() == null) return null;
-            return context.methods().findOwnMethodPair(context.cleanLookup(), clean.getTargetMethod());
-        });
-        this.newCleanTarget = Suppliers.memoize(() -> {
-            if (clean.getTargetMethod() == null) return null;
-            return context.methods().findOwnMethodPair(context.dirtyLookup(), clean.getTargetMethod());
-        });
-        this.dirtyTarget = Suppliers.memoize(() -> {
-            if (dirty.getTargetMethod() == null) return null;
-            return context.methods().findOwnMethodPair(context.dirtyLookup(), dirty.getTargetMethod());
-        });
+        if (original != null) {
+            this.cleanTarget = original.cleanTarget;
+            this.newCleanTarget = original.newCleanTarget;
+            this.cleanLocalsTable = original.cleanLocalsTable;
+        } else {
+            this.cleanTarget = Cached.of(() -> findTarget(context, context.cleanLookup(), clean.getTargetMethod()));
+            this.newCleanTarget = Cached.of(() -> findTarget(context, context.dirtyLookup(), clean.getTargetMethod()));
+            this.cleanLocalsTable = Cached.of(() -> getLocalsTable(context, getCleanTarget()));
+        }
 
-        this.cleanLocalsTableCache = Suppliers.memoize(() -> Optional.ofNullable(getCleanTarget())
-            .map(pair -> context.methods().getLVT(pair.methodNode()))
-            .orElse(null));
-        this.dirtyLocalsTableCache = Suppliers.memoize(() -> Optional.ofNullable(getDirtyTarget())
-            .map(pair -> context.methods().getLVT(pair.methodNode()))
-            .orElse(null));
+        this.dirtyTarget = Cached.keyed(dirty::getTargetMethod, target -> findTarget(context, context.dirtyLookup(), target));
+        this.dirtyLocalsTable = Cached.keyed(this::getDirtyTarget, target -> getLocalsTable(context, target));
+    }
+
+    @Nullable
+    private static TargetPair findTarget(MixinContext context, ClassLookup lookup, @Nullable MethodQualifier target) {
+        return target != null ? context.methods().findOwnMethodPair(lookup, target) : null;
+    }
+
+    @Nullable
+    private static LocalVariableLookup getLocalsTable(MixinContext context, @Nullable TargetPair target) {
+        return target != null ? context.methods().getLVT(target.methodNode()) : null;
     }
 
     @Nullable
     public LocalVariableLookup cleanLocalsTable() {
-        return this.cleanLocalsTableCache.get();
+        return this.cleanLocalsTable.get();
     }
 
     @Nullable
     public LocalVariableLookup dirtyLocalsTable() {
-        return this.dirtyLocalsTableCache.get();
+        return this.dirtyLocalsTable.get();
     }
 
     public Recipe withDirtyConfig(Configuration dirty) {
-        return new Recipe(this.clean, dirty, this.resolvers, this.processors, this.context);
+        return new Recipe(this.clean, dirty, this.resolvers, this.processors, this.context, this);
     }
 
     public TargetPair getCleanTarget() {

@@ -23,11 +23,11 @@ public class OpcodeUtil {
     }
 
     public static int getLoadOpcode(int sort) {
-        return Opcodes.ILOAD + INSN_TYPE_OFFSETS.indexOf(sort) + 1;
+        return Opcodes.ILOAD + INSN_TYPE_OFFSETS.indexOf(normalizeSort(sort)) + 1;
     }
 
     public static int getStoreOpcode(int sort) {
-        return Opcodes.ISTORE + INSN_TYPE_OFFSETS.indexOf(sort) + 1;
+        return Opcodes.ISTORE + INSN_TYPE_OFFSETS.indexOf(normalizeSort(sort)) + 1;
     }
 
     public static int getReturnOpcode(MethodNode methodNode) {
@@ -35,7 +35,11 @@ public class OpcodeUtil {
     }
 
     public static int getReturnOpcode(int sort) {
-        return Opcodes.IRETURN + INSN_TYPE_OFFSETS_EXTENDED.indexOf(sort) + 1;
+        return Opcodes.IRETURN + INSN_TYPE_OFFSETS_EXTENDED.indexOf(normalizeSort(sort)) + 1;
+    }
+
+    private static int normalizeSort(int sort) {
+        return sort == Type.ARRAY ? Type.OBJECT : sort;
     }
 
     public static int getAccessVisibility(int access) {
