@@ -62,7 +62,7 @@ public class WrapOperationMixin implements MixinType {
         if (dirty.getAtData() == null) return TxResult.PASS;
 
         MethodQualifier dirtyAtTarget = dirty.getAtData().getTarget().flatMap(MethodQualifier::parse).orElse(null);
-        if (dirtyAtTarget == null)
+        if (dirtyAtTarget == null || dirtyAtTarget.desc() == null)
             return TxResult.FAIL;
 
         List<Type> dirtyCaptured = context.methods().resolveCapturedMethodParams(recipe.clean(), recipe.dirty());

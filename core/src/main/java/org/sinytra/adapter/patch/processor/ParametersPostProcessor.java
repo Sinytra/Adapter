@@ -46,8 +46,13 @@ public class ParametersPostProcessor implements Processor {
             return TxResult.PASS;
         }
 
+        MethodParameters recipeDirtyParams = recipe.dirty().getParameters();
+        if (recipeDirtyParams == null || !recipeDirtyParams.has(MethodParameters.ParamGroup.METHOD_PARAMS)) {
+            return TxResult.PASS;
+        }
+
         List<Type> cleanTypes = recipe.clean().getParameters().getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
-        List<Type> dirtyTypes = recipe.dirty().getParameters().getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
+        List<Type> dirtyTypes = recipeDirtyParams.getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
         ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(cleanTypes, dirtyTypes);
         MethodNode methodNode = context.methodNode();
         LocalVariableLookup lookup = context.methods().getLVT(context.methodNode());
@@ -67,6 +72,8 @@ public class ParametersPostProcessor implements Processor {
                 // Add casts to usage in method calls
                 List<Type> methodArgs = Parameters.getParameterTypes(minsn.desc);
                 List<AbstractInsnNode> callArgs = MethodCallAnalyzer.getMethodCallSrcInsns(methodNode, minsn);
+                if (callArgs == null) continue;
+
                 int instanceOffset = minsn.getOpcode() == Opcodes.INVOKESTATIC ? 0 : 1;
                 for (int i = instanceOffset; i < callArgs.size(); i++) {
                     AbstractInsnNode arg = callArgs.get(i);

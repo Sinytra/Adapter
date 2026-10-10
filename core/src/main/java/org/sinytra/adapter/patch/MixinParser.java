@@ -27,6 +27,7 @@ import java.util.Objects;
 
 public class MixinParser {
 
+    @Nullable
     public static ClassTarget prepareMixinClass(ClassNode classNode, PatchEnvironment environment) {
         RefMapper mapper = mapperFor(classNode, environment);
         return parseTargetClass(classNode, mapper);
@@ -47,8 +48,9 @@ public class MixinParser {
         return new MixinClassHandle(cls, methods);
     }
 
+    @Nullable
     public static MixinMethodHandle parseMixin(ClassTarget cls, MethodNode method, RefMapper mapper, PatchEnvironment environment) {
-        if (method.visibleAnnotations == null) return null;
+        if (method.visibleAnnotations == null || cls.getTypes().isEmpty()) return null;
 
         for (AnnotationNode annotation : method.visibleAnnotations) {
             AnnotationHandle handle = new AnnotationHandle(annotation);

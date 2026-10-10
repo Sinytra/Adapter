@@ -40,6 +40,7 @@ public record ResolverSyntheticInstanceof(boolean skipInsnComparison) implements
 
         TargetPair cleanTarget = recipe.getCleanTarget();
         TargetPair dirtyTarget = recipe.getDirtyTarget();
+        if (dirtyTarget == null) return ResolutionResult.pass();
         AbstractInsnNode targetInsn = context.methods().findInjectionTargetInsn(cleanTarget);
         if (targetInsn == null) return ResolutionResult.pass();
 

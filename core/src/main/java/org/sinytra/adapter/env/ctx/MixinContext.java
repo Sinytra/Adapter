@@ -10,6 +10,7 @@ import org.sinytra.adapter.patch.mixin.MixinFlag;
 import org.sinytra.adapter.patch.mixin.MixinType;
 import org.sinytra.adapter.patch.processor.Processors;
 import org.sinytra.adapter.patch.resolver.Resolvers;
+import org.sinytra.adapter.types.BytecodeFixerUpper;
 import org.sinytra.adapter.types.TypeAdapter;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.provider.ClassLookup;
@@ -112,7 +113,8 @@ public class MixinContext implements RefMapper, Auditor {
 
     @Nullable
     public TypeAdapter getTypeAdapter(Type from, Type to) {
-        return this.patchContext.environment().bytecodeFixerUpper().getTypeAdapter(from, to);
+        BytecodeFixerUpper bfu = this.patchContext.environment().bytecodeFixerUpper();
+        return bfu != null ? bfu.getTypeAdapter(from, to) : null;
     }
 
     @Override

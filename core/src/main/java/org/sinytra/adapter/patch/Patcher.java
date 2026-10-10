@@ -45,6 +45,7 @@ public class Patcher {
     public PatchResult process(ClassNode classNode) {
         // Parse class data
         ClassTarget classTarget = MixinParser.prepareMixinClass(classNode, this.environment);
+        if (classTarget == null || classTarget.getTypes().isEmpty()) return PatchResult.PASS;
 
         PatchResult result = PatchResult.PASS;
         PatchContextImpl context = new PatchContextImpl(classNode, classTarget.getTypes(), this.environment);

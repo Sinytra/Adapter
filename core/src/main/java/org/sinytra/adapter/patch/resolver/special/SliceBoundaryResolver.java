@@ -31,6 +31,7 @@ public class SliceBoundaryResolver implements Resolver {
     @Override
     public ResolutionResult resolve(MixinContext context, Recipe recipe) {
         TargetPair dirtyTarget = recipe.getDirtyTarget();
+        if (dirtyTarget == null) return ResolutionResult.pass();
 
         SliceData slice = recipe.clean().getProperty(SLICE).orElse(null);
         if (slice == null || passesSliceCheck(slice, context, dirtyTarget))

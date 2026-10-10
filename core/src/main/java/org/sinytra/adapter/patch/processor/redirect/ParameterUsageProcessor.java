@@ -10,6 +10,7 @@ import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.analysis.params.ParamsDiffSnapshot;
 import org.sinytra.adapter.env.ctx.MixinContext;
+import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.env.param.MethodParameters.ParamGroup;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
@@ -31,8 +32,11 @@ public class ParameterUsageProcessor implements Processor {
         MethodQualifier cleanTargetQual = MethodQualifier.parse(cleanTarget).orElseThrow();
         MethodQualifier dirtyTargetQual = MethodQualifier.parse(dirtyTarget).orElseThrow();
 
+        MethodParameters recipeDirtyParams = recipe.dirty().getParameters();
+        if (recipeDirtyParams == null || !recipeDirtyParams.has(ParamGroup.METHOD_PARAMS)) return TxResult.PASS;
+
         List<Type> cleanParams = recipe.clean().getParameters().getTypes(ParamGroup.METHOD_PARAMS);
-        List<Type> dirtyParams = recipe.dirty().getParameters().getTypes(ParamGroup.METHOD_PARAMS);
+        List<Type> dirtyParams = recipeDirtyParams.getTypes(ParamGroup.METHOD_PARAMS);
         ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(cleanParams, dirtyParams);
 
         List<List<AbstractInsnNode>> callInsns = MethodCallAnalyzer.getAllMethodCallSrcInsnsInclusive(context.methodNode(), cleanTargetQual);

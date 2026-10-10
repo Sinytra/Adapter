@@ -82,6 +82,7 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
 
                 if (insn instanceof MethodInsnNode minsn && minsn.owner.equals(originalType.getInternalName())) {
                     List<AbstractInsnNode> insns = MethodCallAnalyzer.getMethodCallInsns(methodNode, minsn);
+                    if (insns == null) continue;
                     // Find var load instruction
                     for (AbstractInsnNode callInsn : insns) {
                         if (callInsn instanceof VarInsnNode varInsn && varInsn.var == localVar.index) {

@@ -271,7 +271,10 @@ public class ExtractMixinProcessor implements Processor {
         Int2ObjectMap<InsnList> varInsnLists = usage.varInsnLists();
         Int2IntMap usageCount = usage.usageCount();
 
-        if (table.isEmpty() || targetTable == null || used.stream().anyMatch(ordinal -> targetTable.getByOrdinalOrNull(ordinal) == null)) {
+        if (table.isEmpty() || targetTable == null || used.stream().anyMatch(ordinal -> targetTable.getByOrdinalOrNull(ordinal) == null)
+            || IntStream.rangeClosed(0, paramLocalStart).anyMatch(i -> table.getByIndexOrNull(i) == null)
+            || usageCount.int2IntEntrySet().stream().anyMatch(e -> e.getIntValue() > 1 && targetTable.getByIndexOrNull(e.getIntKey()) == null)
+        ) {
             return PatchResult.PASS;
         }
 

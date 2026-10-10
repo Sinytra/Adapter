@@ -217,7 +217,12 @@ public final class AdapterUtil {
         // Get expected local variables from method parameters
         List<Type> expected = AdapterUtil.summariseLocals(availableParams, paramLocalPosVal);
         int paramLocalPosEnd = paramLocalPosVal + expected.size() - 1;
-        return new CapturedLocals(dirtyTarget, isStatic, paramLocalPosVal, paramLocalPosEnd, lvtOffset, expected, context.methods().getLVT(methodNode));
+        LocalVariableLookup lvt = context.methods().getLVT(methodNode);
+        if (lvt == null) {
+            LOGGER.debug("Missing local variable table in injector {}", methodNode.name);
+            return null;
+        }
+        return new CapturedLocals(dirtyTarget, isStatic, paramLocalPosVal, paramLocalPosEnd, lvtOffset, expected, lvt);
     }
 
     private static OptionalInt getCapturedLocalStartingIndex(Type[] params) {
@@ -300,10 +305,17 @@ public final class AdapterUtil {
     }
 
     public static <T> boolean allElementsEqual(Collection<T> list, BiPredicate<T, T> equalityFn) {
-        return list.stream()
-            .reduce((a, b) -> equalityFn.test(a, b) ? a : null)
-            .map(x -> true)
-            .orElse(true);
+        Iterator<T> iterator = list.iterator();
+        if (!iterator.hasNext()) {
+            return true;
+        }
+        T first = iterator.next();
+        while (iterator.hasNext()) {
+            if (!equalityFn.test(first, iterator.next())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public static void replaceRangeInclusive(InsnList list, AbstractInsnNode start, AbstractInsnNode end, List<AbstractInsnNode> replacement) {

@@ -47,6 +47,8 @@ public class ProxyExtractMixinSub implements Processor {
         PatchEnvironment environment = context.environment();
 
         int originParamIndex = dirty.getProperty(SpecialKeys.EXTRACT_ORIGIN_PARAM).orElseThrow();
+        if (dirty.getTargetMethod() == null || dirty.getTargetMethod().desc() == null) return TxResult.FAIL;
+
         List<Type> destParams = Parameters.getParameterTypes(dirty.getTargetMethod().desc());
         Type instanceType = destParams.get(originParamIndex);
         String destinationClass = dirty.getTargetClass();

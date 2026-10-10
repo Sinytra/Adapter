@@ -355,6 +355,9 @@ public class InjectorOrdinalResolver implements Resolver {
             Type variableType = Type.getReturnType(methodNode.desc);
             LocalVariableLookup cleanTable = context.methods().getLVT(cleanTarget.methodNode());
             LocalVariableLookup dirtyTable = context.methods().getLVT(dirtyTarget.methodNode());
+            if (cleanTable == null || dirtyTable == null) {
+                return Optional.empty();
+            }
             if (cleanTable.getForType(variableType).size() == dirtyTable.getForType(variableType).size()) {
                 List<LocalVariableNode> available = dirtyTable.getForType(variableType);
                 if (available.size() > ordinal) {
@@ -375,7 +378,10 @@ public class InjectorOrdinalResolver implements Resolver {
                                     int dirtyIndex = dirtyVars.getFirst().get();
                                     if (dirtyIndex != variableIndex) {
                                         // Find new ordinal by index
-                                        LocalVariableNode lvn = dirtyTable.getByIndex(dirtyIndex);
+                                        LocalVariableNode lvn = dirtyTable.getByIndexOrNull(dirtyIndex);
+                                        if (lvn == null) {
+                                            return Optional.empty();
+                                        }
                                         return dirtyTable.getTypedOrdinal(lvn)
                                             .map(o -> Pair.of(
                                                 new LocalVar(lvn, o),
@@ -411,6 +417,10 @@ public class InjectorOrdinalResolver implements Resolver {
 
         private static Optional<LocalVar> tryFindUpdatedIndex(Type targetType, TargetPair cleanTarget, TargetPair dirtyTarget, LocalVar local, MixinContext context) {
             int ordinal = local.ordinal();
+            LocalVariableLookup dirtyVarLookup = context.methods().getLVT(dirtyTarget.methodNode());
+            if (cleanTarget.methodNode().localVariables == null || dirtyVarLookup == null) {
+                return Optional.empty();
+            }
             List<LocalVariableNode> cleanLocals = cleanTarget.methodNode().localVariables.stream()
                 .filter(l -> Type.getType(l.desc) == targetType)
                 .sorted(Comparator.comparingInt(l -> l.index))
@@ -423,7 +433,6 @@ public class InjectorOrdinalResolver implements Resolver {
                 return Optional.empty();
             }
 
-            LocalVariableLookup dirtyVarLookup = context.methods().getLVT(dirtyTarget.methodNode());
             List<LocalVariableNode> dirtyLocals = dirtyVarLookup.getForType(targetType);
             if (cleanLocals.size() != dirtyLocals.size() || dirtyLocals.size() <= ordinal) {
                 return findReplacementLocal(cleanTarget.methodNode(), dirtyTarget.methodNode(), cleanLocal)

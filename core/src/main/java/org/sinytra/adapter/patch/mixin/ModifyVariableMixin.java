@@ -70,9 +70,10 @@ public class ModifyVariableMixin implements MixinType {
         dirty.inheritProperyIfAbsent(MixinKeys.SLICE);
 
         boolean argsOnly = clean.getProperty(MixinKeys.ARGS_ONLY).orElse(false);
-        if (argsOnly && dirty.getTargetMethod() != null && !dirty.getTargetMethod().desc().equals(clean.getTargetMethod().desc())) {
+        String cleanDesc = clean.getTargetMethod().desc();
+        if (argsOnly && cleanDesc != null && !dirty.getTargetMethod().desc().equals(cleanDesc)) {
             Type cleanVarType = clean.getParameters().getTypes(SINGLE_ANY).getFirst();
-            List<Type> cleanTargetMethodParams = Parameters.getParameterTypes(clean.getTargetMethod().desc());
+            List<Type> cleanTargetMethodParams = Parameters.getParameterTypes(cleanDesc);
             int cleanIndex = cleanTargetMethodParams.indexOf(cleanVarType);
 
             List<Type> dirtyTargetMethodParams = Parameters.getParameterTypes(dirty.getTargetMethod().desc());
@@ -104,6 +105,7 @@ public class ModifyVariableMixin implements MixinType {
 
             Integer index = config.getProperty(MixinKeys.INDEX).orElseThrow();
             LocalVariableLookup lookup = context.methods().getLVT(target);
+            if (lookup == null) return false;
 
             LocalVariableNode node = lookup.getByIndexOrNull(index);
             if (node == null) return false;

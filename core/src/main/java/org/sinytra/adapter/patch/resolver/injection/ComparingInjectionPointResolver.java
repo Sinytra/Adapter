@@ -159,12 +159,18 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
             if (usedVars.containsKey(instanceLocal.index)) {
                 TargetPair cleanTarget = recipe.getCleanTarget();
                 LocalVariableLookup cleanLocals = recipe.cleanLocalsTable();
-                
+                LocalVariableLookup dirtyLocals = recipe.dirtyLocalsTable();
+                if (cleanTarget == null || cleanLocals == null || dirtyLocals == null) return Optional.empty();
+
                 List<AbstractInsnNode> originalCallArgs = MethodCallAnalyzer.getMethodCallSrcInsns(cleanTarget.methodNode(), cleanInjectionInsn);
-                int cleanOrdinal = cleanLocals.getTypedOrdinal(cleanLocals.getByIndex(((VarInsnNode) originalCallArgs.getFirst()).var)).orElse(-1);
+                if (originalCallArgs == null || originalCallArgs.isEmpty() || !(originalCallArgs.getFirst() instanceof VarInsnNode originalInstanceInsn))
+                    return Optional.empty();
+                LocalVariableNode originalInstanceLocal = cleanLocals.getByIndexOrNull(originalInstanceInsn.var);
+                if (originalInstanceLocal == null) return Optional.empty();
+                int cleanOrdinal = cleanLocals.getTypedOrdinal(originalInstanceLocal).orElse(-1);
                 if (cleanOrdinal == -1) return Optional.empty();
 
-                LocalVariableNode dirtyLocal = recipe.dirtyLocalsTable().getByTypedOrdinal(Type.getType(instanceLocal.desc), cleanOrdinal).orElse(null);
+                LocalVariableNode dirtyLocal = dirtyLocals.getByTypedOrdinal(Type.getType(instanceLocal.desc), cleanOrdinal).orElse(null);
                 if (dirtyLocal == null) return Optional.empty();
 
                 Parameter replacementInstanceParam = Parameter.builder(dirtyLocal.desc)
@@ -185,8 +191,8 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
                         continue;
                     }
 
-                    LocalVariableNode node = lvt.getByIndex(paramVar);
-                    if (!loadedType.equals(node.desc)) return Optional.empty();
+                    LocalVariableNode node = lvt.getByIndexOrNull(paramVar);
+                    if (node == null || !loadedType.equals(node.desc)) return Optional.empty();
 
                     int paramOrdinal = lvt.getParameterOrdinal(node);
                     Parameter oldParam = clean.getParameters().get(ParamGroup.METHOD_PARAMS).get(paramOrdinal);

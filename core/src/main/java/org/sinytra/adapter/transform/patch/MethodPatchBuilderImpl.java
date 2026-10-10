@@ -112,8 +112,11 @@ public class MethodPatchBuilderImpl implements MethodPatchBuilder {
     @Override
     public MethodPatchBuilder modifyInjectionPoint(String target) {
         // AtData requires value which must be copied at transform time
-        this.configCompleter = this.configCompleter.andThen((clean, dirty) ->
-            dirty.setAtData(clean.getAtData().withTarget(target)));
+        this.configCompleter = this.configCompleter.andThen((clean, dirty) -> {
+            if (clean.getAtData() != null) {
+                dirty.setAtData(clean.getAtData().withTarget(target));
+            }
+        });
         return this;
     }
 
@@ -121,7 +124,7 @@ public class MethodPatchBuilderImpl implements MethodPatchBuilder {
     public MethodPatchBuilder modifyInjectionPoint(String value, String target) {
         // Resolve dynamically to keep old values
         this.configCompleter = this.configCompleter.andThen((clean, dirty) ->
-            dirty.setAtData(clean.getAtData().withValue(value).withTarget(target)));
+            dirty.setAtData(clean.getAtData() != null ? clean.getAtData().withValue(value).withTarget(target) : AtData.create(value, target)));
         return this;
     }
 

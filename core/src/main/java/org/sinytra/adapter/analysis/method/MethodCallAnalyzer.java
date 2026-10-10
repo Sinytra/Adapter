@@ -13,7 +13,6 @@ import org.sinytra.adapter.util.MethodQualifier;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.StreamSupport;
 
@@ -64,7 +63,10 @@ public class MethodCallAnalyzer {
             return minsns.size() == 1 ? getMethodCallSrcInsns(methodNode, minsns.getFirst(), stable) : null;
         }
 
-        List<? extends SourceValue> sources = Objects.requireNonNull(getCallSourceValues(methodNode, minsn, stable));
+        List<? extends SourceValue> sources = getCallSourceValues(methodNode, minsn, stable);
+        if (sources == null) {
+            return null;
+        }
 
         List<AbstractInsnNode> insns = new ArrayList<>();
         for (SourceValue src : sources) {
@@ -78,13 +80,20 @@ public class MethodCallAnalyzer {
     }
 
     public static List<List<AbstractInsnNode>> getMethodCallArgInsns(MethodNode methodNode, MethodInsnNode minsn) {
+        List<List<AbstractInsnNode>> args = new ArrayList<>();
+        if (!methodNode.instructions.contains(minsn)) {
+            return args;
+        }
+
         Frame<SourceValue>[] frames = FrameUtil.getFrames(methodNode);
         Frame<SourceValue> frame = frames[methodNode.instructions.indexOf(minsn)];
+        if (frame == null) {
+            return args;
+        }
 
         int stackSize = frame.getStackSize();
         int start = Math.max(0, stackSize - FrameUtil.getPopCount(minsn));
 
-        List<List<AbstractInsnNode>> args = new ArrayList<>();
         for (int i = start; i < stackSize; ++i) {
             List<AbstractInsnNode> insns = new ArrayList<>();
             SourceValue value = frame.getStack(i);

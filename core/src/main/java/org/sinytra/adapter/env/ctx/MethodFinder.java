@@ -34,7 +34,10 @@ public class MethodFinder {
 
     @Nullable
     public TargetPair findInheritedMethod(ClassLookup lookup, MethodQualifier qualifier) {
-        ClassNode node = lookup.getClass(qualifier.internalOwnerName()).orElse(null);
+        String owner = qualifier.internalOwnerName();
+        if (owner == null || qualifier.name() == null) return null;
+
+        ClassNode node = lookup.getClass(owner).orElse(null);
         if (node == null) return null;
 
         Collection<String> parents = this.environment.inheritanceHandler(lookup).getClassParents(node.name);

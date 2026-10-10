@@ -8,6 +8,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.env.ctx.MixinContext;
+import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
@@ -62,8 +63,13 @@ public class WrapOpSurgeon {
 
     @Nullable
     private static Pair<TypeAdapter, @Nullable Consumer<InsnList>> findReplacementForInstance(MethodInsnNode cleanInsn, MethodInsnNode dirtyInsn, MixinContext context, Recipe recipe) {
-        MethodNode cleanTargetMethod = recipe.getCleanTarget().methodNode();
-        List<AbstractInsnNode> receiverInsns = MethodCallAnalyzer.getMethodCallArgInsns(cleanTargetMethod, cleanInsn).getFirst();
+        TargetPair cleanTarget = recipe.getCleanTarget();
+        if (cleanTarget == null) return null;
+
+        List<List<AbstractInsnNode>> callArgInsns = MethodCallAnalyzer.getMethodCallArgInsns(cleanTarget.methodNode(), cleanInsn);
+        if (callArgInsns.isEmpty()) return null;
+
+        List<AbstractInsnNode> receiverInsns = callArgInsns.getFirst();
         if (!receiverInsns.isEmpty() && receiverInsns.getFirst() instanceof VarInsnNode varInsn) {
             BytecodeFixerUpper bfu = context.patchContext().environment().bytecodeFixerUpper();
             if (bfu == null) {
@@ -71,7 +77,10 @@ public class WrapOpSurgeon {
             }
 
             LocalVariableLookup cleanLookup = recipe.cleanLocalsTable();
-            LocalVariableNode lvn = cleanLookup.getByIndex(varInsn.var);
+            LocalVariableNode lvn = cleanLookup != null ? cleanLookup.getByIndexOrNull(varInsn.var) : null;
+            if (lvn == null) {
+                return null;
+            }
 
             TypeAdapter typeAdapter = bfu.getTypeAdapter(Type.getObjectType(dirtyInsn.owner), Type.getType(lvn.desc));
             if (typeAdapter == null) {
@@ -85,7 +94,7 @@ public class WrapOpSurgeon {
                 for (AbstractInsnNode next = insn.getNext(); next != null && !(next instanceof LabelNode); next = next.getNext()) {
                     if (next instanceof MethodInsnNode minsn && minsn.owner.equals(dirtyInsn.owner)) {
                         List<AbstractInsnNode> args = MethodCallAnalyzer.getMethodCallInsns(context.methodNode(), minsn);
-                        if (args.contains(insn)) {
+                        if (args != null && args.contains(insn)) {
                             minsn.owner = cleanInsn.owner;
                         }
                     }
@@ -96,10 +105,17 @@ public class WrapOpSurgeon {
             Consumer<InsnList> castCheck = subList.getFirst() instanceof TypeInsnNode typeInsn && typeInsn.getOpcode() == Opcodes.CHECKCAST ?
                 list -> {
                     List<AbstractInsnNode> originalWOCall = new ArrayList<>(ParamTransformationUtil.findWrapOperationOriginalCallArgs(context.methodNode()));
+                    if (originalWOCall.isEmpty()) {
+                        return;
+                    }
                     // Include final method call and cast
-                    originalWOCall.add(originalWOCall.getLast().getNext());
-                    originalWOCall.add(originalWOCall.getLast().getNext());
-                    originalWOCall.add(originalWOCall.getLast().getNext());
+                    for (int i = 0; i < 3; i++) {
+                        AbstractInsnNode next = originalWOCall.getLast().getNext();
+                        if (next == null) {
+                            return;
+                        }
+                        originalWOCall.add(next);
+                    }
                     List<AbstractInsnNode> cloned = AdapterUtil.cloneInsns(originalWOCall);
 
                     boolean hasLabel = list.getFirst() instanceof LabelNode;

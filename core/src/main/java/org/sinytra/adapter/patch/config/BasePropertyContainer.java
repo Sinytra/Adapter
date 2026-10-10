@@ -110,6 +110,7 @@ public class BasePropertyContainer implements MutablePropertyContainer {
     @SuppressWarnings({"rawtypes", "unchecked"})
     public static MutablePropertyContainer parse(AnnotationHandle handle, @Nullable PropertyContainerTemplate template, RefMapper mapper) {
         MutablePropertyContainer container = new BasePropertyContainer(template);
+        if (template == null) return container;
 
         for (PropertyKey key : template.getKeys()) {
             Object value = handle.getValue(key.name()).map(AnnotationValueHandle::get).orElse(null);

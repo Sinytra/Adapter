@@ -48,6 +48,7 @@ public class LocalCaptureUpgradeTransformer implements MethodTransformer {
         LocalVariableLookup cleanLookup = context.methods().getLVT(cleanTarget.methodNode());
         LocalVariableLookup dirtyLookup = context.methods().getLVT(dirtyTarget.methodNode());
         LocalVariableLookup lookup = info.capturedLocals().lvt();
+        if (cleanLookup == null || dirtyLookup == null) return PatchResult.PASS;
 
         Map<Integer, Integer> parameterToOrdinal = new HashMap<>();
         Set<Integer> usedOrdinals = new HashSet<>();

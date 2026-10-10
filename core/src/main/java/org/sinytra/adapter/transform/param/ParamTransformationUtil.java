@@ -11,6 +11,7 @@ import org.sinytra.adapter.util.MethodQualifier;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public final class ParamTransformationUtil {
     private static final MethodQualifier WO_ORIGINAL_CALL = new MethodQualifier("Lcom/llamalad7/mixinextras/injector/wrapoperation/Operation;", "call", "([Ljava/lang/Object;)Ljava/lang/Object;");
@@ -44,7 +45,7 @@ public final class ParamTransformationUtil {
     public static List<AbstractInsnNode> findWrapOperationOriginalCallArgs(MethodNode methodNode) {
         for (AbstractInsnNode insn : methodNode.instructions) {
             if (insn instanceof MethodInsnNode minsn && WO_ORIGINAL_CALL.matches(minsn)) {
-                return MethodCallAnalyzer.getMethodCallInsns(methodNode, minsn);
+                return Objects.requireNonNullElseGet(MethodCallAnalyzer.getMethodCallInsns(methodNode, minsn), List::of);
             }
         }
         return List.of();

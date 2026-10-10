@@ -2,6 +2,7 @@ package org.sinytra.adapter.patch.resolver.injection;
 
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.Recipe;
@@ -24,7 +25,7 @@ public class AtVariableAssignStoreSubResolver implements SubResolver {
     @Nullable
     @Override
     public Configuration resolve(MixinContext context, Recipe recipe) {
-        if (!recipe.clean().getAtData().getValue().equals(AT_VAL_INVOKE)) return null;
+        if (!recipe.hasInjectionPointValue(AT_VAL_INVOKE)) return null;
 
         TargetPair cleanPair = recipe.getCleanTarget();
         AbstractInsnNode cleanInsn = context.methods().findInjectionTargetInsn(cleanPair);
@@ -39,12 +40,17 @@ public class AtVariableAssignStoreSubResolver implements SubResolver {
             return null;
         }
         // Find matching local in dirty target method
-        LocalVariableNode cleanLocal = recipe.cleanLocalsTable().getByIndexOrNull(varInsn.var);
+        LocalVariableLookup cleanTable = recipe.cleanLocalsTable();
+        LocalVariableLookup dirtyTable = recipe.dirtyLocalsTable();
+        if (cleanTable == null || dirtyTable == null) {
+            return null;
+        }
+        LocalVariableNode cleanLocal = cleanTable.getByIndexOrNull(varInsn.var);
         if (cleanLocal == null) {
             return null;
         }
-        List<LocalVariableNode> cleanLocals = recipe.cleanLocalsTable().getForType(cleanLocal);
-        List<LocalVariableNode> dirtyLocals = recipe.dirtyLocalsTable().getForType(cleanLocal);
+        List<LocalVariableNode> cleanLocals = cleanTable.getForType(cleanLocal);
+        List<LocalVariableNode> dirtyLocals = dirtyTable.getForType(cleanLocal);
         if (cleanLocals.size() != dirtyLocals.size()) {
             return null;
         }

@@ -83,6 +83,8 @@ public class InjectionPointSubResolvers {
                 continue;
 
             List<AbstractInsnNode> argInsns = MethodCallAnalyzer.getMethodCallSrcInsns(dirtyTarget.methodNode(), minsn);
+            if (argInsns == null) continue;
+
             AbstractInsnNode self = argInsns.stream()
                 .filter(i -> i instanceof VarInsnNode vinsn && vinsn.var == 0)
                 .findFirst()

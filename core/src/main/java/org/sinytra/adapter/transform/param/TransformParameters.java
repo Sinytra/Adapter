@@ -21,6 +21,9 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
     public PatchResult apply(MixinContext context) {
         ClassNode classNode = context.classNode();
         MethodNode methodNode = context.methodNode();
+        if (methodNode.localVariables == null) {
+            methodNode.localVariables = new ArrayList<>();
+        }
 
         Type[] params = Type.getArgumentTypes(methodNode.desc);
         List<Type> newParameterTypes = new ArrayList<>(Arrays.asList(params));

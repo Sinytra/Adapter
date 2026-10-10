@@ -13,6 +13,9 @@ import org.sinytra.adapter.patch.TxResult;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.config.key.SpecialKeys;
 
+import java.util.List;
+import java.util.Objects;
+
 public class StaticAccessProcessor implements Processor {
     @Override
     public TxResult process(MixinContext context, Configuration dirty, Recipe recipe) {
@@ -37,11 +40,12 @@ public class StaticAccessProcessor implements Processor {
             context.recordCtxAudit("Made method non-static");
             method.access &= ~Opcodes.ACC_STATIC;
 
-            LocalVariableNode firstParam = method.localVariables.stream().filter(lvn -> lvn.index == 0)
+            List<LocalVariableNode> localVariables = Objects.requireNonNullElseGet(method.localVariables, List::of);
+            LocalVariableNode firstParam = localVariables.stream().filter(lvn -> lvn.index == 0)
                 .findFirst()
-                .orElseThrow();
+                .orElse(null);
             // Offset everything by 1
-            for (LocalVariableNode lvn : method.localVariables) {
+            for (LocalVariableNode lvn : localVariables) {
                 lvn.index++;
             }
             for (AbstractInsnNode insn : method.instructions) {
@@ -51,7 +55,9 @@ public class StaticAccessProcessor implements Processor {
             }
 
             // Insert instance local variable
-            method.localVariables.add(new LocalVariableNode("this", Type.getObjectType(context.classNode().name).getDescriptor(), null, firstParam.start, firstParam.end, 0));
+            if (firstParam != null) {
+                method.localVariables.add(new LocalVariableNode("this", Type.getObjectType(context.classNode().name).getDescriptor(), null, firstParam.start, firstParam.end, 0));
+            }
 
             // TODO Must compute frames
             return TxResult.SUCCESS;

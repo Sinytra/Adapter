@@ -75,7 +75,7 @@ public class InheritedInjectionPointSubResolver implements SubResolver {
             }
             if (prev instanceof FieldInsnNode finsn) {
                 BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
-                return bfu.getFieldTypeChange(finsn.owner, finsn.name) != null;
+                return bfu != null && bfu.getFieldTypeChange(finsn.owner, finsn.name) != null;
             }
         }
         return false;

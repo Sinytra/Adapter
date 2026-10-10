@@ -44,6 +44,8 @@ public class MixinKeys {
     public static final PropertyKey<ConstantData> TARGET_CONSTANT = PropertyKey.<ConstantData>builder("constant")
         .parser((value, mapper) -> {
             AnnotationNode node = ControlKeys.parseSingle(value, AnnotationNode.class);
+            if (node == null) return null;
+
             AnnotationHandle handle = new AnnotationHandle(node);
             return ConstantData.parse(handle).orElse(null);
         })

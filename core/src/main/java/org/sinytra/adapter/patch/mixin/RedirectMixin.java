@@ -55,7 +55,7 @@ public class RedirectMixin implements MixinType {
             return TxResult.FAIL;
 
         MethodQualifier targetDesc = clean.getAtData().getTarget().flatMap(MethodQualifier::parse).orElse(null);
-        if (targetDesc == null)
+        if (targetDesc == null || targetDesc.desc() == null)
             return TxResult.FAIL;
 
         List<Type> methodParams = Parameters.getParameterTypes(context.methodNode().desc);
@@ -83,7 +83,7 @@ public class RedirectMixin implements MixinType {
 
     @Override
     public TxResult postProcess(MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe) {
-        if (dirty.getTargetMethod() == null)
+        if (dirty.getTargetMethod() == null || dirty.getAtData() == null)
             return TxResult.FAIL;
 
         MethodQualifier targetDesc = dirty.getAtData().getTarget().flatMap(MethodQualifier::parse).orElse(null);

@@ -65,7 +65,7 @@ public class ModifyExpressionValueMixin implements MixinType {
         }
 
         MethodQualifier targetDesc = dirty.getAtData().getTarget().flatMap(MethodQualifier::parse).orElse(null);
-        if (targetDesc == null) {
+        if (targetDesc == null || targetDesc.desc() == null) {
             // Best effort
             dirty.inheritParameters();
             dirty.inheritReturnType();

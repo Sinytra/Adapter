@@ -116,7 +116,7 @@ public class MethodLabelComparator {
             if (insn instanceof FrameNode) {
                 continue;
             }
-            if (insn instanceof LabelNode) {
+            if (insn instanceof LabelNode || workingList == null) {
                 if (workingList != null) {
                     list.add(workingList);
                 }

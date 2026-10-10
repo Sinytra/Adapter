@@ -52,6 +52,9 @@ public class ModifyArgMixin implements MixinType {
         dirty.inheritProperyIfAbsent(MixinKeys.ORDINAL);
         dirty.inheritProperyIfAbsent(MixinKeys.INDEX);
 
+        if (dirty.getAtData() == null) {
+            return TxResult.FAIL;
+        }
         if (clean.getAtData().equals(dirty.getAtData())) {
             dirty.inheritParameters();
             dirty.inheritReturnType();
@@ -73,7 +76,7 @@ public class ModifyArgMixin implements MixinType {
     private static Type findArgType(MixinContext context, AtData cleanAtData, AtData atData, Configuration clean, Configuration dirty) {
         MethodQualifier cleanQualifier = cleanAtData.getTarget().flatMap(MethodQualifier::parse).orElse(null);
         MethodQualifier dirtyQualifier = atData.getTarget().flatMap(MethodQualifier::parse).orElse(null);
-        if (cleanQualifier != null && dirtyQualifier != null) {
+        if (cleanQualifier != null && dirtyQualifier != null && cleanQualifier.desc() != null && dirtyQualifier.desc() != null) {
             List<Type> cleanArgs = Parameters.getParameterTypes(cleanQualifier.desc());
             List<Type> dirtyArgs = Parameters.getParameterTypes(dirtyQualifier.desc());
 

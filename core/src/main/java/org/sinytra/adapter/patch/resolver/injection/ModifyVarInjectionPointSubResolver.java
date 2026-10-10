@@ -35,6 +35,7 @@ public class ModifyVarInjectionPointSubResolver implements SubResolver {
         Type varType = Type.getReturnType(context.methodNode().desc);
 
         TargetPair cleanPair = recipe.getCleanTarget();
+        if (cleanPair == null) return null;
         LocalVariableLookup lookup = context.methods().getLVT(cleanPair.methodNode());
         if (lookup == null) return null;
 

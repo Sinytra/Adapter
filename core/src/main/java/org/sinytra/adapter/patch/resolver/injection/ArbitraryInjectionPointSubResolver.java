@@ -31,6 +31,7 @@ public class ArbitraryInjectionPointSubResolver implements SubResolver {
         String injectionPointTarget = recipe.clean().getAtData().getTarget().orElse(null);
         TargetPair cleanTarget = recipe.getCleanTarget();
         TargetPair dirtyTarget = recipe.getDirtyTarget();
+        if (dirtyTarget == null) return null;
         AbstractInsnNode cleanInsn = context.methods().findInjectionTargetInsn(cleanTarget);
         if (cleanInsn == null) {
             return null;

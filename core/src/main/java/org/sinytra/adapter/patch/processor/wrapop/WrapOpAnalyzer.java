@@ -20,7 +20,6 @@ public class WrapOpAnalyzer {
         Frame<SourceValue>[] frames = FrameUtil.getStableFrames(methodNode);
 
         // Map to hold the AASTORE instruction for each array index
-        // Key = Array Index (0, 1...), Value = The AASTORE instruction node
         Map<Integer, AbstractInsnNode> indexToStoreNode = new HashMap<>();
 
         // 2. Scan for AASTORE instructions targeting our array
@@ -30,6 +29,7 @@ public class WrapOpAnalyzer {
 
             if (insn.getOpcode() == Opcodes.AASTORE) {
                 Frame<SourceValue> frame = frames[i];
+                if (frame == null) continue;
 
                 // Stack for AASTORE: [..., arrayRef, dup, index, value]
                 // arrayRef is at stack size - 4
@@ -49,7 +49,7 @@ public class WrapOpAnalyzer {
         }
 
         // 3. Group the instructions linearly
-        // We assume the compiler emits instructions in contiguous blocks for each element.
+        // We assume the compiler emits instructions in contiguous blocks for each element
         List<List<AbstractInsnNode>> groups = new ArrayList<>();
 
         // Start looking after the creation of the array
