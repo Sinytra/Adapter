@@ -119,9 +119,12 @@ public final class Parameters {
             // We only care about method invocations that have a receiver
             if (insn instanceof MethodInsnNode minsn && minsn.getOpcode() != Opcodes.INVOKESTATIC) {
                 Frame<SourceValue> frame = frames[methodNode.instructions.indexOf(insn)];
-                if (frame == null || frame.getStackSize() <= 0) continue; // Dead code
+                if (frame == null) continue;
 
-                SourceValue receiver = frame.getStack(0);
+                int receiverIndex = frame.getStackSize() - Type.getArgumentCount(minsn.desc) - 1;
+                if (receiverIndex < 0) continue;
+
+                SourceValue receiver = frame.getStack(receiverIndex);
                 // Check if our target is one of the instructions that produced this value
                 if (receiver.insns.contains(targetVarInsn)) {
                     minsn.owner = newOwner;

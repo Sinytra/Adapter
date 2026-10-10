@@ -100,7 +100,7 @@ public class WrapOpParamsProcessor implements Processor {
 
                 List<AbstractInsnNode> loadInsns = new ArrayList<>();
                 loadInsns.add(AdapterUtil.loadType(type, index));
-                if (type.getSort() != Type.OBJECT) {
+                if (type.getSort() < Type.ARRAY) {
                     loadInsns.add(AdapterUtil.box(type));
                 }
 

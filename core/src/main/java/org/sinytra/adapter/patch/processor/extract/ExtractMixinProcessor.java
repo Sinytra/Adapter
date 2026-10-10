@@ -183,7 +183,7 @@ public class ExtractMixinProcessor implements Processor {
             // Widen to protected
             // Add synthetic to avoid mixin complaining about non-private static members being present
             // Setting the access to public will prevent the member from being renamed
-            return OpcodeUtil.setAccessVisibility(visibility, Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC);
+            return OpcodeUtil.setAccessVisibility(access, Opcodes.ACC_PUBLIC) | Opcodes.ACC_SYNTHETIC;
         }
         return access;
     }

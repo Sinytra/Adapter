@@ -42,8 +42,7 @@ public record InjectParameterTransform(int index, Type type) implements Paramete
             return PatchResult.APPLY;
         }
         if (annotation.matchesDesc(MixinAnnotations.MODIFY_ARGS)) {
-            ModifyArgsOffsetUpgrader.upgradeAfterParamInsert(methodNode, this.index);
-            return PatchResult.APPLY;
+            return ModifyArgsOffsetUpgrader.upgradeAfterParamInsert(methodNode, index) ? PatchResult.APPLY : PatchResult.PASS;
         }
 
         int lvtIndex = calculateLVTIndex(parameters, isNonStatic, index);
