@@ -73,7 +73,7 @@ public class Patcher {
         return result;
     }
 
-    private PatchResult processMixin(ClassNode classNode, ClassTarget classTarget, PatchContext patchContext, MixinParser.MixinMethodHandle mixin) {
+    private PatchResult processMixin(ClassNode classNode, ClassTarget classTarget, PatchContextImpl patchContext, MixinParser.MixinMethodHandle mixin) {
         MethodQualifier target = mixin.properties().getProperty(MixinKeys.TARGET_METHOD).orElse(null);
         if (target == null) return PatchResult.PASS;
 
@@ -90,6 +90,27 @@ public class Patcher {
         configuration.mergeFrom(mixin.properties());
 
         this.environment.auditTrail().prepareMethod(mixinContext);
+
+        int checkpoint = patchContext.checkpoint();
+        try {
+            return applyPatches(mixinContext, configuration);
+        } catch (Exception e) {
+            LOGGER.error(MIXINPATCH, "Error patching mixin {}, reverting changes", mixinId, e);
+
+            int index = classNode.methods.indexOf(mixinContext.methodNode());
+            if (index != -1) {
+                classNode.methods.set(index, mixinContext.unmodifiedMethodNode());
+            }
+            patchContext.rollback(checkpoint);
+
+            this.environment.auditTrail().recordResult(mixinContext, configuration, AuditTrail.Match.NONE);
+            return PatchResult.PASS;
+        }
+    }
+
+    private PatchResult applyPatches(MixinContext mixinContext, MutableConfiguration configuration) {
+        MixinType mixinType = mixinContext.getMixinType();
+        String mixinId = mixinContext.getMixinId();
 
         PatchResult result = PatchResult.PASS;
         // << RUN EARLY PHASE

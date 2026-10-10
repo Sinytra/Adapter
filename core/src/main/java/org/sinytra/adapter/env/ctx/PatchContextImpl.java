@@ -43,6 +43,14 @@ public class PatchContextImpl implements PatchContext {
         this.postApply.add(consumer);
     }
 
+    public int checkpoint() {
+        return this.postApply.size();
+    }
+
+    public void rollback(int checkpoint) {
+        this.postApply.subList(checkpoint, this.postApply.size()).clear();
+    }
+
     public void run() {
         this.postApply.forEach(Runnable::run);
     }
