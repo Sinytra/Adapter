@@ -86,12 +86,16 @@ public class TargetMethodSubResolvers {
 
         for (AbstractInsnNode insn : target.methodNode().instructions) {
             // Find lambda invocations and search for target insns inside the lambda
-            if (insn instanceof InvokeDynamicInsnNode indy && indy.bsmArgs.length > 1 && indy.bsmArgs[1] instanceof Handle handle) {
-                TargetPair lambda = MethodQualifier.parse(handle.getName())
-                    .map(q -> context.methods().findOwnMethodPair(context.dirtyLookup(), q))
+            if (insn instanceof InvokeDynamicInsnNode indy && indy.bsmArgs.length > 1 && indy.bsmArgs[1] instanceof Handle handle
+                && handle.getOwner().equals(target.classNode().name)
+            ) {
+                MethodNode lambdaMethod = target.classNode().methods.stream()
+                    .filter(m -> m.name.equals(handle.getName()) && m.desc.equals(handle.getDesc()))
+                    .findFirst()
                     .orElse(null);
-                if (lambda == null) return null;
+                if (lambdaMethod == null) continue;
 
+                TargetPair lambda = new TargetPair(target.classNode(), lambdaMethod);
                 if (!context.methods().findInjectionTargetInsns(lambda).isEmpty()) {
                     return MutableConfiguration.create()
                         .setTargetMethod(lambda.methodNode());

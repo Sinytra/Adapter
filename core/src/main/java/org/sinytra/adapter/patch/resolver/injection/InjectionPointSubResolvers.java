@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 
 public class InjectionPointSubResolvers {
     public static final SubResolver REPLACED_TYPE = (MixinContext context, Recipe recipe) -> {
@@ -122,26 +123,23 @@ public class InjectionPointSubResolvers {
         Multimap<String, MethodInsnNode> dirtyCalls = MethodAnalyzer.getMethodCalls(dirtyTarget.methodNode());
 
         Set<String> dirtyOnly = Sets.difference(dirtyCalls.keySet(), cleanCalls.keySet());
+        if (dirtyOnly.isEmpty()) return null;
         Set<Integer> trackLocals = context.isStatic() ? Set.of() : Set.of(0);
 
-        for (String qualifier : dirtyOnly) {
-            Collection<MethodInsnNode> calls = dirtyCalls.get(qualifier);
-            if (calls.size() != 1) continue;
+        Predicate<MethodInsnNode> isUniqueNewCall = call -> {
+            String qualifier = MethodQualifier.create(call).asDescriptor();
+            return dirtyOnly.contains(qualifier) && dirtyCalls.get(qualifier).size() == 1;
+        };
 
-            TargetPair to = context.methods().findInheritedMethodPair(context.dirtyLookup(), MethodQualifier.create(minsn));
-            CodePath path = CodePaths.findCodePath(dirtyTarget, to, trackLocals, context);
+        TargetPair to = context.methods().findInheritedMethodPair(context.dirtyLookup(), MethodQualifier.create(minsn));
+        CodePath path = CodePaths.findCodePath(dirtyTarget, to, trackLocals, context, isUniqueNewCall);
+        if (path == null) return null;
 
-            if (path != null) {
-                CodePathStep last = path.steps().getLast();
-
-                return recipe.dirty().copyClean()
-                    .setTargetClass(last.from().classNode())
-                    .setTargetMethod(last.from().methodNode())
-                    .inheritAtData();
-            }
-        }
-
-        return null;
+        CodePathStep last = path.steps().getLast();
+        return recipe.dirty().copyClean()
+            .setTargetClass(last.from().classNode())
+            .setTargetMethod(last.from().methodNode())
+            .inheritAtData();
     };
 
     private static List<MethodQualifier> testMatchers(MixinContext context, MethodInsnNode cleanInsn, InstructionMatcher cleanMatcher, List<InstructionMatcher> dirtyMatchers, boolean partial) {

@@ -198,7 +198,11 @@ public class InjectorOrdinalResolver implements Resolver {
             List<AbstractInsnNode> cleanReturnInsns = findReturnInsns(cleanTarget.methodNode());
             List<AbstractInsnNode> dirtyReturnInsns = findReturnInsns(dirtyTarget.methodNode());
 
-            if (ordinal < cleanReturnInsns.size() && cleanReturnInsns.size() != dirtyReturnInsns.size()) {
+            if (cleanReturnInsns.size() == dirtyReturnInsns.size()) {
+                return Optional.empty();
+            }
+
+            if (ordinal < cleanReturnInsns.size()) {
                 AbstractInsnNode cleanInsn = cleanReturnInsns.get(ordinal);
                 InstructionMatcher original = new InstructionMatcher(cleanInsn, findReturnPrecedingInsns(cleanInsn), List.of());
                 List<InstructionMatcher> dirtyMatchers = dirtyReturnInsns.stream()

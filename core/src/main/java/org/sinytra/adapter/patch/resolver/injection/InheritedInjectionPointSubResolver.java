@@ -33,8 +33,8 @@ public class InheritedInjectionPointSubResolver implements SubResolver {
         if (!recipe.hasInjectionPointValue(AT_VAL_INVOKE)) return null;
 
         AtData at = recipe.clean().getAtData();
-        MethodQualifier atTarget = at.getTarget().flatMap(MethodQualifier::parse).orElseThrow();
-        if (atTarget == null) return null;
+        MethodQualifier atTarget = at.getTarget().flatMap(MethodQualifier::parse).orElse(null);
+        if (atTarget == null || atTarget.internalOwnerName() == null) return null;
 
         TargetPair targetPair = recipe.getDirtyTarget();
         if (targetPair == null) return null;

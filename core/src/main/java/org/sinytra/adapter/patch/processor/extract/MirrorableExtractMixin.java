@@ -57,9 +57,6 @@ public class MirrorableExtractMixin {
         if (!(selfParamInsn instanceof VarInsnNode varInsn) || varInsn.getOpcode() != Opcodes.ALOAD || varInsn.var != 0) {
             return PatchResult.PASS;
         }
-        // Cool, out instance is passed into the method. Now let's inject there and call the old mixin method
-        ClassNode generatedTarget = environment.classGenerator().getOrGenerateMixinClass(classNode, destinationClass, null);
-        environment.refmapHolder().copyEntries(classNode.name, generatedTarget.name);
         // Generate a method with the same injector annotation
         String name = methodNode.name + "$adapter$mirror$" + AdapterUtil.randomString(5);
         List<Type> originalParams = Parameters.getParameterTypes(methodNode.desc);
@@ -82,6 +79,8 @@ public class MirrorableExtractMixin {
             argMapping[i] = argIndex;
         }
 
+        ClassNode generatedTarget = environment.classGenerator().getOrGenerateMixinClass(classNode, destinationClass, null);
+        environment.refmapHolder().copyEntries(classNode.name, generatedTarget.name);
         String desc = Type.getMethodDescriptor(Type.VOID_TYPE, newParams.toArray(Type[]::new));
         // Change target
         context.methodAnnotation()

@@ -14,19 +14,25 @@ import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.function.Predicate;
 
 public class CodePaths {
+    private static final Set<String> IGNORED_PACKAGES = Set.of("java/", "javax/", "jdk/", "sun/", "com/sun/");
+    private static final int MAX_DEPTH = 5;
+
     @Nullable
     public static CodePath findCodePath(TargetPair from, TargetPair to, Set<Integer> trackLocals, MixinContext context) {
+        return findCodePath(from, to, trackLocals, context, minsn -> true);
+    }
+
+    @Nullable
+    public static CodePath findCodePath(TargetPair from, TargetPair to, Set<Integer> trackLocals, MixinContext context, Predicate<MethodInsnNode> entryFilter) {
         if (from == null || to == null) {
             return null;
         }
 
-        CodePath path = findCodePathRecursive(from, to, trackLocals, context, 0, 5);
+        CodePath path = findCodePathRecursive(from, to, trackLocals, context, entryFilter, new HashMap<>(), 0);
         if (path == null) {
             return null;
         }
@@ -55,15 +61,26 @@ public class CodePaths {
     }
 
     @Nullable
-    private static CodePath findCodePathRecursive(TargetPair from, TargetPair to, Set<Integer> trackLocals, MixinContext context, int depth, int limit) {
-        if (depth >= limit) {
+    private static CodePath findCodePathRecursive(TargetPair from, TargetPair to, Set<Integer> trackLocals, MixinContext context,
+                                                  Predicate<MethodInsnNode> filter, Map<String, Integer> visited, int depth
+    ) {
+        if (depth >= MAX_DEPTH) {
             return null;
         }
+        String key = from.classNode().name + "." + from.methodNode().name + from.methodNode().desc + trackLocals;
+        Integer visitedDepth = visited.get(key);
+        if (visitedDepth != null && visitedDepth <= depth) {
+            return null;
+        }
+        visited.put(key, depth);
 
         List<MethodInsnNode> topTierCalls = MethodAnalyzer.getTopTierMethodCalls(from, true);
 
         for (MethodInsnNode minsn : topTierCalls) {
-            if (!context.patchContext().environment().isKnownPackage(AdapterUtil.internalNameToPkg(minsn.owner))) {
+            if (!filter.test(minsn)
+                || IGNORED_PACKAGES.stream().anyMatch(minsn.owner::startsWith)
+                || !context.patchContext().environment().isKnownPackage(AdapterUtil.internalNameToPkg(minsn.owner))
+            ) {
                 continue;
             }
 
@@ -76,9 +93,8 @@ public class CodePaths {
             }
 
             Map<Integer, Integer> locals = new Int2IntOpenHashMap();
-            List<List<AbstractInsnNode>> receiverInsns = MethodCallAnalyzer.getMethodCallArgInsns(from.methodNode(), minsn);
-
             if (!trackLocals.isEmpty()) {
+                List<List<AbstractInsnNode>> receiverInsns = MethodCallAnalyzer.getMethodCallArgInsns(from.methodNode(), minsn);
                 for (int i = 0; i < receiverInsns.size(); i++) {
                     List<AbstractInsnNode> argInsns = receiverInsns.get(i);
                     if (argInsns.size() != 1 || !(argInsns.getFirst() instanceof VarInsnNode varInsn)) continue;
@@ -101,12 +117,14 @@ public class CodePaths {
             CodePathStep step = new CodePathStep(from, nextFrom, locals);
 
             if (nextFrom.classNode().name.equals(to.classNode().name)
-                && nextFrom.methodNode().name.equals(to.methodNode().name)) {
+                && nextFrom.methodNode().name.equals(to.methodNode().name)
+                && nextFrom.methodNode().desc.equals(to.methodNode().desc)
+            ) {
                 return new CodePath(from, to, List.of(step), Map.of());
             }
 
             Set<Integer> nextTrackLocals = Set.copyOf(locals.values());
-            CodePath subPath = findCodePathRecursive(nextFrom, to, nextTrackLocals, context, depth + 1, limit);
+            CodePath subPath = findCodePathRecursive(nextFrom, to, nextTrackLocals, context, call -> true, visited, depth + 1);
             if (subPath != null) {
                 List<CodePathStep> steps = new ArrayList<>();
                 steps.add(step);

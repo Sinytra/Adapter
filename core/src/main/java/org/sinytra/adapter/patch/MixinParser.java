@@ -20,6 +20,7 @@ import org.sinytra.adapter.patch.config.key.SpecialKeys;
 import org.sinytra.adapter.patch.mixin.MixinType;
 import org.sinytra.adapter.patch.mixin.MixinTypes;
 import org.sinytra.adapter.util.MethodQualifier;
+import org.sinytra.adapter.util.provider.ClassLookup;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -67,9 +68,7 @@ public class MixinParser {
             properties.setProperty(ControlKeys.TARGET_CLASS, targetClass);
             properties.setProperty(ControlKeys.RETURN_TYPE, Type.getReturnType(method.desc));
             properties.setProperty(SpecialKeys.STATIC, MethodHelper.isStatic(method));
-            if (!postProcessMixin(properties, environment)) {
-                continue;
-            }
+            resolveTargetDescriptor(properties, environment);
 
             return new MixinMethodHandle(mixinType, method, handle, properties);
         }
@@ -91,24 +90,25 @@ public class MixinParser {
         return null;
     }
 
-    private static boolean postProcessMixin(MutablePropertyContainer properties, PatchEnvironment environment) {
+    private static void resolveTargetDescriptor(MutablePropertyContainer properties, PatchEnvironment environment) {
         MethodQualifier target = properties.getProperty(MixinKeys.TARGET_METHOD).orElse(null);
-        if (target != null && target.desc() == null) {
-            ClassNode dirtyTarget = properties.getProperty(ControlKeys.TARGET_CLASS)
-                .flatMap(cls -> environment.dirtyClassLookup().getClass(cls))
-                .orElse(null);
-            if (dirtyTarget == null) {
-                return false;
-            }
-
-            List<MethodNode> targets = dirtyTarget.methods.stream()
-                .filter(m -> target.matches(MethodQualifier.create(m)))
-                .toList();
-            if (targets.size() == 1) {
-                properties.setProperty(MixinKeys.TARGET_METHOD, MethodQualifier.create(targets.getFirst()));
-            }
+        String targetClass = properties.getProperty(ControlKeys.TARGET_CLASS).orElse(null);
+        if (target == null || target.desc() != null || target.name() == null || targetClass == null) {
+            return;
         }
-        return true;
+
+        List<MethodNode> cleanCandidates = findMethodsByName(environment.cleanClassLookup(), targetClass, target.name());
+        List<MethodNode> dirtyCandidates = findMethodsByName(environment.dirtyClassLookup(), targetClass, target.name());
+        if (cleanCandidates.size() == 1 && dirtyCandidates.size() <= 1) {
+            MethodNode method = cleanCandidates.getFirst();
+            properties.setProperty(MixinKeys.TARGET_METHOD, new MethodQualifier(target.owner(), method.name, method.desc));
+        }
+    }
+
+    private static List<MethodNode> findMethodsByName(ClassLookup lookup, String owner, String name) {
+        return lookup.getClass(owner)
+            .map(cls -> cls.methods.stream().filter(m -> m.name.equals(name)).toList())
+            .orElse(List.of());
     }
 
     private static RefMapper mapperFor(ClassNode classNode, PatchEnvironment environment) {

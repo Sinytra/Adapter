@@ -18,6 +18,7 @@ import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
 
 import java.util.List;
+import java.util.stream.IntStream;
 
 public final class SplitMethodCancellationHelper {
 
@@ -34,18 +35,24 @@ public final class SplitMethodCancellationHelper {
             return;
         }
 
-        MixinClassGenerator generator = context.patchContext().environment().classGenerator();
-        ClassNode generatedTarget = generator.getOrGenerateMixinClass(context.classNode(), originalClassTarget.name, null);
-
         List<MethodNode> invocations = MethodAnalyzer.getSelfTopTierMethodCalls(newCleanTarget);
         if (invocations == null) {
             return;
         }
-        int index = invocations.indexOf(newTarget);
+        int index = IntStream.range(0, invocations.size())
+            .filter(i -> invocations.get(i).name.equals(newTarget.name) && invocations.get(i).desc.equals(newTarget.desc))
+            .findFirst()
+            .orElse(-1);
+        if (index == -1) {
+            return;
+        }
 
-        // Generate field
+        MixinClassGenerator generator = context.patchContext().environment().classGenerator();
+        ClassNode generatedTarget = generator.getOrGenerateMixinClass(context.classNode(), originalClassTarget.name, null);
+
         String fieldName = "adapter$canceller$" + originalMethodTarget.name + "$" + AdapterUtil.randomString(5);
-        FieldNode trackerField = (FieldNode) generatedTarget.visitField(Opcodes.ACC_PRIVATE, fieldName, Type.BOOLEAN_TYPE.getDescriptor(), null, null);
+        int fieldAccess = Opcodes.ACC_PRIVATE | (context.isStatic() ? Opcodes.ACC_STATIC : 0);
+        FieldNode trackerField = (FieldNode) generatedTarget.visitField(fieldAccess, fieldName, Type.BOOLEAN_TYPE.getDescriptor(), null, null);
 
         for (int i = index + 1; i < invocations.size(); i++) {
             generateCancellerMethod(generatedTarget, trackerField, originalClassTarget, invocations.get(i), context, i == invocations.size() - 1);
@@ -78,18 +85,29 @@ public final class SplitMethodCancellationHelper {
             injectAnn.visitEnd();
         }
         // Generate logic
+        boolean isStatic = context.isStatic();
+        Type generatedType = Type.getObjectType(generatedTarget.name);
         GeneratorAdapter gen = new GeneratorAdapter(invokerMixinMethod, invokerMixinMethod.access, invokerMixinMethod.name, invokerMixinMethod.desc);
         Label endLabel = new Label();
         gen.newLabel();
-        gen.loadThis();
-        gen.getField(Type.getObjectType(generatedTarget.name), trackerField.name, Type.BOOLEAN_TYPE);
+        if (isStatic) {
+            gen.getStatic(generatedType, trackerField.name, Type.BOOLEAN_TYPE);
+        } else {
+            gen.loadThis();
+            gen.getField(generatedType, trackerField.name, Type.BOOLEAN_TYPE);
+        }
         gen.visitJumpInsn(Opcodes.IFEQ, endLabel);
         {
             if (reset) {
                 gen.newLabel();
-                gen.loadThis();
-                gen.visitInsn(Opcodes.ICONST_0);
-                gen.putField(Type.getObjectType(generatedTarget.name), trackerField.name, Type.BOOLEAN_TYPE);
+                if (isStatic) {
+                    gen.visitInsn(Opcodes.ICONST_0);
+                    gen.putStatic(generatedType, trackerField.name, Type.BOOLEAN_TYPE);
+                } else {
+                    gen.loadThis();
+                    gen.visitInsn(Opcodes.ICONST_0);
+                    gen.putField(generatedType, trackerField.name, Type.BOOLEAN_TYPE);
+                }
             }
             gen.newLabel();
             gen.loadArg(0);
@@ -105,9 +123,14 @@ public final class SplitMethodCancellationHelper {
         for (AbstractInsnNode insn : methodInsns) {
             if (insn instanceof MethodInsnNode minsn && qualifier.matches(minsn)) {
                 InsnList list = new InsnList();
-                list.add(new VarInsnNode(Opcodes.ALOAD, 0));
-                list.add(new InsnNode(Opcodes.ICONST_1));
-                list.add(new FieldInsnNode(Opcodes.PUTFIELD, originalClassTarget.name, trackerField.name, trackerField.desc));
+                if (isStatic) {
+                    list.add(new InsnNode(Opcodes.ICONST_1));
+                    list.add(new FieldInsnNode(Opcodes.PUTSTATIC, originalClassTarget.name, trackerField.name, trackerField.desc));
+                } else {
+                    list.add(new VarInsnNode(Opcodes.ALOAD, 0));
+                    list.add(new InsnNode(Opcodes.ICONST_1));
+                    list.add(new FieldInsnNode(Opcodes.PUTFIELD, originalClassTarget.name, trackerField.name, trackerField.desc));
+                }
                 methodInsns.insertBefore(minsn, list);
             }
         }

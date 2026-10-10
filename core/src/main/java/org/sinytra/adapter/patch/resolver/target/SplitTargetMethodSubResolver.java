@@ -9,6 +9,7 @@ import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.config.MutableConfiguration;
+import org.sinytra.adapter.patch.config.key.SpecialKeys;
 import org.sinytra.adapter.patch.resolver.SubResolver;
 import org.sinytra.adapter.analysis.InsnComparator;
 import org.sinytra.adapter.analysis.InstructionMatcher;
@@ -38,13 +39,12 @@ public class SplitTargetMethodSubResolver implements SubResolver {
             MethodNode method = candidates.getFirst().method();
             context.recordCtxAudit("Adjusting split method target to %s", MethodQualifier.create(method).asDescriptor());
 
-            // TODO Move to processor
-            if (recipe.clean().isCancellable()) {
-                SplitMethodCancellationHelper.handle(context, recipe, method);
-            }
-
-            return MutableConfiguration.create()
+            MutableConfiguration config = MutableConfiguration.create()
                 .setTargetMethod(method);
+            if (recipe.clean().isCancellable()) {
+                config.setProperty(SpecialKeys.SPLIT_CANCELLATION, true);
+            }
+            return config;
         }
 
         return null;

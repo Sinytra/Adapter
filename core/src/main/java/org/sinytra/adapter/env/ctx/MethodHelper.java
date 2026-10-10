@@ -41,7 +41,10 @@ public class MethodHelper {
     private final MixinContext context;
     private final MethodFinder methodFinder;
 
-    private final Map<TargetPair, List<AbstractInsnNode>> targetInstructionsCache = new HashMap<>();
+    private final Map<TargetInsnsKey, List<AbstractInsnNode>> targetInstructionsCache = new HashMap<>();
+
+    private record TargetInsnsKey(@Nullable TargetPair target, boolean ignoreOrdinal, @Nullable Object injectionPoint, @Nullable Object methodAnnotation) {
+    }
 
     public MethodHelper(MixinContext context, List<Type> targetTypes) {
         this.context = context;
@@ -99,20 +102,49 @@ public class MethodHelper {
     }
 
     public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable TargetPair target, boolean ignoreOrdinal) {
-        return this.targetInstructionsCache.computeIfAbsent(target, t -> computeInjectionTargetInsns(
-            target,
-            this.context::injectionPointAnnotation,
-            (ctx, h) -> {
-                AnnotationHandle atAnn = h;
-                if (ignoreOrdinal) {
-                    atAnn = atAnn.copy();
-                    atAnn.removeValues(PROPERTY_ORDINAL);
-                }
+        TargetInsnsKey key = new TargetInsnsKey(target, ignoreOrdinal, annotationKey(this.context.injectionPointAnnotation()), annotationKey(this.context.methodAnnotation()));
+        List<AbstractInsnNode> insns = this.targetInstructionsCache.get(key);
+        if (insns == null) {
+            insns = computeInjectionTargetInsns(
+                target,
+                this.context::injectionPointAnnotation,
+                (ctx, h) -> {
+                    AnnotationHandle atAnn = h;
+                    if (ignoreOrdinal) {
+                        atAnn = atAnn.copy();
+                        atAnn.removeValues(PROPERTY_ORDINAL);
+                    }
 
-                return InjectionPoint.parse(ctx, this.context.methodNode(), this.context.methodAnnotation().unwrap(), atAnn.unwrap());
-            },
-            true
-        ));
+                    return InjectionPoint.parse(ctx, this.context.methodNode(), this.context.methodAnnotation().unwrap(), atAnn.unwrap());
+                },
+                true
+            );
+            this.targetInstructionsCache.put(key, insns);
+        }
+        return insns;
+    }
+
+    @Nullable
+    private static Object annotationKey(@Nullable AnnotationHandle handle) {
+        return handle != null ? annotationValueKey(handle.unwrap()) : null;
+    }
+
+    private static Object annotationValueKey(Object value) {
+        if (value instanceof AnnotationNode node) {
+            List<Object> key = new ArrayList<>();
+            key.add(node.desc);
+            if (node.values != null) {
+                node.values.forEach(v -> key.add(annotationValueKey(v)));
+            }
+            return key;
+        }
+        if (value instanceof List<?> list) {
+            return list.stream().map(MethodHelper::annotationValueKey).toList();
+        }
+        if (value instanceof Object[] array) {
+            return Arrays.stream(array).map(MethodHelper::annotationValueKey).toList();
+        }
+        return value;
     }
 
     @Nullable
@@ -191,13 +223,13 @@ public class MethodHelper {
         PatchContext patchContext = this.context.patchContext();
         // Provide a minimum implementation of IMixinContext
         IMixinContext mixinContext = MockMixinRuntime.forClass(this.context.classNode().name, target.classNode().name, patchContext.environment());
-        // Parse injection point
-        InjectionPoint injectionPoint = injectionPointParser.apply(mixinContext, atNodeCopy);
-        Target mixinTarget = MockMixinRuntime.createMixinTarget(target);
-        // Find target instructions
-        InsnList instructions = ignoreSlice ? target.methodNode().instructions : getSlicedInsns(this.context.methodAnnotation(), this.context.classNode(), this.context.methodNode(), target.classNode(), target.methodNode(), patchContext, mixinTarget);
         List<AbstractInsnNode> targetInsns = new ArrayList<>();
         try {
+            // Parse injection point
+            InjectionPoint injectionPoint = injectionPointParser.apply(mixinContext, atNodeCopy);
+            Target mixinTarget = MockMixinRuntime.createMixinTarget(target);
+            // Find target instructions
+            InsnList instructions = ignoreSlice ? target.methodNode().instructions : getSlicedInsns(this.context.methodAnnotation(), this.context.classNode(), this.context.methodNode(), target.classNode(), target.methodNode(), patchContext, mixinTarget);
             if (MockMixinRuntime.injectionPointNeedsSpecialCare(injectionPoint)) {
                 MockMixinRuntime.findModifyVariableInjectionInsns(injectionPoint, mixinContext, target.methodNode().instructions, targetInsns, mixinTarget);
             } else {
