@@ -54,6 +54,14 @@ public class FieldAccessorTypeTransformer implements MethodTransformer {
         String methodName = PREFIX + field;
         Type to = adapter.to();
         String methodDesc = Type.getMethodDescriptor(to);
+        synchronized (node) {
+            addRedirectAcceptorMethod(node, owner, methodNode, field, adapter, methodName, to, methodDesc);
+        }
+
+        return methodName + methodDesc;
+    }
+
+    private static void addRedirectAcceptorMethod(ClassNode node, Type owner, MethodNode methodNode, String field, TypeAdapter adapter, String methodName, Type to, String methodDesc) {
         if (node.methods.stream().noneMatch(m -> m.name.equals(methodName))) {
             boolean isStatic = MethodHelper.isStatic(methodNode);
             MethodNode method = (MethodNode) node.visitMethod(Opcodes.ACC_PUBLIC | (isStatic ? Opcodes.ACC_STATIC : 0), methodName, methodDesc, null, null);
@@ -73,8 +81,6 @@ public class FieldAccessorTypeTransformer implements MethodTransformer {
             }
             method.visitEnd();
         }
-
-        return methodName + methodDesc;
     }
 
     private ClassNode getOrCreateMixinClass(Type targetClass, BytecodeFixerJarGenerator generator) {

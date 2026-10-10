@@ -8,8 +8,8 @@ import org.sinytra.adapter.util.provider.ClassLookup;
 import org.sinytra.adapter.util.provider.MixinClassLookup;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class PatchEnvironmentImpl implements PatchEnvironment {
     private final RefmapHolder refmapHolder;
@@ -21,7 +21,7 @@ public final class PatchEnvironmentImpl implements PatchEnvironment {
     private final AuditTrail auditTrail;
     private final @Nullable Collection<String> pkgNamespaces;
     
-    private final Map<ClassLookup, InheritanceHandler> inheritanceHandlers = new HashMap<>();
+    private final Map<ClassLookup, InheritanceHandler> inheritanceHandlers = new ConcurrentHashMap<>();
 
     public PatchEnvironmentImpl(
         RefmapHolder refmapHolder,

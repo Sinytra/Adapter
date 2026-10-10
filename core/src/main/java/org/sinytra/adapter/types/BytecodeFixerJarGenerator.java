@@ -15,8 +15,8 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.jar.*;
 
@@ -26,7 +26,7 @@ public class BytecodeFixerJarGenerator {
     private static final String PACAKGE = "dev/su5ed/sinytra/connector/adapter/fieldtypepatch/mixin";
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-    private final Map<String, ClassNode> generatedClasses = new HashMap<>();
+    private final Map<String, ClassNode> generatedClasses = new ConcurrentHashMap<>();
 
     public void loadExisting(Path path) {
         try (JarInputStream jis = new JarInputStream(Files.newInputStream(path))) {

@@ -36,6 +36,7 @@ import static org.sinytra.adapter.env.util.MixinAnnotationConstants.*;
 
 public class MethodHelper {
     private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Object LOCALS_LOCK = new Object();
 
     private final MixinContext context;
     private final MethodFinder methodFinder;
@@ -252,7 +253,7 @@ public class MethodHelper {
         // Get available local variables at the injection point in the target method
         LocalVariableNode[] localVariables;
         // Synchronize to avoid issues in mixin. This is necessary.
-        synchronized (this) {
+        synchronized (LOCALS_LOCK) {
             localVariables = Locals.getLocalsAt(target.classNode(), target.methodNode(), targetInsns.getFirst(), lvtCompatLevel);
         }
         LocalVariable[] locals = Stream.of(localVariables)

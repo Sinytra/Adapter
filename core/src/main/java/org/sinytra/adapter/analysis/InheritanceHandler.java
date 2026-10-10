@@ -4,10 +4,11 @@ import org.objectweb.asm.tree.ClassNode;
 import org.sinytra.adapter.util.provider.ClassLookup;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class InheritanceHandler {
     private final ClassLookup classProvider;
-    private final Map<String, Collection<String>> parentCache = new HashMap<>();
+    private final Map<String, Collection<String>> parentCache = new ConcurrentHashMap<>();
 
     public InheritanceHandler(ClassLookup classProvider) {
         this.classProvider = classProvider;
@@ -26,7 +27,10 @@ public class InheritanceHandler {
         Collection<String> parents = this.parentCache.get(name);
         if (parents == null) {
             parents = computeClassParents(name);
-            this.parentCache.put(name, parents);
+            Collection<String> existing = this.parentCache.putIfAbsent(name, parents);
+            if (existing != null) {
+                parents = existing;
+            }
         }
         return parents;
     }
@@ -48,6 +52,6 @@ public class InheritanceHandler {
                 }
             }
         }
-        return parents;
+        return Collections.unmodifiableSet(parents);
     }
 }
