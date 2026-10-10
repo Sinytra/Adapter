@@ -18,13 +18,20 @@ public class EnhancedParamsDiff {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final boolean DEBUG = Boolean.getBoolean("adapter.core.paramdiff.debug");
 
+    @Nullable
     public static LayeredParamsDiffSnapshot createLayered(List<Type> clean, List<Type> dirty) {
         LayeredParamsDiffSnapshot.Builder builder = LayeredParamsDiffSnapshot.builder();
-        buildDiff(builder, clean, dirty);
+        try {
+            buildDiff(builder, clean, dirty);
+        } catch (UnsupportedParamsDiffException e) {
+            LOGGER.debug("Cannot compare parameters {} and {}: {}", clean, dirty, e.getMessage());
+            return null;
+        }
         // TODO Sanity check
         return builder.build();
     }
 
+    @Nullable
     public static LayeredParamsDiffSnapshot compareMethodParameters(MethodNode clean, MethodNode dirty) {
         if (clean.localVariables == null || dirty.localVariables == null) {
             return LayeredParamsDiffSnapshot.EMPTY;
@@ -50,7 +57,12 @@ public class EnhancedParamsDiff {
         boolean compareNames = cleanParams.stream().allMatch(t -> t.name() != null) && dirtyParams.stream().anyMatch(LocalVariable::isGenerated);
 
         LayeredParamsDiffSnapshot.Builder builder = LayeredParamsDiffSnapshot.builder();
-        buildDiffWithContext(builder, createPositionedVariableList(cleanParams), createPositionedVariableList(dirtyParams), compareNames);
+        try {
+            buildDiffWithContext(builder, createPositionedVariableList(cleanParams), createPositionedVariableList(dirtyParams), compareNames);
+        } catch (UnsupportedParamsDiffException e) {
+            LOGGER.debug("Cannot compare parameters of {}{} and {}{}: {}", clean.name, clean.desc, dirty.name, dirty.desc, e.getMessage());
+            return null;
+        }
         return builder.build();
     }
 
@@ -110,7 +122,7 @@ public class EnhancedParamsDiff {
                 }
                 builder.remove(type.pos());
             } else {
-                throw new IllegalStateException("undefined behavior");
+                throw new UnsupportedParamsDiffException("undefined behavior");
             }
         }
         if (!dirtyQueue.isEmpty()) {

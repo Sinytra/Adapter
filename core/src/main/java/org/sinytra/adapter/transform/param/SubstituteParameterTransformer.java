@@ -12,8 +12,6 @@ import org.slf4j.Logger;
 
 import java.util.List;
 
-import static org.sinytra.adapter.transform.param.ParamTransformationUtil.calculateLVTIndex;
-
 public record SubstituteParameterTransformer(int target, int substitute) implements ParameterTransformer {
     private static final Logger LOGGER = LogUtils.getLogger();
 
@@ -22,18 +20,19 @@ public record SubstituteParameterTransformer(int target, int substitute) impleme
         int paramIndex = this.target + offset;
         int substituteParamIndex = this.substitute + offset;
         boolean isNonStatic = !context.isStatic();
-        int localIndex = calculateLVTIndex(parameters, isNonStatic, paramIndex);
-
-        if (Type.getArgumentCount(methodNode.desc) <= paramIndex) {
+        if (paramIndex >= parameters.size() || substituteParamIndex >= parameters.size() || paramIndex == substituteParamIndex) {
             return PatchResult.PASS;
         }
 
+        int localIndex = ParamTransformationUtil.getLVTIndex(parameters, isNonStatic, paramIndex);
+        int substituteIndex = ParamTransformationUtil.getLVTIndex(parameters, isNonStatic, substituteParamIndex);
+
         LVTSnapshot.with(methodNode, () -> {
             LOGGER.info("Substituting parameter {} for {} in {}.{}", paramIndex, substituteParamIndex, classNode.name, methodNode.name);
+            ParamTransformationUtil.updateParameterAnnotationArrays(methodNode, parameters.size(), annotations -> annotations.remove(paramIndex));
             parameters.remove(paramIndex);
             methodNode.localVariables.removeIf(lvn -> lvn.index == localIndex);
 
-            int substituteIndex = calculateLVTIndex(parameters, isNonStatic, substituteParamIndex);
             AdapterUtil.replaceLVT(methodNode, idx -> idx == localIndex ? substituteIndex : idx);
         });
 

@@ -143,13 +143,14 @@ public class MethodHelper {
             if (cleanTarget == null || dirtyTarget == null) return dirtyCaptured;
 
             LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.compareMethodParameters(cleanTarget, dirtyTarget);
+            if (diff == null) return dirtyCaptured;
+
             List<Type> cleanTargetParams = Parameters.getParameterTypes(cleanTarget.desc);
+            // Expect cleanTargetParams to begin with or be equal to cleanCaptured
+            if (cleanCaptured.size() > cleanTargetParams.size()) return dirtyCaptured;
             // Use a sublist instead of cleanCaptured to be able to compare Type instances directly
             List<Type> capturedSublist = cleanTargetParams.subList(0, cleanCaptured.size());
-            // Expect cleanTargetParams to begin with or be equal to cleanCaptured 
-            if (cleanCaptured.size() > cleanTargetParams.size() || !cleanCaptured.equals(capturedSublist)) {
-                return dirtyCaptured;
-            }
+            if (!cleanCaptured.equals(capturedSublist)) return dirtyCaptured;
 
             ParamDiffResolver.ParamEvalResult evalResult = ParamDiffResolver.resolve(cleanTargetParams, diff);
 

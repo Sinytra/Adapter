@@ -36,6 +36,8 @@ public final class LocalVarAnalyzer {
         List<Type> availableTypes = available.stream().map(LocalVariable::type).toList();
         // Compare expected and available params
         ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(capturedLocals.expected(), availableTypes);
+        if (diff == null) return null;
+
         return new CapturedLocalsInfo(capturedLocals, diff, availableTypes);
     }
 

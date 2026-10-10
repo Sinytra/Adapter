@@ -39,6 +39,7 @@ public class ParameterUsageProcessor implements Processor {
         List<Type> cleanParams = recipe.clean().getParameters().getTypes(ParamGroup.METHOD_PARAMS);
         List<Type> dirtyParams = dirtyMethodParams.getTypes(ParamGroup.METHOD_PARAMS);
         ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(cleanParams, dirtyParams);
+        if (diff == null) return TxResult.PASS;
 
         List<List<AbstractInsnNode>> callInsns = MethodCallAnalyzer.getAllMethodCallSrcInsnsInclusive(context.methodNode(), cleanTargetQual);
         if (callInsns.isEmpty()) {

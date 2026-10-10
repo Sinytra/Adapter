@@ -2,18 +2,14 @@ package org.sinytra.adapter.transform.param;
 
 import com.mojang.logging.LogUtils;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.PatchResult;
-import org.sinytra.adapter.util.AdapterUtil;
-import org.sinytra.adapter.util.SingleValueHandle;
 import org.slf4j.Logger;
 
 import java.util.List;
-import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
 import static org.sinytra.adapter.util.AdapterUtil.MIXINPATCH;
 
@@ -24,49 +20,16 @@ public record SwapParametersTransformer(int from, int to) implements ParameterTr
     public PatchResult apply(ClassNode classNode, MethodNode methodNode, MixinContext context, List<Type> parameters, int offset) {
         int from = offset + this.from;
         int to = offset + this.to;
-        boolean nonStatic = !context.isStatic();
+        if (from >= parameters.size() || to >= parameters.size()) {
+            return PatchResult.PASS;
+        }
 
-        int fromOldLVT = ParamTransformationUtil.calculateLVTIndex(parameters, nonStatic, from);
-        int toOldLVT = ParamTransformationUtil.calculateLVTIndex(parameters, nonStatic, to);
-
-        Type fromType = parameters.get(from);
-        Type toType = parameters.get(to);
-        parameters.set(from, toType);
-        parameters.set(to, fromType);
+        int[] order = IntStream.range(0, parameters.size()).toArray();
+        order[from] = to;
+        order[to] = from;
+        ParamTransformationUtil.reorderParameters(methodNode, parameters, !context.isStatic(), order);
 
         LOGGER.info(MIXINPATCH, "Swapped parameters at positions {} and {} in {}.{}", from, to, classNode.name, methodNode.name);
-
-        int fromNewLVT = ParamTransformationUtil.calculateLVTIndex(parameters, nonStatic, from);
-        int toNewLVT = ParamTransformationUtil.calculateLVTIndex(parameters, nonStatic, to);
-
-        // Account for "big" LVT variables (like longs and doubles)
-        // Uses of the old parameter need to be the new parameter and vice versa
-        swapLVT(methodNode, fromOldLVT, toNewLVT)
-            .andThen(swapLVT(methodNode, toOldLVT, fromNewLVT))
-            .accept(null);
-
         return PatchResult.COMPUTE_FRAMES;
-    }
-
-    public static Consumer<Void> swapLVT(MethodNode methodNode, int from, int to) {
-        Consumer<Void> r = v -> {
-        };
-        for (LocalVariableNode lvn : methodNode.localVariables) {
-            if (lvn.index == from) {
-                r = r.andThen(v -> lvn.index = to);
-            }
-        }
-
-        for (AbstractInsnNode insn : methodNode.instructions) {
-            SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);
-            if (handle != null) {
-                if (handle.get() == from) {
-                    LOGGER.info("Swapping in LVT: {} to {}", from, to);
-                    r = r.andThen(v -> handle.set(to));
-                }
-            }
-        }
-
-        return r;
     }
 }

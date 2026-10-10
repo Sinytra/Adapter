@@ -49,6 +49,8 @@ public class ParametersPostProcessor implements Processor {
         List<Type> cleanTypes = cleanParams.getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
         List<Type> dirtyTypes = dirtyParams.getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
         ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(cleanTypes, dirtyTypes);
+        if (diff == null) return TxResult.PASS;
+
         MethodNode methodNode = context.methodNode();
         LocalVariableLookup lookup = context.methods().getLVT(context.methodNode());
         if (lookup == null) return TxResult.PASS;

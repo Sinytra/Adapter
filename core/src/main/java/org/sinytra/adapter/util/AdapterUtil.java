@@ -269,15 +269,6 @@ public final class AdapterUtil {
         return null;
     }
 
-    public static <T> T[] removeArrayElement(T[] arr, int index, IntFunction<T[]> arrayGen) {
-        if (arr == null) {
-            return null;
-        }
-        List<T> list = new ArrayList<>(Arrays.asList(arr));
-        list.remove(index);
-        return list.toArray(arrayGen);
-    }
-
     /**
      * @param paramLocalStart inclusive
      * @param paramLocalEnd   inclusive

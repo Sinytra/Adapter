@@ -105,7 +105,7 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
         }
 
         public Builder substitutes(List<Pair<Integer, Integer>> substitutes) {
-            substitutes.forEach(p -> swap(p.getFirst(), p.getSecond()));
+            substitutes.forEach(p -> substitute(p.getFirst(), p.getSecond()));
             return this;
         }
 

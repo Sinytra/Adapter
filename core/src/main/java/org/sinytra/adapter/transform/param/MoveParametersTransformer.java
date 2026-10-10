@@ -3,16 +3,15 @@ package org.sinytra.adapter.transform.param;
 import com.mojang.logging.LogUtils;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.analysis.locals.LVTSnapshot;
-import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.PatchResult;
-import org.sinytra.adapter.util.AdapterUtil;
 import org.slf4j.Logger;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.sinytra.adapter.util.AdapterUtil.MIXINPATCH;
 
@@ -21,32 +20,18 @@ public record MoveParametersTransformer(int from, int to) implements ParameterTr
 
     @Override
     public PatchResult apply(ClassNode classNode, MethodNode methodNode, MixinContext context, List<Type> parameters, int offset) {
-        final int paramIndex = this.from + offset;
-
-        LocalVariableLookup lookup = context.methods().getLVT(methodNode);
-        LocalVariableNode localVar = lookup == null ? null : lookup.getByParameterOrdinalOrNull(paramIndex);
-        LocalVariableNode destVar = lookup == null ? null : lookup.getByParameterOrdinalOrNull(this.to);
-        if (localVar == null || destVar == null) {
-            LOGGER.info(MIXINPATCH, "Cannot move parameter from index {} to {}, missing local variable info in method {}.{}", this.from, this.to, classNode.name, methodNode.name);
+        int from = this.from + offset;
+        int to = this.to + offset;
+        if (from >= parameters.size() || to >= parameters.size()) {
+            LOGGER.info(MIXINPATCH, "Cannot move parameter from index {} to {} in method {}.{}, out of bounds", from, to, classNode.name, methodNode.name);
             return PatchResult.PASS;
         }
 
-        LOGGER.info(MIXINPATCH, "Moving parameter from index {} to {} in method {}.{}", this.from, this.to, classNode.name, methodNode.name);
+        List<Integer> order = IntStream.range(0, parameters.size()).boxed().collect(Collectors.toCollection(ArrayList::new));
+        order.add(to, order.remove(from));
+        ParamTransformationUtil.reorderParameters(methodNode, parameters, !context.isStatic(), order.stream().mapToInt(Integer::intValue).toArray());
 
-        int tempIndex = -999;
-        AdapterUtil.replaceLVT(methodNode, idx -> idx == localVar.index ? tempIndex : idx);
-
-        LVTSnapshot.with(methodNode, () -> methodNode.localVariables.remove(localVar));
-        parameters.remove(paramIndex);
-
-        Type type = Type.getType(localVar.desc);
-        localVar.index = destVar.index + offset;
-
-        LVTSnapshot.with(methodNode, () -> methodNode.localVariables.add(localVar.index, localVar));
-        AdapterUtil.replaceLVT(methodNode, idx -> idx == tempIndex ? localVar.index : idx);
-
-        parameters.add(this.to > paramIndex ? this.to - 1 : this.to, type);
-
+        LOGGER.info(MIXINPATCH, "Moved parameter from index {} to {} in method {}.{}", from, to, classNode.name, methodNode.name);
         return PatchResult.COMPUTE_FRAMES;
     }
 }

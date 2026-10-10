@@ -19,7 +19,10 @@ public record RemoveParameterTransformer(int index, boolean invalidateUsage) imp
     @Override
     public PatchResult apply(ClassNode classNode, MethodNode methodNode, MixinContext context, List<Type> parameters, int offset) {
         final int target = this.index() + offset;
-        final int lvtIndex = ParamTransformationUtil.calculateLVTIndex(parameters, !context.isStatic(), target);
+        if (target >= parameters.size()) {
+            return PatchResult.PASS;
+        }
+        final int lvtIndex = ParamTransformationUtil.getLVTIndex(parameters, !context.isStatic(), target);
 
         LVTSnapshot.with(methodNode, () -> {
             LocalVariableNode lvn = methodNode.localVariables.stream()
@@ -34,8 +37,7 @@ public record RemoveParameterTransformer(int index, boolean invalidateUsage) imp
             }
         });
 
-        methodNode.visibleParameterAnnotations = AdapterUtil.removeArrayElement(methodNode.visibleParameterAnnotations, this.index, List[]::new);
-        methodNode.invisibleParameterAnnotations = AdapterUtil.removeArrayElement(methodNode.invisibleParameterAnnotations, this.index, List[]::new);
+        ParamTransformationUtil.updateParameterAnnotationArrays(methodNode, parameters.size(), annotations -> annotations.remove(target));
         parameters.remove(target);
 
         return PatchResult.COMPUTE_FRAMES;

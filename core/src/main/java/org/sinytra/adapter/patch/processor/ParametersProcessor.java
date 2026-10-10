@@ -57,6 +57,9 @@ public class ParametersProcessor implements Processor {
 
     private boolean applyDiff(List<Type> clean, List<Type> dirty, MixinContext context, int offset) {
         ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(clean, dirty);
+        if (diff == null) {
+            return false;
+        }
         if (!diff.isEmpty()) {
             PatchResult result = diff.offset(offset).asParameterTransformer(false, Set.of())
                 .apply(context);

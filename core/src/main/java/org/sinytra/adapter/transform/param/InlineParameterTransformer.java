@@ -31,6 +31,7 @@ public record InlineParameterTransformer(int target, Consumer<InstructionAdapter
             AdapterUtil.replaceLVT(methodNode, idx -> idx == lvn.index ? replaceIndex : idx);
         });
 
+        ParamTransformationUtil.updateParameterAnnotationArrays(methodNode, parameters.size(), annotations -> annotations.remove(index));
         parameters.remove(index);
 
         for (AbstractInsnNode insn : methodNode.instructions) {

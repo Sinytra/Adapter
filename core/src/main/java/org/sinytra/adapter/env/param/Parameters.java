@@ -11,6 +11,7 @@ import org.objectweb.asm.tree.analysis.SourceValue;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.selector.FrameUtil;
 import org.sinytra.adapter.env.ctx.MixinContext;
+import org.sinytra.adapter.transform.param.ParamTransformationUtil;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -91,6 +92,8 @@ public final class Parameters {
     }
 
     public static void applyAnnotations(MethodNode method, List<Parameter> parameters) {
+        ParamTransformationUtil.updateParameterAnnotationArrays(method, Type.getArgumentCount(method.desc), annotations -> {});
+
         for (int i = 0; i < parameters.size(); i++) {
             Parameter param = parameters.get(i);
 
@@ -99,7 +102,7 @@ public final class Parameters {
             Set<String> descs = param.annotations().stream().map(Annotation::getDesc).collect(Collectors.toSet());
             final int finalI = i;
             Stream.of(method.visibleParameterAnnotations, method.invisibleParameterAnnotations)
-                .filter(Objects::nonNull)
+                .filter(arr -> arr != null && finalI < arr.length)
                 .map(arr -> arr[finalI])
                 .filter(Objects::nonNull)
                 .forEach(list -> list.removeIf(n -> descs.contains(n.desc)));

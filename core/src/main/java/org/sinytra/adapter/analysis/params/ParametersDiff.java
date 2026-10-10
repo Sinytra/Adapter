@@ -89,7 +89,7 @@ public record ParametersDiff(
                             handled = true;
                         }
                         // Detect removed parameters, check the next 2 params for matching types (if possible)
-                        if (nextCleanParam.equals(dirtyParam) && (j + 2 >= cleanParameters.size() || cleanParameters.get(j + 2).equals(nextDirtyParam))) {
+                        if (nextCleanParam.equals(dirtyParam) && (i + 2 >= cleanParameters.size() || cleanParameters.get(i + 2).equals(nextDirtyParam))) {
                             removing = true;
                         }
                     }
@@ -131,7 +131,7 @@ public record ParametersDiff(
             }
         }
         if (j - i + removals.size() != insertions.size()) {
-            throw new IllegalStateException("Unexpected difference in params size");
+            throw new UnsupportedParamsDiffException("Unexpected difference in params size");
         }
         return new ParametersDiff(i, insertions, replacements, swaps, removals, List.of());
     }
