@@ -24,6 +24,8 @@ public class MethodParameters implements Copiable<MethodParameters> {
         public static final ParamGroup OPERATION = new ParamGroup(ParamGroupType.SINGLE, "operation", i -> i.type().equals(TypeConstants.OPERATION_TYPE));
 
         public static final ParamGroup LOCALS = new ParamGroup(ParamGroupType.VARIABLE, "locals", Parameter::isLocalOrShare);
+
+        public static final ParamGroup REMAINING = new ParamGroup(ParamGroupType.VARIABLE, "remaining", i -> true);
     }
 
     private final Map<ParamGroup, List<Parameter>> groups;
@@ -131,8 +133,9 @@ public class MethodParameters implements Copiable<MethodParameters> {
         }
 
         int groupIndex = 0;
+        int paramIndex = 0;
 
-        for (int paramIndex = 0; paramIndex < params.size() && groupIndex < groups.size(); ) {
+        while (paramIndex < params.size() && groupIndex < groups.size()) {
             ParamGroup group = groups.get(groupIndex);
             ParamGroup nextGroup = groupIndex + 1 < groups.size() ? groups.get(groupIndex + 1) : null;
 
@@ -140,12 +143,10 @@ public class MethodParameters implements Copiable<MethodParameters> {
             List<Parameter> output = results.get(group);
 
             if (group.type() == ParamGroupType.SINGLE) {
-                if (!group.predicate().test(param)) {
-                    throw new IllegalStateException("Unexpected single parameter: " + param);
+                if (group.predicate().test(param)) {
+                    output.add(param);
+                    paramIndex++;
                 }
-
-                output.add(param);
-                paramIndex++;
                 groupIndex++;
             } else if (group.type() == ParamGroupType.VARIABLE) {
                 if (group.predicate().test(param)) {
@@ -167,6 +168,13 @@ public class MethodParameters implements Copiable<MethodParameters> {
                     groupIndex++;
                 }
             }
+        }
+
+        if (paramIndex < params.size()) {
+            List<ParamGroup> order = new ArrayList<>(groups);
+            order.add(ParamGroup.REMAINING);
+            results.put(ParamGroup.REMAINING, new ArrayList<>(params.subList(paramIndex, params.size())));
+            return new MethodParameters(results, order);
         }
 
         return new MethodParameters(results, groups);
@@ -199,6 +207,10 @@ public class MethodParameters implements Copiable<MethodParameters> {
             }
 
             return this;
+        }
+
+        public Builder putRemaining(MethodParameters source) {
+            return source.has(ParamGroup.REMAINING) ? put(ParamGroup.REMAINING, source.get(ParamGroup.REMAINING)) : this;
         }
 
         public MethodParameters build() {

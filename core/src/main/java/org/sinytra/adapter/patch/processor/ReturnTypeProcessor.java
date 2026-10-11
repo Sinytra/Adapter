@@ -6,16 +6,15 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.SourceInterpreter;
 import org.objectweb.asm.tree.analysis.SourceValue;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
 import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.types.TypeAdapter;
-import org.sinytra.adapter.util.AdapterUtil;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 public class ReturnTypeProcessor implements Processor {
     @Override
@@ -46,7 +45,7 @@ public class ReturnTypeProcessor implements Processor {
     }
 
     private static class ReturnInterpreter extends SourceInterpreter {
-        public final List<AbstractInsnNode> insns = new ArrayList<>();
+        public final Set<AbstractInsnNode> insns = new HashSet<>();
 
         public ReturnInterpreter() {
             super(Opcodes.ASM9);
@@ -54,11 +53,7 @@ public class ReturnTypeProcessor implements Processor {
 
         @Override
         public void returnOperation(AbstractInsnNode insn, SourceValue value, SourceValue expected) {
-            AbstractInsnNode srcInsn = AdapterUtil.getSingleInsn(value);
-            if (srcInsn == null) {
-                throw new IllegalStateException();
-            }
-            this.insns.add(srcInsn);
+            this.insns.addAll(value.insns);
         }
     }
 }

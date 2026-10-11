@@ -1,7 +1,11 @@
 package org.sinytra.adapter.patch.mixin;
 
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.ctx.MixinContext;
+import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
@@ -15,10 +19,12 @@ import org.sinytra.adapter.patch.resolver.Resolvers;
 import org.sinytra.adapter.patch.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.patch.resolver.special.InjectorOrdinalResolver;
 import org.sinytra.adapter.util.MethodQualifier;
+import org.sinytra.adapter.util.OpcodeUtil;
 
 import java.util.List;
 
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.*;
+import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_RETURN;
 
 public class ModifyReturnValueMixin implements MixinType {
     private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
@@ -32,7 +38,25 @@ public class ModifyReturnValueMixin implements MixinType {
 
     @Override
     public boolean canInject(MixinContext context, Configuration config) {
-        return !context.classNode().name.toLowerCase().contains("mace");
+        AtData at = config.getAtData();
+        MethodQualifier target = config.getTargetMethod();
+        if (at == null || !AT_VAL_RETURN.equals(at.getValue()) || at.getProperty(AtData.Keys.ORDINAL).isEmpty() || target == null) {
+            return true;
+        }
+
+        TargetPair cleanTarget = context.methods().findOwnMethodPair(context.cleanLookup(), target);
+        TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), target);
+        return cleanTarget == null || dirtyTarget == null || countReturns(cleanTarget.methodNode()) == countReturns(dirtyTarget.methodNode());
+    }
+
+    private static int countReturns(MethodNode method) {
+        int count = 0;
+        for (AbstractInsnNode insn : method.instructions) {
+            if (OpcodeUtil.isReturnOpcode(insn.getOpcode())) {
+                count++;
+            }
+        }
+        return count;
     }
 
     @Override
@@ -62,6 +86,7 @@ public class ModifyReturnValueMixin implements MixinType {
             .putType(SINGLE_ANY, modifyingType)
             .putTypes(CAPTURED_PARAMS, dirtyCaptured)
             .put(LOCALS, clean.getParameters().get(LOCALS))
+            .putRemaining(clean.getParameters())
             .build();
 
         dirty.setParameters(params);

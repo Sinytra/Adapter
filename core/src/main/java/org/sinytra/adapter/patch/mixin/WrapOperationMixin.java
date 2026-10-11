@@ -80,6 +80,7 @@ public class WrapOperationMixin implements MixinType {
             .putType(OPERATION, TypeConstants.OPERATION_TYPE)
             .putTypes(CAPTURED_PARAMS, dirtyCaptured)
             .put(LOCALS, clean.getParameters().get(LOCALS))
+            .putRemaining(clean.getParameters())
             .build();
 
         dirty.setParameters(params);

@@ -13,5 +13,10 @@ public interface TypeAdapter {
 
     void apply(InsnList list, AbstractInsnNode target);
 
-    TypeAdapter andThen(BiConsumer<InsnList, AbstractInsnNode> consumer);
+    default TypeAdapter andThen(BiConsumer<InsnList, AbstractInsnNode> consumer) {
+        return new SimpleTypeAdapter(from(), to(), (list, target) -> {
+            consumer.accept(list, target);
+            apply(list, target);
+        });
+    }
 }

@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.CAPTURED_PARAMS;
+import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.LOCALS;
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.SINGLE_ANY;
 import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
 
@@ -47,7 +48,7 @@ public class ModifyExpressionValueMixin implements MixinType {
         resolvers
             .addBefore(InjectionPointResolver.class, new ResolverSyntheticInstanceof(true));
 
-        clean.setParameters(MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY, CAPTURED_PARAMS)));
+        clean.setParameters(MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY, CAPTURED_PARAMS, LOCALS)));
 
         return TxResult.SUCCESS;
     }
@@ -78,6 +79,8 @@ public class ModifyExpressionValueMixin implements MixinType {
         MethodParameters params = MethodParameters.builder()
             .putType(SINGLE_ANY, modifyingType)
             .putTypes(CAPTURED_PARAMS, dirtyCaptured)
+            .put(LOCALS, clean.getParameters().get(LOCALS))
+            .putRemaining(clean.getParameters())
             .build();
 
         dirty.setParameters(params);

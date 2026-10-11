@@ -76,6 +76,7 @@ public class RedirectMixin implements MixinType {
             .putTypes(METHOD_PARAMS, callTypes)
             .putTypes(CAPTURED_PARAMS, capturedMethodParams.getTypes(CAPTURED_PARAMS))
             .putTypes(LOCALS, capturedMethodParams.getTypes(LOCALS))
+            .putRemaining(capturedMethodParams)
             .build();
 
         clean.setParameters(params);
