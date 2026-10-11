@@ -8,9 +8,9 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.env.ctx.MethodHelper;
 import org.sinytra.adapter.util.GeneratedVariables;
 import org.slf4j.Logger;
+import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 
 import java.util.*;
 
@@ -37,33 +37,32 @@ public class EnhancedParamsDiff {
             return LayeredParamsDiffSnapshot.EMPTY;
         }
 
-        int cleanParamCount = Type.getArgumentTypes(clean.desc).length;
-        int dirtyParamCount = Type.getArgumentTypes(dirty.desc).length;
-        boolean isCleanStatic = MethodHelper.isStatic(clean);
-        boolean isDirtyStatic = MethodHelper.isStatic(dirty);
-        // Get params as local variables, which include their names as well
-        List<LocalVariable> cleanParams = clean.localVariables.stream()
-            .sorted(Comparator.comparingInt(lv -> lv.index))
-            .filter(lv -> isCleanStatic || lv.index != 0)
-            .limit(cleanParamCount)
-            .map(LocalVariable::new)
-            .toList();
-        List<LocalVariable> dirtyParams = dirty.localVariables.stream()
-            .sorted(Comparator.comparingInt(lv -> lv.index))
-            .filter(lv -> isDirtyStatic || lv.index != 0)
-            .limit(dirtyParamCount)
-            .map(LocalVariable::new)
-            .toList();
-        boolean compareNames = cleanParams.stream().allMatch(t -> t.name() != null) && dirtyParams.stream().anyMatch(LocalVariable::isGenerated);
+        List<TypeWithContext> cleanParams = getParameterLocals(clean);
+        List<TypeWithContext> dirtyParams = getParameterLocals(dirty);
+        boolean compareNames = cleanParams.stream().allMatch(t -> t.name() != null) && dirtyParams.stream().anyMatch(TypeWithContext::isGenerated);
 
         LayeredParamsDiffSnapshot.Builder builder = LayeredParamsDiffSnapshot.builder();
         try {
-            buildDiffWithContext(builder, createPositionedVariableList(cleanParams), createPositionedVariableList(dirtyParams), compareNames);
+            buildDiffWithContext(builder, cleanParams, dirtyParams, compareNames);
         } catch (UnsupportedParamsDiffException e) {
             LOGGER.debug("Cannot compare parameters of {}{} and {}{}: {}", clean.name, clean.desc, dirty.name, dirty.desc, e.getMessage());
             return null;
         }
         return builder.build();
+    }
+
+    private static List<TypeWithContext> getParameterLocals(MethodNode method) {
+        LocalVariableLookup lookup = new LocalVariableLookup(method);
+        List<TypeWithContext> params = new ArrayList<>();
+        int paramCount = Type.getArgumentCount(method.desc);
+        for (int i = 0; i < paramCount; i++) {
+            LocalVariableNode lvn = lookup.getByParameterOrdinalOrNull(i);
+            if (lvn == null) {
+                break;
+            }
+            params.add(TypeWithContext.of(lvn, i));
+        }
+        return params;
     }
 
     private static void buildDiff(ParamsDiffSnapshotBuilder builder, List<Type> clean, List<Type> dirty) {
@@ -413,8 +412,8 @@ public class EnhancedParamsDiff {
             LOGGER.info("Running comparison for:\n{}", printTable(clean, dirty));
         }
 
-        List<ParametersDiff.MethodParameter> cleanTypes = clean.stream().map(t -> new ParametersDiff.MethodParameter(t.type(), t.isGenerated())).toList();
-        List<ParametersDiff.MethodParameter> dirtyTypes = dirty.stream().map(t -> new ParametersDiff.MethodParameter(t.type(), t.isGenerated())).toList();
+        List<ParametersDiff.MethodParameter> cleanTypes = clean.stream().map(TypeWithContext::toMethodParameter).toList();
+        List<ParametersDiff.MethodParameter> dirtyTypes = dirty.stream().map(TypeWithContext::toMethodParameter).toList();
         ParametersDiff diff = ParametersDiff.compareParameters(cleanTypes, dirtyTypes, false);
         if (DEBUG) {
             LOGGER.info("Comparison results:\n\tInserted: {}\n\tReplaced: {}\n\tSwapped:  {}\n\tRemoved:  {}", diff.insertions(), diff.replacements(), diff.swaps(), diff.removals());
@@ -427,15 +426,6 @@ public class EnhancedParamsDiff {
         List<TypeWithContext> ret = new ArrayList<>();
         for (int i = 0; i < list.size(); i++) {
             ret.add(new TypeWithContext(list.get(i), i));
-        }
-        return ret;
-    }
-
-    private static List<TypeWithContext> createPositionedVariableList(List<LocalVariable> list) {
-        List<TypeWithContext> ret = new ArrayList<>();
-        for (int i = 0; i < list.size(); i++) {
-            LocalVariable ctx = list.get(i);
-            ret.add(new TypeWithContext(ctx.name(), ctx.type(), i, ctx.isGenerated()));
         }
         return ret;
     }
@@ -493,15 +483,18 @@ public class EnhancedParamsDiff {
         return builder.toString();
     }
 
-    private record LocalVariable(@Nullable String name, Type type, boolean isGenerated) {
-        public LocalVariable(LocalVariableNode lvn) {
-            this(lvn.name, Type.getType(lvn.desc), lvn.name != null && GeneratedVariables.isGeneratedVariableName(lvn.name, Type.getType(lvn.desc)));
-        }
-    }
-
     private record TypeWithContext(@Nullable String name, Type type, int pos, boolean isGenerated) {
         public TypeWithContext(Type type, int pos) {
             this(null, type, pos, false);
+        }
+
+        public static TypeWithContext of(LocalVariableNode lvn, int pos) {
+            Type type = Type.getType(lvn.desc);
+            return new TypeWithContext(lvn.name, type, pos, lvn.name != null && GeneratedVariables.isGeneratedVariableName(lvn.name, type));
+        }
+
+        public ParametersDiff.MethodParameter toMethodParameter() {
+            return new ParametersDiff.MethodParameter(this.type, this.isGenerated);
         }
 
         public boolean sameType(TypeWithContext other) {

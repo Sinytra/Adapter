@@ -11,8 +11,8 @@ import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.config.MutableConfiguration;
 import org.sinytra.adapter.patch.resolver.SubResolver;
-import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 
 import java.util.List;
 
@@ -46,7 +46,7 @@ public class OverloadedInjectionPointSubResolver implements SubResolver {
         if (newCleanTarget == null) return null;
 
         // Check if called clean method was marked as deprecated
-        if (AdapterUtil.isDeprecated(cleanTarget.methodNode()) || !AdapterUtil.isDeprecated(newCleanTarget.methodNode())) {
+        if (!MethodAnalyzer.isDirtyDeprecatedMethod(cleanTarget.methodNode(), newCleanTarget.methodNode())) {
             return null;
         }
 

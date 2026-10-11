@@ -33,23 +33,13 @@ import java.util.function.*;
 import java.util.stream.Stream;
 
 public final class AdapterUtil {
-    public static final String LAMBDA_PREFIX = "lambda$";
     public static final Marker MIXINPATCH = MarkerFactory.getMarker("MIXINPATCH");
-    private static final String DEPRECATED = "Ljava/lang/Deprecated;";
     private static final Logger LOGGER = LogUtils.getLogger();
-
-    public static boolean isDeprecated(MethodNode methodNode) {
-        return hasAnnotation(methodNode.visibleAnnotations, DEPRECATED);
-    }
 
     public static MethodNode copyMethod(MethodNode original) {
         MethodNode copy = new MethodNode(original.access, original.name, original.desc, original.signature, original.exceptions.toArray(String[]::new));
         original.accept(copy);
         return copy;
-    }
-
-    public static int getLVTOffsetForType(Type type) {
-        return type.equals(Type.DOUBLE_TYPE) || type.equals(Type.LONG_TYPE) ? 2 : 1;
     }
 
     public static String randomString(int length) {
@@ -144,8 +134,7 @@ public final class AdapterUtil {
     }
 
     public static VarInsnNode loadType(Type type, int index) {
-        int opcode = OpcodeUtil.getLoadOpcode(type.getSort());
-        return new VarInsnNode(opcode, index);
+        return new VarInsnNode(OpcodeUtil.getLoadOpcode(type), index);
     }
 
     public static boolean isShadowField(FieldNode field) {
@@ -318,6 +307,19 @@ public final class AdapterUtil {
 
     public static List<AbstractInsnNode> cloneInsns(Collection<AbstractInsnNode> insns) {
         return insns.stream().map(i -> i.clone(Map.of())).toList();
+    }
+
+    public static <T> Optional<T> findOne(Collection<T> candidates, Predicate<? super T> predicate) {
+        T match = null;
+        for (T candidate : candidates) {
+            if (predicate.test(candidate)) {
+                if (match != null) {
+                    return Optional.empty();
+                }
+                match = candidate;
+            }
+        }
+        return Optional.ofNullable(match);
     }
 
     public static <T> boolean allElementsEqual(Collection<T> list, BiPredicate<T, T> equalityFn) {

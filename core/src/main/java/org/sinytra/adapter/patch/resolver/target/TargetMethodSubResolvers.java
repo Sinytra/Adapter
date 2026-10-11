@@ -17,7 +17,6 @@ import org.sinytra.adapter.patch.config.MutableConfiguration;
 import org.sinytra.adapter.patch.resolver.Resolver;
 import org.sinytra.adapter.patch.resolver.SubResolver;
 import org.sinytra.adapter.patch.resolver.injection.InjectionPointResolver;
-import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
 
 import java.util.Comparator;
@@ -111,7 +110,7 @@ public class TargetMethodSubResolvers {
     @Nullable
     private static Configuration resolveOverloadedReplacement(MixinContext context, Recipe recipe) {
         TargetPair dirtyTarget = recipe.getNewCleanTarget();
-        if (dirtyTarget == null || !AdapterUtil.isDeprecated(dirtyTarget.methodNode())) return null;
+        if (dirtyTarget == null || !MethodAnalyzer.isDeprecated(dirtyTarget.methodNode())) return null;
 
         List<MethodNode> invocations = MethodAnalyzer.getSelfTopTierMethodCalls(dirtyTarget);
         for (MethodNode invocation : invocations) {
@@ -170,6 +169,6 @@ public class TargetMethodSubResolvers {
 
     public static boolean isDirtyDeprecatedMethod(MixinContext context, MethodNode dirty) {
         TargetPair pair = context.methods().findOwnMethodPair(context.cleanLookup(), MethodQualifier.create(dirty));
-        return (pair == null || !AdapterUtil.isDeprecated(pair.methodNode())) && AdapterUtil.isDeprecated(dirty);
+        return pair != null ? MethodAnalyzer.isDirtyDeprecatedMethod(pair.methodNode(), dirty) : MethodAnalyzer.isDeprecated(dirty);
     }
 }

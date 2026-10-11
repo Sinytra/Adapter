@@ -10,7 +10,6 @@ import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.env.param.Parameters;
 import org.sinytra.adapter.env.util.MixinAnnotations;
-import org.sinytra.adapter.types.BytecodeFixerUpper;
 import org.sinytra.adapter.types.TypeAdapter;
 import org.slf4j.Logger;
 
@@ -50,7 +49,6 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
         localVar.signature = null;
 
         List<AbstractInsnNode> ignoreInsns = findWrapOperationOriginalCall(methodNode);
-        BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
         if (this.upgradeUsage && this.type.getSort() == Type.OBJECT && originalType.getSort() == Type.OBJECT) {
             // Replace variable usages with the new type
             for (AbstractInsnNode insn : methodNode.instructions) {
@@ -61,14 +59,14 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
                 // FIXME Sometimes we need to change the owner in insns, sometimes we don't
                 if (insn instanceof VarInsnNode varInsn && varInsn.var == localVar.index) {
                     int nextOp = insn.getNext().getOpcode();
-                    if (bfu != null && nextOp != Opcodes.IFNULL && nextOp != Opcodes.IFNONNULL) {
-                        TypeAdapter typeFix = bfu.getTypeAdapter(type, originalType);
+                    if (nextOp != Opcodes.IFNULL && nextOp != Opcodes.IFNONNULL) {
+                        TypeAdapter typeFix = context.getTypeAdapter(type, originalType);
                         // If this is a wrap operation, make an educated guess and try adapting the instance type
                         if (typeFix == null && context.methodAnnotation().matchesDesc(MixinAnnotations.WRAP_OPERATION)) {
                             List<Type> params = Parameters.getParameterTypes(methodNode.desc);
                             LocalVariableNode firstParam = lvtLookup.getByParameterOrdinalOrNull(0);
                             if (!params.isEmpty() && firstParam != null) {
-                                typeFix = bfu.getTypeAdapter(params.getFirst(), originalType);
+                                typeFix = context.getTypeAdapter(params.getFirst(), originalType);
                                 if (typeFix != null) {
                                     varInsn.var = firstParam.index;
                                 }

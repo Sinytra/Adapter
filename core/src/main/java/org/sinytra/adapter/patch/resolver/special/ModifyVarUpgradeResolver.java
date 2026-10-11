@@ -4,9 +4,9 @@ import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.patch.Recipe;
-import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.resolver.Resolver;
 import org.spongepowered.asm.mixin.injection.At;
+import org.sinytra.adapter.patch.config.Configurations;
 
 import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
 import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_INVOKE_ASSIGN;
@@ -81,15 +81,6 @@ public class ModifyVarUpgradeResolver implements Resolver {
         if (!byTwo) return ResolutionResult.pass();
 
         String target = at.getTargetOrThrow();
-        Configuration config = recipe.dirty().copyClean()
-            .setMixinType(MixinAnnotations.MODIFY_EXPR_VAL)
-            .inheritTargetClass()
-            .inheritTargetMethod()
-            .setAtData(AtData.create(AT_VAL_INVOKE, target))
-            .inheritParameters()
-            .inheritReturnType();
-
-        // Modify mixin type
-        return ResolutionResult.replace(config);
+        return ResolutionResult.replace(Configurations.changeMixinType(recipe.dirty(), MixinAnnotations.MODIFY_EXPR_VAL, AtData.create(AT_VAL_INVOKE, target)));
     }
 }

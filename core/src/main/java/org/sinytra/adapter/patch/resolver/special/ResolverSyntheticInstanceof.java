@@ -75,16 +75,11 @@ public record ResolverSyntheticInstanceof(boolean skipInsnComparison) implements
                         }
 
                         int ordinal = getInstanceofOrdinal(dirtyInsns, instanceOfInsn);
-                        Configuration config = recipe.dirty().copyClean()
-                            .setMixinType(MixinAnnotations.MODIFY_INSTANCEOF_VAL)
-                            .inheritTargetClass()
-                            .inheritTargetMethod()
-                            .setAtData(AtData.builder(AT_VAL_SINYTRA_INSTANCEOF)
+                        Configuration config = Configurations.changeMixinType(recipe.dirty(), MixinAnnotations.MODIFY_INSTANCEOF_VAL,
+                            AtData.builder(AT_VAL_SINYTRA_INSTANCEOF)
                                 .target(instanceOfInsn.desc)
                                 .ordinal(ordinal != 0 ? ordinal : null)
-                                .build())
-                            .inheritParameters()
-                            .inheritReturnType();
+                                .build());
 
                         return ResolutionResult.replace(config);
                     }

@@ -5,14 +5,15 @@ import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
+import org.sinytra.adapter.env.util.TypeConstants;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 public class ModifyArgsOffsetUpgrader {
-    private static final MethodQualifier ARGS_GET = new MethodQualifier("Lorg/spongepowered/asm/mixin/injection/invoke/arg/Args;", "get", "(I)Ljava/lang/Object;");
-    private static final MethodQualifier ARGS_SET = new MethodQualifier("Lorg/spongepowered/asm/mixin/injection/invoke/arg/Args;", "set", "(ILjava/lang/Object;)V");
+    private static final MethodQualifier ARGS_GET = new MethodQualifier(TypeConstants.ARGS_TYPE.getDescriptor(), "get", "(I)Ljava/lang/Object;");
+    private static final MethodQualifier ARGS_SET = new MethodQualifier(TypeConstants.ARGS_TYPE.getDescriptor(), "set", "(ILjava/lang/Object;)V");
 
     public static boolean upgradeAfterParamInsert(MethodNode methodNode, int index) {
         List<AbstractInsnNode> results = MethodAnalyzer.analyzeMethod(methodNode,

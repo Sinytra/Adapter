@@ -2,6 +2,7 @@ package org.sinytra.adapter.analysis;
 
 import org.objectweb.asm.tree.ClassNode;
 import org.sinytra.adapter.util.provider.ClassLookup;
+import org.sinytra.adapter.env.util.TypeConstants;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,7 +42,7 @@ public class InheritanceHandler {
         if (node != null) {
             if (node.superName != null) {
                 parents.add(node.superName);
-                if (!node.superName.equals("java/lang/Object")) {
+                if (!node.superName.equals(TypeConstants.OBJECT_TYPE.getInternalName())) {
                     parents.addAll(getClassParents(node.superName));
                 }
             }

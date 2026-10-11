@@ -7,6 +7,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.util.provider.ClassLookup;
+import org.sinytra.adapter.env.util.TypeConstants;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -46,7 +47,7 @@ public class MixinClassGeneratorImpl implements MixinClassGenerator {
         ClassNode node = new ClassNode();
         boolean itf = (targetNode.access & Opcodes.ACC_INTERFACE) == Opcodes.ACC_INTERFACE;
         int flags = itf ? Opcodes.ACC_INTERFACE : 0;
-        node.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | flags, className, null, parent != null ? parent : "java/lang/Object", null);
+        node.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | flags, className, null, parent != null ? parent : TypeConstants.OBJECT_TYPE.getInternalName(), null);
         AnnotationVisitor mixinAnn = node.visitAnnotation(MixinAnnotations.MIXIN, false);
         {
             AnnotationVisitor valueArray = mixinAnn.visitArray("value");

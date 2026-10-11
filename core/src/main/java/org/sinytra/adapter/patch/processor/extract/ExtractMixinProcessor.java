@@ -22,6 +22,9 @@ import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.transform.param.TransformParameters;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.OpcodeUtil;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
+import org.sinytra.adapter.util.SingleValueHandle;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -115,7 +118,7 @@ public class ExtractMixinProcessor implements Processor {
         for (AbstractInsnNode insn : methodNode.instructions) {
             if (insn instanceof InvokeDynamicInsnNode indy && indy.bsmArgs.length >= 3) {
                 for (int i = 0; i < indy.bsmArgs.length; i++) {
-                    if (indy.bsmArgs[i] instanceof Handle handle && handle.getOwner().equals(classNode.name) && handle.getName().startsWith(AdapterUtil.LAMBDA_PREFIX + methodNode.name)) {
+                    if (indy.bsmArgs[i] instanceof Handle handle && handle.getOwner().equals(classNode.name) && handle.getName().startsWith(MethodAnalyzer.LAMBDA_PREFIX + methodNode.name)) {
                         final int finalI = i;
                         classNode.methods.stream()
                             .filter(m -> m.name.equals(handle.getName()) && m.desc.equals(handle.getDesc()))
@@ -142,36 +145,28 @@ public class ExtractMixinProcessor implements Processor {
     }
 
     private static boolean isInheritedField(ClassNode cls, FieldInsnNode finsn, boolean isTargetInherited, List<Runnable> accessUpdates) {
-        FieldNode field = cls.fields.stream()
+        return cls.fields.stream()
             .filter(f -> f.name.equals(finsn.name))
             .findFirst()
-            .orElse(null);
-        if (field != null) {
-            if (AdapterUtil.isShadowField(field)) {
-                return true;
-            }
-            if (isTargetInherited) {
-                accessUpdates.add(() -> field.access = fixAccess(field.access));
-                return true;
-            }
-        }
-        return false;
+            .map(f -> isInheritedMember(f.visibleAnnotations, SingleValueHandle.of(() -> f.access, a -> f.access = a), isTargetInherited, accessUpdates))
+            .orElse(false);
     }
 
     private static boolean isInheritedMethod(ClassNode cls, MethodInsnNode minsn, boolean isTargetInherited, List<Runnable> accessUpdates) {
-        MethodNode method = cls.methods.stream()
+        return cls.methods.stream()
             .filter(m -> m.name.equals(minsn.name) && m.desc.equals(minsn.desc))
             .findFirst()
-            .orElse(null);
-        if (method != null) {
-            List<AnnotationNode> annotations = method.visibleAnnotations != null ? method.visibleAnnotations : List.of();
-            if (AdapterUtil.hasAnnotation(annotations, MixinAnnotations.SHADOW)) {
-                return true;
-            }
-            if (isTargetInherited) {
-                accessUpdates.add(() -> method.access = fixAccess(method.access));
-                return true;
-            }
+            .map(m -> isInheritedMember(m.visibleAnnotations, SingleValueHandle.of(() -> m.access, a -> m.access = a), isTargetInherited, accessUpdates))
+            .orElse(false);
+    }
+
+    private static boolean isInheritedMember(@Nullable List<AnnotationNode> annotations, SingleValueHandle<Integer> access, boolean isTargetInherited, List<Runnable> accessUpdates) {
+        if (AdapterUtil.hasAnnotation(annotations, MixinAnnotations.SHADOW)) {
+            return true;
+        }
+        if (isTargetInherited) {
+            accessUpdates.add(() -> access.set(fixAccess(access.get())));
+            return true;
         }
         return false;
     }

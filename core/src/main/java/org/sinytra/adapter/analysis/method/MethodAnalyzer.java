@@ -13,6 +13,7 @@ import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.env.util.TypeConstants;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
+import org.sinytra.adapter.util.OpcodeUtil;
 
 import java.util.*;
 import java.util.function.BiPredicate;
@@ -36,9 +37,12 @@ public class MethodAnalyzer {
         return qualifier.name() != null && qualifier.name().startsWith(LAMBDA_PREFIX);
     }
 
+    public static boolean isDeprecated(MethodNode methodNode) {
+        return AdapterUtil.hasAnnotation(methodNode.visibleAnnotations, TypeConstants.DEPRECATED);
+    }
+
     public static boolean isDirtyDeprecatedMethod(MethodNode clean, MethodNode dirty) {
-        return !AdapterUtil.hasAnnotation(clean.visibleAnnotations, TypeConstants.DEPRECATED)
-            && AdapterUtil.hasAnnotation(dirty.visibleAnnotations, TypeConstants.DEPRECATED);
+        return !isDeprecated(clean) && isDeprecated(dirty);
     }
 
     // Return outer method calls where receiver = this
@@ -114,6 +118,16 @@ public class MethodAnalyzer {
         return list;
     }
 
+    public static List<AbstractInsnNode> findReturnInsns(MethodNode methodNode) {
+        List<AbstractInsnNode> insns = new ArrayList<>();
+        for (AbstractInsnNode insn : methodNode.instructions) {
+            if (OpcodeUtil.isReturnOpcode(insn.getOpcode())) {
+                insns.add(insn);
+            }
+        }
+        return insns;
+    }
+
     public static Multimap<String, MethodInsnNode> getMethodCalls(MethodNode node) {
         ImmutableMultimap.Builder<String, MethodInsnNode> calls = ImmutableMultimap.builder();
         for (AbstractInsnNode insn : node.instructions) {
@@ -123,6 +137,17 @@ public class MethodAnalyzer {
             }
         }
         return calls.build();
+    }
+
+    public static List<MethodInsnNode> findDirtyOnlyCalls(MethodNode clean, MethodNode dirty, boolean onlyOnce) {
+        Multimap<String, MethodInsnNode> cleanCalls = getMethodCalls(clean);
+        List<MethodInsnNode> dirtyOnly = new ArrayList<>();
+        getMethodCalls(dirty).asMap().forEach((qualifier, calls) -> {
+            if (!cleanCalls.containsKey(qualifier) && (!onlyOnce || calls.size() == 1)) {
+                dirtyOnly.addAll(calls);
+            }
+        });
+        return dirtyOnly;
     }
 
     public static boolean containsMethodCall(MethodNode methodNode, MethodQualifier qualifier) {

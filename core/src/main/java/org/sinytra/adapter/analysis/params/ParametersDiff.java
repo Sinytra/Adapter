@@ -1,10 +1,7 @@
 package org.sinytra.adapter.analysis.params;
 
 import com.mojang.datafixers.util.Pair;
-import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
-import org.sinytra.adapter.util.AdapterUtil;
-import org.sinytra.adapter.util.GeneratedVariables;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,10 +20,6 @@ public record ParametersDiff(
     List<Pair<Integer, Integer>> moves
 ) {
     public record MethodParameter(Type type, boolean isGeneratedType) {
-        public MethodParameter(@Nullable String name, Type type) {
-            this(type, name != null && GeneratedVariables.isGeneratedVariableName(name, type));
-        }
-
         public boolean matchName(MethodParameter other) {
             return this.isGeneratedType == other.isGeneratedType;
         }
@@ -44,10 +37,10 @@ public record ParametersDiff(
 
     public static ParametersDiff compareTypeParameters(Type[] parameterTypes, Type[] newParameterTypes) {
         List<MethodParameter> cleanParameters = Stream.of(parameterTypes)
-            .map(type -> new MethodParameter(null, type))
+            .map(type -> new MethodParameter(type, false))
             .toList();
         List<MethodParameter> dirtyParameters = Stream.of(newParameterTypes)
-            .map(type -> new MethodParameter(null, type))
+            .map(type -> new MethodParameter(type, false))
             .toList();
         return compareParameters(cleanParameters, dirtyParameters, false);
     }
@@ -118,13 +111,13 @@ public record ParametersDiff(
                     }
                 }
                 i++;
-                lvtIndex += lvtIndexes ? AdapterUtil.getLVTOffsetForType(dirtyParam.type) : 1;
+                lvtIndex += lvtIndexes ? dirtyParam.type.getSize() : 1;
             }
             // For appending parameters at the end of the list
             else {
                 Type type = dirtyParameters.get(j).type;
                 insertions.add(Pair.of(lvtIndex, type));
-                lvtIndex += lvtIndexes ? AdapterUtil.getLVTOffsetForType(type) : 1;
+                lvtIndex += lvtIndexes ? type.getSize() : 1;
             }
             if (!skipJIncr) {
                 j++;

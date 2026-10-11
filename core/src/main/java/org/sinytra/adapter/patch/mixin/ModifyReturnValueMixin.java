@@ -1,8 +1,6 @@
 package org.sinytra.adapter.patch.mixin;
 
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
@@ -19,7 +17,7 @@ import org.sinytra.adapter.patch.resolver.Resolvers;
 import org.sinytra.adapter.patch.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.patch.resolver.special.InjectorOrdinalResolver;
 import org.sinytra.adapter.util.MethodQualifier;
-import org.sinytra.adapter.util.OpcodeUtil;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 
 import java.util.List;
 
@@ -46,17 +44,7 @@ public class ModifyReturnValueMixin implements MixinType {
 
         TargetPair cleanTarget = context.methods().findOwnMethodPair(context.cleanLookup(), target);
         TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), target);
-        return cleanTarget == null || dirtyTarget == null || countReturns(cleanTarget.methodNode()) == countReturns(dirtyTarget.methodNode());
-    }
-
-    private static int countReturns(MethodNode method) {
-        int count = 0;
-        for (AbstractInsnNode insn : method.instructions) {
-            if (OpcodeUtil.isReturnOpcode(insn.getOpcode())) {
-                count++;
-            }
-        }
-        return count;
+        return cleanTarget == null || dirtyTarget == null || MethodAnalyzer.findReturnInsns(cleanTarget.methodNode()).size() == MethodAnalyzer.findReturnInsns(dirtyTarget.methodNode()).size();
     }
 
     @Override

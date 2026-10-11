@@ -15,6 +15,8 @@ import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.transform.ClassTransformer;
 import org.sinytra.adapter.util.AdapterUtil;
+import org.sinytra.adapter.util.OpcodeUtil;
+import org.sinytra.adapter.env.util.TypeConstants;
 
 public class FieldAccessorTypeTransformer implements ClassTransformer {
     private static final String PREFIX = "adapter$";
@@ -91,7 +93,7 @@ public class FieldAccessorTypeTransformer implements ClassTransformer {
                 }
                 method.visitFieldInsn(isStatic ? Opcodes.GETSTATIC : Opcodes.GETFIELD, owner.getInternalName(), field, adapter.from().getDescriptor());
                 adapter.apply(method.instructions, method.instructions.getLast());
-                method.visitInsn(getReturnOpcode(to));
+                method.visitInsn(OpcodeUtil.getReturnOpcode(to));
                 method.visitEnd();
             }
             method.visitEnd();
@@ -105,7 +107,7 @@ public class FieldAccessorTypeTransformer implements ClassTransformer {
 
     private ClassNode generateFieldAdapterMixin(String className, Type targetClass) {
         ClassNode node = new ClassNode();
-        node.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER, className, null, "java/lang/Object", null);
+        node.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER, className, null, TypeConstants.OBJECT_TYPE.getInternalName(), null);
 
         {
             AnnotationVisitor mixinAnnotation = node.visitAnnotation(MixinAnnotations.MIXIN, false);
@@ -119,18 +121,6 @@ public class FieldAccessorTypeTransformer implements ClassTransformer {
         }
 
         return node;
-    }
-
-    private static int getReturnOpcode(Type type) {
-        return switch (type.getSort()) {
-            case Type.OBJECT, Type.ARRAY -> Opcodes.ARETURN;
-            case Type.BOOLEAN, Type.BYTE, Type.SHORT, Type.CHAR, Type.INT -> Opcodes.IRETURN;
-            case Type.DOUBLE -> Opcodes.DRETURN;
-            case Type.FLOAT -> Opcodes.FRETURN;
-            case Type.LONG -> Opcodes.LRETURN;
-            case Type.VOID -> Opcodes.RETURN;
-            default -> throw new UnsupportedOperationException();
-        };
     }
 
     private static String getFieldName(String desc) {

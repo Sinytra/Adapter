@@ -13,11 +13,6 @@ import org.sinytra.adapter.patch.config.MutableConfiguration;
 import org.sinytra.adapter.patch.resolver.Resolver;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.util.MethodQualifier;
-import org.sinytra.adapter.env.MockMixinRuntime;
-import org.spongepowered.asm.mixin.injection.code.ISliceContext;
-import org.spongepowered.asm.mixin.injection.code.MethodSlice;
-import org.spongepowered.asm.mixin.injection.struct.Target;
-import org.spongepowered.asm.mixin.refmap.IMixinContext;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -108,12 +103,7 @@ public class SliceBoundaryResolver implements Resolver {
     }
 
     private static boolean passesSliceCheck(SliceData slice, MixinContext context, TargetPair dirtyTarget) {
-        Target mixinTarget = MockMixinRuntime.createMixinTarget(dirtyTarget);
-        IMixinContext mixinContext = MockMixinRuntime.forClass(context.classNode().name, dirtyTarget.classNode().name, context.patchContext().environment());
-        ISliceContext sliceContext = MockMixinRuntime.forSlice(mixinContext, context.methodNode());
-        MethodSlice methodSlice = MethodSlice.parse(sliceContext, slice.toAnnotationNode());
-        InsnList insns = methodSlice.getSlice(mixinTarget);
-
+        InsnList insns = context.methods().computeSlice(dirtyTarget, slice.toAnnotationNode());
         return insns.size() != dirtyTarget.methodNode().instructions.size();
     }
 }

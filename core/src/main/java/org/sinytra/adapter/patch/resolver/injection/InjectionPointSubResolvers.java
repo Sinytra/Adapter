@@ -1,7 +1,6 @@
 package org.sinytra.adapter.patch.resolver.injection;
 
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Sets;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -23,11 +22,9 @@ import org.sinytra.adapter.patch.config.key.SpecialKeys;
 import org.sinytra.adapter.patch.resolver.SubResolver;
 import org.sinytra.adapter.util.MethodQualifier;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Predicate;
 
 public class InjectionPointSubResolvers {
     public static final SubResolver REPLACED_TYPE = (MixinContext context, Recipe recipe) -> {
@@ -69,16 +66,7 @@ public class InjectionPointSubResolvers {
         TargetPair dirtyTarget = recipe.getDirtyTarget();
         if (dirtyTarget == null) return null;
 
-        Multimap<String, MethodInsnNode> cleanCalls = MethodAnalyzer.getMethodCalls(cleanPair.methodNode());
-        Multimap<String, MethodInsnNode> dirtyCalls = MethodAnalyzer.getMethodCalls(dirtyTarget.methodNode());
-
-        Set<String> dirtyOnly = Sets.difference(dirtyCalls.keySet(), cleanCalls.keySet());
-
-        for (String qualifier : dirtyOnly) {
-            Collection<MethodInsnNode> calls = dirtyCalls.get(qualifier);
-            if (calls.size() != 1) continue;
-
-            MethodInsnNode minsn = calls.iterator().next();
+        for (MethodInsnNode minsn : MethodAnalyzer.findDirtyOnlyCalls(cleanPair.methodNode(), dirtyTarget.methodNode(), true)) {
             // We only want static external methods
             if (minsn.getOpcode() != Opcodes.INVOKESTATIC || minsn.owner.equals(dirtyTarget.classNode().name))
                 continue;
@@ -119,20 +107,12 @@ public class InjectionPointSubResolvers {
 
         if (!(context.methods().findInjectionTargetInsn(cleanPair) instanceof MethodInsnNode minsn)) return null;
 
-        Multimap<String, MethodInsnNode> cleanCalls = MethodAnalyzer.getMethodCalls(cleanPair.methodNode());
-        Multimap<String, MethodInsnNode> dirtyCalls = MethodAnalyzer.getMethodCalls(dirtyTarget.methodNode());
-
-        Set<String> dirtyOnly = Sets.difference(dirtyCalls.keySet(), cleanCalls.keySet());
-        if (dirtyOnly.isEmpty()) return null;
+        Set<MethodInsnNode> newCalls = Set.copyOf(MethodAnalyzer.findDirtyOnlyCalls(cleanPair.methodNode(), dirtyTarget.methodNode(), true));
+        if (newCalls.isEmpty()) return null;
         Set<Integer> trackLocals = context.isStatic() ? Set.of() : Set.of(0);
 
-        Predicate<MethodInsnNode> isUniqueNewCall = call -> {
-            String qualifier = MethodQualifier.create(call).asDescriptor();
-            return dirtyOnly.contains(qualifier) && dirtyCalls.get(qualifier).size() == 1;
-        };
-
         TargetPair to = context.methods().findInheritedMethodPair(context.dirtyLookup(), MethodQualifier.create(minsn));
-        CodePath path = CodePaths.findCodePath(dirtyTarget, to, trackLocals, context, isUniqueNewCall);
+        CodePath path = CodePaths.findCodePath(dirtyTarget, to, trackLocals, context, newCalls::contains);
         if (path == null) return null;
 
         CodePathStep last = path.steps().getLast();

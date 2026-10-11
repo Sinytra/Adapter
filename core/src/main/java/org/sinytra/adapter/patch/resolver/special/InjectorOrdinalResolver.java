@@ -1,10 +1,8 @@
 package org.sinytra.adapter.patch.resolver.special;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.mojang.datafixers.util.Pair;
 import org.jetbrains.annotations.Nullable;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.InsnComparator;
@@ -15,7 +13,6 @@ import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodInsnMatcher;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.ctx.MixinContext;
-import org.sinytra.adapter.env.ctx.PatchContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.config.Configuration;
@@ -27,6 +24,7 @@ import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.GeneratedVariables;
 import org.sinytra.adapter.util.MethodQualifier;
 import org.sinytra.adapter.util.SingleValueHandle;
+import org.sinytra.adapter.util.OpcodeUtil;
 
 import java.util.*;
 import java.util.function.Function;
@@ -162,11 +160,9 @@ public class InjectorOrdinalResolver implements Resolver {
             Multimap<String, MethodInsnNode> cleanCallsMap = MethodAnalyzer.getMethodCalls(cleanTarget.methodNode());
             Multimap<String, MethodInsnNode> dirtyCallsMap = MethodAnalyzer.getMethodCalls(dirtyTarget.methodNode());
 
-            PatchContext patchContext = mixinContext.patchContext();
-            String cleanValue = patchContext.remap(target);
-            Collection<? extends AbstractInsnNode> cleanCalls = cleanCallsMap.get(cleanValue);
-            String dirtyValue = patchContext.remap(target);
-            Collection<? extends AbstractInsnNode> dirtyCalls = dirtyCallsMap.get(dirtyValue);
+            String remappedTarget = mixinContext.patchContext().remap(target);
+            Collection<? extends AbstractInsnNode> cleanCalls = cleanCallsMap.get(remappedTarget);
+            Collection<? extends AbstractInsnNode> dirtyCalls = dirtyCallsMap.get(remappedTarget);
 
             if (cleanCalls.size() != dirtyCalls.size()) {
                 List<InstructionMatcher> cleanMatchers = cleanCalls.stream().map(MethodInsnMatcher::findSurroundingInstructions).toList();
@@ -174,12 +170,7 @@ public class InjectorOrdinalResolver implements Resolver {
 
                 if (ordinal >= 0 && ordinal < cleanMatchers.size()) {
                     InstructionMatcher original = cleanMatchers.get(ordinal);
-                    List<InstructionMatcher> matches = dirtyMatchers.stream()
-                        .filter(original::test)
-                        .toList();
-                    if (matches.size() == 1) {
-                        return Optional.of(dirtyMatchers.indexOf(matches.getFirst()));
-                    }
+                    return AdapterUtil.findOne(dirtyMatchers, original::test).map(dirtyMatchers::indexOf);
                 }
             }
 
@@ -189,14 +180,13 @@ public class InjectorOrdinalResolver implements Resolver {
 
     private static class ReturnOffsetHandler implements OffsetUpdateHandler {
         public static final OffsetUpdateHandler INSTANCE = new ReturnOffsetHandler();
-        private static final Set<Integer> RETURN_OPCODES = Set.of(Opcodes.RETURN, Opcodes.ARETURN, Opcodes.IRETURN, Opcodes.FRETURN, Opcodes.DRETURN, Opcodes.LRETURN);
 
         @Override
         public Optional<Integer> apply(MixinContext mixinContext, TargetPair cleanTarget, TargetPair dirtyTarget, Context context) {
             int ordinal = context.ordinal();
 
-            List<AbstractInsnNode> cleanReturnInsns = findReturnInsns(cleanTarget.methodNode());
-            List<AbstractInsnNode> dirtyReturnInsns = findReturnInsns(dirtyTarget.methodNode());
+            List<AbstractInsnNode> cleanReturnInsns = MethodAnalyzer.findReturnInsns(cleanTarget.methodNode());
+            List<AbstractInsnNode> dirtyReturnInsns = MethodAnalyzer.findReturnInsns(dirtyTarget.methodNode());
 
             if (cleanReturnInsns.size() == dirtyReturnInsns.size()) {
                 return Optional.empty();
@@ -208,11 +198,9 @@ public class InjectorOrdinalResolver implements Resolver {
                 List<InstructionMatcher> dirtyMatchers = dirtyReturnInsns.stream()
                     .map(i -> new InstructionMatcher(i, findReturnPrecedingInsns(i), List.of()))
                     .toList();
-                List<InstructionMatcher> matches = dirtyMatchers.stream()
-                    .filter(m -> original.test(m, InsnComparator.IGNORE_VAR_INDEX))
-                    .toList();
-                if (matches.size() == 1) {
-                    return Optional.of(dirtyMatchers.indexOf(matches.getFirst()));
+                Optional<InstructionMatcher> match = AdapterUtil.findOne(dirtyMatchers, m -> original.test(m, InsnComparator.IGNORE_VAR_INDEX));
+                if (match.isPresent()) {
+                    return match.map(dirtyMatchers::indexOf);
                 }
             }
 
@@ -247,7 +235,7 @@ public class InjectorOrdinalResolver implements Resolver {
                 if (insn instanceof MethodInsnNode minsn) {
                     minsns.add(MethodQualifier.create(minsn).asDescriptor());
                 }
-                if (RETURN_OPCODES.contains(insn.getOpcode())) {
+                if (OpcodeUtil.isReturnOpcode(insn.getOpcode())) {
                     blockCalls.add(Pair.of((InsnNode) insn, minsns));
                     minsns = new ArrayList<>();
                 }
@@ -277,7 +265,7 @@ public class InjectorOrdinalResolver implements Resolver {
                 if (insns.size() >= maxSize) {
                     break;
                 }
-                if (RETURN_OPCODES.contains(prev.getOpcode())) {
+                if (OpcodeUtil.isReturnOpcode(prev.getOpcode())) {
                     break;
                 }
                 if (prev instanceof FrameNode || prev instanceof LineNumberNode || prev instanceof LabelNode) {
@@ -286,16 +274,6 @@ public class InjectorOrdinalResolver implements Resolver {
                 insns.addFirst(prev);
             }
             return insns;
-        }
-
-        private static List<AbstractInsnNode> findReturnInsns(MethodNode methodNode) {
-            ImmutableList.Builder<AbstractInsnNode> insns = ImmutableList.builder();
-            for (AbstractInsnNode insn : methodNode.instructions) {
-                if (RETURN_OPCODES.contains(insn.getOpcode())) {
-                    insns.add(insn);
-                }
-            }
-            return insns.build();
         }
     }
 
@@ -461,16 +439,9 @@ public class InjectorOrdinalResolver implements Resolver {
         private static Optional<LocalVariableNode> findReplacementLocal(MethodNode cleanMethod, MethodNode dirtyMethod, LocalVariableNode desired) {
             // Find variable initializer insns
             InsnList desiredInitializerInsns = LocalVarAnalyzer.findInitializerInsns(cleanMethod, desired.index);
-            // Get all matching variables
-            List<LocalVariableNode> matches = dirtyMethod.localVariables.stream()
-                .filter(lvn -> desired.desc.equals(lvn.desc))
-                .filter(lvn -> {
-                    InsnList insns = LocalVarAnalyzer.findInitializerInsns(dirtyMethod, lvn.index);
-                    return InstructionMatcher.test(desiredInitializerInsns, insns);
-                })
-                .toList();
             // Succeed on one exact match
-            return matches.size() == 1 ? Optional.of(matches.getFirst()) : Optional.empty();
+            return AdapterUtil.findOne(dirtyMethod.localVariables, lvn -> desired.desc.equals(lvn.desc)
+                && InstructionMatcher.test(desiredInitializerInsns, LocalVarAnalyzer.findInitializerInsns(dirtyMethod, lvn.index)));
         }
     }
 }

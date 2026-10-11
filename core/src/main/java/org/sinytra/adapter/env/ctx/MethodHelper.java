@@ -220,16 +220,15 @@ public class MethodHelper {
         if (ignoreShift) {
             atNodeCopy.removeValues(AT_SHIFT);
         }
-        PatchContext patchContext = this.context.patchContext();
         // Provide a minimum implementation of IMixinContext
-        IMixinContext mixinContext = MockMixinRuntime.forClass(this.context.classNode().name, target.classNode().name, patchContext.environment());
+        IMixinContext mixinContext = MockMixinRuntime.forClass(this.context.classNode().name, target.classNode().name, this.context.environment());
         List<AbstractInsnNode> targetInsns = new ArrayList<>();
         try {
             // Parse injection point
             InjectionPoint injectionPoint = injectionPointParser.apply(mixinContext, atNodeCopy);
             Target mixinTarget = MockMixinRuntime.createMixinTarget(target);
             // Find target instructions
-            InsnList instructions = ignoreSlice ? target.methodNode().instructions : getSlicedInsns(this.context.methodAnnotation(), this.context.classNode(), this.context.methodNode(), target.classNode(), target.methodNode(), patchContext, mixinTarget);
+            InsnList instructions = ignoreSlice ? target.methodNode().instructions : getSlicedInsns(target, mixinTarget);
             if (MockMixinRuntime.injectionPointNeedsSpecialCare(injectionPoint)) {
                 MockMixinRuntime.findModifyVariableInjectionInsns(injectionPoint, mixinContext, target.methodNode().instructions, targetInsns, mixinTarget);
             } else {
@@ -242,23 +241,21 @@ public class MethodHelper {
         return targetInsns;
     }
 
-    private InsnList getSlicedInsns(AnnotationHandle parentAnnotation, ClassNode classNode, MethodNode injectorMethod, ClassNode targetClass, MethodNode targetMethod, PatchContext context, Target mixinTarget) {
-        return parentAnnotation.<AnnotationNode>getValue(PROPERTY_SLICE)
-            .map(handle -> {
-                Object value = handle.get();
-                return value instanceof List<?> list ? (AnnotationNode) list.getFirst() : (AnnotationNode) value;
-            })
-            .map(sliceAnn -> {
-                IMixinContext mixinContext = MockMixinRuntime.forClass(classNode.name, targetClass.name, context.environment());
-                ISliceContext sliceContext = MockMixinRuntime.forSlice(mixinContext, injectorMethod);
-                return computeSlicedInsns(sliceContext, sliceAnn, mixinTarget);
-            })
-            .orElse(targetMethod.instructions);
+    private InsnList getSlicedInsns(TargetPair target, Target mixinTarget) {
+        return this.context.methodAnnotation().getValue(PROPERTY_SLICE)
+            .map(handle -> handle.get() instanceof List<?> list ? (AnnotationNode) list.getFirst() : (AnnotationNode) handle.get())
+            .map(slice -> computeSlice(target, slice, mixinTarget))
+            .orElse(target.methodNode().instructions);
     }
 
-    private InsnList computeSlicedInsns(ISliceContext context, AnnotationNode annotation, Target mixinTarget) {
-        MethodSlice slice = MethodSlice.parse(context, annotation);
-        return slice.getSlice(mixinTarget);
+    public InsnList computeSlice(TargetPair target, AnnotationNode slice) {
+        return computeSlice(target, slice, MockMixinRuntime.createMixinTarget(target));
+    }
+
+    private InsnList computeSlice(TargetPair target, AnnotationNode slice, Target mixinTarget) {
+        IMixinContext mixinContext = MockMixinRuntime.forClass(this.context.classNode().name, target.classNode().name, this.context.environment());
+        ISliceContext sliceContext = MockMixinRuntime.forSlice(mixinContext, this.context.methodNode());
+        return MethodSlice.parse(sliceContext, slice).getSlice(mixinTarget);
     }
 
     @Nullable

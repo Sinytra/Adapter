@@ -1,9 +1,7 @@
 package org.sinytra.adapter.patch.resolver.target;
 
-import com.google.common.collect.Multimap;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.patch.Recipe;
@@ -19,7 +17,6 @@ import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.util.MethodQualifier;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -84,12 +81,8 @@ public class SplitTargetMethodSubResolver implements SubResolver {
 
     // Handle cases where only part of the method is moved away
     private static List<CandidateMethod> tryFindPartialCandidates(MethodNode cleanTargetMethod, ClassNode dirtyTargetClass, MethodNode dirtyTargetMethod, MixinContext context) {
-        Multimap<String, MethodInsnNode> cleanMethodCalls = MethodAnalyzer.getMethodCalls(cleanTargetMethod);
-        Multimap<String, MethodInsnNode> dirtyMethodCalls = MethodAnalyzer.getMethodCalls(dirtyTargetMethod);
-
-        List<TargetPair> dirtyOnlyCalls = dirtyMethodCalls.entries().stream()
-            .filter(e -> !cleanMethodCalls.containsKey(e.getKey()) && e.getValue().owner.equals(dirtyTargetClass.name))
-            .map(Map.Entry::getValue)
+        List<TargetPair> dirtyOnlyCalls = MethodAnalyzer.findDirtyOnlyCalls(cleanTargetMethod, dirtyTargetMethod, false).stream()
+            .filter(i -> i.owner.equals(dirtyTargetClass.name))
             .map(i -> context.methods().findOwnMethodPair(context.dirtyLookup(), MethodQualifier.create(i)))
             .filter(Objects::nonNull)
             .toList();
