@@ -1,6 +1,5 @@
 package org.sinytra.adapter.util;
 
-import com.mojang.logging.LogUtils;
 import it.unimi.dsi.fastutil.ints.Int2IntFunction;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -11,17 +10,10 @@ import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.SourceValue;
 import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceMethodVisitor;
-import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.analysis.selector.AnnotationValueHandle;
-import org.sinytra.adapter.env.ctx.MethodHelper;
-import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.PatchEnvironment;
-import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.env.util.MixinAnnotations;
-import org.sinytra.adapter.env.util.TypeConstants;
-import org.sinytra.adapter.patch.Recipe;
-import org.slf4j.Logger;
 import org.slf4j.Marker;
 import org.slf4j.MarkerFactory;
 import org.spongepowered.asm.mixin.gen.AccessorInfo;
@@ -29,12 +21,22 @@ import org.spongepowered.asm.mixin.gen.AccessorInfo;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.*;
-import java.util.function.*;
-import java.util.stream.Stream;
+import java.util.function.BiPredicate;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 public final class AdapterUtil {
     public static final Marker MIXINPATCH = MarkerFactory.getMarker("MIXINPATCH");
-    private static final Logger LOGGER = LogUtils.getLogger();
+
+    @Nullable
+    public static MethodNode findMethod(ClassNode cls, String name, String desc) {
+        for (MethodNode method : cls.methods) {
+            if (method.name.equals(name) && method.desc.equals(desc)) {
+                return method;
+            }
+        }
+        return null;
+    }
 
     public static MethodNode copyMethod(MethodNode original) {
         MethodNode copy = new MethodNode(original.access, original.name, original.desc, original.signature, original.exceptions.toArray(String[]::new));
@@ -156,114 +158,6 @@ public final class AdapterUtil {
             }
         }
         return list;
-    }
-
-    public static <T> List<T> getAnnotatedParameters(MethodNode methodNode, Type[] parameters, String annotationDesc, BiFunction<AnnotationNode, Type, T> processor) {
-        List<T> list = new ArrayList<>();
-        if (methodNode.invisibleParameterAnnotations != null) {
-            for (int i = 0; i < methodNode.invisibleParameterAnnotations.length; i++) {
-                List<AnnotationNode> parameterAnnotations = methodNode.invisibleParameterAnnotations[i];
-                if (parameterAnnotations != null) {
-                    for (AnnotationNode paramAnn : parameterAnnotations) {
-                        if (annotationDesc.equals(paramAnn.desc)) {
-                            Type type = parameters[i];
-                            list.add(processor.apply(paramAnn, type));
-                        }
-                    }
-                }
-            }
-        }
-        return list;
-    }
-
-    @Nullable
-    public static CapturedLocals getCapturedLocals(MixinContext context, Recipe recipe) {
-        TargetPair target = recipe.getDirtyTarget();
-        if (target == null) return null;
-
-        return getCapturedLocals(context, target);
-    }
-
-    public static boolean capturesLocals(MixinContext context) {
-        MethodNode methodNode = context.methodNode();
-        Type[] params = Type.getArgumentTypes(methodNode.desc);
-        OptionalInt paramLocalPos = getCapturedLocalStartingIndex(params);
-        return paramLocalPos.isPresent() && !getCapturedLocalTypes(methodNode, params, paramLocalPos.getAsInt()).isEmpty();
-    }
-
-    // TODO Better way?
-    @Nullable
-    public static CapturedLocals getCapturedLocals(MixinContext context, TargetPair dirtyTarget) {
-        MethodNode methodNode = context.methodNode();
-        Type[] params = Type.getArgumentTypes(methodNode.desc);
-        OptionalInt paramLocalPos = getCapturedLocalStartingIndex(params);
-        // Sanity check to make sure the injector method takes in a CI or CIR argument
-        if (paramLocalPos.isEmpty()) {
-            LOGGER.debug("Missing CI or CIR argument in injector of type {}", context.methodAnnotation().getDesc());
-            return null;
-        }
-
-        boolean isStatic = MethodHelper.isStatic(methodNode);
-        int lvtOffset = isStatic ? 0 : 1;
-        // The first local var in the method's params comes after the target's params plus the CI/CIR parameter
-        int paramLocalPosVal = paramLocalPos.getAsInt();
-        // Get expected local variables from method parameters
-        List<Type> expected = getCapturedLocalTypes(methodNode, params, paramLocalPosVal);
-        if (expected.isEmpty()) {
-            return null;
-        }
-        int paramLocalPosEnd = paramLocalPosVal + expected.size() - 1;
-        LocalVariableLookup lvt = context.methods().getLVT(methodNode);
-        if (lvt == null) {
-            LOGGER.debug("Missing local variable table in injector {}", methodNode.name);
-            return null;
-        }
-        return new CapturedLocals(dirtyTarget, isStatic, paramLocalPosVal, paramLocalPosEnd, lvtOffset, expected, lvt);
-    }
-
-    private static List<Type> getCapturedLocalTypes(MethodNode methodNode, Type[] params, int start) {
-        List<Type> captured = new ArrayList<>();
-        for (int i = start; i < params.length; i++) {
-            if (isSugarParameter(methodNode, i)) {
-                break;
-            }
-            captured.add(params[i]);
-        }
-        return captured;
-    }
-
-    private static boolean isSugarParameter(MethodNode methodNode, int index) {
-        return Stream.of(methodNode.invisibleParameterAnnotations, methodNode.visibleParameterAnnotations)
-            .filter(arr -> arr != null && index < arr.length && arr[index] != null)
-            .flatMap(arr -> arr[index].stream())
-            .anyMatch(ann -> MixinAnnotations.LOCAL.equals(ann.desc) || MixinAnnotations.SHARE.equals(ann.desc));
-    }
-
-    private static OptionalInt getCapturedLocalStartingIndex(Type[] params) {
-        for (int i = 0; i < params.length; i++) {
-            Type param = params[i];
-            if ((param.equals(TypeConstants.CI_TYPE) || param.equals(TypeConstants.CIR_TYPE)) && i + 1 < params.length) {
-                return OptionalInt.of(i + 1);
-            }
-        }
-        return OptionalInt.empty();
-    }
-
-    public static AbstractInsnNode iterateInsns(AbstractInsnNode insn, UnaryOperator<AbstractInsnNode> flow, Predicate<AbstractInsnNode> filter) {
-        for (AbstractInsnNode i = flow.apply(insn); i != null; i = flow.apply(i)) {
-            if (filter.test(i)) {
-                return i;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * @param paramLocalStart inclusive
-     * @param paramLocalEnd   inclusive
-     */
-    public record CapturedLocals(TargetPair target, boolean isStatic, int paramLocalStart, int paramLocalEnd, int lvtOffset,
-                                 List<Type> expected, LocalVariableLookup lvt) {
     }
 
     @VisibleForTesting

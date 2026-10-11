@@ -22,25 +22,18 @@ import org.sinytra.adapter.patch.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.patch.resolver.special.ResolverSyntheticInstanceof;
 import org.sinytra.adapter.util.MethodQualifier;
 
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.*;
 
-public class RedirectMixin implements MixinType {
+public class RedirectMixin extends AbstractMixinType {
     private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
         .pluralKeys(MixinKeys.TARGET_METHOD)
         .build();
 
-    @Override
-    public PropertyContainerTemplate getConfigurationTemplate() {
-        return TEMPLATE;
-    }
-
-    @Override
-    public Set<MixinFlag> getFlags() {
-        return EnumSet.of(MixinFlag.AT_TARGET_SENSITIVE, MixinFlag.ACCEPTS_INSTANCE);
+    public RedirectMixin() {
+        super(TEMPLATE, MixinFlag.AT_TARGET_SENSITIVE, MixinFlag.ACCEPTS_INSTANCE);
     }
 
     @Override

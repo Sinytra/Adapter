@@ -1,7 +1,6 @@
 package org.sinytra.adapter.env.ann;
 
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.AnnotationNode;
 import org.sinytra.adapter.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.patch.config.MutablePropertyContainer;
@@ -11,36 +10,22 @@ import org.sinytra.adapter.patch.config.PropertyKey;
 
 import java.util.Optional;
 
-public class ConstantData {
+public class ConstantData extends AnnotationData {
     private static final PropertyContainerTemplate TEMPLATE = PropertyContainerTemplate.builder()
         .requireOne(Keys.DOUBLE_VALUE, Keys.CLASS_VALUE)
         .build();
 
-    private final PropertyContainer properties;
-
     private ConstantData(PropertyContainer properties) {
-        this.properties = properties;
+        super(MixinAnnotations.CONSTANT, properties);
     }
 
     public Optional<Double> doubleValue() {
-        return this.properties.getProperty(Keys.DOUBLE_VALUE);
+        return getProperty(Keys.DOUBLE_VALUE);
     }
 
     public static ConstantData classValue(Type value) {
         PropertyContainer container = MutablePropertyContainer.create().setProperty(Keys.CLASS_VALUE, value);
         return new ConstantData(container);
-    }
-
-    public void apply(AnnotationHandle handle) {
-        this.properties.apply(handle);
-    }
-
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    public AnnotationNode toAnnotationNode() {
-        AnnotationNode node = new AnnotationNode(MixinAnnotations.CONSTANT);
-        this.properties.getProperties()
-            .forEach((key, value) -> node.visit(key.name(), ((PropertyKey) key).serialize(value)));
-        return node;
     }
 
     public static Optional<ConstantData> parse(AnnotationHandle handle) {

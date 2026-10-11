@@ -23,28 +23,21 @@ import org.sinytra.adapter.patch.resolver.special.InjectorOrdinalResolver;
 import org.sinytra.adapter.patch.resolver.special.ModifyVarAtReturnResolver;
 import org.sinytra.adapter.patch.resolver.special.ModifyVarUpgradeResolver;
 import org.sinytra.adapter.types.TypeAdapter;
+import org.sinytra.adapter.env.ctx.TargetPair;
 
-import java.util.EnumSet;
 import java.util.List;
-import java.util.Set;
 
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.LOCALS;
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.SINGLE_ANY;
 
-public class ModifyVariableMixin implements MixinType {
+public class ModifyVariableMixin extends AbstractMixinType {
     private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
         .keys(MixinKeys.ARGS_ONLY, MixinKeys.ORDINAL, MixinKeys.INDEX, MixinKeys.SLICE)
         .pluralKeys(MixinKeys.TARGET_METHOD)
         .build();
 
-    @Override
-    public PropertyContainerTemplate getConfigurationTemplate() {
-        return TEMPLATE;
-    }
-
-    @Override
-    public Set<MixinFlag> getFlags() {
-        return EnumSet.of(MixinFlag.TARGETS_VARIABLE);
+    public ModifyVariableMixin() {
+        super(TEMPLATE, MixinFlag.TARGETS_VARIABLE);
     }
 
     @Override
@@ -94,8 +87,7 @@ public class ModifyVariableMixin implements MixinType {
             return TxResult.SUCCESS;
         }
 
-        dirty.inheritParameters();
-        dirty.inheritReturnType();
+        dirty.inheritSignature();
 
         return TxResult.SUCCESS;
     }
@@ -104,8 +96,9 @@ public class ModifyVariableMixin implements MixinType {
     public boolean canInject(MixinContext context, Configuration config) {
         // Ensure variable at index has the correct type
         if (config.hasProperty(MixinKeys.INDEX)) {
-            MethodNode target = context.methods().findOwnMethod(context.dirtyLookup(), config.getTargetMethod());
-            if (target == null) return false;
+            TargetPair targetPair = context.methods().findOwnMethodPair(context.dirtyLookup(), config.getTargetMethod());
+            if (targetPair == null) return false;
+            MethodNode target = targetPair.methodNode();
 
             Integer index = config.getProperty(MixinKeys.INDEX).orElseThrow();
             LocalVariableLookup lookup = context.methods().getLVT(target);

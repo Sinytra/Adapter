@@ -1,7 +1,6 @@
 package org.sinytra.adapter.patch.mixin;
 
 import org.objectweb.asm.Type;
-import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.config.ConfigurationTemplates;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.param.MethodParameters;
@@ -20,21 +19,21 @@ import org.sinytra.adapter.patch.resolver.injection.ComparingInjectionPointResol
 import org.sinytra.adapter.patch.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.patch.resolver.special.InjectorOrdinalResolver;
 import org.sinytra.adapter.util.MethodQualifier;
+import org.sinytra.adapter.env.ctx.Targets;
 
 import java.util.List;
 import java.util.Objects;
 
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.*;
 
-public class InjectMixin implements MixinType {
+public class InjectMixin extends AbstractMixinType {
     private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
         .keys(MixinKeys.SLICES, MixinKeys.CANCELLABLE)
         .pluralKeys(MixinKeys.TARGET_METHOD, MixinKeys.TARGET_AT)
         .build();
 
-    @Override
-    public PropertyContainerTemplate getConfigurationTemplate() {
-        return TEMPLATE;
+    public InjectMixin() {
+        super(TEMPLATE);
     }
 
     @Override

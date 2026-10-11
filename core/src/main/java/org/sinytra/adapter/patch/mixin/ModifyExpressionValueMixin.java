@@ -17,28 +17,20 @@ import org.sinytra.adapter.patch.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.patch.resolver.special.ResolverSyntheticInstanceof;
 import org.sinytra.adapter.util.MethodQualifier;
 
-import java.util.EnumSet;
 import java.util.List;
-import java.util.Set;
 
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.CAPTURED_PARAMS;
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.LOCALS;
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.SINGLE_ANY;
 import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_INVOKE;
 
-public class ModifyExpressionValueMixin implements MixinType {
+public class ModifyExpressionValueMixin extends AbstractMixinType {
     private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
         .pluralKeys(MixinKeys.TARGET_METHOD, MixinKeys.TARGET_AT)
         .build();
 
-    @Override
-    public PropertyContainerTemplate getConfigurationTemplate() {
-        return TEMPLATE;
-    }
-
-    @Override
-    public Set<MixinFlag> getFlags() {
-        return EnumSet.of(MixinFlag.RETURN_TYPE_SENSITIVE);
+    public ModifyExpressionValueMixin() {
+        super(TEMPLATE, MixinFlag.RETURN_TYPE_SENSITIVE);
     }
 
     @Override
@@ -60,27 +52,23 @@ public class ModifyExpressionValueMixin implements MixinType {
         }
         // Best effort for non-INVOKE
         if (!dirty.getAtData().getValue().equals(AT_VAL_INVOKE)) {
-            dirty.inheritParameters();
-            dirty.inheritReturnType();
+            dirty.inheritSignature();
             return TxResult.SUCCESS;
         }
 
-        MethodQualifier targetDesc = dirty.getAtData().getTarget().flatMap(MethodQualifier::parse).orElse(null);
+        MethodQualifier targetDesc = dirty.getAtData().getTargetQualifier().orElse(null);
         if (targetDesc == null || targetDesc.desc() == null) {
             // Best effort
-            dirty.inheritParameters();
-            dirty.inheritReturnType();
+            dirty.inheritSignature();
             return TxResult.SUCCESS;
         }
 
         List<Type> dirtyCaptured = context.methods().resolveCapturedMethodParams(recipe.clean(), recipe.dirty());
         Type modifyingType = Type.getReturnType(targetDesc.desc());
 
-        MethodParameters params = MethodParameters.builder()
+        MethodParameters params = clean.getParameters().mutableCopy()
             .putType(SINGLE_ANY, modifyingType)
             .putTypes(CAPTURED_PARAMS, dirtyCaptured)
-            .put(LOCALS, clean.getParameters().get(LOCALS))
-            .putRemaining(clean.getParameters())
             .build();
 
         dirty.setParameters(params);

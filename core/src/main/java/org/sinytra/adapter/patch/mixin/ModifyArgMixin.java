@@ -26,15 +26,14 @@ import java.util.List;
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.SINGLE_ANY;
 import static org.sinytra.adapter.patch.config.key.MixinKeys.INDEX;
 
-public class ModifyArgMixin implements MixinType {
+public class ModifyArgMixin extends AbstractMixinType {
     private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
         .keys(MixinKeys.INDEX)
         .pluralKeys(MixinKeys.TARGET_METHOD)
         .build();
 
-    @Override
-    public PropertyContainerTemplate getConfigurationTemplate() {
-        return TEMPLATE;
+    public ModifyArgMixin() {
+        super(TEMPLATE);
     }
 
     @Override
@@ -56,8 +55,7 @@ public class ModifyArgMixin implements MixinType {
             return TxResult.FAIL;
         }
         if (clean.getAtData().equals(dirty.getAtData())) {
-            dirty.inheritParameters();
-            dirty.inheritReturnType();
+            dirty.inheritSignature();
             return TxResult.SUCCESS;
         }
 
@@ -74,8 +72,8 @@ public class ModifyArgMixin implements MixinType {
 
     @Nullable
     private static Type findArgType(MixinContext context, AtData cleanAtData, AtData atData, Configuration clean, Configuration dirty) {
-        MethodQualifier cleanQualifier = cleanAtData.getTarget().flatMap(MethodQualifier::parse).orElse(null);
-        MethodQualifier dirtyQualifier = atData.getTarget().flatMap(MethodQualifier::parse).orElse(null);
+        MethodQualifier cleanQualifier = cleanAtData.getTargetQualifier().orElse(null);
+        MethodQualifier dirtyQualifier = atData.getTargetQualifier().orElse(null);
         if (cleanQualifier != null && dirtyQualifier != null && cleanQualifier.desc() != null && dirtyQualifier.desc() != null) {
             List<Type> cleanArgs = Parameters.getParameterTypes(cleanQualifier.desc());
             List<Type> dirtyArgs = Parameters.getParameterTypes(dirtyQualifier.desc());

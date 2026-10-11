@@ -1,8 +1,6 @@
 package org.sinytra.adapter.env.ann;
 
-import com.google.common.base.MoreObjects;
 import org.jetbrains.annotations.Nullable;
-import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.sinytra.adapter.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.env.ctx.RefMapper;
@@ -16,24 +14,17 @@ import org.sinytra.adapter.util.MethodQualifier;
 import org.spongepowered.asm.mixin.injection.At;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
-public class AtData {
+public class AtData extends AnnotationData {
     public static final PropertyContainerTemplate TEMPLATE = PropertyContainerTemplate.builder()
         .require(Keys.VALUE)
         .keys(Keys.TARGET, Keys.ORDINAL, Keys.SHIFT, Keys.BY, Keys.ARGS)
         .addConstraint(AtData::validateInjectionPointType)
         .build();
 
-    private final PropertyContainer properties;
-
     private AtData(PropertyContainer properties) {
-        this.properties = properties;
-    }
-
-    public <T> Optional<T> getProperty(PropertyKey<T> key) {
-        return this.properties.getProperty(key);
+        super(MixinAnnotations.AT, properties);
     }
 
     public String getValue() {
@@ -44,24 +35,16 @@ public class AtData {
         return getProperty(Keys.TARGET);
     }
 
+    public Optional<MethodQualifier> getTargetQualifier() {
+        return getTarget().flatMap(MethodQualifier::parse);
+    }
+
     public String getTargetOrThrow() {
         return getTarget().orElseThrow();
     }
 
     public Optional<Integer> getOrdinal() {
         return getProperty(Keys.ORDINAL);
-    }
-
-    public void apply(AnnotationHandle handle) {
-        this.properties.apply(handle);
-    }
-
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    public AnnotationNode toAnnotationNode() {
-        AnnotationNode node = new AnnotationNode(MixinAnnotations.AT);
-        this.properties.getProperties()
-            .forEach((key, value) -> node.visit(key.name(), ((PropertyKey) key).serialize(value)));
-        return node;
     }
 
     public AtData withValue(String value) {
@@ -88,25 +71,6 @@ public class AtData {
         MutablePropertyContainer copy = this.properties.copy();
         copy.setProperty(key, value);
         return new AtData(copy);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (o == null || getClass() != o.getClass()) return false;
-        AtData atData = (AtData) o;
-        return Objects.equals(properties, atData.properties);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(properties);
-    }
-
-    @Override
-    public String toString() {
-        MoreObjects.ToStringHelper helper = MoreObjects.toStringHelper(this);
-        this.properties.getProperties().forEach((k, v) -> helper.add(k.name(), v));
-        return helper.toString();
     }
 
     public static Optional<AtData> parse(AnnotationHandle annotation, RefMapper mapper) {

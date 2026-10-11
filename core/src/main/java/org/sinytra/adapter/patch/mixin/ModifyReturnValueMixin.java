@@ -3,7 +3,6 @@ package org.sinytra.adapter.patch.mixin;
 import org.objectweb.asm.Type;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.ctx.MixinContext;
-import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
@@ -18,20 +17,20 @@ import org.sinytra.adapter.patch.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.patch.resolver.special.InjectorOrdinalResolver;
 import org.sinytra.adapter.util.MethodQualifier;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
+import org.sinytra.adapter.env.ctx.Targets;
 
 import java.util.List;
 
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.*;
 import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_RETURN;
 
-public class ModifyReturnValueMixin implements MixinType {
+public class ModifyReturnValueMixin extends AbstractMixinType {
     private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_AT.extend()
         .pluralKeys(MixinKeys.TARGET_METHOD, MixinKeys.TARGET_AT)
         .build();
 
-    @Override
-    public PropertyContainerTemplate getConfigurationTemplate() {
-        return TEMPLATE;
+    public ModifyReturnValueMixin() {
+        super(TEMPLATE);
     }
 
     @Override
@@ -42,9 +41,8 @@ public class ModifyReturnValueMixin implements MixinType {
             return true;
         }
 
-        TargetPair cleanTarget = context.methods().findOwnMethodPair(context.cleanLookup(), target);
-        TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), target);
-        return cleanTarget == null || dirtyTarget == null || MethodAnalyzer.findReturnInsns(cleanTarget.methodNode()).size() == MethodAnalyzer.findReturnInsns(dirtyTarget.methodNode()).size();
+        Targets targets = context.methods().findTargets(target);
+        return targets == null || MethodAnalyzer.findReturnInsns(targets.clean().methodNode()).size() == MethodAnalyzer.findReturnInsns(targets.dirty().methodNode()).size();
     }
 
     @Override
@@ -70,11 +68,9 @@ public class ModifyReturnValueMixin implements MixinType {
         List<Type> dirtyCaptured = context.methods().resolveCapturedMethodParams(recipe.clean(), recipe.dirty());
         Type modifyingType = Type.getReturnType(target.desc());
 
-        MethodParameters params = MethodParameters.builder()
+        MethodParameters params = clean.getParameters().mutableCopy()
             .putType(SINGLE_ANY, modifyingType)
             .putTypes(CAPTURED_PARAMS, dirtyCaptured)
-            .put(LOCALS, clean.getParameters().get(LOCALS))
-            .putRemaining(clean.getParameters())
             .build();
 
         dirty.setParameters(params);

@@ -20,27 +20,19 @@ import org.sinytra.adapter.patch.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.env.util.TypeConstants;
 import org.sinytra.adapter.util.MethodQualifier;
 
-import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.*;
 
-public class WrapOperationMixin implements MixinType {
+public class WrapOperationMixin extends AbstractMixinType {
     private static final PropertyContainerTemplate TEMPLATE = ConfigurationTemplates.MIXIN_BASE.extend()
         .requireOne(MixinKeys.TARGET_AT, MixinKeys.TARGET_CONSTANT)
         .pluralKeys(MixinKeys.TARGET_METHOD, MixinKeys.TARGET_AT, MixinKeys.TARGET_CONSTANT)
         .build();
 
-    @Override
-    public PropertyContainerTemplate getConfigurationTemplate() {
-        return TEMPLATE;
-    }
-
-    @Override
-    public Set<MixinFlag> getFlags() {
-        return EnumSet.of(MixinFlag.AT_TARGET_SENSITIVE, MixinFlag.ACCEPTS_INSTANCE);
+    public WrapOperationMixin() {
+        super(TEMPLATE, MixinFlag.AT_TARGET_SENSITIVE, MixinFlag.ACCEPTS_INSTANCE);
     }
 
     @Override

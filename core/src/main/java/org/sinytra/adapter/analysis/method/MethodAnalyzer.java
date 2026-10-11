@@ -2,7 +2,6 @@ package org.sinytra.adapter.analysis.method;
 
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
-import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -53,10 +52,10 @@ public class MethodAnalyzer {
         List<MethodNode> ownCalls = new ArrayList<>();
 
         for (MethodInsnNode insn : topTierCalls) {
-            classNode.methods.stream()
-                .filter(m -> m.name.equals(insn.name) && m.desc.equals(insn.desc))
-                .findFirst()
-                .ifPresent(ownCalls::add);
+            MethodNode method = AdapterUtil.findMethod(classNode, insn.name, insn.desc);
+            if (method != null) {
+                ownCalls.add(method);
+            }
         }
 
         return ownCalls;
@@ -94,28 +93,24 @@ public class MethodAnalyzer {
         return topTierCalls;
     }
 
-    public static List<String> findLambdasInMethod(ClassNode cls, MethodNode method, @Nullable Multimap<String, MethodNode> methods) {
-        List<String> list = new ArrayList<>();
+    public record IndyHandle(InvokeDynamicInsnNode indy, int argIndex, Handle handle, MethodNode method) {
+    }
+
+    public static List<IndyHandle> findOwnMethodHandles(ClassNode cls, MethodNode method) {
+        List<IndyHandle> handles = new ArrayList<>();
         for (AbstractInsnNode insn : method.instructions) {
-            if (insn instanceof InvokeDynamicInsnNode indy && indy.bsmArgs.length >= 3) {
-                for (Object bsmArg : indy.bsmArgs) {
-                    if (bsmArg instanceof Handle handle && handle.getOwner().equals(cls.name)) {
-                        if (handle.getName().startsWith(LAMBDA_PREFIX)) {
-                            String name = handle.getName();
-                            list.add(name);
-                            if (methods != null) {
-                                MethodNode lambda = findUniqueMethod(methods, name);
-                                if (lambda != null) {
-                                    list.addAll(findLambdasInMethod(cls, lambda, methods));
-                                }
-                            }
-                            break;
+            if (insn instanceof InvokeDynamicInsnNode indy) {
+                for (int i = 0; i < indy.bsmArgs.length; i++) {
+                    if (indy.bsmArgs[i] instanceof Handle handle && handle.getOwner().equals(cls.name)) {
+                        MethodNode target = AdapterUtil.findMethod(cls, handle.getName(), handle.getDesc());
+                        if (target != null) {
+                            handles.add(new IndyHandle(indy, i, handle, target));
                         }
                     }
                 }
             }
         }
-        return list;
+        return handles;
     }
 
     public static List<AbstractInsnNode> findReturnInsns(MethodNode methodNode) {
@@ -203,18 +198,6 @@ public class MethodAnalyzer {
             throw new RuntimeException(e);
         }
         return interpreter;
-    }
-
-    @Nullable
-    private static MethodNode findUniqueMethod(Multimap<String, MethodNode> methods, String name) {
-        Collection<MethodNode> values = methods.get(name);
-        if (values != null && !values.isEmpty()) {
-            if (values.size() > 1) {
-                return null;
-            }
-            return values.iterator().next();
-        }
-        return null;
     }
 
     private static void collectProducerCalls(SourceValue value, Frame<SourceValue>[] frames, InsnList indices, Set<MethodInsnNode> consumedCalls, Set<AbstractInsnNode> visited) {
