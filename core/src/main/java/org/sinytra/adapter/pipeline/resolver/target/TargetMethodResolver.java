@@ -22,7 +22,7 @@ public class TargetMethodResolver extends CompoundResolver {
     @Override
     protected Configuration tryReuse(MixinContext context, Recipe recipe) {
         TargetPair target = recipe.getNewCleanTarget();
-        if (target != null && context.methods().hasInjectionTargetInsns(target)) {
+        if (target != null && context.injections().matches(target)) {
             return recipe.dirty().copyClean()
                 .inheritTargetMethod();
         }

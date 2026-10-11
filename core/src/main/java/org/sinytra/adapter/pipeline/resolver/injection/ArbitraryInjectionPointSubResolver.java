@@ -41,7 +41,7 @@ public class ArbitraryInjectionPointSubResolver implements SubResolver {
             if (target == null) return null;
 
             // New method is in the same class? It's possible our target injection point was moved there
-            if (context.methods().hasInjectionTargetInsns(target)) {
+            if (context.injections().matches(target)) {
                 return MutableConfiguration.create().setTargetMethod(targetMethodCall);
             }
         }

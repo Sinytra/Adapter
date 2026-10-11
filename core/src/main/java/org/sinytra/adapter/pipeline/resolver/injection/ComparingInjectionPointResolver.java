@@ -6,6 +6,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.compare.MethodLabelComparator;
+import org.sinytra.adapter.analysis.injection.InjectionQuery;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.model.MethodQualifier;
@@ -80,7 +81,7 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
             if (target == null) return null;
 
 //            MethodUpgrader.adjustInjectorOrdinalForNewMethod(minsn, context.legacy()); FIXME
-            List<AbstractInsnNode> newTargetInsns = context.methods().findInjectionTargetInsns(target, true);
+            List<AbstractInsnNode> newTargetInsns = context.injections().find(target, InjectionQuery.current().ignoringOrdinal());
             if (newTargetInsns.isEmpty()) return null;
 
             return MutableConfiguration.create()
@@ -244,7 +245,7 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
                 .map(MethodInsnNode.class::cast)
                 .filter(minsn -> {
                     TargetPair pair = context.dirtyMethods().resolveDeclared(MethodQualifier.create(minsn));
-                    return pair != null && context.methods().hasInjectionTargetInsns(pair);
+                    return pair != null && context.injections().matches(pair);
                 })
                 .<Configuration>map(minsn -> MutableConfiguration.create()
                     .setAtData(AtData.create(AT_VAL_INVOKE, minsn)))

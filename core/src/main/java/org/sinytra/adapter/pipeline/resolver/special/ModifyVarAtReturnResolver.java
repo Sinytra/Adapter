@@ -124,7 +124,7 @@ public class ModifyVarAtReturnResolver implements Resolver {
 
     private static Pair<AbstractInsnNode, Integer> getTargetPair(Configuration clean, MixinContext context, TargetPair injectionTarget, int ordinal) {
         // Find injection point insn
-        List<AbstractInsnNode> targetInsns = context.methods().findInjectionTargetInsns(injectionTarget);
+        List<AbstractInsnNode> targetInsns = context.injections().find(injectionTarget);
         if (targetInsns.isEmpty()) return null;
 
         int index = ordinal == -1 ? targetInsns.size() - 1 : ordinal;

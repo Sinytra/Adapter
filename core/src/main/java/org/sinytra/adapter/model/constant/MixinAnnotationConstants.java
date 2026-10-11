@@ -18,6 +18,7 @@ public class MixinAnnotationConstants {
     public static final String PROPERTY_ORDINAL = "ordinal";
     public static final String PROPERTY_SLICE = "slice";
     public static final String PROPERTY_INDEX = "index";
+    public static final String PROPERTY_CONSTANT = "constant";
 
     public static final String SLICE_FROM = "from";
     public static final String SLICE_TO = "to";

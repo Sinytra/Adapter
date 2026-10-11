@@ -107,7 +107,7 @@ public final class Recipe {
 
     @Nullable
     public AbstractInsnNode getCleanInjectionInsn() {
-        return this.context.methods().findInjectionTargetInsn(getCleanTarget());
+        return this.context.injections().resolve(getCleanTarget());
     }
 
     public boolean hasInjectionPointValue(String value) {

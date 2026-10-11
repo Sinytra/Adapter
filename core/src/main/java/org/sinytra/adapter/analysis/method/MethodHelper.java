@@ -12,25 +12,15 @@ import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.analysis.params.ParamDiffResolver;
 import org.sinytra.adapter.mixin.MockMixinRuntime;
 import org.sinytra.adapter.model.TargetPair;
-import org.sinytra.adapter.model.ann.AnnotationHandle;
-import org.sinytra.adapter.model.ann.AtData;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.param.Parameters;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.slf4j.Logger;
-import org.spongepowered.asm.mixin.injection.InjectionPoint;
-import org.spongepowered.asm.mixin.injection.code.ISliceContext;
-import org.spongepowered.asm.mixin.injection.code.MethodSlice;
-import org.spongepowered.asm.mixin.injection.struct.Target;
-import org.spongepowered.asm.mixin.refmap.IMixinContext;
 
 import java.util.*;
-import java.util.function.BiFunction;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.*;
 import static org.sinytra.adapter.model.param.MethodParameters.ParamGroup.CAPTURED_PARAMS;
 
 public class MethodHelper {
@@ -38,90 +28,8 @@ public class MethodHelper {
 
     private final MixinContext context;
 
-    private final Map<TargetInsnsKey, List<AbstractInsnNode>> targetInstructionsCache = new HashMap<>();
-
-    private record TargetInsnsKey(@Nullable TargetPair target, boolean ignoreOrdinal, @Nullable Object injectionPoint, @Nullable Object methodAnnotation) {
-    }
-
     public MethodHelper(MixinContext context) {
         this.context = context;
-    }
-
-    public boolean hasInjectionTargetInsns(@Nullable TargetPair target) {
-        return !findInjectionTargetInsns(target).isEmpty();
-    }
-
-    @Nullable
-    public AbstractInsnNode findInjectionTargetInsn(@Nullable TargetPair target) {
-        List<AbstractInsnNode> cleanInsns = findInjectionTargetInsns(target);
-        return cleanInsns.size() != 1 ? null : cleanInsns.getFirst();
-    }
-
-    public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable TargetPair target) {
-        return findInjectionTargetInsns(target, false);
-    }
-
-    public List<AbstractInsnNode> findInjectionTargetInsns(@Nullable TargetPair target, boolean ignoreOrdinal) {
-        TargetInsnsKey key = new TargetInsnsKey(target, ignoreOrdinal, annotationKey(this.context.injectionPointAnnotation()), annotationKey(this.context.methodAnnotation()));
-        List<AbstractInsnNode> insns = this.targetInstructionsCache.get(key);
-        if (insns == null) {
-            insns = computeInjectionTargetInsns(
-                target,
-                this.context::injectionPointAnnotation,
-                (ctx, h) -> {
-                    AnnotationHandle atAnn = h;
-                    if (ignoreOrdinal) {
-                        atAnn = atAnn.copy();
-                        atAnn.removeValues(PROPERTY_ORDINAL);
-                    }
-
-                    return InjectionPoint.parse(ctx, this.context.methodNode(), this.context.methodAnnotation().unwrap(), atAnn.unwrap());
-                },
-                true
-            );
-            this.targetInstructionsCache.put(key, insns);
-        }
-        return insns;
-    }
-
-    @Nullable
-    private static Object annotationKey(@Nullable AnnotationHandle handle) {
-        return handle != null ? annotationValueKey(handle.unwrap()) : null;
-    }
-
-    private static Object annotationValueKey(Object value) {
-        if (value instanceof AnnotationNode node) {
-            List<Object> key = new ArrayList<>();
-            key.add(node.desc);
-            if (node.values != null) {
-                node.values.forEach(v -> key.add(annotationValueKey(v)));
-            }
-            return key;
-        }
-        if (value instanceof List<?> list) {
-            return list.stream().map(MethodHelper::annotationValueKey).toList();
-        }
-        if (value instanceof Object[] array) {
-            return Arrays.stream(array).map(MethodHelper::annotationValueKey).toList();
-        }
-        return value;
-    }
-
-    @Nullable
-    public AbstractInsnNode findInjectionTargetInsn(@Nullable TargetPair target, AtData atData) {
-        List<AbstractInsnNode> cleanInsns = computeInjectionTargetInsns(
-            target,
-            this.context::injectionPointAnnotation,
-            (ctx, h) -> {
-                AnnotationNode atCopy = atData.toAnnotationNode();
-                AnnotationHandle annCopy = this.context.methodAnnotation().copy();
-                annCopy.setOrAppendNonNull(PROPERTY_AT, atCopy);
-
-                return InjectionPoint.parse(ctx, this.context.methodNode(), annCopy.unwrap(), atCopy);
-            },
-            true
-        );
-        return cleanInsns.size() != 1 ? null : cleanInsns.getFirst();
     }
 
     public List<Type> resolveCapturedMethodParams(Configuration clean, Configuration dirty) {
@@ -165,62 +73,6 @@ public class MethodHelper {
     }
 
     @Nullable
-    public List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable TargetPair target, Supplier<AnnotationHandle> atNodeSupplier, BiFunction<IMixinContext, AnnotationHandle, InjectionPoint> injectionPointParser, boolean ignoreShift) {
-        return computeInjectionTargetInsns(target, atNodeSupplier, injectionPointParser, ignoreShift, false);
-    }
-
-    @Nullable
-    public List<AbstractInsnNode> computeInjectionTargetInsns(@Nullable TargetPair target, Supplier<AnnotationHandle> atNodeSupplier, BiFunction<IMixinContext, AnnotationHandle, InjectionPoint> injectionPointParser, boolean ignoreShift, boolean ignoreSlice) {
-        if (target == null) {
-            return List.of();
-        }
-        AnnotationHandle atNode = atNodeSupplier.get();
-        if (atNode == null) {
-            return List.of();
-        }
-        AnnotationHandle atNodeCopy = atNode.copy();
-        if (ignoreShift) {
-            atNodeCopy.removeValues(AT_SHIFT);
-        }
-        // Provide a minimum implementation of IMixinContext
-        IMixinContext mixinContext = MockMixinRuntime.forClass(this.context.classNode().name, target.classNode().name, this.context.environment());
-        List<AbstractInsnNode> targetInsns = new ArrayList<>();
-        try {
-            // Parse injection point
-            InjectionPoint injectionPoint = injectionPointParser.apply(mixinContext, atNodeCopy);
-            Target mixinTarget = MockMixinRuntime.createMixinTarget(target);
-            // Find target instructions
-            InsnList instructions = ignoreSlice ? target.methodNode().instructions : getSlicedInsns(target, mixinTarget);
-            if (MockMixinRuntime.injectionPointNeedsSpecialCare(injectionPoint)) {
-                MockMixinRuntime.findModifyVariableInjectionInsns(injectionPoint, mixinContext, target.methodNode().instructions, targetInsns, mixinTarget);
-            } else {
-                injectionPoint.find(target.methodNode().desc, instructions, targetInsns);
-            }
-        } catch (Throwable e) {
-            LOGGER.error("Error finding injection insns", e);
-            return List.of();
-        }
-        return targetInsns;
-    }
-
-    private InsnList getSlicedInsns(TargetPair target, Target mixinTarget) {
-        return this.context.methodAnnotation().getValue(PROPERTY_SLICE)
-            .map(handle -> handle.get() instanceof List<?> list ? (AnnotationNode) list.getFirst() : (AnnotationNode) handle.get())
-            .map(slice -> computeSlice(target, slice, mixinTarget))
-            .orElse(target.methodNode().instructions);
-    }
-
-    public InsnList computeSlice(TargetPair target, AnnotationNode slice) {
-        return computeSlice(target, slice, MockMixinRuntime.createMixinTarget(target));
-    }
-
-    private InsnList computeSlice(TargetPair target, AnnotationNode slice, Target mixinTarget) {
-        IMixinContext mixinContext = MockMixinRuntime.forClass(this.context.classNode().name, target.classNode().name, this.context.environment());
-        ISliceContext sliceContext = MockMixinRuntime.forSlice(mixinContext, this.context.methodNode());
-        return MethodSlice.parse(sliceContext, slice).getSlice(mixinTarget);
-    }
-
-    @Nullable
     public List<LocalVariable> getTargetMethodLocals(TargetPair target) {
         Type[] targetParams = Type.getArgumentTypes(target.methodNode().desc);
         boolean isStatic = isStatic(target.methodNode());
@@ -237,7 +89,7 @@ public class MethodHelper {
 
     @Nullable
     public List<LocalVariable> getTargetMethodLocals(TargetPair target, int startPos, int lvtCompatLevel) {
-        List<AbstractInsnNode> targetInsns = findInjectionTargetInsns(target);
+        List<AbstractInsnNode> targetInsns = this.context.injections().find(target);
         if (targetInsns.isEmpty()) {
             LOGGER.debug("Skipping LVT patch, no target instructions found");
             return null;

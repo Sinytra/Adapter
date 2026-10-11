@@ -82,7 +82,7 @@ public class TargetMethodSubResolvers {
         // Find lambda invocations and search for target insns inside the lambda
         for (IndyHandle handle : MethodAnalyzer.findOwnIndyHandles(target.classNode(), target.methodNode())) {
             TargetPair lambda = new TargetPair(target.classNode(), handle.method());
-            if (!context.methods().findInjectionTargetInsns(lambda).isEmpty()) {
+            if (context.injections().matches(lambda)) {
                 return MutableConfiguration.create()
                     .setTargetMethod(lambda.methodNode());
             }
@@ -100,7 +100,7 @@ public class TargetMethodSubResolvers {
 
         List<MethodNode> invocations = MethodAnalyzer.getSelfTopTierMethodCalls(dirtyTarget);
         for (MethodNode invocation : invocations) {
-            if (context.methods().hasInjectionTargetInsns(new TargetPair(dirtyTarget.classNode(), invocation))) {
+            if (context.injections().matches(new TargetPair(dirtyTarget.classNode(), invocation))) {
                 return MutableConfiguration.create()
                     .setTargetMethod(invocation);
             }

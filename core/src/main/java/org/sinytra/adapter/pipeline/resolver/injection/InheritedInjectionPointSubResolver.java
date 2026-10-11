@@ -38,7 +38,7 @@ public class InheritedInjectionPointSubResolver implements SubResolver {
 
         TargetPair targetPair = recipe.getDirtyTarget();
         if (targetPair == null) return null;
-        if (context.methods().hasInjectionTargetInsns(targetPair)) return null;
+        if (context.injections().matches(targetPair)) return null;
 
         String owner = atTarget.internalOwnerName();
         for (AbstractInsnNode insn : targetPair.methodNode().instructions) {

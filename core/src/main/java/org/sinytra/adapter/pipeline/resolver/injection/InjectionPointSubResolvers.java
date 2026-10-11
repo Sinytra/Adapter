@@ -33,7 +33,7 @@ public class InjectionPointSubResolvers {
         if (targets == null) return null;
 
         // Find single clean target minsn
-        List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(targets.clean());
+        List<AbstractInsnNode> insns = context.injections().find(targets.clean());
         if (insns.isEmpty() || !(insns.getFirst() instanceof MethodInsnNode cleanInsn)) return null;
 
         InstructionMatcher cleanMatcher = MethodInsnMatcher.findSurroundingInstructions(cleanInsn);
@@ -82,7 +82,7 @@ public class InjectionPointSubResolvers {
             MethodQualifier target = MethodQualifier.create(minsn);
 
             TargetPair pair = context.dirtyMethods().resolveDeclared(target);
-            if (pair != null && context.methods().hasInjectionTargetInsns(pair)) {
+            if (pair != null && context.injections().matches(pair)) {
                 return recipe.dirty().copyClean()
                     .setTargetClass(minsn.owner)
                     .setTargetMethod(minsn)

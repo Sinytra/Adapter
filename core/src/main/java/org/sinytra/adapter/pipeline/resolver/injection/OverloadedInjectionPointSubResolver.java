@@ -3,6 +3,7 @@ package org.sinytra.adapter.pipeline.resolver.injection;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
+import org.sinytra.adapter.analysis.injection.InjectionQuery;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.TargetPair;
@@ -32,7 +33,7 @@ public class OverloadedInjectionPointSubResolver implements SubResolver {
 
         // Temporarily modify @At data to target INVOKE if originally using INVOKE_ASSIGN
         AtData tempAt = getInvokeAtData(at);
-        AbstractInsnNode cleanInsn = context.methods().findInjectionTargetInsn(targets.clean(), tempAt);
+        AbstractInsnNode cleanInsn = context.injections().resolve(targets.clean(), InjectionQuery.of(tempAt).keepingShift());
         if (!(cleanInsn instanceof MethodInsnNode cleanMinsn)) return null;
         MethodQualifier cleanQualifier = MethodQualifier.create(cleanMinsn);
 

@@ -337,7 +337,7 @@ public class InjectorOrdinalResolver implements Resolver {
                 if (available.size() > ordinal) {
                     int variableIndex = available.get(ordinal).index;
                     AbstractInsnNode cleanInsn = recipe.getCleanInjectionInsn();
-                    AbstractInsnNode dirtyInsn = context.methods().findInjectionTargetInsn(recipe.getDirtyTarget());
+                    AbstractInsnNode dirtyInsn = context.injections().resolve(recipe.getDirtyTarget());
                     if (cleanInsn != null && dirtyInsn != null) {
                         for (AbstractInsnNode insn : InsnTraversal.untilLabel(cleanInsn, InsnTraversal.FORWARD, true)) {
                             SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);

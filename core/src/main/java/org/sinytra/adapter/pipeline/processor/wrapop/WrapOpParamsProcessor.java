@@ -3,6 +3,7 @@ package org.sinytra.adapter.pipeline.processor.wrapop;
 import com.mojang.logging.LogUtils;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.analysis.injection.InjectionQuery;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.method.WrapOpOriginalCall;
 import org.sinytra.adapter.model.config.Configuration;
@@ -45,8 +46,8 @@ public class WrapOpParamsProcessor implements Processor {
 
         if (dirty.getAtData() != null) {
             // Upgrade calls on "instance" variable
-            AbstractInsnNode cleanInsn = context.methods().findInjectionTargetInsn(recipe.getCleanTarget());
-            AbstractInsnNode dirtyInsn = context.methods().findInjectionTargetInsn(recipe.getDirtyTarget(), dirty.getAtData());
+            AbstractInsnNode cleanInsn = context.injections().resolve(recipe.getCleanTarget());
+            AbstractInsnNode dirtyInsn = context.injections().resolve(recipe.getDirtyTarget(), InjectionQuery.of(dirty.getAtData()).keepingShift());
             if (cleanInsn instanceof MethodInsnNode cleanMinsn && dirtyInsn instanceof MethodInsnNode dirtyMinsn) {
                 List<Type> methodParams = dirty.getParameters().getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
                 if (!WrapOpSurgeon.tryUpgrade(context, recipe, methodParams, cleanMinsn, dirtyMinsn)) {

@@ -103,7 +103,7 @@ public class SliceBoundaryResolver implements Resolver {
     }
 
     private static boolean passesSliceCheck(SliceData slice, MixinContext context, TargetPair dirtyTarget) {
-        InsnList insns = context.methods().computeSlice(dirtyTarget, slice.toAnnotationNode());
+        InsnList insns = context.injections().slice(dirtyTarget, slice);
         return insns.size() != dirtyTarget.methodNode().instructions.size();
     }
 }

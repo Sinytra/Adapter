@@ -42,7 +42,7 @@ public class InjectionPointResolver extends CompoundResolver {
         if (dirtyTarget == null) return null;
 
         // Try reusing the original
-        List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(dirtyTarget);
+        List<AbstractInsnNode> insns = context.injections().find(dirtyTarget);
         if (!insns.isEmpty()) {
             return dirty.copyClean()
                 .inheritAtData();

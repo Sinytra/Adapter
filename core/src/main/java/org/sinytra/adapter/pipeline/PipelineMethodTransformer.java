@@ -3,8 +3,8 @@ package org.sinytra.adapter.pipeline;
 import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.analysis.injection.InjectionQuery;
 import org.sinytra.adapter.api.AuditTrail;
 import org.sinytra.adapter.api.MethodPatch;
 import org.sinytra.adapter.api.MethodTransformer;
@@ -25,8 +25,6 @@ import org.sinytra.adapter.pipeline.processor.Processors;
 import org.sinytra.adapter.pipeline.resolver.Resolver;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
 import org.slf4j.Logger;
-import org.spongepowered.asm.mixin.injection.InjectionPoint;
-import org.spongepowered.asm.mixin.injection.points.BeforeConstant;
 
 import java.util.Arrays;
 import java.util.List;
@@ -153,18 +151,8 @@ public class PipelineMethodTransformer implements MethodTransformer {
     public boolean failsDirtyInjectionCheck(MixinContext context, Configuration config, TargetPair dirtyTarget) {
         return !context.getMixinType().canInject(context, config)
             || dirtyTarget == null
-            || !context.methods().hasInjectionTargetInsns(dirtyTarget)
-            && computeConstantTargetInsns(context, dirtyTarget).isEmpty();
-    }
-
-    // TODO Clean up
-    public List<AbstractInsnNode> computeConstantTargetInsns(MixinContext context, @Nullable TargetPair target) {
-        return context.methods().computeInjectionTargetInsns(
-            target,
-            () -> context.methodAnnotation().getNested("constant").orElse(null),
-            (ctx, h) -> new BeforeConstant(ctx, h.unwrap(), Type.getReturnType(context.methodNode().desc).getDescriptor()),
-            false
-        );
+            || !context.injections().matches(dirtyTarget)
+            && !context.injections().matches(dirtyTarget, InjectionQuery.constant());
     }
 
     public boolean hasValidSlice(MixinContext context, Configuration config, @Nullable TargetPair target) {
@@ -177,24 +165,13 @@ public class PipelineMethodTransformer implements MethodTransformer {
             .orElse(List.of());
         for (SliceData slice : slices) {
             AtData from = slice.from();
-            if (from != null && !validateAtNode(context, from, target))
+            if (from != null && !context.injections().matches(target, InjectionQuery.sliceBoundary(from)))
                 return false;
 
             AtData to = slice.to();
-            if (to != null && !validateAtNode(context, to, target))
+            if (to != null && !context.injections().matches(target, InjectionQuery.sliceBoundary(to)))
                 return false;
         }
         return true;
-    }
-
-    private boolean validateAtNode(MixinContext context, AtData at, TargetPair target) {
-        List<AbstractInsnNode> insns = context.methods().computeInjectionTargetInsns(
-            target,
-            context::injectionPointAnnotation,
-            (ctx, h) -> InjectionPoint.parse(ctx, context.methodNode(), context.methodAnnotation().unwrap(), at.toAnnotationNode()),
-            false,
-            true
-        );
-        return !insns.isEmpty();
     }
 }

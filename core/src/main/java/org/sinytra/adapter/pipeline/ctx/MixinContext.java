@@ -4,6 +4,7 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.analysis.injection.InjectionLocator;
 import org.sinytra.adapter.analysis.method.MethodHelper;
 import org.sinytra.adapter.analysis.method.MethodLocator;
 import org.sinytra.adapter.api.BytecodeFixerUpper;
@@ -45,6 +46,7 @@ public class MixinContext implements RefMapper, Auditor {
     private final MethodHelper methodHelper;
     private final MethodLocator cleanMethods;
     private final MethodLocator dirtyMethods;
+    private final InjectionLocator injections;
     private final Resolvers resolvers = new Resolvers();
     private final Processors processors = new Processors();
 
@@ -59,6 +61,7 @@ public class MixinContext implements RefMapper, Auditor {
         this.flags = flags;
 
         this.methodHelper = new MethodHelper(this);
+        this.injections = new InjectionLocator(this);
         String defaultOwner = classTarget.getTypes().getFirst().getInternalName();
         this.cleanMethods = new MethodLocator(patchContext.environment(), patchContext.environment().cleanClassLookup(), defaultOwner);
         this.dirtyMethods = new MethodLocator(patchContext.environment(), patchContext.environment().dirtyClassLookup(), defaultOwner);
@@ -114,6 +117,10 @@ public class MixinContext implements RefMapper, Auditor {
 
     public MethodLocator dirtyMethods() {
         return this.dirtyMethods;
+    }
+
+    public InjectionLocator injections() {
+        return this.injections;
     }
 
     @Nullable

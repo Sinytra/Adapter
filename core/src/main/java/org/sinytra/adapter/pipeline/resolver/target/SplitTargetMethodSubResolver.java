@@ -97,7 +97,7 @@ public class SplitTargetMethodSubResolver implements SubResolver {
             return candidates;
         }
 
-        List<AbstractInsnNode> cleanInsns = context.methods().findInjectionTargetInsns(cleanTarget);
+        List<AbstractInsnNode> cleanInsns = context.injections().find(cleanTarget);
         if (cleanInsns.size() != 1) {
             return candidates;
         }
@@ -122,7 +122,7 @@ public class SplitTargetMethodSubResolver implements SubResolver {
     private static List<CandidateMethod> findInsnsCalls(List<TargetPair> methods, MixinContext context) {
         return methods.stream()
             .map(pair -> {
-                List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(pair);
+                List<AbstractInsnNode> insns = context.injections().find(pair);
                 return !insns.isEmpty() ? new CandidateMethod(pair.methodNode(), insns) : null;
             })
             .filter(Objects::nonNull)
