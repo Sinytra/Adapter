@@ -11,6 +11,8 @@ import org.sinytra.adapter.patch.resolver.Resolvers;
 import org.sinytra.adapter.util.Cached;
 import org.sinytra.adapter.util.MethodQualifier;
 import org.sinytra.adapter.util.provider.ClassLookup;
+import org.sinytra.adapter.env.ctx.Targets;
+import org.objectweb.asm.tree.AbstractInsnNode;
 
 import java.util.Objects;
 
@@ -94,6 +96,18 @@ public final class Recipe {
 
     public TargetPair getDirtyTarget() {
         return this.dirtyTarget.get();
+    }
+
+    @Nullable
+    public Targets targets() {
+        TargetPair clean = getCleanTarget();
+        TargetPair dirty = getDirtyTarget();
+        return clean != null && dirty != null ? new Targets(clean, dirty) : null;
+    }
+
+    @Nullable
+    public AbstractInsnNode getCleanInjectionInsn() {
+        return this.context.methods().findInjectionTargetInsn(getCleanTarget());
     }
 
     public boolean hasInjectionPointValue(String value) {

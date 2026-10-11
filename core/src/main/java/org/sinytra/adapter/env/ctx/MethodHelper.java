@@ -54,22 +54,8 @@ public class MethodHelper {
     }
 
     @Nullable
-    public MethodNode findInheritedMethod(ClassLookup lookup, MethodQualifier qualifier) {
-        return Optional.ofNullable(findInheritedMethodPair(lookup, qualifier))
-            .map(TargetPair::methodNode)
-            .orElse(null);
-    }
-
-    @Nullable
     public TargetPair findInheritedMethodPair(ClassLookup lookup, MethodQualifier qualifier) {
         return this.methodFinder.findInheritedMethod(lookup, qualifier);
-    }
-
-    @Nullable
-    public MethodNode findOwnMethod(ClassLookup lookup, MethodQualifier qualifier) {
-        return Optional.ofNullable(findOwnMethodPair(lookup, qualifier))
-            .map(TargetPair::methodNode)
-            .orElse(null);
     }
 
     @Nullable
@@ -80,6 +66,13 @@ public class MethodHelper {
     @Nullable
     public TargetPair findOwnMethodPair(ClassLookup lookup, MethodQualifier qualifier) {
         return this.methodFinder.findMethod(lookup, qualifier, MethodFinder.Flags.FALLBACK_OWNER);
+    }
+
+    @Nullable
+    public Targets findTargets(MethodQualifier qualifier) {
+        TargetPair clean = findOwnMethodPair(this.context.cleanLookup(), qualifier);
+        TargetPair dirty = findOwnMethodPair(this.context.dirtyLookup(), qualifier);
+        return clean != null && dirty != null ? new Targets(clean, dirty) : null;
     }
 
     @Nullable
@@ -170,9 +163,11 @@ public class MethodHelper {
 
         // Evaluate parameter difference, capture additional params when necessary
         if (!cleanCaptured.isEmpty()) {
-            MethodNode cleanTarget = findOwnMethod(this.context.cleanLookup(), clean.getTargetMethod());
-            MethodNode dirtyTarget = findOwnMethod(this.context.dirtyLookup(), dirty.getTargetMethod());
-            if (cleanTarget == null || dirtyTarget == null) return dirtyCaptured;
+            TargetPair cleanPair = findOwnMethodPair(this.context.cleanLookup(), clean.getTargetMethod());
+            TargetPair dirtyPair = findOwnMethodPair(this.context.dirtyLookup(), dirty.getTargetMethod());
+            if (cleanPair == null || dirtyPair == null) return dirtyCaptured;
+            MethodNode cleanTarget = cleanPair.methodNode();
+            MethodNode dirtyTarget = dirtyPair.methodNode();
 
             LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.compareMethodParameters(cleanTarget, dirtyTarget);
             if (diff == null) return dirtyCaptured;

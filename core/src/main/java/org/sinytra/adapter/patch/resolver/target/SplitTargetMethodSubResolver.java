@@ -3,6 +3,7 @@ package org.sinytra.adapter.patch.resolver.target;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer.IndyHandle;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.config.Configuration;
@@ -27,7 +28,7 @@ public class SplitTargetMethodSubResolver implements SubResolver {
     @Override
     public Configuration resolve(MixinContext context, Recipe recipe) {
         TargetPair cleanTarget = recipe.getCleanTarget();
-        TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), recipe.clean().getTargetMethod());
+        TargetPair dirtyTarget = recipe.getNewCleanTarget();
         if (cleanTarget == null || dirtyTarget == null) return null;
 
         List<CandidateMethod> candidates = disambiguate(locateCandidates(context, cleanTarget, dirtyTarget), context, cleanTarget);
@@ -68,10 +69,10 @@ public class SplitTargetMethodSubResolver implements SubResolver {
         // Attempt to find matching insns in lambdas
         if (candidates.isEmpty()) {
             List<TargetPair> nestedLambdas = invocations.stream()
-                .flatMap(m -> MethodAnalyzer.findLambdasInMethod(dirtyTarget.classNode(), m, null).stream())
-                .flatMap(s -> MethodQualifier.parse(s).stream())
-                .map(s -> context.methods().findOwnMethodPair(context.dirtyLookup(), s))
-                .filter(Objects::nonNull)
+                .flatMap(m -> MethodAnalyzer.findOwnIndyHandles(dirtyTargetClass, m).stream())
+                .map(IndyHandle::method)
+                .filter(MethodAnalyzer::isLambda)
+                .map(m -> new TargetPair(dirtyTargetClass, m))
                 .toList();
             return findInsnsCalls(nestedLambdas, context);
         }

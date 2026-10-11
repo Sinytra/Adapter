@@ -97,9 +97,7 @@ public class InjectMixin extends AbstractMixinType {
             return true;
         }
 
-        TargetPair cleanTarget = recipe.getCleanTarget();
-        TargetPair dirtyTarget = recipe.getDirtyTarget();
-        return cleanTarget != null && dirtyTarget != null
-            && MethodQualifier.create(cleanTarget.methodNode()).matches(MethodQualifier.create(dirtyTarget.methodNode()));
+        Targets targets = recipe.targets();
+        return targets != null && MethodQualifier.create(targets.clean().methodNode()).matches(MethodQualifier.create(targets.dirty().methodNode()));
     }
 }

@@ -13,6 +13,7 @@ import org.sinytra.adapter.patch.config.MutableConfiguration;
 import org.sinytra.adapter.patch.resolver.SubResolver;
 import org.sinytra.adapter.util.MethodQualifier;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
+import org.sinytra.adapter.env.ctx.Targets;
 
 import java.util.List;
 
@@ -27,15 +28,12 @@ public class OverloadedInjectionPointSubResolver implements SubResolver {
         if (at == null || !at.getValue().equals(AT_VAL_INVOKE) && !at.getValue().equals(AT_VAL_INVOKE_ASSIGN))
             return null;
         
-        TargetPair cleanPair = recipe.getCleanTarget();
-        if (cleanPair == null) return null;
-
-        TargetPair dirtyPair = recipe.getDirtyTarget();
-        if (dirtyPair == null) return null;
+        Targets targets = recipe.targets();
+        if (targets == null) return null;
 
         // Temporarily modify @At data to target INVOKE if originally using INVOKE_ASSIGN
         AtData tempAt = getInvokeAtData(at);
-        AbstractInsnNode cleanInsn = context.methods().findInjectionTargetInsn(cleanPair, tempAt);
+        AbstractInsnNode cleanInsn = context.methods().findInjectionTargetInsn(targets.clean(), tempAt);
         if (!(cleanInsn instanceof MethodInsnNode cleanMinsn)) return null;
         MethodQualifier cleanQualifier = MethodQualifier.create(cleanMinsn);
 
@@ -51,12 +49,12 @@ public class OverloadedInjectionPointSubResolver implements SubResolver {
         }
 
         // Check that the deprecated method is not called anymore
-        List<MethodInsnNode> cleanCallsInDirty = MethodCallAnalyzer.getMethodCallMinsns(dirtyPair.methodNode(), cleanQualifier);
+        List<MethodInsnNode> cleanCallsInDirty = MethodCallAnalyzer.getMethodCallMinsns(targets.dirty().methodNode(), cleanQualifier);
         if (!cleanCallsInDirty.isEmpty()) return null;
 
         // Find method calls to potential replacement method
         MethodQualifier qualifier = cleanQualifier.ignoreDesc();
-        List<MethodInsnNode> dirtyCalls = MethodCallAnalyzer.getMethodCallMinsns(dirtyPair.methodNode(), qualifier);
+        List<MethodInsnNode> dirtyCalls = MethodCallAnalyzer.getMethodCallMinsns(targets.dirty().methodNode(), qualifier);
         if (dirtyCalls.isEmpty()) return null;
 
         // All calls target the same overloaded method

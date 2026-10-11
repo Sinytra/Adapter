@@ -21,6 +21,8 @@ import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.sinytra.adapter.patch.config.key.SpecialKeys;
 import org.sinytra.adapter.patch.resolver.SubResolver;
 import org.sinytra.adapter.util.MethodQualifier;
+import org.sinytra.adapter.util.AdapterUtil;
+import org.sinytra.adapter.env.ctx.Targets;
 
 import java.util.List;
 import java.util.Objects;
@@ -28,16 +30,15 @@ import java.util.Set;
 
 public class InjectionPointSubResolvers {
     public static final SubResolver REPLACED_TYPE = (MixinContext context, Recipe recipe) -> {
-        TargetPair cleanTarget = recipe.getCleanTarget();
-        TargetPair dirtyTarget = recipe.getDirtyTarget();
-        if (cleanTarget == null | dirtyTarget == null) return null;
+        Targets targets = recipe.targets();
+        if (targets == null) return null;
 
         // Find single clean target minsn
-        List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(cleanTarget);
+        List<AbstractInsnNode> insns = context.methods().findInjectionTargetInsns(targets.clean());
         if (insns.isEmpty() || !(insns.getFirst() instanceof MethodInsnNode cleanInsn)) return null;
 
         InstructionMatcher cleanMatcher = MethodInsnMatcher.findSurroundingInstructions(cleanInsn);
-        Multimap<String, MethodInsnNode> dirtyCalls = MethodAnalyzer.getMethodCalls(dirtyTarget.methodNode());
+        Multimap<String, MethodInsnNode> dirtyCalls = MethodAnalyzer.getMethodCalls(targets.dirty().methodNode());
         List<InstructionMatcher> dirtyMatchers = dirtyCalls.values().stream()
             .map(MethodInsnMatcher::findSurroundingInstructions)
             .toList();
@@ -45,7 +46,7 @@ public class InjectionPointSubResolvers {
         WeighedDisambiguation<MethodQualifier> magicBlackBox = WeighedDisambiguation.<MethodQualifier>builder()
             .match(() -> testMatchers(context, cleanInsn, cleanMatcher, dirtyMatchers, false))
             .match(() -> testMatchers(context, cleanInsn, cleanMatcher, dirtyMatchers, true))
-            .match(() -> testOverloadedMethods(context, cleanInsn, cleanTarget, dirtyTarget))
+            .match(() -> testOverloadedMethods(context, cleanInsn, targets.clean(), targets.dirty()))
             .resultsEqual(MethodQualifier::equals)
             .build();
 
@@ -61,17 +62,15 @@ public class InjectionPointSubResolvers {
     public static final SubResolver EXTRACTED_CALL = (MixinContext context, Recipe recipe) -> {
         if (context.isStatic()) return null;
 
-        TargetPair cleanPair = recipe.getCleanTarget();
-        if (cleanPair == null) return null;
-        TargetPair dirtyTarget = recipe.getDirtyTarget();
-        if (dirtyTarget == null) return null;
+        Targets targets = recipe.targets();
+        if (targets == null) return null;
 
-        for (MethodInsnNode minsn : MethodAnalyzer.findDirtyOnlyCalls(cleanPair.methodNode(), dirtyTarget.methodNode(), true)) {
+        for (MethodInsnNode minsn : MethodAnalyzer.findDirtyOnlyCalls(targets.clean().methodNode(), targets.dirty().methodNode(), true)) {
             // We only want static external methods
-            if (minsn.getOpcode() != Opcodes.INVOKESTATIC || minsn.owner.equals(dirtyTarget.classNode().name))
+            if (minsn.getOpcode() != Opcodes.INVOKESTATIC || minsn.owner.equals(targets.dirty().classNode().name))
                 continue;
 
-            List<AbstractInsnNode> argInsns = MethodCallAnalyzer.getMethodCallSrcInsns(dirtyTarget.methodNode(), minsn);
+            List<AbstractInsnNode> argInsns = MethodCallAnalyzer.getMethodCallSrcInsns(targets.dirty().methodNode(), minsn);
             if (argInsns == null) continue;
 
             AbstractInsnNode self = argInsns.stream()
@@ -99,20 +98,16 @@ public class InjectionPointSubResolvers {
     };
 
     public static final SubResolver EXTRACTED_CODEPATH_CALL = (MixinContext context, Recipe recipe) -> {
-        TargetPair cleanPair = recipe.getCleanTarget();
-        if (cleanPair == null) return null;
+        Targets targets = recipe.targets();
+        if (targets == null) return null;
+        if (!(recipe.getCleanInjectionInsn() instanceof MethodInsnNode minsn)) return null;
 
-        TargetPair dirtyTarget = recipe.getDirtyTarget();
-        if (dirtyTarget == null) return null;
-
-        if (!(context.methods().findInjectionTargetInsn(cleanPair) instanceof MethodInsnNode minsn)) return null;
-
-        Set<MethodInsnNode> newCalls = Set.copyOf(MethodAnalyzer.findDirtyOnlyCalls(cleanPair.methodNode(), dirtyTarget.methodNode(), true));
+        Set<MethodInsnNode> newCalls = Set.copyOf(MethodAnalyzer.findDirtyOnlyCalls(targets.clean().methodNode(), targets.dirty().methodNode(), true));
         if (newCalls.isEmpty()) return null;
         Set<Integer> trackLocals = context.isStatic() ? Set.of() : Set.of(0);
 
         TargetPair to = context.methods().findInheritedMethodPair(context.dirtyLookup(), MethodQualifier.create(minsn));
-        CodePath path = CodePaths.findCodePath(dirtyTarget, to, trackLocals, context, newCalls::contains);
+        CodePath path = CodePaths.findCodePath(targets.dirty(), to, trackLocals, context, newCalls::contains);
         if (path == null) return null;
 
         CodePathStep last = path.steps().getLast();
@@ -149,9 +144,7 @@ public class InjectionPointSubResolvers {
         List<Type> cleanParams = Parameters.getParameterTypes(cleanInsn.desc);
         List<MethodNode> methods = dirtyClass.methods.stream()
             .filter(m -> {
-                if (cleanPair.classNode().methods.stream()
-                    .noneMatch(c -> c.name.equals(m.name) && c.desc.equals(m.desc)) && m.name.equals(cleanInsn.name)
-                ) {
+                if (m.name.equals(cleanInsn.name) && AdapterUtil.findMethod(cleanPair.classNode(), m.name, m.desc) == null) {
                     List<Type> dirtyParams = Parameters.getParameterTypes(m.desc);
                     return dirtyParams.size() > cleanParams.size() && dirtyParams.subList(0, cleanParams.size()).equals(cleanParams);
                 }

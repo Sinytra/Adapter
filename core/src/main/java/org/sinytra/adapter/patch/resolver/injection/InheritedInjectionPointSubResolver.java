@@ -4,7 +4,6 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.FieldInsnNode;
-import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ann.AtData;
@@ -21,6 +20,7 @@ import org.sinytra.adapter.env.ctx.PatchContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.types.BytecodeFixerUpper;
 import org.sinytra.adapter.util.MethodQualifier;
+import org.sinytra.adapter.analysis.InsnTraversal;
 
 import java.util.List;
 
@@ -33,7 +33,7 @@ public class InheritedInjectionPointSubResolver implements SubResolver {
         if (!recipe.hasInjectionPointValue(AT_VAL_INVOKE)) return null;
 
         AtData at = recipe.clean().getAtData();
-        MethodQualifier atTarget = at.getTarget().flatMap(MethodQualifier::parse).orElse(null);
+        MethodQualifier atTarget = at.getTargetQualifier().orElse(null);
         if (atTarget == null || atTarget.internalOwnerName() == null) return null;
 
         TargetPair targetPair = recipe.getDirtyTarget();
@@ -69,15 +69,12 @@ public class InheritedInjectionPointSubResolver implements SubResolver {
     }
 
     private boolean isFixedField(AbstractInsnNode insn, PatchContext context) {
-        for (AbstractInsnNode prev = insn.getPrevious(); prev != null; prev = prev.getPrevious()) {
-            if (prev instanceof LabelNode) {
-                break;
-            }
-            if (prev instanceof FieldInsnNode finsn) {
-                BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
-                return bfu != null && bfu.getFieldTypeChange(finsn.owner, finsn.name) != null;
-            }
-        }
-        return false;
+        BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
+        return bfu != null && InsnTraversal.untilLabel(insn, InsnTraversal.BACKWARD).stream()
+            .filter(FieldInsnNode.class::isInstance)
+            .map(FieldInsnNode.class::cast)
+            .findFirst()
+            .map(finsn -> bfu.getFieldTypeChange(finsn.owner, finsn.name) != null)
+            .orElse(false);
     }
 }

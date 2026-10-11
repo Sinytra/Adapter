@@ -6,6 +6,7 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer.IndyHandle;
 import org.sinytra.adapter.env.ctx.LocalVariable;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
@@ -115,20 +116,11 @@ public class ExtractMixinProcessor implements Processor {
         List<MethodNode> methods = new ArrayList<>();
         List<Consumer<ClassNode>> handleUpdates = new ArrayList<>();
         methods.add(methodNode);
-        for (AbstractInsnNode insn : methodNode.instructions) {
-            if (insn instanceof InvokeDynamicInsnNode indy && indy.bsmArgs.length >= 3) {
-                for (int i = 0; i < indy.bsmArgs.length; i++) {
-                    if (indy.bsmArgs[i] instanceof Handle handle && handle.getOwner().equals(classNode.name) && handle.getName().startsWith(MethodAnalyzer.LAMBDA_PREFIX + methodNode.name)) {
-                        final int finalI = i;
-                        classNode.methods.stream()
-                            .filter(m -> m.name.equals(handle.getName()) && m.desc.equals(handle.getDesc()))
-                            .findFirst()
-                            .ifPresent(m -> {
-                                methods.add(m);
-                                handleUpdates.add(t -> indy.bsmArgs[finalI] = new Handle(handle.getTag(), t.name, handle.getName(), handle.getDesc(), handle.isInterface()));
-                            });
-                    }
-                }
+        for (IndyHandle lambda : MethodAnalyzer.findOwnIndyHandles(classNode, methodNode)) {
+            Handle handle = lambda.handle();
+            if (handle.getName().startsWith(MethodAnalyzer.LAMBDA_PREFIX + methodNode.name)) {
+                methods.add(lambda.method());
+                handleUpdates.add(t -> lambda.indy().bsmArgs[lambda.argIndex()] = new Handle(handle.getTag(), t.name, handle.getName(), handle.getDesc(), handle.isInterface()));
             }
         }
         return new Candidates(methods, handleUpdates);
@@ -153,9 +145,7 @@ public class ExtractMixinProcessor implements Processor {
     }
 
     private static boolean isInheritedMethod(ClassNode cls, MethodInsnNode minsn, boolean isTargetInherited, List<Runnable> accessUpdates) {
-        return cls.methods.stream()
-            .filter(m -> m.name.equals(minsn.name) && m.desc.equals(minsn.desc))
-            .findFirst()
+        return Optional.ofNullable(AdapterUtil.findMethod(cls, minsn.name, minsn.desc))
             .map(m -> isInheritedMember(m.visibleAnnotations, SingleValueHandle.of(() -> m.access, a -> m.access = a), isTargetInherited, accessUpdates))
             .orElse(false);
     }
@@ -252,7 +242,7 @@ public class ExtractMixinProcessor implements Processor {
      * }</pre>
      */
     private static PatchResult recreateLocalVariables(MethodNode methodNode, MixinContext context, Recipe recipe, ClassNode extractClass) {
-        AdapterUtil.CapturedLocals capturedLocals = AdapterUtil.getCapturedLocals(context, recipe);
+        LocalVarAnalyzer.CapturedLocals capturedLocals = LocalVarAnalyzer.findCapturedLocals(context, recipe);
         if (capturedLocals == null) {
             return PatchResult.PASS;
         }

@@ -96,7 +96,7 @@ public class MethodAnalyzer {
     public record IndyHandle(InvokeDynamicInsnNode indy, int argIndex, Handle handle, MethodNode method) {
     }
 
-    public static List<IndyHandle> findOwnMethodHandles(ClassNode cls, MethodNode method) {
+    public static List<IndyHandle> findOwnIndyHandles(ClassNode cls, MethodNode method) {
         List<IndyHandle> handles = new ArrayList<>();
         for (AbstractInsnNode insn : method.instructions) {
             if (insn instanceof InvokeDynamicInsnNode indy) {

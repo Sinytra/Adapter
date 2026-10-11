@@ -25,6 +25,7 @@ import org.sinytra.adapter.util.GeneratedVariables;
 import org.sinytra.adapter.util.MethodQualifier;
 import org.sinytra.adapter.util.SingleValueHandle;
 import org.sinytra.adapter.util.OpcodeUtil;
+import org.sinytra.adapter.analysis.InsnTraversal;
 
 import java.util.*;
 import java.util.function.Function;
@@ -46,16 +47,12 @@ public class InjectorOrdinalResolver implements Resolver {
         List<HandlerInstance<?, ?>> offsetHandlers = getOffsetHandlers(context, recipe, returnType);
         if (offsetHandlers.isEmpty()) return ResolutionResult.pass();
 
-        TargetPair cleanTarget = recipe.getCleanTarget();
-        if (cleanTarget == null) return ResolutionResult.pass();
-
-        TargetPair dirtyTarget = recipe.getDirtyTarget();
-        if (dirtyTarget == null) return ResolutionResult.pass();
+        if (recipe.targets() == null) return ResolutionResult.pass();
 
         boolean applied = false;
         MutableConfiguration merged = MutableConfiguration.create();
         for (HandlerInstance<?, ?> instance : offsetHandlers) {
-            Configuration config = instance.apply(context, cleanTarget, dirtyTarget);
+            Configuration config = instance.apply(context, recipe);
             if (config != null) {
                 applied = true;
                 merged.mergeFrom(config);
@@ -113,7 +110,7 @@ public class InjectorOrdinalResolver implements Resolver {
     }
 
     private interface UpdateHandler<T, U> {
-        Optional<U> apply(MixinContext mixinContext, TargetPair cleanTarget, TargetPair dirtyTarget, T context);
+        Optional<U> apply(MixinContext mixinContext, Recipe recipe, T context);
     }
 
     private interface OffsetUpdateHandler extends UpdateHandler<OffsetUpdateHandler.Context, Integer> {
@@ -133,8 +130,8 @@ public class InjectorOrdinalResolver implements Resolver {
 
     private record HandlerInstance<T, U>(UpdateHandler<T, U> handler, T context, Function<U, @Nullable Configuration> applicator) {
         @Nullable
-        public Configuration apply(MixinContext mixinContext, TargetPair cleanTarget, TargetPair dirtyTarget) {
-            Optional<U> updatedValue = this.handler.apply(mixinContext, cleanTarget, dirtyTarget, this.context);
+        public Configuration apply(MixinContext mixinContext, Recipe recipe) {
+            Optional<U> updatedValue = this.handler.apply(mixinContext, recipe, this.context);
             if (updatedValue.isPresent()) {
                 U value = updatedValue.get();
                 mixinContext.recordCtxAudit("Update injection point ordinal from %s to %s", this.context, value);
@@ -153,7 +150,9 @@ public class InjectorOrdinalResolver implements Resolver {
         }
 
         @Override
-        public Optional<Integer> apply(MixinContext mixinContext, TargetPair cleanTarget, TargetPair dirtyTarget, Context context) {
+        public Optional<Integer> apply(MixinContext mixinContext, Recipe recipe, Context context) {
+            TargetPair cleanTarget = recipe.getCleanTarget();
+            TargetPair dirtyTarget = recipe.getDirtyTarget();
             String target = context.target();
             int ordinal = context.ordinal();
 
@@ -182,7 +181,9 @@ public class InjectorOrdinalResolver implements Resolver {
         public static final OffsetUpdateHandler INSTANCE = new ReturnOffsetHandler();
 
         @Override
-        public Optional<Integer> apply(MixinContext mixinContext, TargetPair cleanTarget, TargetPair dirtyTarget, Context context) {
+        public Optional<Integer> apply(MixinContext mixinContext, Recipe recipe, Context context) {
+            TargetPair cleanTarget = recipe.getCleanTarget();
+            TargetPair dirtyTarget = recipe.getDirtyTarget();
             int ordinal = context.ordinal();
 
             List<AbstractInsnNode> cleanReturnInsns = MethodAnalyzer.findReturnInsns(cleanTarget.methodNode());
@@ -259,21 +260,12 @@ public class InjectorOrdinalResolver implements Resolver {
         }
 
         private static List<AbstractInsnNode> findReturnPrecedingInsns(AbstractInsnNode insn) {
-            List<AbstractInsnNode> insns = new ArrayList<>();
-            int maxSize = 6;
-            for (AbstractInsnNode prev = insn.getPrevious(); prev != null; prev = prev.getPrevious()) {
-                if (insns.size() >= maxSize) {
-                    break;
-                }
-                if (OpcodeUtil.isReturnOpcode(prev.getOpcode())) {
-                    break;
-                }
-                if (prev instanceof FrameNode || prev instanceof LineNumberNode || prev instanceof LabelNode) {
-                    continue;
-                }
-                insns.addFirst(prev);
-            }
-            return insns;
+            return InsnTraversal.walk(insn.getPrevious(), InsnTraversal.BACKWARD)
+                .takeWhile(prev -> !OpcodeUtil.isReturnOpcode(prev.getOpcode()))
+                .filter(prev -> !(prev instanceof LabelNode) && !InsnTraversal.isDebugNode(prev))
+                .limit(6)
+                .toList()
+                .reversed();
         }
     }
 
@@ -281,7 +273,7 @@ public class InjectorOrdinalResolver implements Resolver {
         private static final ModifyVariableOffsetHandler INSTANCE = new ModifyVariableOffsetHandler();
 
         @Override
-        public Optional<Pair<LocalVar, @Nullable Configuration>> apply(MixinContext mixinContext, TargetPair cleanTarget, TargetPair dirtyTarget, LocalVar local) {
+        public Optional<Pair<LocalVar, @Nullable Configuration>> apply(MixinContext mixinContext, Recipe recipe, LocalVar local) {
             MethodNode methodNode = mixinContext.methodNode();
 
             Type[] args = Type.getArgumentTypes(methodNode.desc);
@@ -299,9 +291,9 @@ public class InjectorOrdinalResolver implements Resolver {
                 return Optional.empty();
             }
 
-            return tryFindUpdatedIndex(targetType, cleanTarget, dirtyTarget, local, mixinContext)
+            return tryFindUpdatedIndex(targetType, recipe, local)
                 .<Pair<LocalVar, Configuration>>map(var -> Pair.of(var, null))
-                .or(() -> tryFindSyntheticVariableIndex(mixinContext, methodNode, cleanTarget, dirtyTarget, local));
+                .or(() -> tryFindSyntheticVariableIndex(mixinContext, methodNode, recipe, local));
         }
 
         /**
@@ -332,11 +324,11 @@ public class InjectorOrdinalResolver implements Resolver {
          *    INVOKEVIRTUAL net/minecraft/world/entity/player/Player.setHealth (F)V
          * }</pre>
          */
-        private static Optional<Pair<LocalVar, @Nullable Configuration>> tryFindSyntheticVariableIndex(MixinContext context, MethodNode methodNode, TargetPair cleanTarget, TargetPair dirtyTarget, LocalVar local) {
+        private static Optional<Pair<LocalVar, @Nullable Configuration>> tryFindSyntheticVariableIndex(MixinContext context, MethodNode methodNode, Recipe recipe, LocalVar local) {
             int ordinal = local.ordinal();
             Type variableType = Type.getReturnType(methodNode.desc);
-            LocalVariableLookup cleanTable = context.methods().getLVT(cleanTarget.methodNode());
-            LocalVariableLookup dirtyTable = context.methods().getLVT(dirtyTarget.methodNode());
+            LocalVariableLookup cleanTable = recipe.cleanLocalsTable();
+            LocalVariableLookup dirtyTable = recipe.dirtyLocalsTable();
             if (cleanTable == null || dirtyTable == null) {
                 return Optional.empty();
             }
@@ -344,13 +336,10 @@ public class InjectorOrdinalResolver implements Resolver {
                 List<LocalVariableNode> available = dirtyTable.getForType(variableType);
                 if (available.size() > ordinal) {
                     int variableIndex = available.get(ordinal).index;
-                    AbstractInsnNode cleanInsn = context.methods().findInjectionTargetInsn(cleanTarget);
-                    AbstractInsnNode dirtyInsn = context.methods().findInjectionTargetInsn(dirtyTarget);
+                    AbstractInsnNode cleanInsn = recipe.getCleanInjectionInsn();
+                    AbstractInsnNode dirtyInsn = context.methods().findInjectionTargetInsn(recipe.getDirtyTarget());
                     if (cleanInsn != null && dirtyInsn != null) {
-                        for (AbstractInsnNode insn = cleanInsn; insn != null; insn = insn.getNext()) {
-                            if (insn instanceof LabelNode) {
-                                break;
-                            }
+                        for (AbstractInsnNode insn : InsnTraversal.untilLabel(cleanInsn, InsnTraversal.FORWARD, true)) {
                             SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);
                             if (handle != null && handle.get() == variableIndex) {
                                 // We found out the variable is used right after our injection point
@@ -383,10 +372,7 @@ public class InjectorOrdinalResolver implements Resolver {
 
         private static List<SingleValueHandle<Integer>> getUsedVariablesInLabel(AbstractInsnNode start, int opcode) {
             List<SingleValueHandle<Integer>> list = new ArrayList<>();
-            for (AbstractInsnNode insn = start; insn != null; insn = insn.getNext()) {
-                if (insn instanceof LabelNode) {
-                    break;
-                }
+            for (AbstractInsnNode insn : InsnTraversal.untilLabel(start, InsnTraversal.FORWARD, true)) {
                 if (insn.getOpcode() == opcode) {
                     SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);
                     if (handle != null) {
@@ -397,16 +383,14 @@ public class InjectorOrdinalResolver implements Resolver {
             return list;
         }
 
-        private static Optional<LocalVar> tryFindUpdatedIndex(Type targetType, TargetPair cleanTarget, TargetPair dirtyTarget, LocalVar local, MixinContext context) {
+        private static Optional<LocalVar> tryFindUpdatedIndex(Type targetType, Recipe recipe, LocalVar local) {
             int ordinal = local.ordinal();
-            LocalVariableLookup dirtyVarLookup = context.methods().getLVT(dirtyTarget.methodNode());
-            if (cleanTarget.methodNode().localVariables == null || dirtyVarLookup == null) {
+            LocalVariableLookup cleanVarLookup = recipe.cleanLocalsTable();
+            LocalVariableLookup dirtyVarLookup = recipe.dirtyLocalsTable();
+            if (cleanVarLookup == null || dirtyVarLookup == null) {
                 return Optional.empty();
             }
-            List<LocalVariableNode> cleanLocals = cleanTarget.methodNode().localVariables.stream()
-                .filter(l -> Type.getType(l.desc).equals(targetType))
-                .sorted(Comparator.comparingInt(l -> l.index))
-                .toList();
+            List<LocalVariableNode> cleanLocals = cleanVarLookup.getForType(targetType);
             if (cleanLocals.size() <= ordinal) {
                 return Optional.empty();
             }
@@ -417,7 +401,7 @@ public class InjectorOrdinalResolver implements Resolver {
 
             List<LocalVariableNode> dirtyLocals = dirtyVarLookup.getForType(targetType);
             if (cleanLocals.size() != dirtyLocals.size() || dirtyLocals.size() <= ordinal) {
-                return findReplacementLocal(cleanTarget.methodNode(), dirtyTarget.methodNode(), cleanLocal)
+                return findReplacementLocal(recipe.getCleanTarget().methodNode(), recipe.getDirtyTarget().methodNode(), cleanLocal)
                     .flatMap(var -> dirtyVarLookup.getTypedOrdinal(var).map(o -> new LocalVar(var, o)));
             }
             LocalVariableNode dirtyLocal = dirtyLocals.get(ordinal);
@@ -439,9 +423,7 @@ public class InjectorOrdinalResolver implements Resolver {
         private static Optional<LocalVariableNode> findReplacementLocal(MethodNode cleanMethod, MethodNode dirtyMethod, LocalVariableNode desired) {
             // Find variable initializer insns
             InsnList desiredInitializerInsns = LocalVarAnalyzer.findInitializerInsns(cleanMethod, desired.index);
-            // Succeed on one exact match
-            return AdapterUtil.findOne(dirtyMethod.localVariables, lvn -> desired.desc.equals(lvn.desc)
-                && InstructionMatcher.test(desiredInitializerInsns, LocalVarAnalyzer.findInitializerInsns(dirtyMethod, lvn.index)));
+            return LocalVarAnalyzer.findLocalWithInitializer(dirtyMethod, desired.desc, desiredInitializerInsns);
         }
     }
 }

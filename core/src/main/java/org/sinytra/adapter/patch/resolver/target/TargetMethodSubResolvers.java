@@ -80,7 +80,7 @@ public class TargetMethodSubResolvers {
         if (target == null) return null;
 
         // Find lambda invocations and search for target insns inside the lambda
-        for (IndyHandle handle : MethodAnalyzer.findOwnMethodHandles(target.classNode(), target.methodNode())) {
+        for (IndyHandle handle : MethodAnalyzer.findOwnIndyHandles(target.classNode(), target.methodNode())) {
             TargetPair lambda = new TargetPair(target.classNode(), handle.method());
             if (!context.methods().findInjectionTargetInsns(lambda).isEmpty()) {
                 return MutableConfiguration.create()

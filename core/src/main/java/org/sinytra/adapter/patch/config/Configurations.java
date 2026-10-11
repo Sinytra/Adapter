@@ -12,7 +12,6 @@ public class Configurations {
             .inheritTargetClass()
             .inheritTargetMethod()
             .setAtData(at)
-            .inheritParameters()
-            .inheritReturnType();
+            .inheritSignature();
     }
 }

@@ -23,7 +23,6 @@ import org.sinytra.adapter.patch.resolver.special.ResolverSyntheticInstanceof;
 import org.sinytra.adapter.util.MethodQualifier;
 
 import java.util.List;
-import java.util.Set;
 
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.*;
 
@@ -47,18 +46,15 @@ public class RedirectMixin extends AbstractMixinType {
         if (clean.getAtData() == null || !MixinAnnotationConstants.AT_VAL_INVOKE.equals(clean.getAtData().getValue()))
             return TxResult.FAIL;
 
-        MethodQualifier targetDesc = clean.getAtData().getTarget().flatMap(MethodQualifier::parse).orElse(null);
+        MethodQualifier targetDesc = clean.getAtData().getTargetQualifier().orElse(null);
         if (targetDesc == null || targetDesc.desc() == null)
             return TxResult.FAIL;
 
         List<Type> methodParams = Parameters.getParameterTypes(context.methodNode().desc);
-        List<Type> callTypes = Parameters.getParameterTypes(targetDesc.desc());
-        boolean isStatic = isStaticRedirect(context, targetDesc, methodParams, callTypes);
-        if (!isStatic) {
-            if (methodParams.isEmpty())
-                return TxResult.FAIL;
-            callTypes.addFirst(methodParams.getFirst());
-        }
+        boolean isStatic = isStaticRedirect(context, targetDesc, methodParams, Parameters.getParameterTypes(targetDesc.desc()));
+        if (!isStatic && methodParams.isEmpty())
+            return TxResult.FAIL;
+        List<Type> callTypes = Parameters.getCallOperandTypes(isStatic ? null : methodParams.getFirst(), targetDesc.desc());
 
         MethodParameters capturedMethodParams = MethodParameters.create(
             Parameters.parse(context.methodNode(), callTypes.size(), -1),
@@ -82,7 +78,7 @@ public class RedirectMixin extends AbstractMixinType {
         if (dirty.getTargetMethod() == null || dirty.getAtData() == null)
             return TxResult.FAIL;
 
-        MethodQualifier targetDesc = dirty.getAtData().getTarget().flatMap(MethodQualifier::parse).orElse(null);
+        MethodQualifier targetDesc = dirty.getAtData().getTargetQualifier().orElse(null);
         if (targetDesc == null || targetDesc.desc() == null)
             return TxResult.FAIL;
 
@@ -91,11 +87,8 @@ public class RedirectMixin extends AbstractMixinType {
             return TxResult.FAIL;
 
         List<Type> dirtyCaptured = context.methods().resolveCapturedMethodParams(recipe.clean(), recipe.dirty());
-        List<Type> callTypes = Parameters.getParameterTypes(targetDesc.desc());
-        if (!MethodHelper.isStatic(dirtyTarget.methodNode())) {
-            Type owner = Type.getObjectType(dirtyTarget.classNode().name);
-            callTypes.addFirst(owner);
-        }
+        Type receiver = MethodHelper.isStatic(dirtyTarget.methodNode()) ? null : Type.getObjectType(dirtyTarget.classNode().name);
+        List<Type> callTypes = Parameters.getCallOperandTypes(receiver, targetDesc.desc());
 
         dirty.inheritProperyIfAbsent(ControlKeys.PARAMETERS);
         MethodParameters params = (dirty.getParameters() != null ? dirty.getParameters().mutableCopy() : MethodParameters.builder())

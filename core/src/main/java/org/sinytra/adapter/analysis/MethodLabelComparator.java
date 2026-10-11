@@ -6,8 +6,8 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.FrameNode;
 import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.Recipe;
+import org.sinytra.adapter.env.ctx.Targets;
 
 import java.util.*;
 import java.util.stream.Stream;
@@ -18,12 +18,10 @@ public class MethodLabelComparator {
 
     @Nullable
     public static ComparisonResult findPatchedLabels(AbstractInsnNode cleanInjectionInsn, Recipe recipe) {
-        TargetPair cleanTarget = recipe.getCleanTarget();
-        if (cleanTarget == null) return null;
-        TargetPair dirtyTarget = recipe.getDirtyTarget();
-        if (dirtyTarget == null) return null;
+        Targets targets = recipe.targets();
+        if (targets == null) return null;
         
-        List<List<AbstractInsnNode>> cleanLabels = getLabelsInMethod(cleanTarget.methodNode());
+        List<List<AbstractInsnNode>> cleanLabels = getLabelsInMethod(targets.clean().methodNode());
         List<List<AbstractInsnNode>> cleanLabelsOriginal = List.copyOf(cleanLabels);
 
         List<List<AbstractInsnNode>> cleanMatchedLabels = cleanLabels.stream()
@@ -34,7 +32,7 @@ public class MethodLabelComparator {
         }
         List<AbstractInsnNode> cleanLabel = cleanMatchedLabels.getFirst();
 
-        List<List<AbstractInsnNode>> dirtyLabels = getLabelsInMethod(dirtyTarget.methodNode());
+        List<List<AbstractInsnNode>> dirtyLabels = getLabelsInMethod(targets.dirty().methodNode());
         List<List<AbstractInsnNode>> dirtyLabelsOriginal = List.copyOf(dirtyLabels);
 
         Map<List<AbstractInsnNode>, List<AbstractInsnNode>> matchedLabels = new LinkedHashMap<>();

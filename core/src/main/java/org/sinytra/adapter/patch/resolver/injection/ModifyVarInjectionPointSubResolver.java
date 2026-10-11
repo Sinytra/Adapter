@@ -9,12 +9,10 @@ import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.resolver.SubResolver;
-import org.sinytra.adapter.analysis.InstructionMatcher;
 import org.sinytra.adapter.analysis.locals.LocalVarAnalyzer;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.env.ctx.TargetPair;
+import org.sinytra.adapter.env.ctx.Targets;
 
-import java.util.List;
 
 import static org.sinytra.adapter.env.util.MixinAnnotationConstants.AT_VAL_STORE;
 import static org.sinytra.adapter.patch.config.key.MixinKeys.ORDINAL;
@@ -25,8 +23,8 @@ public class ModifyVarInjectionPointSubResolver implements SubResolver {
     @Override
     public Configuration resolve(MixinContext context, Recipe recipe) {
         if (!recipe.clean().getAtData().getValue().equals(AT_VAL_STORE)) return null;
-        TargetPair dirtyPair = recipe.getDirtyTarget();
-        if (dirtyPair == null) return null;
+        Targets targets = recipe.targets();
+        if (targets == null) return null;
 
         // Find replacement
         Integer ordinal = recipe.clean().getProperty(ORDINAL).orElse(null);
@@ -34,31 +32,23 @@ public class ModifyVarInjectionPointSubResolver implements SubResolver {
 
         Type varType = Type.getReturnType(context.methodNode().desc);
 
-        TargetPair cleanPair = recipe.getCleanTarget();
-        if (cleanPair == null) return null;
-        LocalVariableLookup lookup = context.methods().getLVT(cleanPair.methodNode());
+        LocalVariableLookup lookup = recipe.cleanLocalsTable();
         if (lookup == null) return null;
 
         LocalVariableNode desired = lookup.getByTypedOrdinal(varType, ordinal).orElse(null);
         if (desired == null) return null;
 
         // Find variable initializer insns
-        InsnList desiredInitializerInsns = LocalVarAnalyzer.findInitializerInsns(cleanPair.methodNode(), desired.index);
+        InsnList desiredInitializerInsns = LocalVarAnalyzer.findInitializerInsns(targets.clean().methodNode(), desired.index);
 
         // Get all matching variables
-        for (MethodNode method : dirtyPair.classNode().methods) {
+        for (MethodNode method : targets.dirty().classNode().methods) {
             LocalVariableLookup dirtyLookup = context.methods().getLVT(method);
             if (dirtyLookup == null) continue;
 
-            List<LocalVariableNode> lvs = method.localVariables.stream()
-                .filter(lvn -> desired.desc.equals(lvn.desc))
-                .filter(lvn -> {
-                    InsnList insns = LocalVarAnalyzer.findInitializerInsns(method, lvn.index);
-                    return InstructionMatcher.test(desiredInitializerInsns, insns);
-                })
-                .toList();
-            if (lvs.size() == 1) {
-                Integer dirtyOrdinal = dirtyLookup.getTypedOrdinal(lvs.getFirst()).orElse(null);
+            LocalVariableNode match = LocalVarAnalyzer.findLocalWithInitializer(method, desired.desc, desiredInitializerInsns).orElse(null);
+            if (match != null) {
+                Integer dirtyOrdinal = dirtyLookup.getTypedOrdinal(match).orElse(null);
                 if (dirtyOrdinal == null) continue;
 
                 return recipe.dirty().copyClean()

@@ -10,6 +10,7 @@ import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.config.key.SpecialKeys;
 import org.sinytra.adapter.patch.processor.Processor;
 import org.sinytra.adapter.util.MethodQualifier;
+import org.sinytra.adapter.analysis.InsnTraversal;
 
 import java.util.function.Consumer;
 
@@ -22,28 +23,26 @@ public class DivertRedirectProcessor implements Processor {
         if (patcher == null) return TxResult.PASS;
 
         if (!recipe.hasInjectionPointValue(AT_VAL_INVOKE)) return TxResult.PASS;
-        MethodQualifier target = dirty.getAtData().getTarget().flatMap(MethodQualifier::parse).orElse(null);
+        MethodQualifier target = dirty.getAtData().getTargetQualifier().orElse(null);
 
         if (target != null) {
             MethodNode methodNode = context.methodNode();
             boolean applied = false;
             for (AbstractInsnNode insn : methodNode.instructions) {
                 if (insn instanceof MethodInsnNode minsn && target.matches(minsn)) {
-                    for (AbstractInsnNode previous = insn.getPrevious(); previous != null; previous = previous.getPrevious()) {
-                        if (previous instanceof LabelNode) {
-                            MethodNode dummy = new MethodNode();
-                            InstructionAdapter adapter = new InstructionAdapter(dummy);
+                    AbstractInsnNode previousLabel = InsnTraversal.find(insn, InsnTraversal.BACKWARD, LabelNode.class::isInstance);
+                    if (previousLabel != null) {
+                        MethodNode dummy = new MethodNode();
+                        InstructionAdapter adapter = new InstructionAdapter(dummy);
 
-                            LabelNode gotoTarget = new LabelNode();
-                            dummy.instructions.add(gotoTarget);
-                            
-                            patcher.accept(adapter);
-                            
-                            methodNode.instructions.insert(minsn, dummy.instructions);
-                            methodNode.instructions.insert(previous, new JumpInsnNode(Opcodes.GOTO, gotoTarget));
-                            applied = true;
-                            break;
-                        }
+                        LabelNode gotoTarget = new LabelNode();
+                        dummy.instructions.add(gotoTarget);
+
+                        patcher.accept(adapter);
+
+                        methodNode.instructions.insert(minsn, dummy.instructions);
+                        methodNode.instructions.insert(previousLabel, new JumpInsnNode(Opcodes.GOTO, gotoTarget));
+                        applied = true;
                     }
                 }
             }
