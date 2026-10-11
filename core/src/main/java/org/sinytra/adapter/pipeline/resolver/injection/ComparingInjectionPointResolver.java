@@ -76,7 +76,7 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
         private static Configuration attemptExtractMixin(MethodInsnNode minsn, MixinContext context, Configuration clean) {
             // Looks like some code was moved into a static method outside this class
             // Attempt extracting mixin
-            TargetPair target = context.methods().findMethodPair(context.dirtyLookup(), MethodQualifier.create(minsn));
+            TargetPair target = context.dirtyMethods().resolveDeclared(MethodQualifier.create(minsn));
             if (target == null) return null;
 
 //            MethodUpgrader.adjustInjectorOrdinalForNewMethod(minsn, context.legacy()); FIXME
@@ -243,7 +243,7 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
                 .filter(insn -> insn instanceof MethodInsnNode minsn && minsn.owner.equals(dirtyClass.name))
                 .map(MethodInsnNode.class::cast)
                 .filter(minsn -> {
-                    TargetPair pair = context.methods().findMethodPair(context.dirtyLookup(), MethodQualifier.create(minsn));
+                    TargetPair pair = context.dirtyMethods().resolveDeclared(MethodQualifier.create(minsn));
                     return pair != null && context.methods().hasInjectionTargetInsns(pair);
                 })
                 .<Configuration>map(minsn -> MutableConfiguration.create()

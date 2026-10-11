@@ -41,7 +41,7 @@ public class ModifyReturnValueMixin extends AbstractMixinType {
             return true;
         }
 
-        Targets targets = context.methods().findTargets(target);
+        Targets targets = context.targets(target);
         return targets == null || MethodAnalyzer.findReturnInsns(targets.clean().methodNode()).size() == MethodAnalyzer.findReturnInsns(targets.dirty().methodNode()).size();
     }
 

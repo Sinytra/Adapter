@@ -17,43 +17,63 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
 
-public class MethodFinder {
+public final class MethodLocator {
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    public static class Flags {
-        public static final int IGNORE_DESC = 0b01;
-        public static final int FALLBACK_OWNER = 0b10;
-    }
-
     private final PatchEnvironment environment;
+    private final ClassLookup lookup;
     @Nullable
-    private final String fallbackOwner;
+    private final String defaultOwner;
 
-    public MethodFinder(PatchEnvironment environment, String fallbackOwner) {
+    public MethodLocator(PatchEnvironment environment, ClassLookup lookup, @Nullable String defaultOwner) {
         this.environment = environment;
-        this.fallbackOwner = fallbackOwner;
+        this.lookup = lookup;
+        this.defaultOwner = defaultOwner;
     }
 
+    public ClassLookup lookup() {
+        return this.lookup;
+    }
+
+    /// {@return a single method matching the qualifier, searched in the specified class or default owner}
     @Nullable
-    public TargetPair findInheritedMethod(ClassLookup lookup, MethodQualifier qualifier) {
+    public TargetPair resolve(MethodQualifier qualifier) {
+        return resolveSingle(qualifier, true);
+    }
+
+    /// {@return the single method matching the qualifier in the class it specifies}
+    @Nullable
+    public TargetPair resolveDeclared(MethodQualifier qualifier) {
+        return resolveSingle(qualifier, false);
+    }
+
+    /// {@return the first method matching the qualifier in the class it specifies or its parents}
+    @Nullable
+    public TargetPair resolveInherited(MethodQualifier qualifier) {
         String owner = qualifier.internalOwnerName();
         if (owner == null || qualifier.name() == null) return null;
 
-        ClassNode node = lookup.getClass(owner).orElse(null);
+        ClassNode node = this.lookup.getClass(owner).orElse(null);
         if (node == null) return null;
 
-        Collection<String> parents = this.environment.inheritanceHandler(lookup).getClassParents(node.name);
+        Collection<String> parents = this.environment.inheritanceHandler(this.lookup).getClassParents(node.name);
 
         return Stream.concat(Stream.of(node.name), parents.stream())
-            .flatMap(cls -> lookup.findMethod(cls, qualifier.name(), qualifier.desc()).stream()
-                .map(m -> new TargetPair(lookup.getClass(cls).orElseThrow(), m)))
+            .flatMap(cls -> this.lookup.findMethod(cls, qualifier.name(), qualifier.desc()).stream()
+                .map(m -> new TargetPair(this.lookup.getClass(cls).orElseThrow(), m)))
             .findFirst()
             .orElse(null);
     }
 
+    /// {@return all methods with the qualifier's name, searched in the specified class or default owner}
+    public List<MethodNode> findByName(MethodQualifier qualifier) {
+        Pair<ClassNode, List<MethodNode>> pair = findCandidates(qualifier, true, true);
+        return pair != null ? pair.getSecond() : List.of();
+    }
+
     @Nullable
-    public TargetPair findMethod(ClassLookup lookup, MethodQualifier qualifier, int flags) {
-        Pair<ClassNode, List<MethodNode>> pair = findMethods(lookup, qualifier, flags);
+    private TargetPair resolveSingle(MethodQualifier qualifier, boolean useDefaultOwner) {
+        Pair<ClassNode, List<MethodNode>> pair = findCandidates(qualifier, useDefaultOwner, false);
         if (pair == null) {
             return null;
         }
@@ -70,7 +90,7 @@ public class MethodFinder {
     }
 
     @Nullable
-    public Pair<ClassNode, List<MethodNode>> findMethods(ClassLookup lookup, MethodQualifier qualifier, int flags) {
+    private Pair<ClassNode, List<MethodNode>> findCandidates(@Nullable MethodQualifier qualifier, boolean useDefaultOwner, boolean ignoreDesc) {
         if (qualifier == null || qualifier.name() == null) {
             return null;
         }
@@ -79,14 +99,14 @@ public class MethodFinder {
         String owner;
         if (qualifier.internalOwnerName() != null) {
             owner = qualifier.internalOwnerName();
-        } else if (hasFlag(flags, Flags.FALLBACK_OWNER) && this.fallbackOwner != null) {
-            owner = this.fallbackOwner;
+        } else if (useDefaultOwner && this.defaultOwner != null) {
+            owner = this.defaultOwner;
         } else {
             return null;
         }
 
         // Find target class
-        ClassNode targetClass = lookup.getClass(owner).orElse(null);
+        ClassNode targetClass = this.lookup.getClass(owner).orElse(null);
         if (targetClass == null) {
             return null;
         }
@@ -94,8 +114,7 @@ public class MethodFinder {
         // Find target method in class
         String desc = qualifier.desc();
         List<MethodNode> candidates = targetClass.methods.stream()
-            .filter(mtd -> mtd.name.equals(qualifier.name())
-                && (hasFlag(flags, Flags.IGNORE_DESC) || desc == null || mtd.desc.equals(desc)))
+            .filter(mtd -> mtd.name.equals(qualifier.name()) && (ignoreDesc || desc == null || mtd.desc.equals(desc)))
             .toList();
 
         // If there's multiple candidates, try removing bouncer methods
@@ -104,13 +123,9 @@ public class MethodFinder {
         }
 
         if (candidates.isEmpty() && targetClass.superName != null) {
-            return findMethods(lookup, new MethodQualifier(Type.getObjectType(targetClass.superName).getDescriptor(), qualifier.name(), qualifier.desc()), flags);
+            return findCandidates(new MethodQualifier(Type.getObjectType(targetClass.superName).getDescriptor(), qualifier.name(), qualifier.desc()), useDefaultOwner, ignoreDesc);
         }
 
         return Pair.of(targetClass, candidates);
-    }
-
-    private static boolean hasFlag(int flags, int flag) {
-        return (flags & flag) != 0;
     }
 }

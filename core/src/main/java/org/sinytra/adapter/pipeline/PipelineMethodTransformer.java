@@ -47,10 +47,10 @@ public class PipelineMethodTransformer implements MethodTransformer {
 
     @Override
     public PatchResult apply(MixinContext context, Configuration config) {
-        TargetPair cleanTarget = context.methods().findOwnMethodPair(context.cleanLookup(), config.getTargetMethod());
+        TargetPair cleanTarget = context.cleanMethods().resolve(config.getTargetMethod());
         if (cleanTarget == null) return PatchResult.PASS;
 
-        TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), config.getTargetMethod());
+        TargetPair dirtyTarget = context.dirtyMethods().resolve(config.getTargetMethod());
         if (!this.patchResolver.matches(config) && !failsDirtyInjectionCheck(context, config, dirtyTarget) && hasValidSlice(context, config, dirtyTarget))
             return PatchResult.PASS;
 

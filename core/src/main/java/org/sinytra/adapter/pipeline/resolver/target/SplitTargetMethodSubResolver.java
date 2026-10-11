@@ -84,7 +84,7 @@ public class SplitTargetMethodSubResolver implements SubResolver {
     private static List<CandidateMethod> tryFindPartialCandidates(MethodNode cleanTargetMethod, ClassNode dirtyTargetClass, MethodNode dirtyTargetMethod, MixinContext context) {
         List<TargetPair> dirtyOnlyCalls = MethodAnalyzer.findDirtyOnlyCalls(cleanTargetMethod, dirtyTargetMethod, false).stream()
             .filter(i -> i.owner.equals(dirtyTargetClass.name))
-            .map(i -> context.methods().findOwnMethodPair(context.dirtyLookup(), MethodQualifier.create(i)))
+            .map(i -> context.dirtyMethods().resolve(MethodQualifier.create(i)))
             .filter(Objects::nonNull)
             .toList();
 

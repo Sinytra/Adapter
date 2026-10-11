@@ -5,10 +5,14 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.analysis.method.MethodHelper;
+import org.sinytra.adapter.analysis.method.MethodLocator;
 import org.sinytra.adapter.api.BytecodeFixerUpper;
 import org.sinytra.adapter.api.ClassLookup;
 import org.sinytra.adapter.api.PatchEnvironment;
 import org.sinytra.adapter.api.TypeAdapter;
+import org.sinytra.adapter.model.MethodQualifier;
+import org.sinytra.adapter.model.TargetPair;
+import org.sinytra.adapter.model.Targets;
 import org.sinytra.adapter.model.ann.AnnotationHandle;
 import org.sinytra.adapter.model.ann.ClassTarget;
 import org.sinytra.adapter.model.ann.RefMapper;
@@ -39,6 +43,8 @@ public class MixinContext implements RefMapper, Auditor {
 
     private final String mixinId;
     private final MethodHelper methodHelper;
+    private final MethodLocator cleanMethods;
+    private final MethodLocator dirtyMethods;
     private final Resolvers resolvers = new Resolvers();
     private final Processors processors = new Processors();
 
@@ -52,7 +58,10 @@ public class MixinContext implements RefMapper, Auditor {
         this.injectionPointAnnotation = injectionPointAnnotation;
         this.flags = flags;
 
-        this.methodHelper = new MethodHelper(this, classTarget.getTypes());
+        this.methodHelper = new MethodHelper(this);
+        String defaultOwner = classTarget.getTypes().getFirst().getInternalName();
+        this.cleanMethods = new MethodLocator(patchContext.environment(), patchContext.environment().cleanClassLookup(), defaultOwner);
+        this.dirtyMethods = new MethodLocator(patchContext.environment(), patchContext.environment().dirtyClassLookup(), defaultOwner);
         this.originalMethodNode = AdapterUtil.copyMethod(this.methodNode);
 
         this.mixinId = classNode.name + "#" + methodNode.name + methodNode.desc;
@@ -97,6 +106,21 @@ public class MixinContext implements RefMapper, Auditor {
 
     public MethodHelper methods() {
         return this.methodHelper;
+    }
+
+    public MethodLocator cleanMethods() {
+        return this.cleanMethods;
+    }
+
+    public MethodLocator dirtyMethods() {
+        return this.dirtyMethods;
+    }
+
+    @Nullable
+    public Targets targets(MethodQualifier qualifier) {
+        TargetPair clean = this.cleanMethods.resolve(qualifier);
+        TargetPair dirty = this.dirtyMethods.resolve(qualifier);
+        return clean != null && dirty != null ? new Targets(clean, dirty) : null;
     }
 
     public ClassLookup cleanLookup() {

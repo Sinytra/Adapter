@@ -3,7 +3,7 @@ package org.sinytra.adapter.pipeline;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.api.ClassLookup;
+import org.sinytra.adapter.analysis.method.MethodLocator;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.Targets;
@@ -53,18 +53,18 @@ public final class Recipe {
             this.newCleanTarget = original.newCleanTarget;
             this.cleanLocalsTable = original.cleanLocalsTable;
         } else {
-            this.cleanTarget = Cached.of(() -> findTarget(context, context.cleanLookup(), clean.getTargetMethod()));
-            this.newCleanTarget = Cached.of(() -> findTarget(context, context.dirtyLookup(), clean.getTargetMethod()));
+            this.cleanTarget = Cached.of(() -> findTarget(context.cleanMethods(), clean.getTargetMethod()));
+            this.newCleanTarget = Cached.of(() -> findTarget(context.dirtyMethods(), clean.getTargetMethod()));
             this.cleanLocalsTable = Cached.of(() -> getLocalsTable(context, getCleanTarget()));
         }
 
-        this.dirtyTarget = Cached.keyed(dirty::getTargetMethod, target -> findTarget(context, context.dirtyLookup(), target));
+        this.dirtyTarget = Cached.keyed(dirty::getTargetMethod, target -> findTarget(context.dirtyMethods(), target));
         this.dirtyLocalsTable = Cached.keyed(this::getDirtyTarget, target -> getLocalsTable(context, target));
     }
 
     @Nullable
-    private static TargetPair findTarget(MixinContext context, ClassLookup lookup, @Nullable MethodQualifier target) {
-        return target != null ? context.methods().findOwnMethodPair(lookup, target) : null;
+    private static TargetPair findTarget(MethodLocator locator, @Nullable MethodQualifier target) {
+        return target != null ? locator.resolve(target) : null;
     }
 
     @Nullable

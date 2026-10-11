@@ -1,6 +1,5 @@
 package org.sinytra.adapter.analysis.method;
 
-import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
@@ -11,11 +10,8 @@ import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.analysis.params.ParamDiffResolver;
-import org.sinytra.adapter.api.ClassLookup;
 import org.sinytra.adapter.mixin.MockMixinRuntime;
-import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.TargetPair;
-import org.sinytra.adapter.model.Targets;
 import org.sinytra.adapter.model.ann.AnnotationHandle;
 import org.sinytra.adapter.model.ann.AtData;
 import org.sinytra.adapter.model.config.Configuration;
@@ -41,45 +37,14 @@ public class MethodHelper {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private final MixinContext context;
-    private final MethodFinder methodFinder;
 
     private final Map<TargetInsnsKey, List<AbstractInsnNode>> targetInstructionsCache = new HashMap<>();
 
     private record TargetInsnsKey(@Nullable TargetPair target, boolean ignoreOrdinal, @Nullable Object injectionPoint, @Nullable Object methodAnnotation) {
     }
 
-    public MethodHelper(MixinContext context, List<Type> targetTypes) {
+    public MethodHelper(MixinContext context) {
         this.context = context;
-
-        String singleTargetClass = targetTypes.getFirst().getInternalName();
-        this.methodFinder = new MethodFinder(context.environment(), singleTargetClass);
-    }
-
-    @Nullable
-    public TargetPair findInheritedMethodPair(ClassLookup lookup, MethodQualifier qualifier) {
-        return this.methodFinder.findInheritedMethod(lookup, qualifier);
-    }
-
-    @Nullable
-    public TargetPair findMethodPair(ClassLookup lookup, MethodQualifier qualifier) {
-        return this.methodFinder.findMethod(lookup, qualifier, 0);
-    }
-
-    @Nullable
-    public TargetPair findOwnMethodPair(ClassLookup lookup, MethodQualifier qualifier) {
-        return this.methodFinder.findMethod(lookup, qualifier, MethodFinder.Flags.FALLBACK_OWNER);
-    }
-
-    @Nullable
-    public Targets findTargets(MethodQualifier qualifier) {
-        TargetPair clean = findOwnMethodPair(this.context.cleanLookup(), qualifier);
-        TargetPair dirty = findOwnMethodPair(this.context.dirtyLookup(), qualifier);
-        return clean != null && dirty != null ? new Targets(clean, dirty) : null;
-    }
-
-    @Nullable
-    public Pair<ClassNode, List<MethodNode>> findOwnMethodsByName(ClassLookup lookup, MethodQualifier qualifier) {
-        return this.methodFinder.findMethods(lookup, qualifier, MethodFinder.Flags.FALLBACK_OWNER | MethodFinder.Flags.IGNORE_DESC);
     }
 
     public boolean hasInjectionTargetInsns(@Nullable TargetPair target) {
@@ -165,8 +130,8 @@ public class MethodHelper {
 
         // Evaluate parameter difference, capture additional params when necessary
         if (!cleanCaptured.isEmpty()) {
-            TargetPair cleanPair = findOwnMethodPair(this.context.cleanLookup(), clean.getTargetMethod());
-            TargetPair dirtyPair = findOwnMethodPair(this.context.dirtyLookup(), dirty.getTargetMethod());
+            TargetPair cleanPair = this.context.cleanMethods().resolve(clean.getTargetMethod());
+            TargetPair dirtyPair = this.context.dirtyMethods().resolve(dirty.getTargetMethod());
             if (cleanPair == null || dirtyPair == null) return dirtyCaptured;
             MethodNode cleanTarget = cleanPair.methodNode();
             MethodNode dirtyTarget = dirtyPair.methodNode();

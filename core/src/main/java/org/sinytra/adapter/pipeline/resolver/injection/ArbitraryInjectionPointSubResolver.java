@@ -37,7 +37,7 @@ public class ArbitraryInjectionPointSubResolver implements SubResolver {
         if (targetMethodCall == null) return null;
 
         if (targetMethodCall.owner.equals(dirtyTarget.classNode().name)) {
-            TargetPair target = context.methods().findOwnMethodPair(context.dirtyLookup(), MethodQualifier.create(targetMethodCall));
+            TargetPair target = context.dirtyMethods().resolve(MethodQualifier.create(targetMethodCall));
             if (target == null) return null;
 
             // New method is in the same class? It's possible our target injection point was moved there

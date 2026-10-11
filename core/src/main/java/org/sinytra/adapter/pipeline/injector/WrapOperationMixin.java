@@ -60,7 +60,7 @@ public class WrapOperationMixin extends AbstractMixinType {
             return TxResult.FAIL;
 
         List<Type> dirtyCaptured = context.methods().resolveCapturedMethodParams(recipe.clean(), recipe.dirty());
-        TargetPair targetMethodCall = dirtyAtTarget.isFull() ? context.methods().findInheritedMethodPair(context.dirtyLookup(), dirtyAtTarget) : null;
+        TargetPair targetMethodCall = dirtyAtTarget.isFull() ? context.dirtyMethods().resolveInherited(dirtyAtTarget) : null;
         Type receiver = targetMethodCall != null && !MethodHelper.isStatic(targetMethodCall.methodNode()) ? Type.getObjectType(dirtyAtTarget.internalOwnerName()) : null;
         List<Type> callTypes = Parameters.getCallOperandTypes(receiver, dirtyAtTarget.desc());
 

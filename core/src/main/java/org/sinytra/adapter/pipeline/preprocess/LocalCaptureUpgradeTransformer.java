@@ -24,7 +24,7 @@ public class LocalCaptureUpgradeTransformer implements MethodTransformer {
     @Override
     public PatchResult apply(MixinContext context, Configuration config) {
         // Check requirements
-        Targets targets = context.methods().findTargets(config.getTargetMethod());
+        Targets targets = context.targets(config.getTargetMethod());
         if (targets == null) return PatchResult.PASS;
 
         if (!config.hasProperty(MixinKeys.LOCALS)) return PatchResult.PASS;

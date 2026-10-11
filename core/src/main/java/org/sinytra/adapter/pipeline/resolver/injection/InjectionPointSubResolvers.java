@@ -81,7 +81,7 @@ public class InjectionPointSubResolvers {
             int selfParamIndex = argInsns.indexOf(self);
             MethodQualifier target = MethodQualifier.create(minsn);
 
-            TargetPair pair = context.methods().findMethodPair(context.dirtyLookup(), target);
+            TargetPair pair = context.dirtyMethods().resolveDeclared(target);
             if (pair != null && context.methods().hasInjectionTargetInsns(pair)) {
                 return recipe.dirty().copyClean()
                     .setTargetClass(minsn.owner)
@@ -105,7 +105,7 @@ public class InjectionPointSubResolvers {
         if (newCalls.isEmpty()) return null;
         Set<Integer> trackLocals = context.isStatic() ? Set.of() : Set.of(0);
 
-        TargetPair to = context.methods().findInheritedMethodPair(context.dirtyLookup(), MethodQualifier.create(minsn));
+        TargetPair to = context.dirtyMethods().resolveInherited(MethodQualifier.create(minsn));
         CodePath path = CodePaths.findCodePath(targets.dirty(), to, trackLocals, context, newCalls::contains);
         if (path == null) return null;
 

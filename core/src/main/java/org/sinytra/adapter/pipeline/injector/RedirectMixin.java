@@ -85,7 +85,7 @@ public class RedirectMixin extends AbstractMixinType {
         if (targetDesc == null || targetDesc.desc() == null)
             return TxResult.FAIL;
 
-        TargetPair dirtyTarget = context.methods().findOwnMethodPair(context.dirtyLookup(), targetDesc);
+        TargetPair dirtyTarget = context.dirtyMethods().resolve(targetDesc);
         if (dirtyTarget == null)
             return TxResult.FAIL;
 
@@ -106,7 +106,7 @@ public class RedirectMixin extends AbstractMixinType {
     }
 
     private boolean isStaticRedirect(MixinContext context, MethodQualifier targetDesc, List<Type> methodParams, List<Type> callTypes) {
-        TargetPair cleanTarget = context.methods().findOwnMethodPair(context.cleanLookup(), targetDesc);
+        TargetPair cleanTarget = context.cleanMethods().resolve(targetDesc);
         if (cleanTarget != null) {
             return MethodHelper.isStatic(cleanTarget.methodNode());
         }

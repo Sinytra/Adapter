@@ -96,7 +96,7 @@ public class ModifyVariableMixin extends AbstractMixinType {
     public boolean canInject(MixinContext context, Configuration config) {
         // Ensure variable at index has the correct type
         if (config.hasProperty(MixinKeys.INDEX)) {
-            TargetPair targetPair = context.methods().findOwnMethodPair(context.dirtyLookup(), config.getTargetMethod());
+            TargetPair targetPair = context.dirtyMethods().resolve(config.getTargetMethod());
             if (targetPair == null) return false;
             MethodNode target = targetPair.methodNode();
 

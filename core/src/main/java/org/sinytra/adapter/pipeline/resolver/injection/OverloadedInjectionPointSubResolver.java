@@ -36,10 +36,10 @@ public class OverloadedInjectionPointSubResolver implements SubResolver {
         if (!(cleanInsn instanceof MethodInsnNode cleanMinsn)) return null;
         MethodQualifier cleanQualifier = MethodQualifier.create(cleanMinsn);
 
-        TargetPair cleanTarget = context.methods().findMethodPair(context.cleanLookup(), cleanQualifier);
+        TargetPair cleanTarget = context.cleanMethods().resolveDeclared(cleanQualifier);
         if (cleanTarget == null) return null;
 
-        TargetPair newCleanTarget = context.methods().findMethodPair(context.dirtyLookup(), cleanQualifier);
+        TargetPair newCleanTarget = context.dirtyMethods().resolveDeclared(cleanQualifier);
         if (newCleanTarget == null) return null;
 
         // Check if called clean method was marked as deprecated

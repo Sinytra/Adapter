@@ -78,7 +78,7 @@ public class CodePaths {
                 continue;
             }
 
-            TargetPair nextFrom = context.methods().findInheritedMethodPair(context.dirtyLookup(), MethodQualifier.create(minsn));
+            TargetPair nextFrom = context.dirtyMethods().resolveInherited(MethodQualifier.create(minsn));
             if (nextFrom == null) continue;
 
             LocalVariableLookup lvt = context.methods().getLVT(nextFrom.methodNode());

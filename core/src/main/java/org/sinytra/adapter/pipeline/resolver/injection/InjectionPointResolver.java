@@ -38,7 +38,7 @@ public class InjectionPointResolver extends CompoundResolver {
         MethodQualifier targetQualifier = dirty.getTargetMethod();
         if (targetQualifier == null) return null;
         
-        TargetPair dirtyTarget = context.methods().findMethodPair(context.dirtyLookup(), targetQualifier.withOwner(Type.getObjectType(targetClass)));
+        TargetPair dirtyTarget = context.dirtyMethods().resolveDeclared(targetQualifier.withOwner(Type.getObjectType(targetClass)));
         if (dirtyTarget == null) return null;
 
         // Try reusing the original

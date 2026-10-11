@@ -57,11 +57,11 @@ public class TargetMethodSubResolvers {
 
         MethodQualifier cleanQualifier = recipe.clean().getTargetMethod();
 
-        Pair<ClassNode, List<MethodNode>> candidates = context.methods().findOwnMethodsByName(context.dirtyLookup(), cleanQualifier);
-        if (candidates == null) return null;
+        List<MethodNode> candidates = context.dirtyMethods().findByName(cleanQualifier);
+        if (candidates.isEmpty()) return null;
 
         // Find single matching candidate
-        Configuration resolved = resolveReplacementCandidate(context, recipe, candidates.getSecond());
+        Configuration resolved = resolveReplacementCandidate(context, recipe, candidates);
         if (resolved == null) return null;
 
         // Only apply single candidate change when the target desc has changed
@@ -152,7 +152,7 @@ public class TargetMethodSubResolvers {
     }
 
     public static boolean isDirtyDeprecatedMethod(MixinContext context, MethodNode dirty) {
-        TargetPair pair = context.methods().findOwnMethodPair(context.cleanLookup(), MethodQualifier.create(dirty));
+        TargetPair pair = context.cleanMethods().resolve(MethodQualifier.create(dirty));
         return pair != null ? MethodAnalyzer.isDirtyDeprecatedMethod(pair.methodNode(), dirty) : MethodAnalyzer.isDeprecated(dirty);
     }
 }
