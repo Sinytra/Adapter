@@ -5,6 +5,7 @@ import org.jetbrains.annotations.Nullable;
 import org.sinytra.adapter.analysis.selector.AnnotationHandle;
 import org.sinytra.adapter.analysis.selector.AnnotationValueHandle;
 import org.sinytra.adapter.env.ctx.RefMapper;
+import org.objectweb.asm.tree.AnnotationNode;
 
 import java.util.*;
 
@@ -75,15 +76,22 @@ public class BasePropertyContainer implements MutablePropertyContainer {
     @SuppressWarnings({"rawtypes", "unchecked"})
     @Override
     public void apply(AnnotationHandle handle) {
-        Set<PropertyKey<?>> pluralKeys = Optional.ofNullable(this.template)
-            .map(PropertyContainerTemplate::getPluralKeys)
-            .orElseGet(Set::of);
+        this.properties.forEach((key, value) -> handle.setOrAppendNonNull(key.name(), serialize((PropertyKey) key, value)));
+    }
 
-        this.properties.forEach((key, value) -> {
-            Object serialized = ((PropertyKey) key).serialize(value);
-            Object actual = pluralKeys.contains(key) ? List.of(serialized) : serialized;
-            handle.setOrAppendNonNull(key.name(), actual);
-        });
+    @Override
+    public <T> Object serialize(PropertyKey<T> key, T value) {
+        Object serialized = key.serialize(value);
+        boolean plural = this.template != null && this.template.getPluralKeys().contains(key);
+        return plural ? List.of(serialized) : serialized;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @Override
+    public AnnotationNode toAnnotationNode(String desc) {
+        AnnotationNode node = new AnnotationNode(desc);
+        this.properties.forEach((key, value) -> node.visit(key.name(), serialize((PropertyKey) key, value)));
+        return node;
     }
 
     @Override

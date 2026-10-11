@@ -12,10 +12,10 @@ import org.sinytra.adapter.env.param.Parameters;
 import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.types.TypeAdapter;
 import org.slf4j.Logger;
+import org.sinytra.adapter.patch.processor.wrapop.WrapOpOriginalCall;
 
 import java.util.List;
 
-import static org.sinytra.adapter.transform.param.ParamTransformationUtil.findWrapOperationOriginalCall;
 import static org.sinytra.adapter.util.AdapterUtil.MIXINPATCH;
 
 // TODO Just add @Coerce if the types are inherited
@@ -48,7 +48,7 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
         localVar.desc = this.type.getDescriptor();
         localVar.signature = null;
 
-        List<AbstractInsnNode> ignoreInsns = findWrapOperationOriginalCall(methodNode);
+        List<AbstractInsnNode> ignoreInsns = WrapOpOriginalCall.findCallVarInsns(methodNode);
         if (this.upgradeUsage && this.type.getSort() == Type.OBJECT && originalType.getSort() == Type.OBJECT) {
             // Replace variable usages with the new type
             for (AbstractInsnNode insn : methodNode.instructions) {
@@ -77,18 +77,16 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
                         }
                     }
                 }
-
-                if (insn instanceof MethodInsnNode minsn && minsn.owner.equals(originalType.getInternalName())) {
-                    List<AbstractInsnNode> insns = MethodCallAnalyzer.getMethodCallInsns(methodNode, minsn);
-                    if (insns == null) continue;
-                    // Find var load instruction
-                    for (AbstractInsnNode callInsn : insns) {
-                        if (callInsn instanceof VarInsnNode varInsn && varInsn.var == localVar.index) {
-                            minsn.owner = this.type.getInternalName();
-                        }
-                    }
-                }
             }
+
+            // Calls made on the variable must target the new type unless its value was adapted back to the original above
+            MethodCallAnalyzer.forEachReceiver(methodNode, (call, receiver) -> {
+                if (call.owner.equals(originalType.getInternalName())
+                    && receiver.stream().anyMatch(p -> p instanceof VarInsnNode varInsn && varInsn.var == localVar.index)
+                ) {
+                    call.owner = this.type.getInternalName();
+                }
+            });
         }
 
         return PatchResult.COMPUTE_FRAMES;

@@ -1,7 +1,6 @@
 package org.sinytra.adapter.patch.mixin;
 
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.patch.config.*;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.MethodHelper;
@@ -19,9 +18,9 @@ import org.sinytra.adapter.patch.resolver.injection.ComparingInjectionPointResol
 import org.sinytra.adapter.patch.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.env.util.TypeConstants;
 import org.sinytra.adapter.util.MethodQualifier;
+import org.sinytra.adapter.env.ctx.TargetPair;
 
 import java.util.List;
-import java.util.Set;
 
 import static org.sinytra.adapter.env.param.MethodParameters.ParamGroup.*;
 
@@ -53,26 +52,19 @@ public class WrapOperationMixin extends AbstractMixinType {
         if (dirty.getTargetMethod() == null) return TxResult.FAIL;
         if (dirty.getAtData() == null) return TxResult.PASS;
 
-        MethodQualifier dirtyAtTarget = dirty.getAtData().getTarget().flatMap(MethodQualifier::parse).orElse(null);
+        MethodQualifier dirtyAtTarget = dirty.getAtData().getTargetQualifier().orElse(null);
         if (dirtyAtTarget == null || dirtyAtTarget.desc() == null)
             return TxResult.FAIL;
 
         List<Type> dirtyCaptured = context.methods().resolveCapturedMethodParams(recipe.clean(), recipe.dirty());
-        List<Type> callTypes = new ArrayList<>(Parameters.getParameterTypes(dirtyAtTarget.desc()));
+        TargetPair targetMethodCall = dirtyAtTarget.isFull() ? context.methods().findInheritedMethodPair(context.dirtyLookup(), dirtyAtTarget) : null;
+        Type receiver = targetMethodCall != null && !MethodHelper.isStatic(targetMethodCall.methodNode()) ? Type.getObjectType(dirtyAtTarget.internalOwnerName()) : null;
+        List<Type> callTypes = Parameters.getCallOperandTypes(receiver, dirtyAtTarget.desc());
 
-        if (dirtyAtTarget.isFull()) {
-            MethodNode targetMethodCall = context.methods().findInheritedMethod(context.dirtyLookup(), dirtyAtTarget);
-            if (targetMethodCall != null && !MethodHelper.isStatic(targetMethodCall)) {
-                callTypes.addFirst(Type.getObjectType(dirtyAtTarget.internalOwnerName()));
-            }
-        }
-
-        MethodParameters params = MethodParameters.builder()
+        MethodParameters params = clean.getParameters().mutableCopy()
             .putTypes(METHOD_PARAMS, callTypes)
             .putType(OPERATION, TypeConstants.OPERATION_TYPE)
             .putTypes(CAPTURED_PARAMS, dirtyCaptured)
-            .put(LOCALS, clean.getParameters().get(LOCALS))
-            .putRemaining(clean.getParameters())
             .build();
 
         dirty.setParameters(params);

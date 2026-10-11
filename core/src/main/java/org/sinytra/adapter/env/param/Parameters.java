@@ -3,15 +3,12 @@ package org.sinytra.adapter.env.param;
 import com.mojang.datafixers.util.Pair;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.objectweb.asm.tree.analysis.Frame;
-import org.objectweb.asm.tree.analysis.SourceValue;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.analysis.selector.FrameUtil;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.transform.param.ParamTransformationUtil;
+import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -51,6 +48,17 @@ public final class Parameters {
                 }
             }
         }
+    }
+
+    /**
+     * {@return the stack operands of a call: its receiver (if any), followed by its parameters}
+     */
+    public static List<Type> getCallOperandTypes(@Nullable Type receiver, String desc) {
+        List<Type> types = getParameterTypes(desc);
+        if (receiver != null) {
+            types.addFirst(receiver);
+        }
+        return types;
     }
 
     public static List<Type> getParameterTypes(String desc) {
@@ -116,24 +124,11 @@ public final class Parameters {
 
     public static void retypeVariableAndReceivers(MethodNode methodNode, VarInsnNode targetVarInsn, int newIndex, String newOwner) {
         targetVarInsn.var = newIndex;
-
-        Frame<SourceValue>[] frames = FrameUtil.getFrames(methodNode);
-        for (AbstractInsnNode insn : methodNode.instructions) {
-            // We only care about method invocations that have a receiver
-            if (insn instanceof MethodInsnNode minsn && minsn.getOpcode() != Opcodes.INVOKESTATIC) {
-                Frame<SourceValue> frame = frames[methodNode.instructions.indexOf(insn)];
-                if (frame == null) continue;
-
-                int receiverIndex = frame.getStackSize() - Type.getArgumentCount(minsn.desc) - 1;
-                if (receiverIndex < 0) continue;
-
-                SourceValue receiver = frame.getStack(receiverIndex);
-                // Check if our target is one of the instructions that produced this value
-                if (receiver.insns.contains(targetVarInsn)) {
-                    minsn.owner = newOwner;
-                }
+        MethodCallAnalyzer.forEachReceiver(methodNode, (call, receiver) -> {
+            if (receiver.contains(targetVarInsn)) {
+                call.owner = newOwner;
             }
-        }
+        });
     }
 
     private Parameters() {

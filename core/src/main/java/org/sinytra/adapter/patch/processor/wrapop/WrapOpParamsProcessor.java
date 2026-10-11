@@ -1,12 +1,9 @@
 package org.sinytra.adapter.patch.processor.wrapop;
 
 import com.mojang.logging.LogUtils;
-import org.jetbrains.annotations.Nullable;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.env.param.Parameter;
@@ -15,28 +12,24 @@ import org.sinytra.adapter.patch.TxResult;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.processor.Processor;
 import org.sinytra.adapter.util.AdapterUtil;
-import org.sinytra.adapter.util.MethodQualifier;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static org.sinytra.adapter.util.AdapterUtil.MIXINPATCH;
 
 public class WrapOpParamsProcessor implements Processor {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final MethodQualifier WO_ORIGINAL_CALL = new MethodQualifier("Lcom/llamalad7/mixinextras/injector/wrapoperation/Operation;", "call", "([Ljava/lang/Object;)Ljava/lang/Object;");
 
     @Override
     public TxResult process(MixinContext context, Configuration dirty, Recipe recipe) {
         if (dirty.getParameters() == null) return TxResult.FAIL;
 
         // Find original.call(...)
-        List<List<AbstractInsnNode>> cleanCalls = MethodCallAnalyzer.getAllMethodCallSrcInsnsInclusive(context.unmodifiedMethodNode(), WO_ORIGINAL_CALL);
-        List<List<AbstractInsnNode>> dirtyCalls = MethodCallAnalyzer.getAllMethodCallSrcInsnsInclusive(context.methodNode(), WO_ORIGINAL_CALL);
+        List<List<AbstractInsnNode>> cleanCalls = WrapOpOriginalCall.findAll(context.unmodifiedMethodNode());
+        List<List<AbstractInsnNode>> dirtyCalls = WrapOpOriginalCall.findAll(context.methodNode());
         if (cleanCalls.size() != dirtyCalls.size()) {
             return TxResult.FAIL;
         }
@@ -64,24 +57,11 @@ public class WrapOpParamsProcessor implements Processor {
         return TxResult.SUCCESS;
     }
 
-    @Nullable
-    private static WrapOpOriginalCall parseOriginalCall(MethodNode methodNode, List<AbstractInsnNode> callInsns) {
-        if (callInsns.size() < 2) {
-            return null;
-        }
-        AbstractInsnNode singleArg = callInsns.get(1);
-        if (!(singleArg instanceof TypeInsnNode tinsn) || tinsn.getOpcode() != Opcodes.ANEWARRAY) {
-            return null;
-        }
-        List<List<AbstractInsnNode>> arrayInitArgs = WrapOpAnalyzer.groupArrayInitializers(methodNode, singleArg);
-        return WrapOpOriginalCall.parse(arrayInitArgs);
-    }
-
     private static boolean upgradeOriginalCall(MixinContext context, Configuration dirty, List<AbstractInsnNode> cleanCallInsns, List<AbstractInsnNode> dirtyCallInsns) {
-        WrapOpOriginalCall cleanCall = parseOriginalCall(context.unmodifiedMethodNode(), cleanCallInsns);
+        WrapOpOriginalCall cleanCall = WrapOpOriginalCall.parse(context.unmodifiedMethodNode(), cleanCallInsns);
         if (cleanCall == null) return false;
 
-        WrapOpOriginalCall dirtyCall = parseOriginalCall(context.methodNode(), dirtyCallInsns);
+        WrapOpOriginalCall dirtyCall = WrapOpOriginalCall.parse(context.methodNode(), dirtyCallInsns);
         if (dirtyCall == null) return false;
 
         AbstractInsnNode arrayInit = dirtyCallInsns.get(1);
@@ -129,62 +109,5 @@ public class WrapOpParamsProcessor implements Processor {
         }
 
         return true;
-    }
-
-    public record WrapOpOriginalCall(List<CallArg> args) {
-        public record CallArg(List<AbstractInsnNode> pre, List<AbstractInsnNode> load, List<AbstractInsnNode> post) {
-            public static CallArg create(int index, List<AbstractInsnNode> load) {
-                List<AbstractInsnNode> pre = List.of(
-                    new InsnNode(Opcodes.DUP),
-                    AdapterUtil.getIntConstInsn(index)
-                );
-                List<AbstractInsnNode> post = List.of(
-                    new InsnNode(Opcodes.AASTORE)
-                );
-                return new WrapOpOriginalCall.CallArg(pre, load, post);
-            }
-
-            @Nullable
-            public static CallArg parse(List<AbstractInsnNode> insns) {
-                if (insns.size() < 4 || insns.getFirst().getOpcode() != Opcodes.DUP)
-                    return null;
-                AbstractInsnNode idxInsn = insns.get(1);
-                if (AdapterUtil.getIntConstValue(idxInsn).isEmpty())
-                    return null;
-
-                AbstractInsnNode aastore = insns.getLast();
-                if (aastore.getOpcode() != Opcodes.AASTORE)
-                    return null;
-
-                return new CallArg(
-                    insns.subList(0, 2),
-                    insns.subList(2, insns.size() - 1),
-                    List.of(insns.getLast())
-                );
-            }
-        }
-
-        public List<AbstractInsnNode> merge() {
-            return this.args.stream()
-                .flatMap(a -> Stream.of(a.pre, a.load, a.post).flatMap(Collection::stream))
-                .toList();
-        }
-
-        @Nullable
-        public static WrapOpOriginalCall parse(List<List<AbstractInsnNode>> argsInsns) {
-            if (argsInsns.isEmpty())
-                return null;
-
-            List<CallArg> args = new ArrayList<>();
-            for (List<AbstractInsnNode> insns : argsInsns) {
-                CallArg arg = CallArg.parse(insns);
-                if (arg == null) {
-                    return null;
-                }
-                args.add(arg);
-            }
-
-            return new WrapOpOriginalCall(args);
-        }
     }
 }

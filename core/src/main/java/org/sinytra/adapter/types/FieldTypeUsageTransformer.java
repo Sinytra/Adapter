@@ -6,16 +6,16 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.env.ann.ClassTarget;
-import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.transform.ClassTransformer;
 import org.sinytra.adapter.env.ctx.PatchContext;
 import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.slf4j.Logger;
+import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.sinytra.adapter.util.AdapterUtil.MIXINPATCH;
 
@@ -64,24 +64,21 @@ public class FieldTypeUsageTransformer implements ClassTransformer {
                     }
                 }
                 // Search for method calls made on modified class fields and update their owners to match the new field types
-                List<Pair<FieldInsnNode, MethodInsnNode>> results = MethodAnalyzer.analyzeMethod(method, (m, v) -> m.getOpcode() == Opcodes.INVOKEVIRTUAL, (insn, values) -> {
-                    if (!values.isEmpty()) {
-                        AbstractInsnNode valueInsn = AdapterUtil.getSingleInsn(values, 0);
-                        if (valueInsn instanceof FieldInsnNode finsn) {
-                            return Pair.of(finsn, insn);
+                if (!classUpdatedTypes.isEmpty()) {
+                    AtomicBoolean retargeted = new AtomicBoolean();
+                    MethodCallAnalyzer.forEachReceiver(method, (call, receiver) -> {
+                        if (call.getOpcode() == Opcodes.INVOKEVIRTUAL
+                            && AdapterUtil.getSingleOrNull(receiver) instanceof FieldInsnNode finsn
+                            && finsn.owner.equals(classNode.name)
+                        ) {
+                            Pair<Type, Type> classUpdatedType = classUpdatedTypes.get(finsn.name);
+                            if (classUpdatedType != null) {
+                                call.owner = classUpdatedType.getSecond().getInternalName();
+                                retargeted.set(true);
+                            }
                         }
-                    }
-                    return null;
-                });
-                for (Pair<FieldInsnNode, MethodInsnNode> insn : results) {
-                    FieldInsnNode finsn = insn.getFirst();
-                    if (finsn.owner.equals(classNode.name)) {
-                        Pair<Type, Type> classUpdatedType = classUpdatedTypes.get(finsn.name);
-                        if (classUpdatedType != null) {
-                            insn.getSecond().owner = classUpdatedType.getSecond().getInternalName();
-                            applied = true;
-                        }
-                    }
+                    });
+                    applied |= retargeted.get();
                 }
             }
         }

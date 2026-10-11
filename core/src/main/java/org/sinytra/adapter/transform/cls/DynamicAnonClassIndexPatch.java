@@ -13,7 +13,6 @@ import org.sinytra.adapter.transform.ClassTransformer;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
 
-import java.util.List;
 
 /**
  * Handle cases where a method targets an anonymous class whose index has changed.
@@ -67,11 +66,9 @@ public class DynamicAnonClassIndexPatch implements ClassTransformer {
             MixinParser.MixinMethodHandle handle = MixinParser.parseMixin(classTarget, method, context, context.environment());
             if (handle == null) continue;
 
-            boolean plural = handle.mixinType().getConfigurationTemplate().getPluralKeys().contains(MixinKeys.TARGET_METHOD);
             handle.properties().getProperty(MixinKeys.TARGET_METHOD)
-                .map(q -> q.withOwner(Type.getObjectType(newOwner)))
-                .map(MixinKeys.TARGET_METHOD::serialize)
-                .ifPresent(q -> handle.methodAnnotation().setOrAppendNonNull(MixinKeys.TARGET_METHOD.name(), plural ? List.of(q) : q));
+                .map(q -> handle.properties().serialize(MixinKeys.TARGET_METHOD, q.withOwner(Type.getObjectType(newOwner))))
+                .ifPresent(q -> handle.methodAnnotation().setOrAppendNonNull(MixinKeys.TARGET_METHOD.name(), q));
         }
     }
 }

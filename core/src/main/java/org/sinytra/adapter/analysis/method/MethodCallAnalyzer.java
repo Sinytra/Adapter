@@ -10,11 +10,15 @@ import org.objectweb.asm.tree.analysis.SourceValue;
 import org.sinytra.adapter.analysis.selector.FrameUtil;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.StreamSupport;
+import java.util.Set;
+import java.util.function.BiConsumer;
 
 public class MethodCallAnalyzer {
     public static List<MethodInsnNode> getMethodCallMinsns(MethodNode methodNode, MethodQualifier qualifier) {
@@ -77,6 +81,21 @@ public class MethodCallAnalyzer {
             insns.add(srcInsn);
         }
         return insns;
+    }
+
+    public static void forEachReceiver(MethodNode methodNode, BiConsumer<MethodInsnNode, Set<AbstractInsnNode>> action) {
+        Frame<SourceValue>[] frames = FrameUtil.getFrames(methodNode);
+        for (AbstractInsnNode insn : methodNode.instructions) {
+            if (insn instanceof MethodInsnNode minsn && minsn.getOpcode() != Opcodes.INVOKESTATIC) {
+                Frame<SourceValue> frame = frames[methodNode.instructions.indexOf(insn)];
+                if (frame == null) continue;
+
+                int receiverIndex = frame.getStackSize() - Type.getArgumentCount(minsn.desc) - 1;
+                if (receiverIndex >= 0) {
+                    action.accept(minsn, frame.getStack(receiverIndex).insns);
+                }
+            }
+        }
     }
 
     public static List<List<AbstractInsnNode>> getMethodCallArgInsns(MethodNode methodNode, MethodInsnNode minsn) {

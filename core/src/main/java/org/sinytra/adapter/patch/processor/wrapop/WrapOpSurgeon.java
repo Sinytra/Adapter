@@ -13,7 +13,6 @@ import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.types.TypeAdapter;
-import org.sinytra.adapter.transform.param.ParamTransformationUtil;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.OpcodeUtil;
 
@@ -89,20 +88,17 @@ public class WrapOpSurgeon {
 
             TypeAdapter adapter = typeAdapter.andThen((list, insn) -> {
                 // Fix receiver type originally changed by ReplaceParametersTransformer
-                for (AbstractInsnNode next = insn.getNext(); next != null && !(next instanceof LabelNode); next = next.getNext()) {
-                    if (next instanceof MethodInsnNode minsn && minsn.owner.equals(dirtyInsn.owner)) {
-                        List<AbstractInsnNode> args = MethodCallAnalyzer.getMethodCallInsns(context.methodNode(), minsn);
-                        if (args != null && args.contains(insn)) {
-                            minsn.owner = cleanInsn.owner;
-                        }
+                MethodCallAnalyzer.forEachReceiver(context.methodNode(), (call, receiver) -> {
+                    if (call.owner.equals(dirtyInsn.owner) && receiver.contains(insn)) {
+                        call.owner = cleanInsn.owner;
                     }
-                }
+                });
 
                 list.insert(insn, AdapterUtil.insnList(AdapterUtil.cloneInsns(subList)));
             });
             Consumer<InsnList> castCheck = !subList.isEmpty() && subList.getFirst() instanceof TypeInsnNode typeInsn && typeInsn.getOpcode() == Opcodes.CHECKCAST ?
                 list -> {
-                    List<AbstractInsnNode> originalWOCall = new ArrayList<>(ParamTransformationUtil.findWrapOperationOriginalCallArgs(context.methodNode()));
+                    List<AbstractInsnNode> originalWOCall = new ArrayList<>(WrapOpOriginalCall.findFirstCallInsns(context.methodNode()));
                     if (originalWOCall.isEmpty()) {
                         return;
                     }
@@ -150,7 +146,7 @@ public class WrapOpSurgeon {
             .map(l -> l.index)
             .toList();
 
-        List<AbstractInsnNode> originalOpCall = ParamTransformationUtil.findWrapOperationOriginalCallArgs(methodNode);
+        List<AbstractInsnNode> originalOpCall = WrapOpOriginalCall.findFirstCallInsns(methodNode);
         Multimap<Integer, VarInsnNode> usedVars = HashMultimap.create();
         for (AbstractInsnNode insn : methodNode.instructions) {
             if (insn instanceof VarInsnNode varInsn && !originalOpCall.contains(insn) && paramVars.contains(varInsn.var)) {
