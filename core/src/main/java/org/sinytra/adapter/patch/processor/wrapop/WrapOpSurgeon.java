@@ -11,10 +11,10 @@ import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.types.TypeAdapter;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.OpcodeUtil;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -68,7 +68,7 @@ public class WrapOpSurgeon {
         TargetPair cleanTarget = recipe.getCleanTarget();
         if (cleanTarget == null) return null;
 
-        List<List<AbstractInsnNode>> callArgInsns = MethodCallAnalyzer.getMethodCallArgInsns(cleanTarget.methodNode(), cleanInsn);
+        List<List<AbstractInsnNode>> callArgInsns = MethodAnalyzer.getMethodCallArgInsns(cleanTarget.methodNode(), cleanInsn);
         if (callArgInsns.isEmpty()) return null;
 
         List<AbstractInsnNode> receiverInsns = callArgInsns.getFirst();
@@ -88,7 +88,7 @@ public class WrapOpSurgeon {
 
             TypeAdapter adapter = typeAdapter.andThen((list, insn) -> {
                 // Fix receiver type originally changed by ReplaceParametersTransformer
-                MethodCallAnalyzer.forEachReceiver(context.methodNode(), (call, receiver) -> {
+                MethodAnalyzer.forEachReceiver(context.methodNode(), (call, receiver) -> {
                     if (call.owner.equals(dirtyInsn.owner) && receiver.contains(insn)) {
                         call.owner = cleanInsn.owner;
                     }

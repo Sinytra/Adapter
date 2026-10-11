@@ -4,7 +4,7 @@ import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
-import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot.*;
+import org.sinytra.adapter.transform.param.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,21 +51,21 @@ public class ParamDiffResolver {
         }
 
         // InsertParam, ReplaceParam, SwapParam, MoveParam, RemoveParam, InlineParam, SubstituteParam
-        for (LayeredParamsDiffSnapshot.ParamModification modification : diff.modifications()) {
+        for (ParameterTransformer modification : diff.modifications()) {
             switch (modification) {
-                case InsertParam(int index, Type type) -> state.add(index, new PositionedParam(-1, type));
-                case ReplaceParam(int index, Type type) -> state.get(index).type = type;
-                case SwapParam(int from, int to) -> {
+                case InjectParameterTransform(int index, Type type) -> state.add(index, new PositionedParam(-1, type));
+                case ReplaceParametersTransformer replace -> state.get(replace.index()).type = replace.type();
+                case SwapParametersTransformer(int from, int to) -> {
                     PositionedParam clean = state.get(from);
                     PositionedParam dirty = state.get(to);
 
                     state.set(from, dirty);
                     state.set(to, clean);
                 }
-                case MoveParam(int from, int to) -> state.add(to, state.remove(from));
-                case RemoveParam(int index) -> state.remove(index);
-                case InlineParam inline -> state.remove(inline.target());
-                case SubstituteParam substitute -> state.remove(substitute.target());
+                case MoveParametersTransformer(int from, int to) -> state.add(to, state.remove(from));
+                case RemoveParameterTransformer remove -> state.remove(remove.index());
+                case InlineParameterTransformer inline -> state.remove(inline.target());
+                case SubstituteParameterTransformer substitute -> state.remove(substitute.target());
                 case null, default -> throw new RuntimeException("Unknown parameter modification: " + modification);
             }
         }

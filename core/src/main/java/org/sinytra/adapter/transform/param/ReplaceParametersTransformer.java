@@ -5,7 +5,6 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.env.param.Parameters;
@@ -13,6 +12,7 @@ import org.sinytra.adapter.env.util.MixinAnnotations;
 import org.sinytra.adapter.types.TypeAdapter;
 import org.slf4j.Logger;
 import org.sinytra.adapter.patch.processor.wrapop.WrapOpOriginalCall;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 
 import java.util.List;
 
@@ -24,6 +24,11 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
 
     public ReplaceParametersTransformer(int index, Type type) {
         this(index, type, true);
+    }
+
+    @Override
+    public ReplaceParametersTransformer offset(int offset) {
+        return new ReplaceParametersTransformer(this.index + offset, this.type, this.upgradeUsage);
     }
 
     @Override
@@ -80,7 +85,7 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
             }
 
             // Calls made on the variable must target the new type unless its value was adapted back to the original above
-            MethodCallAnalyzer.forEachReceiver(methodNode, (call, receiver) -> {
+            MethodAnalyzer.forEachReceiver(methodNode, (call, receiver) -> {
                 if (call.owner.equals(originalType.getInternalName())
                     && receiver.stream().anyMatch(p -> p instanceof VarInsnNode varInsn && varInsn.var == localVar.index)
                 ) {

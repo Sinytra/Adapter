@@ -16,6 +16,11 @@ public record SubstituteParameterTransformer(int target, int substitute) impleme
     private static final Logger LOGGER = LogUtils.getLogger();
 
     @Override
+    public SubstituteParameterTransformer offset(int offset) {
+        return new SubstituteParameterTransformer(this.target + offset, this.substitute + offset);
+    }
+
+    @Override
     public PatchResult apply(ClassNode classNode, MethodNode methodNode, MixinContext context, List<Type> parameters, int offset) {
         int paramIndex = this.target + offset;
         int substituteParamIndex = this.substitute + offset;

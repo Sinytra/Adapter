@@ -14,6 +14,8 @@ import org.objectweb.asm.tree.analysis.SourceInterpreter;
 import org.objectweb.asm.tree.analysis.SourceValue;
 import org.objectweb.asm.tree.analysis.Value;
 import org.sinytra.adapter.analysis.method.AdvancedSourceInterpreter;
+import java.util.ArrayList;
+import java.util.List;
 
 public class FrameUtil {
     public static Frame<SourceValue>[] getFrames(MethodNode methodNode) {
@@ -32,6 +34,16 @@ public class FrameUtil {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static List<SourceValue> getOperands(Frame<SourceValue> frame, AbstractInsnNode insn) {
+        int stackSize = frame.getStackSize();
+        int start = Math.max(0, stackSize - getPopCount(insn, frame));
+        List<SourceValue> operands = new ArrayList<>(stackSize - start);
+        for (int i = start; i < stackSize; i++) {
+            operands.add(frame.getStack(i));
+        }
+        return operands;
     }
 
     public static int getPopCount(AbstractInsnNode insn) {

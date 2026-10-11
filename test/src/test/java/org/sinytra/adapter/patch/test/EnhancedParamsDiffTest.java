@@ -1,10 +1,12 @@
 package org.sinytra.adapter.patch.test;
 
-import com.mojang.datafixers.util.Pair;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
 import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
+import org.sinytra.adapter.transform.param.InjectParameterTransform;
+import org.sinytra.adapter.transform.param.ReplaceParametersTransformer;
+import org.sinytra.adapter.transform.param.RemoveParameterTransformer;
 
 import java.util.*;
 
@@ -83,7 +85,7 @@ public class EnhancedParamsDiffTest {
         assertTrue(diff.insertions().isEmpty());
         assertTrue(diff.replacements().isEmpty());
         assertEquals(1, diff.removals().size());
-        assertEquals(0, diff.removals().getFirst());
+        assertEquals(0, diff.removals().getFirst().index());
         assertTrue(diff.swaps().isEmpty());
         assertTrue(diff.moves().isEmpty());
     }
@@ -152,7 +154,7 @@ public class EnhancedParamsDiffTest {
 
         LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
         assertEquals(1, diff.insertions().size());
-        assertEquals(2, diff.insertions().getFirst().getFirst());
+        assertEquals(2, diff.insertions().getFirst().index());
         assertTrue(diff.replacements().isEmpty());
         assertTrue(diff.removals().isEmpty());
         assertTrue(diff.swaps().isEmpty());
@@ -175,13 +177,13 @@ public class EnhancedParamsDiffTest {
             Type.INT_TYPE,
             Type.INT_TYPE
         );
-        List<Pair<Integer, Type>> expectedInsertions = List.of(
-            Pair.of(0, Type.getObjectType("net/minecraftforge/client/event/RenderTooltipEvent$Pre")),
-            Pair.of(3, Type.INT_TYPE),
-            Pair.of(4, Type.INT_TYPE),
-            Pair.of(5, Type.getObjectType("org/joml/Vector2ic")),
-            Pair.of(6, Type.INT_TYPE),
-            Pair.of(7, Type.INT_TYPE)
+        List<InjectParameterTransform> expectedInsertions = List.of(
+            new InjectParameterTransform(0, Type.getObjectType("net/minecraftforge/client/event/RenderTooltipEvent$Pre")),
+            new InjectParameterTransform(3, Type.INT_TYPE),
+            new InjectParameterTransform(4, Type.INT_TYPE),
+            new InjectParameterTransform(5, Type.getObjectType("org/joml/Vector2ic")),
+            new InjectParameterTransform(6, Type.INT_TYPE),
+            new InjectParameterTransform(7, Type.INT_TYPE)
         );
 
         LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
@@ -216,16 +218,16 @@ public class EnhancedParamsDiffTest {
             Type.getType(Iterator.class),
             Type.getType(String.class)
         );
-        List<Pair<Integer, Type>> expectedInsertions = List.of(
-            Pair.of(2, Type.BOOLEAN_TYPE),
-            Pair.of(3, Type.BOOLEAN_TYPE),
-            Pair.of(4, Type.DOUBLE_TYPE),
-            Pair.of(5, Type.getObjectType("net/minecraft/world/level/block/state/BlockState")),
-            Pair.of(6, Type.BOOLEAN_TYPE),
-            Pair.of(7, Type.BOOLEAN_TYPE),
-            Pair.of(8, Type.BOOLEAN_TYPE),
-            Pair.of(11, Type.getType(Iterator.class)),
-            Pair.of(12, Type.getType(String.class))
+        List<InjectParameterTransform> expectedInsertions = List.of(
+            new InjectParameterTransform(2, Type.BOOLEAN_TYPE),
+            new InjectParameterTransform(3, Type.BOOLEAN_TYPE),
+            new InjectParameterTransform(4, Type.DOUBLE_TYPE),
+            new InjectParameterTransform(5, Type.getObjectType("net/minecraft/world/level/block/state/BlockState")),
+            new InjectParameterTransform(6, Type.BOOLEAN_TYPE),
+            new InjectParameterTransform(7, Type.BOOLEAN_TYPE),
+            new InjectParameterTransform(8, Type.BOOLEAN_TYPE),
+            new InjectParameterTransform(11, Type.getType(Iterator.class)),
+            new InjectParameterTransform(12, Type.getType(String.class))
         );
 
         LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
@@ -271,11 +273,11 @@ public class EnhancedParamsDiffTest {
 
         LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
         assertEquals(5, diff.insertions().size());
-        assertEquals(1, diff.insertions().get(0).getFirst());
-        assertEquals(9, diff.insertions().get(1).getFirst());
-        assertEquals(12, diff.insertions().get(2).getFirst());
-        assertEquals(13, diff.insertions().get(3).getFirst());
-        assertEquals(14, diff.insertions().get(4).getFirst());
+        assertEquals(1, diff.insertions().get(0).index());
+        assertEquals(9, diff.insertions().get(1).index());
+        assertEquals(12, diff.insertions().get(2).index());
+        assertEquals(13, diff.insertions().get(3).index());
+        assertEquals(14, diff.insertions().get(4).index());
         assertTrue(diff.replacements().isEmpty());
         assertTrue(diff.removals().isEmpty());
         assertTrue(diff.swaps().isEmpty());
@@ -386,9 +388,9 @@ public class EnhancedParamsDiffTest {
 
         LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
         assertEquals(3, diff.insertions().size());
-        assertEquals(Pair.of(1, Type.FLOAT_TYPE), diff.insertions().get(0));
-        assertEquals(Pair.of(4, Type.FLOAT_TYPE), diff.insertions().get(1));
-        assertEquals(Pair.of(5, Type.DOUBLE_TYPE), diff.insertions().get(2));
+        assertEquals(new InjectParameterTransform(1, Type.FLOAT_TYPE), diff.insertions().get(0));
+        assertEquals(new InjectParameterTransform(4, Type.FLOAT_TYPE), diff.insertions().get(1));
+        assertEquals(new InjectParameterTransform(5, Type.DOUBLE_TYPE), diff.insertions().get(2));
         assertTrue(diff.replacements().isEmpty());
         assertTrue(diff.removals().isEmpty());
         assertTrue(diff.swaps().isEmpty());
@@ -412,7 +414,7 @@ public class EnhancedParamsDiffTest {
 
         LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
         assertEquals(1, diff.insertions().size());
-        assertEquals(Pair.of(3, Type.DOUBLE_TYPE), diff.insertions().getFirst());
+        assertEquals(new InjectParameterTransform(3, Type.DOUBLE_TYPE), diff.insertions().getFirst());
         assertTrue(diff.replacements().isEmpty());
         assertEquals(1, diff.removals().size());
         assertTrue(diff.swaps().isEmpty());
@@ -441,7 +443,7 @@ public class EnhancedParamsDiffTest {
 
         LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
         assertEquals(1, diff.insertions().size());
-        assertEquals(Pair.of(2, Type.getType(Deque.class)), diff.insertions().getFirst());
+        assertEquals(new InjectParameterTransform(2, Type.getType(Deque.class)), diff.insertions().getFirst());
         assertTrue(diff.replacements().isEmpty());
         assertTrue(diff.removals().isEmpty());
         assertEquals(1, diff.moves().size());
@@ -459,9 +461,9 @@ public class EnhancedParamsDiffTest {
 
         LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
         assertEquals(1, diff.replacements().size());
-        assertEquals(Pair.of(0, Type.getType(Object.class)), diff.replacements().getFirst());
+        assertEquals(new ReplaceParametersTransformer(0, Type.getType(Object.class)), diff.replacements().getFirst());
         assertEquals(1, diff.removals().size());
-        assertEquals(1, diff.removals().getFirst());
+        assertEquals(1, diff.removals().getFirst().index());
     }
 
     @Test
@@ -479,6 +481,6 @@ public class EnhancedParamsDiffTest {
         );
 
         LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(original, modified);
-        assertEquals(List.of(1, 4, 3, 2, 1), diff.removals());
+        assertEquals(List.of(1, 4, 3, 2, 1), diff.removals().stream().map(RemoveParameterTransformer::index).toList());
     }
 }

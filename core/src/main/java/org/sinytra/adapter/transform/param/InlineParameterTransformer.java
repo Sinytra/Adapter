@@ -20,6 +20,11 @@ public record InlineParameterTransformer(int target, Consumer<InstructionAdapter
     private static final Logger LOGGER = LogUtils.getLogger();
 
     @Override
+    public InlineParameterTransformer offset(int offset) {
+        return new InlineParameterTransformer(this.target + offset, this.adapter);
+    }
+
+    @Override
     public PatchResult apply(ClassNode classNode, MethodNode methodNode, MixinContext context, List<Type> parameters, int offset) {
         final int index = this.target + offset;
         LOGGER.info(MIXINPATCH, "Inlining parameter {} of method {}.{}", index, classNode.name, methodNode.name);

@@ -252,12 +252,6 @@ public final class AdapterUtil {
     }
 
     @Nullable
-    public static AbstractInsnNode getSingleInsn(List<? extends SourceValue> values, int index) {
-        SourceValue value = values.get(index);
-        return getSingleInsn(value);
-    }
-
-    @Nullable
     public static <T> T getSingleOrNull(Collection<T> collection) {
         return collection.size() == 1 ? collection.iterator().next() : null;
     }

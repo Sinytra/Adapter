@@ -1,19 +1,19 @@
 package org.sinytra.adapter.patch.processor;
 
-import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
-import org.sinytra.adapter.analysis.params.ParamsDiffSnapshot;
+import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.env.param.Parameters;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
 import org.sinytra.adapter.patch.config.Configuration;
+import org.sinytra.adapter.transform.param.ReplaceParametersTransformer;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 
 import java.util.List;
 
@@ -48,7 +48,7 @@ public class ParametersPostProcessor implements Processor {
 
         List<Type> cleanTypes = cleanParams.getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
         List<Type> dirtyTypes = dirtyParams.getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
-        ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(cleanTypes, dirtyTypes);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(cleanTypes, dirtyTypes);
         if (diff == null) return TxResult.PASS;
 
         MethodNode methodNode = context.methodNode();
@@ -56,8 +56,8 @@ public class ParametersPostProcessor implements Processor {
         if (lookup == null) return TxResult.PASS;
 
         boolean matched = false;
-        for (Pair<Integer, Type> replacement : diff.replacements()) {
-            int ordinal = replacement.getFirst();
+        for (ReplaceParametersTransformer replacement : diff.replacements()) {
+            int ordinal = replacement.index();
             LocalVariableNode node = lookup.getByParameterOrdinalOrNull(ordinal);
             if (node == null) continue;
 
@@ -68,7 +68,7 @@ public class ParametersPostProcessor implements Processor {
 
                 // Add casts to usage in method calls
                 List<Type> methodArgs = Parameters.getParameterTypes(minsn.desc);
-                List<AbstractInsnNode> callArgs = MethodCallAnalyzer.getMethodCallSrcInsns(methodNode, minsn);
+                List<AbstractInsnNode> callArgs = MethodAnalyzer.getMethodCallSrcInsns(methodNode, minsn);
                 if (callArgs == null) continue;
 
                 int instanceOffset = minsn.getOpcode() == Opcodes.INVOKESTATIC ? 0 : 1;

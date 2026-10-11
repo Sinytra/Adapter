@@ -22,9 +22,9 @@ import org.sinytra.adapter.patch.processor.wrapop.WrapOpSurgeon;
 import org.sinytra.adapter.patch.resolver.SubResolver;
 import org.sinytra.adapter.analysis.MethodLabelComparator;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.util.MethodQualifier;
 import org.sinytra.adapter.env.ctx.Targets;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 
 import java.util.Collection;
 import java.util.List;
@@ -151,7 +151,7 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
                 LocalVariableLookup dirtyLocals = recipe.dirtyLocalsTable();
                 if (cleanTarget == null || cleanLocals == null || dirtyLocals == null) return Optional.empty();
 
-                List<AbstractInsnNode> originalCallArgs = MethodCallAnalyzer.getMethodCallSrcInsns(cleanTarget.methodNode(), cleanInjectionInsn);
+                List<AbstractInsnNode> originalCallArgs = MethodAnalyzer.getMethodCallSrcInsns(cleanTarget.methodNode(), cleanInjectionInsn);
                 if (originalCallArgs == null || originalCallArgs.isEmpty() || !(originalCallArgs.getFirst() instanceof VarInsnNode originalInstanceInsn))
                     return Optional.empty();
                 LocalVariableNode originalInstanceLocal = cleanLocals.getByIndexOrNull(originalInstanceInsn.var);

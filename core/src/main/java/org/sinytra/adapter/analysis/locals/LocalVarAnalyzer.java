@@ -11,7 +11,7 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.InsnTraversal;
 import org.sinytra.adapter.analysis.InstructionMatcher;
 import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
-import org.sinytra.adapter.analysis.params.ParamsDiffSnapshot;
+import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.env.ctx.LocalVariable;
 import org.sinytra.adapter.env.ctx.MethodHelper;
 import org.sinytra.adapter.env.ctx.MixinContext;
@@ -90,7 +90,7 @@ public final class LocalVarAnalyzer {
         return new CapturedLocals(dirtyTarget, isStatic, captured.start(), end, isStatic ? 0 : 1, captured.types(), lvt);
     }
 
-    public record CapturedLocalsInfo(CapturedLocals capturedLocals, ParamsDiffSnapshot diff, List<Type> availableTypes) {
+    public record CapturedLocalsInfo(CapturedLocals capturedLocals, LayeredParamsDiffSnapshot diff, List<Type> availableTypes) {
     }
 
     @Nullable
@@ -104,7 +104,7 @@ public final class LocalVarAnalyzer {
 
         List<Type> availableTypes = available.stream().map(LocalVariable::type).toList();
         // Compare expected and available params
-        ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(capturedLocals.expected(), availableTypes);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(capturedLocals.expected(), availableTypes);
         if (diff == null) return null;
 
         return new CapturedLocalsInfo(capturedLocals, diff, availableTypes);

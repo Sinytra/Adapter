@@ -5,7 +5,6 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.env.ctx.*;
 import org.sinytra.adapter.env.param.Parameters;
 import org.sinytra.adapter.env.util.MixinAnnotations;
@@ -14,6 +13,7 @@ import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
 import org.sinytra.adapter.util.OpcodeUtil;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,7 +44,7 @@ public class MirrorableExtractMixin {
             return PatchResult.PASS;
         }
 
-        List<AbstractInsnNode> callInsns = MethodCallAnalyzer.getMethodCallSrcInsns(dirtyTarget.methodNode(), destinationMethodInvocation);
+        List<AbstractInsnNode> callInsns = MethodAnalyzer.getMethodCallSrcInsns(dirtyTarget.methodNode(), destinationMethodInvocation);
         if (callInsns == null || callInsns.size() <= selfIndex) {
             return PatchResult.PASS;
         }

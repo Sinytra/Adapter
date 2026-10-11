@@ -3,7 +3,6 @@ package org.sinytra.adapter.patch.resolver.injection;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
-import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
@@ -49,12 +48,12 @@ public class OverloadedInjectionPointSubResolver implements SubResolver {
         }
 
         // Check that the deprecated method is not called anymore
-        List<MethodInsnNode> cleanCallsInDirty = MethodCallAnalyzer.getMethodCallMinsns(targets.dirty().methodNode(), cleanQualifier);
+        List<MethodInsnNode> cleanCallsInDirty = MethodAnalyzer.findCalls(targets.dirty().methodNode(), cleanQualifier);
         if (!cleanCallsInDirty.isEmpty()) return null;
 
         // Find method calls to potential replacement method
         MethodQualifier qualifier = cleanQualifier.ignoreDesc();
-        List<MethodInsnNode> dirtyCalls = MethodCallAnalyzer.getMethodCallMinsns(targets.dirty().methodNode(), qualifier);
+        List<MethodInsnNode> dirtyCalls = MethodAnalyzer.findCalls(targets.dirty().methodNode(), qualifier);
         if (dirtyCalls.isEmpty()) return null;
 
         // All calls target the same overloaded method

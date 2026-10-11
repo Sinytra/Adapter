@@ -120,19 +120,17 @@ public final class SplitMethodCancellationHelper {
         // Modify mixin to set the field value
         MethodQualifier qualifier = new MethodQualifier(TypeConstants.CI_TYPE.getDescriptor(), "cancel", "()V");
         InsnList methodInsns = context.methodNode().instructions;
-        for (AbstractInsnNode insn : methodInsns) {
-            if (insn instanceof MethodInsnNode minsn && qualifier.matches(minsn)) {
-                InsnList list = new InsnList();
-                if (isStatic) {
-                    list.add(new InsnNode(Opcodes.ICONST_1));
-                    list.add(new FieldInsnNode(Opcodes.PUTSTATIC, originalClassTarget.name, trackerField.name, trackerField.desc));
-                } else {
-                    list.add(new VarInsnNode(Opcodes.ALOAD, 0));
-                    list.add(new InsnNode(Opcodes.ICONST_1));
-                    list.add(new FieldInsnNode(Opcodes.PUTFIELD, originalClassTarget.name, trackerField.name, trackerField.desc));
-                }
-                methodInsns.insertBefore(minsn, list);
+        for (MethodInsnNode minsn : MethodAnalyzer.findCalls(context.methodNode(), qualifier)) {
+            InsnList list = new InsnList();
+            if (isStatic) {
+                list.add(new InsnNode(Opcodes.ICONST_1));
+                list.add(new FieldInsnNode(Opcodes.PUTSTATIC, originalClassTarget.name, trackerField.name, trackerField.desc));
+            } else {
+                list.add(new VarInsnNode(Opcodes.ALOAD, 0));
+                list.add(new InsnNode(Opcodes.ICONST_1));
+                list.add(new FieldInsnNode(Opcodes.PUTFIELD, originalClassTarget.name, trackerField.name, trackerField.desc));
             }
+            methodInsns.insertBefore(minsn, list);
         }
     }
 }

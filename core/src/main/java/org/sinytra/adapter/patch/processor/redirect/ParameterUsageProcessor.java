@@ -1,14 +1,12 @@
 package org.sinytra.adapter.patch.processor.redirect;
 
-import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
-import org.sinytra.adapter.analysis.params.ParamsDiffSnapshot;
+import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.param.MethodParameters;
 import org.sinytra.adapter.env.param.MethodParameters.ParamGroup;
@@ -18,6 +16,8 @@ import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.processor.Processor;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
+import org.sinytra.adapter.transform.param.InjectParameterTransform;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 
 import java.util.List;
 
@@ -38,16 +38,16 @@ public class ParameterUsageProcessor implements Processor {
 
         List<Type> cleanParams = recipe.clean().getParameters().getTypes(ParamGroup.METHOD_PARAMS);
         List<Type> dirtyParams = dirtyMethodParams.getTypes(ParamGroup.METHOD_PARAMS);
-        ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(cleanParams, dirtyParams);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(cleanParams, dirtyParams);
         if (diff == null) return TxResult.PASS;
 
-        List<List<AbstractInsnNode>> callInsns = MethodCallAnalyzer.getAllMethodCallSrcInsnsInclusive(context.methodNode(), cleanTargetQual);
+        List<List<AbstractInsnNode>> callInsns = MethodAnalyzer.getAllMethodCallSrcInsnsInclusive(context.methodNode(), cleanTargetQual);
         if (callInsns.isEmpty()) {
             return TxResult.SUCCESS;
         }
 
         LocalVariableLookup lookup = context.methods().getLVT(context.methodNode());
-        if (lookup == null || diff.insertions().stream().anyMatch(i -> lookup.getByParameterOrdinalOrNull(i.getFirst()) == null)) {
+        if (lookup == null || diff.insertions().stream().anyMatch(i -> lookup.getByParameterOrdinalOrNull(i.index()) == null)) {
             return TxResult.PASS;
         }
 
@@ -63,13 +63,13 @@ public class ParameterUsageProcessor implements Processor {
 
             // TODO Helper class like for WrapOp
             // Insert new params
-            for (Pair<Integer, Type> insertion : diff.insertions()) {
-                int ordinal = insertion.getFirst();
+            for (InjectParameterTransform insertion : diff.insertions()) {
+                int ordinal = insertion.index();
                 LocalVariableNode node = lookup.getByParameterOrdinalOrNull(ordinal);
 
                 int position = Math.min(ordinal, call.size() - 1);
                 AbstractInsnNode nextInsn = call.get(position);
-                AbstractInsnNode insn = AdapterUtil.loadType(insertion.getSecond(), node.index);
+                AbstractInsnNode insn = AdapterUtil.loadType(insertion.type(), node.index);
                 context.methodNode().instructions.insertBefore(nextInsn, insn);
                 call.add(position, insn);
             }

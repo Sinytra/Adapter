@@ -11,7 +11,7 @@ import org.sinytra.adapter.env.ctx.PatchContext;
 import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.slf4j.Logger;
-import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -66,7 +66,7 @@ public class FieldTypeUsageTransformer implements ClassTransformer {
                 // Search for method calls made on modified class fields and update their owners to match the new field types
                 if (!classUpdatedTypes.isEmpty()) {
                     AtomicBoolean retargeted = new AtomicBoolean();
-                    MethodCallAnalyzer.forEachReceiver(method, (call, receiver) -> {
+                    MethodAnalyzer.forEachReceiver(method, (call, receiver) -> {
                         if (call.getOpcode() == Opcodes.INVOKEVIRTUAL
                             && AdapterUtil.getSingleOrNull(receiver) instanceof FieldInsnNode finsn
                             && finsn.owner.equals(classNode.name)

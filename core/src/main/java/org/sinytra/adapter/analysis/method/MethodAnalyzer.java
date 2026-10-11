@@ -13,9 +13,10 @@ import org.sinytra.adapter.env.util.TypeConstants;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
 import org.sinytra.adapter.util.OpcodeUtil;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-import java.util.function.BiPredicate;
+import java.util.function.BiConsumer;
 
 public class MethodAnalyzer {
     public static final String LAMBDA_PREFIX = "lambda$";
@@ -145,15 +146,6 @@ public class MethodAnalyzer {
         return dirtyOnly;
     }
 
-    public static boolean containsMethodCall(MethodNode methodNode, MethodQualifier qualifier) {
-        for (AbstractInsnNode insn : methodNode.instructions) {
-            if (insn instanceof MethodInsnNode minsn && qualifier.matches(minsn)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private static boolean isImplicitCall(MethodInsnNode minsn) {
         if (!BOXED_TYPES.contains(minsn.owner)) {
             return false;
@@ -185,21 +177,6 @@ public class MethodAnalyzer {
         }
     }
 
-    public static <T> List<T> analyzeMethod(MethodNode methodNode, BiPredicate<MethodInsnNode, List<? extends SourceValue>> filter, NaryOperationHandler<T> handler) {
-        AnalysingSourceInterpreter<T> i = analyzeInterpretMethod(methodNode, new AnalysingSourceInterpreter<>(filter, handler));
-        return i.getResults();
-    }
-
-    public static <T extends Interpreter<V>, V extends Value> T analyzeInterpretMethod(MethodNode methodNode, T interpreter) {
-        Analyzer<V> analyzer = new Analyzer<>(interpreter);
-        try {
-            analyzer.analyze(methodNode.name, methodNode);
-        } catch (AnalyzerException e) {
-            throw new RuntimeException(e);
-        }
-        return interpreter;
-    }
-
     private static void collectProducerCalls(SourceValue value, Frame<SourceValue>[] frames, InsnList indices, Set<MethodInsnNode> consumedCalls, Set<AbstractInsnNode> visited) {
         for (AbstractInsnNode producer : value.insns) {
             if (!visited.add(producer)) continue;
@@ -214,52 +191,131 @@ public class MethodAnalyzer {
     }
 
     private static void traceInputs(AbstractInsnNode insn, Frame<SourceValue>[] frames, InsnList indices, Set<MethodInsnNode> consumedCalls, Set<AbstractInsnNode> visited) {
-        int index = indices.indexOf(insn);
-        Frame<SourceValue> frame = frames[index];
+        Frame<SourceValue> frame = frames[indices.indexOf(insn)];
         if (frame == null) return;
 
-        int popCount = FrameUtil.getPopCount(insn, frame);
-        int stackTop = frame.getStackSize();
-        for (int j = 0; j < popCount; j++) {
-            int slot = stackTop - 1 - j;
-            if (slot < 0) break;
-
-            SourceValue input = frame.getStack(slot);
+        for (SourceValue input : FrameUtil.getOperands(frame, insn)) {
             collectProducerCalls(input, frames, indices, consumedCalls, visited);
         }
     }
 
-    public interface NaryOperationHandler<T> {
-        T accept(MethodInsnNode insn, List<? extends SourceValue> values);
+    public static List<MethodInsnNode> findCalls(MethodNode methodNode, MethodQualifier qualifier) {
+        List<MethodInsnNode> calls = new ArrayList<>();
+        for (AbstractInsnNode insn : methodNode.instructions) {
+            if (insn instanceof MethodInsnNode minsn && qualifier.matches(minsn)) {
+                calls.add(minsn);
+            }
+        }
+        return calls;
     }
 
-    private static class AnalysingSourceInterpreter<T> extends SourceInterpreter {
-        private final BiPredicate<MethodInsnNode, List<? extends SourceValue>> filter;
-        private final NaryOperationHandler<T> handler;
-        private final List<T> results = new ArrayList<>();
-        private final Collection<MethodInsnNode> seen = new HashSet<>();
-
-        public AnalysingSourceInterpreter(BiPredicate<MethodInsnNode, List<? extends SourceValue>> filter, NaryOperationHandler<T> handler) {
-            super(Opcodes.ASM9);
-
-            this.filter = filter;
-            this.handler = handler;
-        }
-
-        public List<T> getResults() {
-            return this.results;
-        }
-
-        @Override
-        public SourceValue naryOperation(AbstractInsnNode insn, List<? extends SourceValue> values) {
-            if (insn instanceof MethodInsnNode minsn && this.filter.test(minsn, values) && !this.seen.contains(minsn)) {
-                T result = this.handler.accept(minsn, values);
-                if (result != null) {
-                    this.results.add(result);
-                    this.seen.add(minsn);
+    public static void forEachCall(MethodNode methodNode, BiConsumer<MethodInsnNode, List<SourceValue>> action) {
+        Frame<SourceValue>[] frames = FrameUtil.getFrames(methodNode);
+        for (AbstractInsnNode insn : methodNode.instructions) {
+            if (insn instanceof MethodInsnNode minsn) {
+                Frame<SourceValue> frame = frames[methodNode.instructions.indexOf(insn)];
+                if (frame != null) { // Dead code otherwise
+                    action.accept(minsn, FrameUtil.getOperands(frame, minsn));
                 }
             }
-            return super.naryOperation(insn, values);
+        }
+    }
+
+    public static void forEachReceiver(MethodNode methodNode, BiConsumer<MethodInsnNode, Set<AbstractInsnNode>> action) {
+        forEachCall(methodNode, (call, operands) -> {
+            if (call.getOpcode() != Opcodes.INVOKESTATIC && operands.size() == Type.getArgumentCount(call.desc) + 1) {
+                action.accept(call, operands.getFirst().insns);
+            }
+        });
+    }
+
+    @Nullable
+    public static List<AbstractInsnNode> getMethodCallInsns(MethodNode methodNode, MethodInsnNode minsn) {
+        List<AbstractInsnNode> insns = getMethodCallSrcInsns(methodNode, minsn);
+        return insns != null && !insns.isEmpty() ? AdapterUtil.subListInsnsExc(insns.getFirst(), minsn) : null;
+    }
+
+    public static List<List<AbstractInsnNode>> getAllMethodCallSrcInsnsInclusive(MethodNode methodNode, MethodQualifier qualifier) {
+        Frame<SourceValue>[] frames = FrameUtil.getStableFrames(methodNode);
+        List<List<AbstractInsnNode>> list = new ArrayList<>();
+        for (MethodInsnNode minsn : findCalls(methodNode, qualifier)) {
+            List<AbstractInsnNode> insns = getMethodCallSrcInsns(frames, methodNode, minsn);
+            if (insns != null) {
+                insns.add(minsn);
+                list.add(insns);
+            }
+        }
+        return list;
+    }
+
+    @Nullable
+    public static List<AbstractInsnNode> getMethodCallSrcInsns(MethodNode methodNode, MethodInsnNode minsn) {
+        return getMethodCallSrcInsns(methodNode, minsn, false);
+    }
+
+    @Nullable
+    public static List<AbstractInsnNode> getMethodCallSrcInsns(MethodNode methodNode, MethodInsnNode minsn, boolean stable) {
+        // Handle cases where the minsn comes from another method
+        if (!methodNode.instructions.contains(minsn)) {
+            List<MethodInsnNode> minsns = findCalls(methodNode, MethodQualifier.create(minsn));
+            return minsns.size() == 1 ? getMethodCallSrcInsns(methodNode, minsns.getFirst(), stable) : null;
+        }
+        Frame<SourceValue>[] frames = stable ? FrameUtil.getStableFrames(methodNode) : FrameUtil.getFrames(methodNode);
+        return getMethodCallSrcInsns(frames, methodNode, minsn);
+    }
+
+    @Nullable
+    private static List<AbstractInsnNode> getMethodCallSrcInsns(Frame<SourceValue>[] frames, MethodNode methodNode, MethodInsnNode minsn) {
+        Frame<SourceValue> frame = frames[methodNode.instructions.indexOf(minsn)];
+        if (frame == null) {
+            return null;
+        }
+
+        List<AbstractInsnNode> insns = new ArrayList<>();
+        for (SourceValue src : FrameUtil.getOperands(frame, minsn)) {
+            AbstractInsnNode srcInsn = AdapterUtil.getSingleInsn(src);
+            if (srcInsn == null) {
+                return null;
+            }
+            insns.add(srcInsn);
+        }
+        return insns;
+    }
+
+    public static List<List<AbstractInsnNode>> getMethodCallArgInsns(MethodNode methodNode, MethodInsnNode minsn) {
+        List<List<AbstractInsnNode>> args = new ArrayList<>();
+        if (!methodNode.instructions.contains(minsn)) {
+            return args;
+        }
+
+        Frame<SourceValue>[] frames = FrameUtil.getFrames(methodNode);
+        Frame<SourceValue> frame = frames[methodNode.instructions.indexOf(minsn)];
+        if (frame == null) {
+            return args;
+        }
+
+        for (SourceValue value : FrameUtil.getOperands(frame, minsn)) {
+            List<AbstractInsnNode> insns = new ArrayList<>();
+            for (AbstractInsnNode insn : value.insns) {
+                expandArgInitInsnsRecursive(insns, methodNode.instructions, frames, insn);
+                insns.add(insn);
+            }
+            args.add(insns);
+        }
+        return args;
+    }
+
+    private static void expandArgInitInsnsRecursive(List<AbstractInsnNode> out, InsnList insns, Frame<SourceValue>[] frames, AbstractInsnNode insn) {
+        int index = insns.indexOf(insn);
+        if (index < 0 || index >= frames.length || frames[index] == null) return;
+
+        for (SourceValue value : FrameUtil.getOperands(frames[index], insn)) {
+            for (AbstractInsnNode sourceInsn : value.insns) {
+                if (!out.contains(sourceInsn)) {
+                    expandArgInitInsnsRecursive(out, insns, frames, sourceInsn);
+                    out.add(sourceInsn);
+                }
+            }
         }
     }
 }

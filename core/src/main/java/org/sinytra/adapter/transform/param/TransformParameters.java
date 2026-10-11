@@ -2,9 +2,7 @@ package org.sinytra.adapter.transform.param;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
-import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.commons.InstructionAdapter;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.env.ctx.MixinContext;
@@ -73,53 +71,13 @@ public record TransformParameters(List<ParameterTransformer> transformers, boole
             return this;
         }
 
-        public Builder transform(List<ParameterTransformer> transformers) {
+        public Builder transform(List<? extends ParameterTransformer> transformers) {
             this.transformers.addAll(transformers);
             return this;
         }
 
-        public Builder inject(int parameterIndex, Type type) {
-            return this.transform(new InjectParameterTransform(parameterIndex, type));
-        }
-
-        public Builder replace(int index, Type type) {
-            return transform(new ReplaceParametersTransformer(index, type));
-        }
-
-        public Builder replacements(List<Pair<Integer, Type>> replacements) {
-            replacements.forEach(p -> replace(p.getFirst(), p.getSecond()));
-            return this;
-        }
-
-        public Builder swap(int from, int to) {
-            return transform(new SwapParametersTransformer(from, to));
-        }
-
-        public Builder swaps(List<Pair<Integer, Integer>> swaps) {
-            swaps.forEach(p -> swap(p.getFirst(), p.getSecond()));
-            return this;
-        }
-
-        public Builder substitute(int target, int substitute) {
-            return transform(new SubstituteParameterTransformer(target, substitute));
-        }
-
-        public Builder substitutes(List<Pair<Integer, Integer>> substitutes) {
-            substitutes.forEach(p -> substitute(p.getFirst(), p.getSecond()));
-            return this;
-        }
-
-        public Builder inline(int target, Consumer<InstructionAdapter> adapter) {
-            return transform(new InlineParameterTransformer(target, adapter));
-        }
-
         public Builder remove(int index) {
             return transform(new RemoveParameterTransformer(index));
-        }
-
-        public Builder removals(List<Integer> removals) {
-            removals.forEach(this::remove);
-            return this;
         }
 
         public Builder withOffset() {

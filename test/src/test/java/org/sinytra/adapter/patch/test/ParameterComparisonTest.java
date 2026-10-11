@@ -103,13 +103,13 @@ public class ParameterComparisonTest {
         LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.compareMethodParameters(cleanMethod, dirtyMethod);
 
         System.out.println("Insertions:");
-        diff.insertions().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
+        diff.insertions().forEach(param -> System.out.println("AT " + param.index() + " TYPE " + param.type()));
         assertEquals(1, diff.insertions().size());
-        assertEquals(7, diff.insertions().getFirst().getFirst());
-        assertEquals(Type.FLOAT_TYPE, diff.insertions().getFirst().getSecond());
+        assertEquals(7, diff.insertions().getFirst().index());
+        assertEquals(Type.FLOAT_TYPE, diff.insertions().getFirst().type());
 
         System.out.println("Replacements:");
-        diff.replacements().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
+        diff.replacements().forEach(param -> System.out.println("AT " + param.index() + " TYPE " + param.type()));
         assertTrue(diff.replacements().isEmpty());
     }
 

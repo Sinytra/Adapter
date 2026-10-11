@@ -8,7 +8,6 @@ import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
-import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.util.AdapterUtil;
@@ -20,11 +19,6 @@ import java.util.function.Predicate;
 public class CodePaths {
     private static final Set<String> IGNORED_PACKAGES = Set.of("java/", "javax/", "jdk/", "sun/", "com/sun/");
     private static final int MAX_DEPTH = 5;
-
-    @Nullable
-    public static CodePath findCodePath(TargetPair from, TargetPair to, Set<Integer> trackLocals, MixinContext context) {
-        return findCodePath(from, to, trackLocals, context, minsn -> true);
-    }
 
     @Nullable
     public static CodePath findCodePath(TargetPair from, TargetPair to, Set<Integer> trackLocals, MixinContext context, Predicate<MethodInsnNode> entryFilter) {
@@ -94,7 +88,7 @@ public class CodePaths {
 
             Map<Integer, Integer> locals = new Int2IntOpenHashMap();
             if (!trackLocals.isEmpty()) {
-                List<List<AbstractInsnNode>> receiverInsns = MethodCallAnalyzer.getMethodCallArgInsns(from.methodNode(), minsn);
+                List<List<AbstractInsnNode>> receiverInsns = MethodAnalyzer.getMethodCallArgInsns(from.methodNode(), minsn);
                 for (int i = 0; i < receiverInsns.size(); i++) {
                     List<AbstractInsnNode> argInsns = receiverInsns.get(i);
                     if (argInsns.size() != 1 || !(argInsns.getFirst() instanceof VarInsnNode varInsn)) continue;

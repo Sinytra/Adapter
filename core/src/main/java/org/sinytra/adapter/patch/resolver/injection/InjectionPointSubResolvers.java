@@ -6,7 +6,6 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.InstructionMatcher;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
-import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodInsnMatcher;
 import org.sinytra.adapter.analysis.tree.CodePaths;
 import org.sinytra.adapter.analysis.tree.CodePaths.CodePath;
@@ -70,7 +69,7 @@ public class InjectionPointSubResolvers {
             if (minsn.getOpcode() != Opcodes.INVOKESTATIC || minsn.owner.equals(targets.dirty().classNode().name))
                 continue;
 
-            List<AbstractInsnNode> argInsns = MethodCallAnalyzer.getMethodCallSrcInsns(targets.dirty().methodNode(), minsn);
+            List<AbstractInsnNode> argInsns = MethodAnalyzer.getMethodCallSrcInsns(targets.dirty().methodNode(), minsn);
             if (argInsns == null) continue;
 
             AbstractInsnNode self = argInsns.stream()
@@ -150,7 +149,7 @@ public class InjectionPointSubResolvers {
                 }
                 return false;
             })
-            .filter(m -> MethodAnalyzer.containsMethodCall(dirtyPair.methodNode(), MethodQualifier.create(m)))
+            .filter(m -> !MethodAnalyzer.findCalls(dirtyPair.methodNode(), MethodQualifier.create(m)).isEmpty())
             .toList();
         return methods.size() == 1 ? List.of(MethodQualifier.create(dirtyClass, methods.getFirst())) : List.of();
     }

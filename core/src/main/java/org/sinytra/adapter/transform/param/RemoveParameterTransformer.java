@@ -17,6 +17,11 @@ public record RemoveParameterTransformer(int index, boolean invalidateUsage) imp
     }
 
     @Override
+    public RemoveParameterTransformer offset(int offset) {
+        return new RemoveParameterTransformer(this.index + offset, this.invalidateUsage);
+    }
+
+    @Override
     public PatchResult apply(ClassNode classNode, MethodNode methodNode, MixinContext context, List<Type> parameters, int offset) {
         final int target = this.index() + offset;
         if (target >= parameters.size()) {

@@ -4,7 +4,7 @@ import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.VarInsnNode;
 import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
-import org.sinytra.adapter.analysis.params.ParamsDiffSnapshot;
+import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.PatchResult;
 import org.sinytra.adapter.env.param.MethodParameters;
@@ -15,7 +15,6 @@ import org.sinytra.adapter.patch.config.Configuration;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class ParametersProcessor implements Processor {
     @Override
@@ -56,12 +55,12 @@ public class ParametersProcessor implements Processor {
     }
 
     private boolean applyDiff(List<Type> clean, List<Type> dirty, MixinContext context, int offset) {
-        ParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(clean, dirty);
+        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(clean, dirty);
         if (diff == null) {
             return false;
         }
         if (!diff.isEmpty()) {
-            PatchResult result = diff.offset(offset).asParameterTransformer(false, Set.of())
+            PatchResult result = diff.offset(offset).asParameterTransformer(false)
                 .apply(context);
             return result != PatchResult.PASS;
         }

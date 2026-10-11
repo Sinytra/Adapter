@@ -10,4 +10,6 @@ import java.util.List;
 
 public interface ParameterTransformer {
     PatchResult apply(ClassNode classNode, MethodNode methodNode, MixinContext context, List<Type> parameters, int offset);
+
+    ParameterTransformer offset(int offset);
 }

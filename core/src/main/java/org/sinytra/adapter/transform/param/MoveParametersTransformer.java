@@ -19,6 +19,11 @@ public record MoveParametersTransformer(int from, int to) implements ParameterTr
     private static final Logger LOGGER = LogUtils.getLogger();
 
     @Override
+    public MoveParametersTransformer offset(int offset) {
+        return new MoveParametersTransformer(this.from + offset, this.to + offset);
+    }
+
+    @Override
     public PatchResult apply(ClassNode classNode, MethodNode methodNode, MixinContext context, List<Type> parameters, int offset) {
         int from = this.from + offset;
         int to = this.to + offset;

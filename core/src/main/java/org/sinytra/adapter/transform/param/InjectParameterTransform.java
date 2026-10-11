@@ -22,6 +22,11 @@ import static org.sinytra.adapter.transform.param.ParamTransformationUtil.getLVT
 // TODO Cleanup param transformers
 public record InjectParameterTransform(int index, Type type) implements ParameterTransformer {
     @Override
+    public InjectParameterTransform offset(int offset) {
+        return new InjectParameterTransform(this.index + offset, this.type);
+    }
+
+    @Override
     public PatchResult apply(ClassNode classNode, MethodNode methodNode, MixinContext context, List<Type> parameters, int offset) {
         boolean isNonStatic = !MethodHelper.isStatic(methodNode);
         int index = this.index + offset;

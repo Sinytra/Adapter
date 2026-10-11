@@ -8,7 +8,7 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.transform.param.ParamTransformationUtil;
-import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -124,7 +124,7 @@ public final class Parameters {
 
     public static void retypeVariableAndReceivers(MethodNode methodNode, VarInsnNode targetVarInsn, int newIndex, String newOwner) {
         targetVarInsn.var = newIndex;
-        MethodCallAnalyzer.forEachReceiver(methodNode, (call, receiver) -> {
+        MethodAnalyzer.forEachReceiver(methodNode, (call, receiver) -> {
             if (receiver.contains(targetVarInsn)) {
                 call.owner = newOwner;
             }

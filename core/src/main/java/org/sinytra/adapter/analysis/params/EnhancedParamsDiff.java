@@ -65,11 +65,11 @@ public class EnhancedParamsDiff {
         return params;
     }
 
-    private static void buildDiff(ParamsDiffSnapshotBuilder builder, List<Type> clean, List<Type> dirty) {
+    private static void buildDiff(LayeredParamsDiffSnapshot.Builder builder, List<Type> clean, List<Type> dirty) {
         buildDiffWithContext(builder, createPositionedList(clean), createPositionedList(dirty), false);
     }
 
-    private static void buildDiffWithContext(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue, boolean compareNames) {
+    private static void buildDiffWithContext(LayeredParamsDiffSnapshot.Builder builder, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue, boolean compareNames) {
         int dirtySize = dirtyQueue.size();
         boolean sameSize = cleanQueue.size() == dirtyQueue.size();
 
@@ -131,7 +131,7 @@ public class EnhancedParamsDiff {
         }
     }
 
-    private static boolean predictParameterMatch(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue, boolean compareNames, boolean sameSize) {
+    private static boolean predictParameterMatch(LayeredParamsDiffSnapshot.Builder builder, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue, boolean compareNames, boolean sameSize) {
         // For same-sized comparisons, we can be certain there have been no insertions
         if (sameSize && !cleanQueue.isEmpty() && !dirtyQueue.isEmpty()) {
             if (!cleanQueue.get(0).sameType(dirtyQueue.get(0))) {
@@ -188,7 +188,7 @@ public class EnhancedParamsDiff {
         return false;
     }
 
-    private static boolean checkMovedParam(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue, int index) {
+    private static boolean checkMovedParam(LayeredParamsDiffSnapshot.Builder builder, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue, int index) {
         TypeWithContext param = cleanQueue.get(index);
         TypeWithContext dirtyParam = dirtyQueue.get(index);
         Map<Type, Integer> cleanGroup = groupTypes(cleanQueue);
@@ -221,7 +221,7 @@ public class EnhancedParamsDiff {
         return -1;
     }
 
-    private static boolean tryReplacingParams(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
+    private static boolean tryReplacingParams(LayeredParamsDiffSnapshot.Builder builder, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
         if (replaceType(builder, 0, cleanQueue, dirtyQueue)) {
             return true;
         } else if (cleanQueue.size() == 2 && dirtyQueue.size() == 2) {
@@ -237,7 +237,7 @@ public class EnhancedParamsDiff {
         return false;
     }
 
-    private static boolean replaceType(ParamsDiffSnapshotBuilder builder, int index, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
+    private static boolean replaceType(LayeredParamsDiffSnapshot.Builder builder, int index, List<TypeWithContext> cleanQueue, List<TypeWithContext> dirtyQueue) {
         if (index >= cleanQueue.size() || index >= dirtyQueue.size()) {
             return false;
         }
@@ -293,7 +293,7 @@ public class EnhancedParamsDiff {
     }
 
     @Nullable
-    private static SwapResult checkForSwaps(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
+    private static SwapResult checkForSwaps(LayeredParamsDiffSnapshot.Builder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
         Map<Type, Integer> cleanGroup = groupTypes(clean);
         Map<Type, Integer> dirtyGroup = groupTypes(dirty);
         MapDifference<Type, Integer> diff = Maps.difference(cleanGroup, dirtyGroup);
@@ -357,7 +357,7 @@ public class EnhancedParamsDiff {
         return null;
     }
 
-    private static void rearrange(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
+    private static void rearrange(LayeredParamsDiffSnapshot.Builder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
         record Rearrangement(TypeWithContext cleanType, TypeWithContext dirtyType, int fromRelative, int toRelative) {
         }
 
@@ -407,7 +407,7 @@ public class EnhancedParamsDiff {
         }
     }
 
-    private static void compare(ParamsDiffSnapshotBuilder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
+    private static void compare(LayeredParamsDiffSnapshot.Builder builder, List<TypeWithContext> clean, List<TypeWithContext> dirty) {
         if (DEBUG) {
             LOGGER.info("Running comparison for:\n{}", printTable(clean, dirty));
         }

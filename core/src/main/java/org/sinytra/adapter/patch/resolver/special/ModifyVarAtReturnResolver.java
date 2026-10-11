@@ -12,7 +12,6 @@ import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.config.key.MixinKeys;
 import org.sinytra.adapter.patch.resolver.Resolver;
-import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.env.MockMixinRuntime;
 import org.sinytra.adapter.util.MethodQualifier;
@@ -20,6 +19,7 @@ import org.spongepowered.asm.mixin.injection.modify.LocalVariableDiscriminator;
 import org.spongepowered.asm.mixin.injection.struct.InjectionInfo;
 import org.spongepowered.asm.mixin.injection.struct.Target;
 import org.sinytra.adapter.env.ctx.Targets;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 
 import java.util.List;
 
@@ -97,7 +97,7 @@ public class ModifyVarAtReturnResolver implements Resolver {
             return ResolutionResult.pass();
         }
         // Get method call argument instructions
-        List<AbstractInsnNode> args = MethodCallAnalyzer.getMethodCallSrcInsns(targets.dirty().methodNode(), dirtyMinsn);
+        List<AbstractInsnNode> args = MethodAnalyzer.getMethodCallSrcInsns(targets.dirty().methodNode(), dirtyMinsn);
         if (args == null) {
             return ResolutionResult.pass();
         }

@@ -11,6 +11,7 @@ import org.sinytra.adapter.patch.config.key.SpecialKeys;
 import org.sinytra.adapter.patch.processor.Processor;
 import org.sinytra.adapter.util.MethodQualifier;
 import org.sinytra.adapter.analysis.InsnTraversal;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 
 import java.util.function.Consumer;
 
@@ -28,22 +29,20 @@ public class DivertRedirectProcessor implements Processor {
         if (target != null) {
             MethodNode methodNode = context.methodNode();
             boolean applied = false;
-            for (AbstractInsnNode insn : methodNode.instructions) {
-                if (insn instanceof MethodInsnNode minsn && target.matches(minsn)) {
-                    AbstractInsnNode previousLabel = InsnTraversal.find(insn, InsnTraversal.BACKWARD, LabelNode.class::isInstance);
-                    if (previousLabel != null) {
-                        MethodNode dummy = new MethodNode();
-                        InstructionAdapter adapter = new InstructionAdapter(dummy);
+            for (MethodInsnNode minsn : MethodAnalyzer.findCalls(methodNode, target)) {
+                AbstractInsnNode previousLabel = InsnTraversal.find(minsn, InsnTraversal.BACKWARD, LabelNode.class::isInstance);
+                if (previousLabel != null) {
+                    MethodNode dummy = new MethodNode();
+                    InstructionAdapter adapter = new InstructionAdapter(dummy);
 
-                        LabelNode gotoTarget = new LabelNode();
-                        dummy.instructions.add(gotoTarget);
+                    LabelNode gotoTarget = new LabelNode();
+                    dummy.instructions.add(gotoTarget);
 
-                        patcher.accept(adapter);
+                    patcher.accept(adapter);
 
-                        methodNode.instructions.insert(minsn, dummy.instructions);
-                        methodNode.instructions.insert(previousLabel, new JumpInsnNode(Opcodes.GOTO, gotoTarget));
-                        applied = true;
-                    }
+                    methodNode.instructions.insert(minsn, dummy.instructions);
+                    methodNode.instructions.insert(previousLabel, new JumpInsnNode(Opcodes.GOTO, gotoTarget));
+                    applied = true;
                 }
             }
             if (applied) {

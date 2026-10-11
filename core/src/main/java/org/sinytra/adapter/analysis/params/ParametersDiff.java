@@ -26,13 +26,13 @@ public record ParametersDiff(
     }
 
     public LayeredParamsDiffSnapshot toSnapshot() {
-        return LayeredParamsDiffSnapshot.builder()
-            .insertions(this.insertions)
-            .replacements(this.replacements)
-            .swaps(this.swaps)
-            .removals(this.removals)
-            .moves(this.moves)
-            .build();
+        LayeredParamsDiffSnapshot.Builder builder = LayeredParamsDiffSnapshot.builder();
+        this.insertions.forEach(p -> builder.insert(p.getFirst(), p.getSecond()));
+        this.replacements.forEach(p -> builder.replace(p.getFirst(), p.getSecond()));
+        this.swaps.forEach(p -> builder.swap(p.getFirst(), p.getSecond()));
+        this.removals.forEach(builder::remove);
+        this.moves.forEach(p -> builder.move(p.getFirst(), p.getSecond()));
+        return builder.build();
     }
 
     public static ParametersDiff compareTypeParameters(Type[] parameterTypes, Type[] newParameterTypes) {

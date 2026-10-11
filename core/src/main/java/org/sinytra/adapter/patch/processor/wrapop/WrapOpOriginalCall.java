@@ -3,11 +3,11 @@ package org.sinytra.adapter.patch.processor.wrapop;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.env.util.TypeConstants;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
 import org.sinytra.adapter.analysis.InsnTraversal;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -19,28 +19,19 @@ public record WrapOpOriginalCall(List<CallArg> args) {
     public static final MethodQualifier QUALIFIER = new MethodQualifier(TypeConstants.OPERATION_TYPE.getDescriptor(), "call", "([Ljava/lang/Object;)Ljava/lang/Object;");
 
     public static List<List<AbstractInsnNode>> findAll(MethodNode methodNode) {
-        return MethodCallAnalyzer.getAllMethodCallSrcInsnsInclusive(methodNode, QUALIFIER);
+        return MethodAnalyzer.getAllMethodCallSrcInsnsInclusive(methodNode, QUALIFIER);
     }
 
     public static List<AbstractInsnNode> findFirstCallInsns(MethodNode methodNode) {
-        for (AbstractInsnNode insn : methodNode.instructions) {
-            if (insn instanceof MethodInsnNode minsn && QUALIFIER.matches(minsn)) {
-                return Objects.requireNonNullElseGet(MethodCallAnalyzer.getMethodCallInsns(methodNode, minsn), List::of);
-            }
-        }
-        return List.of();
+        List<MethodInsnNode> calls = MethodAnalyzer.findCalls(methodNode, QUALIFIER);
+        return calls.isEmpty() ? List.of() : Objects.requireNonNullElseGet(MethodAnalyzer.getMethodCallInsns(methodNode, calls.getFirst()), List::of);
     }
 
     public static List<AbstractInsnNode> findCallVarInsns(MethodNode methodNode) {
-        List<AbstractInsnNode> list = new ArrayList<>();
-        for (AbstractInsnNode insn : methodNode.instructions) {
-            if (insn instanceof MethodInsnNode minsn && QUALIFIER.matches(minsn)) {
-                InsnTraversal.untilLabel(insn, InsnTraversal.BACKWARD).stream()
-                    .filter(AdapterUtil::canHandleLocalVarInsnValue)
-                    .forEach(list::add);
-            }
-        }
-        return List.copyOf(list);
+        return MethodAnalyzer.findCalls(methodNode, QUALIFIER).stream()
+            .flatMap(call -> InsnTraversal.untilLabel(call, InsnTraversal.BACKWARD).stream())
+            .filter(AdapterUtil::canHandleLocalVarInsnValue)
+            .toList();
     }
 
     @Nullable
