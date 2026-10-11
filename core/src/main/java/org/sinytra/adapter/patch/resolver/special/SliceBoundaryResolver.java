@@ -86,7 +86,7 @@ public class SliceBoundaryResolver implements Resolver {
             return Optional.empty();
 
         // Find original target invocation qualifier
-        MethodQualifier target = boundary.getTarget().flatMap(MethodQualifier::parse).orElse(null);
+        MethodQualifier target = boundary.getTargetQualifier().orElse(null);
         if (target == null) return Optional.empty();
 
         // Find method invocations with a matching name

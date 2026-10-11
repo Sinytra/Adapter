@@ -14,6 +14,7 @@ import org.sinytra.adapter.analysis.InsnComparator;
 import org.sinytra.adapter.analysis.InstructionMatcher;
 import org.sinytra.adapter.analysis.method.MethodInsnMatcher;
 import org.sinytra.adapter.env.ctx.TargetPair;
+import org.sinytra.adapter.analysis.InsnTraversal;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,11 +39,9 @@ public record ResolverSyntheticInstanceof(boolean skipInsnComparison) implements
         if (!recipe.hasInjectionPointValue(AT_VAL_INVOKE))
             return ResolutionResult.pass();
 
-        TargetPair cleanTarget = recipe.getCleanTarget();
         TargetPair dirtyTarget = recipe.getDirtyTarget();
-        if (dirtyTarget == null) return ResolutionResult.pass();
-        AbstractInsnNode targetInsn = context.methods().findInjectionTargetInsn(cleanTarget);
-        if (targetInsn == null) return ResolutionResult.pass();
+        AbstractInsnNode targetInsn = recipe.getCleanInjectionInsn();
+        if (dirtyTarget == null || targetInsn == null) return ResolutionResult.pass();
 
         List<AbstractInsnNode> labelInsns = findLabelInsns(targetInsn);
         // Ensure label contain an if statement
@@ -55,7 +54,7 @@ public record ResolverSyntheticInstanceof(boolean skipInsnComparison) implements
         InsnList dirtyInsns = dirtyTarget.methodNode().instructions;
         for (AbstractInsnNode insn : dirtyInsns) {
             if (insn.getOpcode() == firstOp) {
-                AbstractInsnNode nextLabel = findInsnAfterLabel(insn);
+                AbstractInsnNode nextLabel = InsnTraversal.find(insn, InsnTraversal.FORWARD, LabelNode.class::isInstance);
                 InstructionMatcher dirtyMatcher = MethodInsnMatcher.findForwardInstructions(nextLabel);
                 if (cleanMatcher.test(dirtyMatcher)) {
                     // ModifyExpressionValue doesn't include the original instanceof call, so we can skip comparing instructions
@@ -90,7 +89,7 @@ public record ResolverSyntheticInstanceof(boolean skipInsnComparison) implements
                     // Create a normalized method body insn list
                     List<AbstractInsnNode> modLabelInsns = new ArrayList<>();
                     for (AbstractInsnNode ins : context.methodNode().instructions) {
-                        if (ins instanceof LineNumberNode || ins instanceof FrameNode) {
+                        if (InsnTraversal.isDebugNode(ins)) {
                             continue;
                         }
                         modLabelInsns.add(ins.clone(Map.of()));
@@ -121,39 +120,13 @@ public record ResolverSyntheticInstanceof(boolean skipInsnComparison) implements
         return ResolutionResult.pass();
     }
 
-    private static AbstractInsnNode findInsnAfterLabel(AbstractInsnNode insn) {
-        AbstractInsnNode next = insn.getNext();
-        for (; next != null; next = next.getNext()) {
-            if (next instanceof LabelNode) {
-                break;
-            }
-        }
-        return next;
-    }
-
+    // The instructions around insn within its label
     private static List<AbstractInsnNode> findLabelInsns(AbstractInsnNode insn) {
         List<AbstractInsnNode> list = new ArrayList<>();
         if (!(insn instanceof LabelNode)) {
-            for (AbstractInsnNode prev = insn.getPrevious(); prev != null; prev = prev.getPrevious()) {
-                if (prev instanceof LabelNode) {
-                    break;
-                }
-                if (prev instanceof FrameNode || prev instanceof LineNumberNode) {
-                    continue;
-                }
-
-                list.add(prev);
-            }
+            list.addAll(InsnTraversal.untilLabel(insn, InsnTraversal.BACKWARD));
         }
-        for (AbstractInsnNode next = insn.getNext(); next != null; next = next.getNext()) {
-            if (next instanceof LabelNode) {
-                break;
-            }
-            if (next instanceof FrameNode || next instanceof LineNumberNode) {
-                continue;
-            }
-            list.add(next);
-        }
+        list.addAll(InsnTraversal.untilLabel(insn, InsnTraversal.FORWARD));
         return list;
     }
 
