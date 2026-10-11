@@ -1,15 +1,7 @@
 package org.sinytra.adapter.patch.config;
 
 import org.jetbrains.annotations.Nullable;
-import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.MethodInsnNode;
-import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.env.ann.AtData;
 import org.sinytra.adapter.env.param.Copiable;
-import org.sinytra.adapter.env.param.MethodParameters;
-import org.sinytra.adapter.patch.config.key.ControlKeys;
-import org.sinytra.adapter.patch.config.key.MixinKeys;
-import org.sinytra.adapter.util.MethodQualifier;
 
 /**
  * Contains a single recipe state with mixin parameters and custom variables
@@ -38,137 +30,6 @@ public class ConfigurationImpl extends BasePropertyContainer implements MutableC
     }
 
     @Override
-    public MutableConfiguration inheritMixinType() {
-        return inheritProperty(ControlKeys.MIXIN_TYPE);
-    }
-
-    @Override
-    public MutableConfiguration inheritTargetClass() {
-        return inheritProperty(ControlKeys.TARGET_CLASS);
-    }
-
-    @Override
-    public MutableConfiguration inheritTargetMethod() {
-        return inheritProperty(MixinKeys.TARGET_METHOD);
-    }
-
-    @Override
-    public MutableConfiguration inheritAtData() {
-        return inheritProperty(MixinKeys.TARGET_AT);
-    }
-
-    @Override
-    public MutableConfiguration inheritParameters() {
-        return inheritProperty(ControlKeys.PARAMETERS);
-    }
-
-    @Override
-    public MutableConfiguration inheritReturnType() {
-        return inheritProperty(ControlKeys.RETURN_TYPE);
-    }
-
-    @Override
-    public MutableConfiguration inheritShouldDelete() {
-        return inheritProperty(ControlKeys.DELETE);
-    }
-
-    @Override
-    public String getMixinType() {
-        return getPropertyOrNull(ControlKeys.MIXIN_TYPE);
-    }
-
-    @Override
-    public String getTargetClass() {
-        return getPropertyOrNull(ControlKeys.TARGET_CLASS);
-    }
-
-    @Override
-    public MethodQualifier getTargetMethod() {
-        return getPropertyOrNull(MixinKeys.TARGET_METHOD);
-    }
-
-    @Override
-    public AtData getAtData() {
-        return getPropertyOrNull(MixinKeys.TARGET_AT);
-    }
-
-    @Override
-    public MethodParameters getParameters() {
-        return getPropertyOrNull(ControlKeys.PARAMETERS);
-    }
-
-    @Override
-    public Type getReturnType() {
-        return getPropertyOrNull(ControlKeys.RETURN_TYPE);
-    }
-
-    @Override
-    public boolean shouldDelete() {
-        Boolean boxed = getProperty(ControlKeys.DELETE).orElse(null);
-        return boxed != null && boxed.booleanValue();
-    }
-
-    @Override
-    public boolean isCancellable() {
-        Boolean boxed = getProperty(MixinKeys.CANCELLABLE).orElse(null);
-        return boxed != null && boxed.booleanValue();
-    }
-
-    @Override
-    public MutableConfiguration setTargetClass(String targetClass) {
-        setProperty(ControlKeys.TARGET_CLASS, targetClass);
-        return this;
-    }
-
-    @Override
-    public MutableConfiguration setMixinType(String mixinType) {
-        setProperty(ControlKeys.MIXIN_TYPE, mixinType);
-        return this;
-    }
-
-    @Override
-    public MutableConfiguration setTargetMethod(MethodInsnNode insn) {
-        setTargetMethod(MethodQualifier.create(insn));
-        return this;
-    }
-
-    @Override
-    public MutableConfiguration setTargetMethod(MethodNode methodNode) {
-        setTargetMethod(MethodQualifier.create(methodNode));
-        return this;
-    }
-
-    @Override
-    public MutableConfiguration setTargetMethod(MethodQualifier targetMethod) {
-        setProperty(MixinKeys.TARGET_METHOD, targetMethod);
-        return this;
-    }
-
-    @Override
-    public MutableConfiguration setAtData(AtData atData) {
-        setProperty(MixinKeys.TARGET_AT, atData);
-        return this;
-    }
-
-    @Override
-    public MutableConfiguration setParameters(MethodParameters parameters) {
-        setProperty(ControlKeys.PARAMETERS, parameters);
-        return this;
-    }
-
-    @Override
-    public MutableConfiguration setReturnType(Type returnType) {
-        setProperty(ControlKeys.RETURN_TYPE, returnType);
-        return this;
-    }
-
-    @Override
-    public MutableConfiguration setShouldDelete(boolean delete) {
-        setProperty(ControlKeys.DELETE, delete);
-        return this;
-    }
-
-    @Override
     public MutableConfiguration inheritProperyIfAbsent(PropertyKey<?> key) {
         if (this.parent == null) {
             throw new IllegalStateException("Missing parent, cannot inherit property " + key);
@@ -180,7 +41,8 @@ public class ConfigurationImpl extends BasePropertyContainer implements MutableC
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private ConfigurationImpl inheritProperty(PropertyKey<?> key) {
+    @Override
+    public MutableConfiguration inheritProperty(PropertyKey<?> key) {
         if (this.parent != null) {
             this.parent.getProperty(key).ifPresent(o -> {
                 Object entry = o instanceof Copiable c ? c.copy() : o;
@@ -188,11 +50,6 @@ public class ConfigurationImpl extends BasePropertyContainer implements MutableC
             });
         }
         return this;
-    }
-
-    @Nullable
-    private <T> T getPropertyOrNull(PropertyKey<T> key) {
-        return getProperty(key).orElse(null);
     }
 
     @Override
