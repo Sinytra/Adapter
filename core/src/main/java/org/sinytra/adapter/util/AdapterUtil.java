@@ -257,6 +257,11 @@ public final class AdapterUtil {
         return getSingleInsn(value);
     }
 
+    @Nullable
+    public static <T> T getSingleOrNull(Collection<T> collection) {
+        return collection.size() == 1 ? collection.iterator().next() : null;
+    }
+
     public static MethodInsnNode box(Type primitive) {
         Type boxed = boxedType(primitive);
         return new MethodInsnNode(

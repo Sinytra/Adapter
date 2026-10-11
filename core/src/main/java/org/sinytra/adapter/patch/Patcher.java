@@ -22,7 +22,6 @@ import org.sinytra.adapter.util.MethodQualifier;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -112,15 +111,8 @@ public class Patcher {
         MixinType mixinType = mixinContext.getMixinType();
         String mixinId = mixinContext.getMixinId();
 
-        PatchResult result = PatchResult.PASS;
         // << RUN EARLY PHASE
-        for (MethodTransformer transformer : getTransformers(TxPhase.EARLY)) {
-            mixinContext.pushAudit(transformer);
-            PatchResult txResult = transformer.apply(mixinContext, configuration);
-            mixinContext.popAudit();
-
-            result = result.or(txResult);
-        }
+        PatchResult result = runPhase(TxPhase.EARLY, mixinContext, configuration);
 
         // Complete clean config
         TxResult preResult = mixinType.preProcess(mixinContext, configuration, mixinContext.getResolvers(), mixinContext.getProcessors());
@@ -130,12 +122,7 @@ public class Patcher {
         }
 
         // << RUN LOADED PHASE
-        for (MethodTransformer transformer : getTransformers(TxPhase.LOADED)) {
-            mixinContext.pushAudit(transformer);
-            PatchResult txResult = transformer.apply(mixinContext, configuration);
-            mixinContext.popAudit();
-            result = result.or(txResult);
-        }
+        result = result.or(runPhase(TxPhase.LOADED, mixinContext, configuration));
 
         // Validate clean config
         if (!configuration.validate()) {
@@ -148,18 +135,15 @@ public class Patcher {
         MethodNode methodNode = mixinContext.methodNode();
         methodNode.maxLocals = methodNode.maxStack = 999;
 
-        for (MethodTransformer transformer : getTransformers(TxPhase.VALIDATED)) {
-            mixinContext.pushAudit(transformer);
-            PatchResult txResult = transformer.apply(mixinContext, configuration);
-            mixinContext.popAudit();
-            result = result.or(txResult);
-        }
-
-        return result;
+        return result.or(runPhase(TxPhase.VALIDATED, mixinContext, configuration));
     }
 
-    private Collection<MethodTransformer> getTransformers(TxPhase phase) {
-        return this.methodTransformers.get(phase);
+    private PatchResult runPhase(TxPhase phase, MixinContext mixinContext, MutableConfiguration configuration) {
+        PatchResult result = PatchResult.PASS;
+        for (MethodTransformer transformer : this.methodTransformers.get(phase)) {
+            result = result.or(mixinContext.audited(transformer, () -> transformer.apply(mixinContext, configuration)));
+        }
+        return result;
     }
 
     public static Builder builder(PatchEnvironment environment) {

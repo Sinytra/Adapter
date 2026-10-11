@@ -19,6 +19,7 @@ import org.sinytra.adapter.util.MethodQualifier;
 import org.spongepowered.asm.mixin.injection.modify.LocalVariableDiscriminator;
 import org.spongepowered.asm.mixin.injection.struct.InjectionInfo;
 import org.spongepowered.asm.mixin.injection.struct.Target;
+import org.sinytra.adapter.env.ctx.Targets;
 
 import java.util.List;
 
@@ -80,25 +81,23 @@ public class ModifyVarAtReturnResolver implements Resolver {
         if (!AT_VAL_RETURN.equals(at.getValue())) return ResolutionResult.pass();
 
         // Find injection targets
-        TargetPair cleanTarget = recipe.getCleanTarget();
-        if (cleanTarget == null) return ResolutionResult.pass();
-        TargetPair dirtyTarget = recipe.getDirtyTarget();
-        if (dirtyTarget == null) return ResolutionResult.pass();
+        Targets targets = recipe.targets();
+        if (targets == null) return ResolutionResult.pass();
 
         int ordinal = at.getOrdinal().orElse(-1);
-        Pair<AbstractInsnNode, Integer> cleanTargetPair = getTargetPair(recipe.clean(), context, cleanTarget, ordinal);
+        Pair<AbstractInsnNode, Integer> cleanTargetPair = getTargetPair(recipe.clean(), context, targets.clean(), ordinal);
         // In CLEAN, previous insn is VarInsn for the modified variable
         if (cleanTargetPair == null || !(cleanTargetPair.getFirst() instanceof VarInsnNode cleanVarInsn) || cleanVarInsn.var != cleanTargetPair.getSecond()) {
             return ResolutionResult.pass();
         }
         // In DIRTY, previous insn (as in, before the RETURN insn) is a method call
-        Pair<AbstractInsnNode, Integer> dirtyTargetPair = getTargetPair(recipe.clean(), context, dirtyTarget, ordinal);
+        Pair<AbstractInsnNode, Integer> dirtyTargetPair = getTargetPair(recipe.clean(), context, targets.dirty(), ordinal);
         // In CLEAN, previous insn is VarInsn for the modified variable
         if (dirtyTargetPair == null || !(dirtyTargetPair.getFirst() instanceof MethodInsnNode dirtyMinsn)) {
             return ResolutionResult.pass();
         }
         // Get method call argument instructions
-        List<AbstractInsnNode> args = MethodCallAnalyzer.getMethodCallSrcInsns(dirtyTarget.methodNode(), dirtyMinsn);
+        List<AbstractInsnNode> args = MethodCallAnalyzer.getMethodCallSrcInsns(targets.dirty().methodNode(), dirtyMinsn);
         if (args == null) {
             return ResolutionResult.pass();
         }
@@ -111,8 +110,7 @@ public class ModifyVarAtReturnResolver implements Resolver {
                     .inheritTargetClass()
                     .inheritTargetMethod()
                     .setAtData(AtData.create(AT_VAL_INVOKE, dirtyMinsn))
-                    .inheritParameters()
-                    .inheritReturnType()
+                    .inheritSignature()
                     .setProperty(MixinKeys.INDEX, i);
 
                 String qualifier = MethodQualifier.create(dirtyMinsn).asDescriptor();

@@ -48,6 +48,10 @@ public interface MutableConfiguration extends Configuration, MutablePropertyCont
 
     MutableConfiguration inheritReturnType();
 
+    default MutableConfiguration inheritSignature() {
+        return inheritParameters().inheritReturnType();
+    }
+
     MutableConfiguration setReturnType(Type returnType);
 
     MutableConfiguration inheritShouldDelete();

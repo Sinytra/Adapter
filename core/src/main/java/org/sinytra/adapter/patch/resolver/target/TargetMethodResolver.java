@@ -5,7 +5,6 @@ import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.resolver.CompoundResolver;
-import org.sinytra.adapter.util.MethodQualifier;
 
 public class TargetMethodResolver extends CompoundResolver {
     public TargetMethodResolver() {
@@ -22,8 +21,7 @@ public class TargetMethodResolver extends CompoundResolver {
 
     @Override
     protected Configuration tryReuse(MixinContext context, Recipe recipe) {
-        MethodQualifier cleanQualifier = recipe.clean().getTargetMethod();
-        TargetPair target = context.methods().findOwnMethodPair(context.dirtyLookup(), cleanQualifier);
+        TargetPair target = recipe.getNewCleanTarget();
         if (target != null && context.methods().hasInjectionTargetInsns(target)) {
             return recipe.dirty().copyClean()
                 .inheritTargetMethod();
@@ -33,8 +31,7 @@ public class TargetMethodResolver extends CompoundResolver {
 
     @Override
     protected Configuration useFallback(MixinContext context, Recipe recipe) {
-        MethodQualifier cleanQualifier = recipe.clean().getTargetMethod();
-        TargetPair target = context.methods().findOwnMethodPair(context.dirtyLookup(), cleanQualifier);
+        TargetPair target = recipe.getNewCleanTarget();
         if (target != null) {
             return recipe.dirty().copyClean()
                 .inheritTargetMethod();

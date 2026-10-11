@@ -18,6 +18,7 @@ import org.sinytra.adapter.util.provider.ClassLookup;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
 public class MixinContext implements RefMapper, Auditor {
     private final MixinType mixinType;
@@ -27,7 +28,7 @@ public class MixinContext implements RefMapper, Auditor {
     private final MethodNode methodNode;
     private final MethodNode originalMethodNode;
     private final Set<MixinFlag> flags;
-    
+
     private final AnnotationHandle methodAnnotation;
     private final AnnotationHandle injectionPointAnnotation;
     private final List<Object> auditContext = new ArrayList<>();
@@ -49,7 +50,7 @@ public class MixinContext implements RefMapper, Auditor {
 
         this.methodHelper = new MethodHelper(this, classTarget.getTypes());
         this.originalMethodNode = AdapterUtil.copyMethod(this.methodNode);
-        
+
         this.mixinId = classNode.name + "#" + methodNode.name + methodNode.desc;
     }
 
@@ -137,13 +138,14 @@ public class MixinContext implements RefMapper, Auditor {
     public PatchEnvironment environment() {
         return patchContext().environment();
     }
-    
-    public void pushAudit(Object actor) {
-        this.auditContext.add(actor);
-    }
 
-    public void popAudit() {
-        this.auditContext.removeLast();
+    public <T> T audited(Object actor, Supplier<T> action) {
+        this.auditContext.add(actor);
+        try {
+            return action.get();
+        } finally {
+            this.auditContext.removeLast();
+        }
     }
 
     public void recordCtxAudit(String message, Object... args) {

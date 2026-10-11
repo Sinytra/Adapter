@@ -2,12 +2,10 @@ package org.sinytra.adapter.patch.resolver.target;
 
 import com.mojang.datafixers.util.Pair;
 import org.jetbrains.annotations.Nullable;
-import org.objectweb.asm.Handle;
-import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer.IndyHandle;
 import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.env.ctx.TargetPair;
 import org.sinytra.adapter.env.param.Parameters;
@@ -78,27 +76,15 @@ public class TargetMethodSubResolvers {
      * Handle cases where the target instructions have been moved into a lambda inside the target method
      */
     public static final SubResolver MOVED_INTO_LAMBDA = (MixinContext context, Recipe recipe) -> {
-        MethodQualifier cleanQualifier = recipe.clean().getTargetMethod();
-
-        TargetPair target = context.methods().findOwnMethodPair(context.dirtyLookup(), cleanQualifier);
+        TargetPair target = recipe.getNewCleanTarget();
         if (target == null) return null;
 
-        for (AbstractInsnNode insn : target.methodNode().instructions) {
-            // Find lambda invocations and search for target insns inside the lambda
-            if (insn instanceof InvokeDynamicInsnNode indy && indy.bsmArgs.length > 1 && indy.bsmArgs[1] instanceof Handle handle
-                && handle.getOwner().equals(target.classNode().name)
-            ) {
-                MethodNode lambdaMethod = target.classNode().methods.stream()
-                    .filter(m -> m.name.equals(handle.getName()) && m.desc.equals(handle.getDesc()))
-                    .findFirst()
-                    .orElse(null);
-                if (lambdaMethod == null) continue;
-
-                TargetPair lambda = new TargetPair(target.classNode(), lambdaMethod);
-                if (!context.methods().findInjectionTargetInsns(lambda).isEmpty()) {
-                    return MutableConfiguration.create()
-                        .setTargetMethod(lambda.methodNode());
-                }
+        // Find lambda invocations and search for target insns inside the lambda
+        for (IndyHandle handle : MethodAnalyzer.findOwnMethodHandles(target.classNode(), target.methodNode())) {
+            TargetPair lambda = new TargetPair(target.classNode(), handle.method());
+            if (!context.methods().findInjectionTargetInsns(lambda).isEmpty()) {
+                return MutableConfiguration.create()
+                    .setTargetMethod(lambda.methodNode());
             }
         }
 
@@ -136,9 +122,7 @@ public class TargetMethodSubResolvers {
             .sorted(Comparator.<MethodNode>comparingInt(m -> Parameters.getParameterTypes(m.desc).size()).reversed())
             .<Pair<MethodNode, Configuration>>flatMap(m -> {
                 Configuration dirtyCopy = recipe.dirty().copy().setTargetMethod(m);
-                context.pushAudit(resolver);
-                Resolver.ResolutionResult result = resolver.resolve(context, recipe.withDirtyConfig(dirtyCopy));
-                context.popAudit();
+                Resolver.ResolutionResult result = context.audited(resolver, () -> resolver.resolve(context, recipe.withDirtyConfig(dirtyCopy)));
                 return result
                     .maybePatch()
                     .stream()

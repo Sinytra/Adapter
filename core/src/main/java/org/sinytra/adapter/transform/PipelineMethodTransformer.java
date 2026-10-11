@@ -85,14 +85,12 @@ public class PipelineMethodTransformer implements MethodTransformer {
         dirtyConfig.inheritMixinType();
         dirtyConfig.inheritTargetClass();
 
-        Recipe recipe = new Recipe(cleanConfig, dirtyConfig, resolvers, processors, context);
+        Recipe initialRecipe = new Recipe(cleanConfig, dirtyConfig, resolvers, processors, context);
 
         // 2. Run Resolvers
         resolvers.freeze();
         for (Resolver resolver : resolvers.getAll()) {
-            context.pushAudit(resolver);
-            Resolver.ResolutionResult res = resolver.resolve(context, recipe);
-            context.popAudit();
+            Resolver.ResolutionResult res = context.audited(resolver, () -> resolver.resolve(context, initialRecipe));
             Objects.requireNonNull(res, "BUG: Received null from resolver " + resolver.getClass());
 
             if (res.type() == Resolver.ResultType.SUCCESS || res.type() == Resolver.ResultType.REPLACE) {
@@ -108,7 +106,7 @@ public class PipelineMethodTransformer implements MethodTransformer {
             }
         }
 
-        recipe = recipe.withDirtyConfig(dirtyConfig);
+        Recipe recipe = initialRecipe.withDirtyConfig(dirtyConfig);
 
         // 3. Complete dirty config
         if (dirtyConfig.hasProperty(ControlKeys.MIXIN_TYPE)) {
@@ -132,9 +130,7 @@ public class PipelineMethodTransformer implements MethodTransformer {
         // 4. Run Processors
         processors.freeze();
         for (Processor processor : processors.getAll()) {
-            context.pushAudit(processor);
-            TxResult res = processor.process(context, dirtyConfig, recipe);
-            context.popAudit();
+            TxResult res = context.audited(processor, () -> processor.process(context, recipe.dirty(), recipe));
             if (res == TxResult.FINALIZE) {
                 break;
             }

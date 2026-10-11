@@ -14,8 +14,8 @@ import org.sinytra.adapter.patch.config.Configuration;
 import org.sinytra.adapter.patch.config.MutableConfiguration;
 import org.sinytra.adapter.patch.mixin.MixinFlag;
 import org.sinytra.adapter.patch.resolver.SubResolver;
-import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MethodQualifier;
+import org.sinytra.adapter.analysis.InsnTraversal;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,13 +29,9 @@ public class ArbitraryInjectionPointSubResolver implements SubResolver {
     @Override
     public Configuration resolve(MixinContext context, Recipe recipe) {
         String injectionPointTarget = recipe.clean().getAtData().getTarget().orElse(null);
-        TargetPair cleanTarget = recipe.getCleanTarget();
         TargetPair dirtyTarget = recipe.getDirtyTarget();
-        if (dirtyTarget == null) return null;
-        AbstractInsnNode cleanInsn = context.methods().findInjectionTargetInsn(cleanTarget);
-        if (cleanInsn == null) {
-            return null;
-        }
+        AbstractInsnNode cleanInsn = recipe.getCleanInjectionInsn();
+        if (dirtyTarget == null || cleanInsn == null) return null;
 
         MethodInsnNode targetMethodCall = resolveTargetCallInsn(dirtyTarget.methodNode(), cleanInsn, context, injectionPointTarget);
         if (targetMethodCall == null) return null;
@@ -75,7 +71,7 @@ public class ArbitraryInjectionPointSubResolver implements SubResolver {
         List<AbstractInsnNode> candidates = new ArrayList<>();
 
         for (AbstractInsnNode insn : dirtyTargetMethod.instructions) {
-            if (insn instanceof FrameNode || insn instanceof LineNumberNode || insn.getOpcode() != firstOpcode) {
+            if (InsnTraversal.isDebugNode(insn) || insn.getOpcode() != firstOpcode) {
                 continue;
             }
 
@@ -96,9 +92,9 @@ public class ArbitraryInjectionPointSubResolver implements SubResolver {
         // Require matching return types for ModifyExpressionValue mixins
         if (context.hasFlag(MixinFlag.RETURN_TYPE_SENSITIVE) && injectionPointTarget != null) {
             Type desiredReturnType = Type.getReturnType(injectionPointTarget);
-            return (MethodInsnNode) AdapterUtil.iterateInsns(lastInsn, flow,
+            return (MethodInsnNode) InsnTraversal.find(lastInsn, flow,
                 v -> v instanceof MethodInsnNode minsn && Type.getReturnType(minsn.desc).equals(desiredReturnType));
         }
-        return (MethodInsnNode) AdapterUtil.iterateInsns(lastInsn, flow, v -> v instanceof MethodInsnNode);
+        return (MethodInsnNode) InsnTraversal.find(lastInsn, flow, v -> v instanceof MethodInsnNode);
     }
 }

@@ -24,6 +24,7 @@ import org.sinytra.adapter.analysis.MethodLabelComparator;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.method.MethodCallAnalyzer;
 import org.sinytra.adapter.util.MethodQualifier;
+import org.sinytra.adapter.env.ctx.Targets;
 
 import java.util.Collection;
 import java.util.List;
@@ -34,31 +35,20 @@ import static org.sinytra.adapter.env.util.MixinAnnotationConstants.PROPERTY_ORD
 
 public abstract class ComparingInjectionPointResolver implements SubResolver {
 
-    @Nullable
-    protected AbstractInsnNode prepare(MixinContext context, Recipe recipe) {
-        TargetPair dirtyTarget = recipe.getDirtyTarget();
-        if (dirtyTarget == null) return null;
-
-        TargetPair cleanTarget = recipe.getCleanTarget();
-        if (cleanTarget == null) return null;
-
-        return context.methods().findInjectionTargetInsn(cleanTarget);
-    }
-
     public static class Inject extends ComparingInjectionPointResolver {
         @Nullable
         @Override
         public Configuration resolve(MixinContext context, Recipe recipe) {
-            TargetPair cleanTarget = recipe.getCleanTarget();
-            if (cleanTarget == null) return null;
+            Targets targets = recipe.targets();
+            if (targets == null) return null;
 
-            AbstractInsnNode cleanInsn = prepare(context, recipe);
+            AbstractInsnNode cleanInsn = recipe.getCleanInjectionInsn();
             MethodLabelComparator.ComparisonResult comparisonResult = MethodLabelComparator.findPatchedLabels(cleanInsn, recipe);
             if (comparisonResult == null) return null;
 
             List<List<AbstractInsnNode>> hunkLabels = comparisonResult.patchedLabels();
 
-            ClassNode cleanTargetClass = cleanTarget.classNode();
+            ClassNode cleanTargetClass = targets.clean().classNode();
             for (List<AbstractInsnNode> insns : hunkLabels) {
                 for (AbstractInsnNode insn : insns) {
                     if (insn instanceof MethodInsnNode minsn && minsn.getOpcode() == Opcodes.INVOKESTATIC && !minsn.owner.equals(cleanTargetClass.name)) {
@@ -105,9 +95,9 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
         @Override
         public Configuration resolve(MixinContext context, Recipe recipe) {
             TargetPair dirtyTarget = recipe.getDirtyTarget();
-            if (dirtyTarget == null) return null;
+            if (dirtyTarget == null || recipe.getCleanTarget() == null) return null;
 
-            AbstractInsnNode cleanInsn = prepare(context, recipe);
+            AbstractInsnNode cleanInsn = recipe.getCleanInjectionInsn();
             if (!(cleanInsn instanceof MethodInsnNode minsn)) return null;
 
             MethodLabelComparator.ComparisonResult comparisonResult = MethodLabelComparator.findPatchedLabels(cleanInsn, recipe);
@@ -150,8 +140,7 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
             MutableConfiguration config = recipe.dirty().copyClean()
                 .removeProperty(MixinKeys.TARGET_AT)
                 .setProperty(MixinKeys.TARGET_CONSTANT, ConstantData.classValue(Type.getObjectType(instanceOfCall.desc)))
-                .inheritParameters()
-                .inheritReturnType();
+                .inheritSignature();
             MethodParameters parameters = config.getParameters();
             Parameter newInstanceParam = Parameter.simple(TypeConstants.OBJECT_TYPE);
             parameters.set(ParamGroup.METHOD_PARAMS, List.of(newInstanceParam));

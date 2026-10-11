@@ -7,7 +7,6 @@ import org.sinytra.adapter.env.ctx.MixinContext;
 import org.sinytra.adapter.patch.Recipe;
 import org.sinytra.adapter.patch.TxResult;
 import org.sinytra.adapter.patch.config.Configuration;
-import org.sinytra.adapter.util.AdapterUtil;
 
 import java.util.List;
 
@@ -23,7 +22,7 @@ public class TargetMethodProcessor implements Processor {
 
     // TODO Is there a better approach?
     private static void upgradeCapturedLocals(MethodNode methodNode, MixinContext context, Recipe recipe) {
-        AdapterUtil.CapturedLocals capturedLocals = AdapterUtil.getCapturedLocals(context, recipe);
+        LocalVarAnalyzer.CapturedLocals capturedLocals = LocalVarAnalyzer.findCapturedLocals(context, recipe);
         if (capturedLocals == null) return;
 
         List<LocalVariable> availableLocals = context.methods().getTargetMethodLocals(capturedLocals.target());
