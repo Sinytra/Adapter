@@ -210,7 +210,7 @@ public class MethodAnalyzer {
         Frame<SourceValue> frame = frames[index];
         if (frame == null) return;
 
-        int popCount = FrameUtil.getPopCount(insn);
+        int popCount = FrameUtil.getPopCount(insn, frame);
         int stackTop = frame.getStackSize();
         for (int j = 0; j < popCount; j++) {
             int slot = stackTop - 1 - j;

@@ -92,7 +92,7 @@ public class MethodCallAnalyzer {
         }
 
         int stackSize = frame.getStackSize();
-        int start = Math.max(0, stackSize - FrameUtil.getPopCount(minsn));
+        int start = Math.max(0, stackSize - FrameUtil.getPopCount(minsn, frame));
 
         for (int i = start; i < stackSize; ++i) {
             List<AbstractInsnNode> insns = new ArrayList<>();
@@ -111,9 +111,9 @@ public class MethodCallAnalyzer {
         if (index < 0 || index >= frames.length || frames[index] == null) return;
 
         Frame<SourceValue> frame = frames[index];
-        int inputs = FrameUtil.getPopCount(insn);
+        int inputs = FrameUtil.getPopCount(insn, frame);
         int stackSize = frame.getStackSize();
-        int start = stackSize - inputs;
+        int start = Math.max(0, stackSize - inputs);
 
         for (int i = start; i < stackSize; ++i) {
             SourceValue value = frame.getStack(i);

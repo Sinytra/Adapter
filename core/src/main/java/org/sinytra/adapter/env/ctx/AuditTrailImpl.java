@@ -162,9 +162,9 @@ public class AuditTrailImpl implements AuditTrail {
     public void processGroups(ClassNode classNode, MixinGroups groups) {
         synchronized (this.candidates) {
             for (Entry<Candidate, Match> entry : Set.copyOf(this.candidates.entrySet())) {
-                if (entry.getValue() != Match.NONE) continue;
-                
                 Candidate candidate = entry.getKey();
+                if (entry.getValue() != Match.NONE || candidate.classNode() != classNode) continue;
+
                 GroupInfo group = groups.getGroupInfo(candidate.methodNode());
                 if (group == null) continue;
 
