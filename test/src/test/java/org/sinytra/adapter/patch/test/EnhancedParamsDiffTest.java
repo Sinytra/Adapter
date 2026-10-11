@@ -4,9 +4,9 @@ import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
 import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
-import org.sinytra.adapter.transform.param.InjectParameterTransform;
-import org.sinytra.adapter.transform.param.ReplaceParametersTransformer;
-import org.sinytra.adapter.transform.param.RemoveParameterTransformer;
+import org.sinytra.adapter.edit.param.InjectParameterTransform;
+import org.sinytra.adapter.edit.param.RemoveParameterTransformer;
+import org.sinytra.adapter.edit.param.ReplaceParametersTransformer;
 
 import java.util.*;
 

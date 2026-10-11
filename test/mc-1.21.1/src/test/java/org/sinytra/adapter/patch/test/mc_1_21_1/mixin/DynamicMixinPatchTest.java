@@ -6,13 +6,13 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 import org.objectweb.asm.tree.ClassNode;
-import org.sinytra.adapter.env.ctx.PatchEnvironment;
-import org.sinytra.adapter.env.ctx.RefmapHolder;
-import org.sinytra.adapter.patch.DynamicPatches;
-import org.sinytra.adapter.patch.Patcher;
+import org.sinytra.adapter.api.ClassLookup;
+import org.sinytra.adapter.api.DynamicPatches;
+import org.sinytra.adapter.api.PatchEnvironment;
+import org.sinytra.adapter.api.Patcher;
+import org.sinytra.adapter.api.RefmapHolder;
 import org.sinytra.adapter.patch.test_main.mixin.MinecraftMixinPatchTest;
 import org.sinytra.adapter.types.FieldTypeUsageTransformer;
-import org.sinytra.adapter.util.provider.ClassLookup;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.FabricUtil;
 

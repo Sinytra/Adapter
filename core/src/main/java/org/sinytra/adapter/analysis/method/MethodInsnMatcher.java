@@ -3,8 +3,8 @@ package org.sinytra.adapter.analysis.method;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.LabelNode;
-import org.sinytra.adapter.analysis.InstructionMatcher;
 import org.sinytra.adapter.analysis.InsnTraversal;
+import org.sinytra.adapter.analysis.compare.InstructionMatcher;
 
 import java.util.List;
 import java.util.function.UnaryOperator;

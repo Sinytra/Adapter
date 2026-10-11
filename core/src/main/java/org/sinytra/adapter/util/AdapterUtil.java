@@ -10,13 +10,9 @@ import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.SourceValue;
 import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceMethodVisitor;
-import org.sinytra.adapter.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.analysis.selector.AnnotationValueHandle;
-import org.sinytra.adapter.env.ctx.PatchEnvironment;
-import org.sinytra.adapter.env.util.MixinAnnotations;
+import org.sinytra.adapter.model.constant.MixinAnnotations;
 import org.slf4j.Marker;
 import org.slf4j.MarkerFactory;
-import org.spongepowered.asm.mixin.gen.AccessorInfo;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -59,14 +55,6 @@ public final class AdapterUtil {
     public static boolean isAnonymousClass(String name) {
         // Regex: second to last char in class name must be '$', and the class name must end with a number
         return name.matches("^.+\\$\\d+$");
-    }
-
-    public static Optional<String> getAccessorTargetFieldName(String owner, MethodNode method, AnnotationHandle annotationHandle, PatchEnvironment environment) {
-        return annotationHandle.<String>getValue("value")
-            .map(AnnotationValueHandle::get)
-            .filter(str -> !str.isEmpty())
-            .or(() -> Optional.ofNullable(AccessorInfo.AccessorName.of(method.name))
-                .map(name -> environment.refmapHolder().remap(owner, name.name)));
     }
 
     @Nullable

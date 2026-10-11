@@ -3,7 +3,15 @@ package org.sinytra.adapter.analysis.params;
 import com.google.errorprone.annotations.CheckReturnValue;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
-import org.sinytra.adapter.transform.param.*;
+import org.sinytra.adapter.edit.param.InjectParameterTransform;
+import org.sinytra.adapter.edit.param.InlineParameterTransformer;
+import org.sinytra.adapter.edit.param.MoveParametersTransformer;
+import org.sinytra.adapter.edit.param.ParameterTransformer;
+import org.sinytra.adapter.edit.param.RemoveParameterTransformer;
+import org.sinytra.adapter.edit.param.ReplaceParametersTransformer;
+import org.sinytra.adapter.edit.param.SubstituteParameterTransformer;
+import org.sinytra.adapter.edit.param.SwapParametersTransformer;
+import org.sinytra.adapter.edit.param.TransformParameters;
 
 import java.util.ArrayList;
 import java.util.List;

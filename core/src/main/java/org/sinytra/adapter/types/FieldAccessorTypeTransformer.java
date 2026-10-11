@@ -7,16 +7,22 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.env.ann.ClassTarget;
-import org.sinytra.adapter.env.ctx.MethodHelper;
-import org.sinytra.adapter.env.ctx.PatchContext;
-import org.sinytra.adapter.env.ctx.PatchResult;
-import org.sinytra.adapter.env.util.MixinAnnotations;
-import org.sinytra.adapter.transform.ClassTransformer;
-import org.sinytra.adapter.util.AdapterUtil;
+import org.sinytra.adapter.analysis.method.MethodHelper;
+import org.sinytra.adapter.api.BytecodeFixerUpper;
+import org.sinytra.adapter.api.ClassTransformer;
+import org.sinytra.adapter.api.PatchEnvironment;
+import org.sinytra.adapter.api.PatchResult;
+import org.sinytra.adapter.api.TypeAdapter;
+import org.sinytra.adapter.model.ann.AnnotationHandle;
+import org.sinytra.adapter.model.ann.AnnotationValueHandle;
+import org.sinytra.adapter.model.ann.ClassTarget;
+import org.sinytra.adapter.model.constant.MixinAnnotations;
+import org.sinytra.adapter.model.constant.TypeConstants;
+import org.sinytra.adapter.pipeline.ctx.PatchContext;
 import org.sinytra.adapter.util.OpcodeUtil;
-import org.sinytra.adapter.env.util.TypeConstants;
+import org.spongepowered.asm.mixin.gen.AccessorInfo;
+
+import java.util.Optional;
 
 public class FieldAccessorTypeTransformer implements ClassTransformer {
     private static final String PREFIX = "adapter$";
@@ -43,7 +49,7 @@ public class FieldAccessorTypeTransformer implements ClassTransformer {
     }
 
     private PatchResult redirectAccessor(ClassNode classNode, MethodNode methodNode, AnnotationNode accessor, Type owner, BytecodeFixerUpper bfu, PatchContext context) {
-        String fieldFqn = AdapterUtil.getAccessorTargetFieldName(classNode.name, methodNode, new AnnotationHandle(accessor), context.environment())
+        String fieldFqn = getAccessorTargetFieldName(classNode.name, methodNode, new AnnotationHandle(accessor), context.environment())
             .orElse(null);
         if (fieldFqn == null) return PatchResult.PASS;
 
@@ -126,5 +132,13 @@ public class FieldAccessorTypeTransformer implements ClassTransformer {
     private static String getFieldName(String desc) {
         int descIndex = desc.indexOf(':');
         return descIndex == -1 ? desc : desc.substring(0, descIndex);
+    }
+
+    private static Optional<String> getAccessorTargetFieldName(String owner, MethodNode method, AnnotationHandle annotationHandle, PatchEnvironment environment) {
+        return annotationHandle.<String>getValue("value")
+            .map(AnnotationValueHandle::get)
+            .filter(str -> !str.isEmpty())
+            .or(() -> Optional.ofNullable(AccessorInfo.AccessorName.of(method.name))
+                .map(name -> environment.refmapHolder().remap(owner, name.name)));
     }
 }

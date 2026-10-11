@@ -6,6 +6,7 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.TypeInsnNode;
+import org.sinytra.adapter.api.TypeAdapter;
 
 import java.util.function.Supplier;
 

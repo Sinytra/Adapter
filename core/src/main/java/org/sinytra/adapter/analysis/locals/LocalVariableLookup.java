@@ -6,7 +6,7 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.env.ctx.MethodHelper;
+import org.sinytra.adapter.analysis.method.MethodHelper;
 
 import java.util.*;
 

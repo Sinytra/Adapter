@@ -2,18 +2,18 @@ package org.sinytra.adapter.analysis.method;
 
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.*;
-import org.sinytra.adapter.analysis.selector.FrameUtil;
-import org.sinytra.adapter.env.ctx.TargetPair;
-import org.sinytra.adapter.env.util.TypeConstants;
+import org.sinytra.adapter.analysis.flow.FrameUtil;
+import org.sinytra.adapter.model.MethodQualifier;
+import org.sinytra.adapter.model.TargetPair;
+import org.sinytra.adapter.model.constant.TypeConstants;
 import org.sinytra.adapter.util.AdapterUtil;
-import org.sinytra.adapter.util.MethodQualifier;
 import org.sinytra.adapter.util.OpcodeUtil;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.BiConsumer;
