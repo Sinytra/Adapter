@@ -19,7 +19,6 @@ public class InjectionPointResolver extends CompoundResolver {
 
     public InjectionPointResolver() {
         addSubResolver(new LocatingSubResolver(List.of(new SameMethodLocator(), new CalledMethodLocator())));
-        addSubResolver(new InheritedInjectionPointSubResolver());
     }
 
     @Override

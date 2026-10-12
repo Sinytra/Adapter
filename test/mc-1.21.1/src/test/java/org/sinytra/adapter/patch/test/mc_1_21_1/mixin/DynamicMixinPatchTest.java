@@ -499,6 +499,38 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    // The call's owner was narrowed to a subclass
+    @Test
+    void testNarrowedCallOwner() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/FlowerPotBlockMixin",
+            "emptyPotState",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    // The call's owner was widened to a superclass
+    @Test
+    void testWidenedCallOwnerRedirect() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/RangedBowAttackGoalMixin",
+            "redirectTarget",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
+    void testWidenedCallOwnerWrapOperation() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/RangedBowAttackGoalMixin",
+            "wrapTarget",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
     @Override
     protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
         ClassNode patched = loadClass(className);
