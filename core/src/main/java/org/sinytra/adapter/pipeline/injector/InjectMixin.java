@@ -18,7 +18,6 @@ import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.processor.Processors;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
-import org.sinytra.adapter.pipeline.resolver.injection.AtVariableAssignStoreSubResolver;
 import org.sinytra.adapter.pipeline.resolver.injection.ComparingInjectionPointResolver;
 import org.sinytra.adapter.pipeline.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.pipeline.resolver.special.InjectorOrdinalResolver;
@@ -57,7 +56,6 @@ public class InjectMixin extends AbstractMixinType {
         resolvers
             .addBefore(InjectionPointResolver.class, new InjectorOrdinalResolver());
         resolvers.getOrThrow(InjectionPointResolver.class)
-            .addSubResolver(new AtVariableAssignStoreSubResolver())
             .addSubResolver(new ComparingInjectionPointResolver.Inject());
 
         clean.setParameters(SIGNATURE.parse(context.methodNode()));
