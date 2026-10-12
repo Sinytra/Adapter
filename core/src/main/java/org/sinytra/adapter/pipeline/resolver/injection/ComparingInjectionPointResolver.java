@@ -155,12 +155,15 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
                 List<AbstractInsnNode> originalCallArgs = context.dataFlow(cleanTarget).resolveCallOperandProducers(cleanInjectionInsn);
                 if (originalCallArgs == null || originalCallArgs.isEmpty() || !(originalCallArgs.getFirst() instanceof VarInsnNode originalInstanceInsn))
                     return Optional.empty();
-                LocalVariableNode originalInstanceLocal = cleanLocals.getByIndexOrNull(originalInstanceInsn.var);
-                if (originalInstanceLocal == null) return Optional.empty();
-                int cleanOrdinal = cleanLocals.getTypedOrdinal(originalInstanceLocal).orElse(-1);
+                TargetPair dirtyTarget = recipe.getDirtyTarget();
+                LocalVariableNode originalInstanceLocal = cleanLocals.getInScopeOrNull(originalInstanceInsn.var, cleanInjectionInsn);
+                if (dirtyTarget == null || originalInstanceLocal == null) return Optional.empty();
+
+                int cleanOrdinal = context.locals().resolveLocalOrdinal(cleanTarget, cleanInjectionInsn, Type.getType(originalInstanceLocal.desc), originalInstanceInsn.var);
                 if (cleanOrdinal == -1) return Optional.empty();
 
-                LocalVariableNode dirtyLocal = dirtyLocals.getByTypedOrdinal(Type.getType(instanceLocal.desc), cleanOrdinal).orElse(null);
+                int dirtyIndex = context.locals().resolveLocalIndex(dirtyTarget, instanceOfCall, Type.getType(instanceLocal.desc), cleanOrdinal);
+                LocalVariableNode dirtyLocal = dirtyLocals.getInScopeOrNull(dirtyIndex, instanceOfCall);
                 if (dirtyLocal == null) return Optional.empty();
 
                 Parameter replacementInstanceParam = Parameter.builder(dirtyLocal.desc)

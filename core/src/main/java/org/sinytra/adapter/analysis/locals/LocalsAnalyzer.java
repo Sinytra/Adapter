@@ -16,6 +16,7 @@ import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.analysis.params.ParamDiffResolver;
 import org.sinytra.adapter.edit.param.TransformParameters;
 import org.sinytra.adapter.mixin.MixinBridge;
+import org.sinytra.adapter.mixin.MixinBridge.LocalCandidate;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.param.MethodParameters;
@@ -184,6 +185,27 @@ public final class LocalsAnalyzer {
             });
         }
         return new CapturedLocalsUsage(targetTable, usedLocals, usageCount, varInsnLists);
+    }
+
+    public List<LocalCandidate> findSelectableLocals(TargetPair target, AbstractInsnNode insn, Type type) {
+        return MixinBridge.session(this.context.classNode().name, this.context.methodNode(), target.classNode(), target.methodNode(), this.context.environment().refmapHolder())
+            .findLocalCandidates(type, insn, false);
+    }
+
+    public int resolveLocalOrdinal(TargetPair target, AbstractInsnNode insn, Type type, int index) {
+        return findSelectableLocals(target, insn, type).stream()
+            .filter(c -> c.index() == index)
+            .mapToInt(LocalCandidate::ordinal)
+            .findFirst()
+            .orElse(-1);
+    }
+
+    public int resolveLocalIndex(TargetPair target, AbstractInsnNode insn, Type type, int ordinal) {
+        return findSelectableLocals(target, insn, type).stream()
+            .filter(c -> c.ordinal() == ordinal)
+            .mapToInt(LocalCandidate::index)
+            .findFirst()
+            .orElse(-1);
     }
 
     @Nullable

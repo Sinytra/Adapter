@@ -132,7 +132,7 @@ public class ModifyVarAtReturnResolver implements Resolver {
             context.methodNode(), injectionTarget.classNode(), injectionTarget.methodNode(),
             context.environment().refmapHolder()
         );
-        int local = session.findModifiedLocal(context.methodAnnotation().unwrap(), clean.getReturnType(), targetInsn);
+        int local = session.findLocal(context.methodAnnotation().unwrap(), clean.getReturnType(), targetInsn);
         return Pair.of(targetInsn, local);
     }
 }

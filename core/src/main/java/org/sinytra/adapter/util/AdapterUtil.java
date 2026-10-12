@@ -240,6 +240,11 @@ public final class AdapterUtil {
     }
 
     @Nullable
+    public static <T> T getFirstOrNull(List<T> list) {
+        return list.isEmpty() ? null : list.getFirst();
+    }
+
+    @Nullable
     public static <T> T getSingleOrNull(Collection<T> collection) {
         return collection.size() == 1 ? collection.iterator().next() : null;
     }

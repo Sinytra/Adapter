@@ -12,6 +12,7 @@ import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.locals.LocalsAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodInsnMatcher;
+import org.sinytra.adapter.mixin.MixinBridge.LocalCandidate;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.ann.AtData;
@@ -82,11 +83,13 @@ public class InjectorOrdinalResolver implements Resolver {
 
         if (context.hasFlag(MixinFlag.TARGETS_VARIABLE)) {
             LocalVariableLookup cleanTable = recipe.cleanLocalsTable();
-            if (cleanTable != null) {
+            TargetPair cleanTarget = recipe.getCleanTarget();
+            AbstractInsnNode cleanInsn = cleanTarget != null ? AdapterUtil.getFirstOrNull(context.injections().find(cleanTarget)) : null;
+            if (cleanTable != null && cleanInsn != null) {
                 // Handle modified ordinals
                 cleanConfig.getProperty(MixinKeys.ORDINAL)
-                    .flatMap(ordinal -> cleanTable.getByTypedOrdinal(returnType, ordinal)
-                        .flatMap(lvn -> cleanTable.getTypedOrdinal(lvn).map(o -> new LocalVar(lvn, o, true)))
+                    .flatMap(ordinal -> Optional.ofNullable(cleanTable.getInScopeOrNull(context.locals().resolveLocalIndex(cleanTarget, cleanInsn, returnType, ordinal), cleanInsn))
+                        .map(lvn -> new LocalVar(lvn, ordinal, true))
                         .map(local -> new HandlerInstance<>(ModifyVariableOffsetHandler.INSTANCE, local, pair ->
                             MutableConfiguration.create()
                                 .setProperty(MixinKeys.ORDINAL, pair.getFirst().ordinal())
@@ -94,8 +97,11 @@ public class InjectorOrdinalResolver implements Resolver {
                         )))
                     // Handle modified indexes
                     .or(() -> cleanConfig.getProperty(MixinKeys.INDEX)
-                        .flatMap(i -> Optional.ofNullable(cleanTable.getByIndexOrNull(i))
-                            .flatMap(lvn -> cleanTable.getTypedOrdinal(lvn).map(o -> new LocalVar(lvn, o, false)))
+                        .flatMap(i -> Optional.ofNullable(cleanTable.getInScopeOrNull(i, cleanInsn))
+                            .flatMap(lvn -> {
+                                int ordinal = context.locals().resolveLocalOrdinal(cleanTarget, cleanInsn, Type.getType(lvn.desc), i);
+                                return ordinal == -1 ? Optional.empty() : Optional.of(new LocalVar(lvn, ordinal, false));
+                            })
                             .map(local -> new HandlerInstance<>(ModifyVariableOffsetHandler.INSTANCE, local, pair ->
                                 MutableConfiguration.create()
                                     .setProperty(MixinKeys.INDEX, pair.getFirst().lvn().index)
@@ -291,9 +297,28 @@ public class InjectorOrdinalResolver implements Resolver {
                 return Optional.empty();
             }
 
-            return tryFindUpdatedIndex(targetType, recipe, local)
+            TargetPair cleanTarget = recipe.getCleanTarget();
+            TargetPair dirtyTarget = recipe.getDirtyTarget();
+            if (cleanTarget == null || dirtyTarget == null) {
+                return Optional.empty();
+            }
+            AbstractInsnNode cleanInsn = AdapterUtil.getFirstOrNull(mixinContext.injections().find(cleanTarget));
+            AbstractInsnNode dirtyInsn = AdapterUtil.getFirstOrNull(mixinContext.injections().find(dirtyTarget));
+            if (cleanInsn == null || dirtyInsn == null) {
+                return Optional.empty();
+            }
+            InjectionPoints points = new InjectionPoints(cleanTarget, cleanInsn, dirtyTarget, dirtyInsn);
+
+            return tryFindUpdatedIndex(mixinContext, targetType, recipe, local, points)
                 .<Pair<LocalVar, Configuration>>map(var -> Pair.of(var, null))
-                .or(() -> tryFindSyntheticVariableIndex(mixinContext, methodNode, recipe, local));
+                .or(() -> tryFindSyntheticVariableIndex(mixinContext, methodNode, recipe, local, points));
+        }
+
+        private record InjectionPoints(TargetPair cleanTarget, AbstractInsnNode cleanInsn, TargetPair dirtyTarget, AbstractInsnNode dirtyInsn) {
+        }
+
+        private static int indexOfOrdinal(List<LocalCandidate> candidates, int ordinal) {
+            return candidates.stream().filter(c -> c.ordinal() == ordinal).mapToInt(LocalCandidate::index).findFirst().orElse(-1);
         }
 
         /**
@@ -324,7 +349,7 @@ public class InjectorOrdinalResolver implements Resolver {
          *    INVOKEVIRTUAL net/minecraft/world/entity/player/Player.setHealth (F)V
          * }</pre>
          */
-        private static Optional<Pair<LocalVar, @Nullable Configuration>> tryFindSyntheticVariableIndex(MixinContext context, MethodNode methodNode, Recipe recipe, LocalVar local) {
+        private static Optional<Pair<LocalVar, @Nullable Configuration>> tryFindSyntheticVariableIndex(MixinContext context, MethodNode methodNode, Recipe recipe, LocalVar local, InjectionPoints points) {
             int ordinal = local.ordinal();
             Type variableType = Type.getReturnType(methodNode.desc);
             LocalVariableLookup cleanTable = recipe.cleanLocalsTable();
@@ -332,10 +357,11 @@ public class InjectorOrdinalResolver implements Resolver {
             if (cleanTable == null || dirtyTable == null) {
                 return Optional.empty();
             }
-            if (cleanTable.getForType(variableType).size() == dirtyTable.getForType(variableType).size()) {
-                List<LocalVariableNode> available = dirtyTable.getForType(variableType);
-                if (available.size() > ordinal) {
-                    int variableIndex = available.get(ordinal).index;
+            List<LocalCandidate> cleanLocals = context.locals().findSelectableLocals(points.cleanTarget(), points.cleanInsn(), variableType);
+            List<LocalCandidate> dirtyLocals = context.locals().findSelectableLocals(points.dirtyTarget(), points.dirtyInsn(), variableType);
+            if (cleanLocals.size() == dirtyLocals.size()) {
+                int variableIndex = indexOfOrdinal(dirtyLocals, ordinal);
+                if (variableIndex != -1) {
                     AbstractInsnNode cleanInsn = recipe.getCleanInjectionInsn();
                     AbstractInsnNode dirtyInsn = context.injections().resolve(recipe.getDirtyTarget());
                     if (cleanInsn != null && dirtyInsn != null) {
@@ -353,12 +379,15 @@ public class InjectorOrdinalResolver implements Resolver {
                                         if (lvn == null) {
                                             return Optional.empty();
                                         }
-                                        return dirtyTable.getTypedOrdinal(lvn)
-                                            .map(o -> Pair.of(
-                                                new LocalVar(lvn, o),
-                                                MutableConfiguration.create()
-                                                    .setProperty(MixinKeys.ARGS_ONLY, false)
-                                            ));
+                                        int dirtyOrdinal = context.locals().resolveLocalOrdinal(points.dirtyTarget(), points.dirtyInsn(), Type.getType(lvn.desc), dirtyIndex);
+                                        if (dirtyOrdinal == -1) {
+                                            return Optional.empty();
+                                        }
+                                        return Optional.of(Pair.of(
+                                            new LocalVar(lvn, dirtyOrdinal),
+                                            MutableConfiguration.create()
+                                                .setProperty(MixinKeys.ARGS_ONLY, false)
+                                        ));
                                     }
                                 }
                                 break;
@@ -383,28 +412,35 @@ public class InjectorOrdinalResolver implements Resolver {
             return list;
         }
 
-        private static Optional<LocalVar> tryFindUpdatedIndex(Type targetType, Recipe recipe, LocalVar local) {
+        private static Optional<LocalVar> tryFindUpdatedIndex(MixinContext context, Type targetType, Recipe recipe, LocalVar local, InjectionPoints points) {
             int ordinal = local.ordinal();
             LocalVariableLookup cleanVarLookup = recipe.cleanLocalsTable();
             LocalVariableLookup dirtyVarLookup = recipe.dirtyLocalsTable();
             if (cleanVarLookup == null || dirtyVarLookup == null) {
                 return Optional.empty();
             }
-            List<LocalVariableNode> cleanLocals = cleanVarLookup.getForType(targetType);
-            if (cleanLocals.size() <= ordinal) {
+            List<LocalCandidate> cleanLocals = context.locals().findSelectableLocals(points.cleanTarget(), points.cleanInsn(), targetType);
+            LocalVariableNode cleanLocal = cleanVarLookup.getInScopeOrNull(indexOfOrdinal(cleanLocals, ordinal), points.cleanInsn());
+            if (cleanLocal == null) {
                 return Optional.empty();
             }
-            LocalVariableNode cleanLocal = cleanLocals.get(ordinal);
             if (!GeneratedVariables.isGeneratedVariableName(cleanLocal.name, Type.getType(cleanLocal.desc))) {
                 return Optional.empty();
             }
 
-            List<LocalVariableNode> dirtyLocals = dirtyVarLookup.getForType(targetType);
-            if (cleanLocals.size() != dirtyLocals.size() || dirtyLocals.size() <= ordinal) {
-                return findReplacementLocal(recipe.getCleanTarget().methodNode(), recipe.getDirtyTarget().methodNode(), cleanLocal)
-                    .flatMap(var -> dirtyVarLookup.getTypedOrdinal(var).map(o -> new LocalVar(var, o)));
+            List<LocalCandidate> dirtyLocals = context.locals().findSelectableLocals(points.dirtyTarget(), points.dirtyInsn(), targetType);
+            int dirtyIndex = indexOfOrdinal(dirtyLocals, ordinal);
+            if (cleanLocals.size() != dirtyLocals.size() || dirtyIndex == -1) {
+                return findReplacementLocal(points.cleanTarget().methodNode(), points.dirtyTarget().methodNode(), cleanLocal)
+                    .flatMap(var -> {
+                        int dirtyOrdinal = context.locals().resolveLocalOrdinal(points.dirtyTarget(), points.dirtyInsn(), Type.getType(var.desc), var.index);
+                        return dirtyOrdinal == -1 ? Optional.empty() : Optional.of(new LocalVar(var, dirtyOrdinal));
+                    });
             }
-            LocalVariableNode dirtyLocal = dirtyLocals.get(ordinal);
+            LocalVariableNode dirtyLocal = dirtyVarLookup.getInScopeOrNull(dirtyIndex, points.dirtyInsn());
+            if (dirtyLocal == null) {
+                return Optional.empty();
+            }
             if (!local.relative() && dirtyLocal.index == local.lvn().index) {
                 return Optional.empty();
             }
@@ -414,7 +450,7 @@ public class InjectorOrdinalResolver implements Resolver {
             }
 
             if (cleanLocal.index != dirtyLocal.index && !local.relative()) {
-                return Optional.of(new LocalVar(dirtyLocal, dirtyLocals.indexOf(dirtyLocal)));
+                return Optional.of(new LocalVar(dirtyLocal, ordinal));
             }
 
             return Optional.empty();

@@ -2,16 +2,21 @@ package org.sinytra.adapter.pipeline.resolver.injection;
 
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.VarInsnNode;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.locals.LocalsAnalyzer;
+import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.Targets;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.resolver.SubResolver;
+
+import java.util.List;
 
 import static org.sinytra.adapter.model.config.key.MixinKeys.ORDINAL;
 import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL_STORE;
@@ -32,9 +37,11 @@ public class ModifyVarInjectionPointSubResolver implements SubResolver {
         Type varType = Type.getReturnType(context.methodNode().desc);
 
         LocalVariableLookup lookup = recipe.cleanLocalsTable();
-        if (lookup == null) return null;
+        AbstractInsnNode cleanInsn = recipe.getCleanInjectionInsn();
+        if (lookup == null || cleanInsn == null) return null;
 
-        LocalVariableNode desired = lookup.getByTypedOrdinal(varType, ordinal).orElse(null);
+        int cleanIndex = context.locals().resolveLocalIndex(targets.clean(), cleanInsn, varType, ordinal);
+        LocalVariableNode desired = lookup.getInScopeOrNull(cleanIndex, cleanInsn);
         if (desired == null) return null;
 
         // Find variable initializer insns
@@ -47,8 +54,12 @@ public class ModifyVarInjectionPointSubResolver implements SubResolver {
 
             LocalVariableNode match = LocalsAnalyzer.findLocalWithInitializer(method, desired.desc, desiredInitializerInsns).orElse(null);
             if (match != null) {
-                Integer dirtyOrdinal = dirtyLookup.getTypedOrdinal(match).orElse(null);
-                if (dirtyOrdinal == null) continue;
+                List<VarInsnNode> stores = LocalsAnalyzer.findStoreInsns(method, match.index);
+                if (stores.isEmpty()) continue;
+
+                TargetPair candidate = new TargetPair(targets.dirty().classNode(), method);
+                int dirtyOrdinal = context.locals().resolveLocalOrdinal(candidate, stores.getFirst().getNext(), varType, match.index);
+                if (dirtyOrdinal == -1) continue;
 
                 return recipe.dirty().copyClean()
                     .setProperty(ORDINAL, dirtyOrdinal)

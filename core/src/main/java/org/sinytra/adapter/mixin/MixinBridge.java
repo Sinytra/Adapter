@@ -122,6 +122,9 @@ public final class MixinBridge {
     public record InjectorGroup(String name, List<MethodNode> members, int minRequired) {
     }
 
+    public record LocalCandidate(int ordinal, int index) {
+    }
+
     public static final class Session {
         private final IMixinContext mixinContext;
         private final MethodNode mixinMethod;
@@ -161,11 +164,30 @@ public final class MixinBridge {
             return MethodSlice.parse(sliceContext, slice).getSlice(target());
         }
 
-        public int findModifiedLocal(AnnotationNode modifyVariable, Type returnType, AbstractInsnNode insn) {
-            LocalVariableDiscriminator discriminator = LocalVariableDiscriminator.parse(modifyVariable);
+        public int findLocal(AnnotationNode selector, Type type, AbstractInsnNode insn) {
+            LocalVariableDiscriminator discriminator = LocalVariableDiscriminator.parse(selector);
+            return discriminator.findLocal(localsContext(type, discriminator.isArgsOnly(), insn));
+        }
+
+        public List<LocalCandidate> findLocalCandidates(Type type, AbstractInsnNode insn, boolean argsOnly) {
+            LocalVariableDiscriminator.Context context = localsContext(type, argsOnly, insn);
+            List<LocalCandidate> candidates = new ArrayList<>();
+            // Ordinals start at slot 0, so the first ordinal of a type may belong to `this` and select nothing
+            for (int ordinal = 0; ordinal < this.targetMethod.maxLocals; ordinal++) {
+                int index = new LocalVariableDiscriminator(argsOnly, ordinal, -1, Set.of(), false).findLocal(context);
+                if (index != -1) {
+                    candidates.add(new LocalCandidate(ordinal, index));
+                }
+            }
+            return candidates;
+        }
+
+        private LocalVariableDiscriminator.Context localsContext(Type type, boolean argsOnly, AbstractInsnNode insn) {
             InjectionInfo injectionInfo = createInjectionInfo(CallbackInjectionInfo.class, this.mixinContext);
-            LocalVariableDiscriminator.Context ctx = new LocalVariableDiscriminator.Context(injectionInfo, returnType, discriminator.isArgsOnly(), target(), insn);
-            return discriminator.findLocal(ctx);
+            // The context reads the locals through Locals.getLocalsAt, which isn't thread safe
+            synchronized (LOCALS_LOCK) {
+                return new LocalVariableDiscriminator.Context(injectionInfo, type, argsOnly, target(), insn);
+            }
         }
 
         private List<AbstractInsnNode> find(InjectionPoint point, @Nullable AnnotationNode slice) throws Throwable {

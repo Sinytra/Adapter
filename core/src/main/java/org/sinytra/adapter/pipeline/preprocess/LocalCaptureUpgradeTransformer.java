@@ -2,13 +2,16 @@ package org.sinytra.adapter.pipeline.preprocess;
 
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.analysis.locals.LocalVariable;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.locals.LocalsAnalyzer;
 import org.sinytra.adapter.api.AuditTrail;
 import org.sinytra.adapter.api.MethodTransformer;
 import org.sinytra.adapter.api.PatchResult;
+import org.sinytra.adapter.mixin.MixinBridge.LocalCandidate;
 import org.sinytra.adapter.model.Targets;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.key.MixinKeys;
@@ -39,19 +42,32 @@ public class LocalCaptureUpgradeTransformer implements MethodTransformer {
 
         LocalsAnalyzer.CapturedLocalsTransform transform = LocalsAnalyzer.analyzeCapturedLocals(info.capturedLocals(), methodNode);
 
-        LocalVariableLookup cleanLookup = LocalVariableLookup.of(targets.clean().methodNode());
-        LocalVariableLookup dirtyLookup = LocalVariableLookup.of(targets.dirty().methodNode());
-        LocalVariableLookup lookup = info.capturedLocals().lvt();
-        if (cleanLookup == null || dirtyLookup == null) return PatchResult.PASS;
+        List<AbstractInsnNode> cleanInsns = context.injections().find(targets.clean());
+        List<AbstractInsnNode> dirtyInsns = context.injections().find(targets.dirty());
+        List<LocalVariable> cleanAvailable = context.locals().resolveAvailableLocals(targets.clean());
+        if (cleanInsns.isEmpty() || dirtyInsns.isEmpty() || cleanAvailable == null) return PatchResult.PASS;
 
+        LocalVariableLookup lookup = info.capturedLocals().lvt();
+        int capturedStart = info.capturedLocals().paramLocalStart();
+        Type[] args = Type.getArgumentTypes(methodNode.desc);
         Map<Integer, Integer> parameterToOrdinal = new HashMap<>();
         Set<Integer> usedOrdinals = new HashSet<>();
         for (LocalVariableNode node : transform.usedLocalNodes()) {
             Type expected = Type.getType(node.desc);
             boolean addOrdinal = true;
 
-            List<LocalVariableNode> cleanLocals = cleanLookup.getForType(expected);
-            List<LocalVariableNode> dirtyLocals = dirtyLookup.getForType(expected);
+            int paramOrdinal = lookup.getParameterOrdinal(node);
+            if (paramOrdinal < capturedStart) return PatchResult.PASS;
+            long typedPosition = Arrays.stream(args, capturedStart, paramOrdinal).filter(expected::equals).count();
+            LocalVariable cleanLocal = cleanAvailable.stream()
+                .filter(l -> l.type().equals(expected))
+                .skip(typedPosition)
+                .findFirst()
+                .orElse(null);
+            if (cleanLocal == null) return PatchResult.PASS;
+
+            List<LocalCandidate> cleanLocals = context.locals().findSelectableLocals(targets.clean(), cleanInsns.getFirst(), expected);
+            List<LocalCandidate> dirtyLocals = context.locals().findSelectableLocals(targets.dirty(), dirtyInsns.getFirst(), expected);
             if (cleanLocals.size() != dirtyLocals.size()) {
                 long matching = info.availableTypes().stream()
                     .filter(expected::equals)
@@ -62,10 +78,13 @@ public class LocalCaptureUpgradeTransformer implements MethodTransformer {
                 addOrdinal = false;
             }
 
-            int localOrdinal = lookup.getTypedOrdinal(node).orElse(-1);
+            int localOrdinal = cleanLocals.stream()
+                .filter(c -> c.index() == cleanLocal.index())
+                .mapToInt(LocalCandidate::ordinal)
+                .findFirst()
+                .orElse(-1);
             if (localOrdinal == -1) return PatchResult.PASS;
 
-            int paramOrdinal = lookup.getParameterOrdinal(node);
             usedOrdinals.add(paramOrdinal);
 
             if (addOrdinal && cleanLocals.size() > 1) {
@@ -73,7 +92,6 @@ public class LocalCaptureUpgradeTransformer implements MethodTransformer {
             }
         }
 
-        Type[] args = Type.getArgumentTypes(methodNode.desc);
         int start = info.capturedLocals().paramLocalStart();
         for (int i = start; i < args.length; i++) {
             if (!usedOrdinals.contains(i)) continue;
