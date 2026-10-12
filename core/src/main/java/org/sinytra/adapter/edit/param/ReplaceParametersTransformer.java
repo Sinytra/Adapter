@@ -39,7 +39,7 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
             return PatchResult.PASS;
         }
 
-        LocalVariableLookup lvtLookup = context.methods().getLVT(methodNode);
+        LocalVariableLookup lvtLookup = LocalVariableLookup.of(methodNode);
         LocalVariableNode localVar = lvtLookup == null ? null : lvtLookup.getByParameterOrdinalOrNull(paramIndex);
         if (localVar == null) {
             LOGGER.info(MIXINPATCH, "Cannot replace parameter {}, missing local variable info in {}.{}", paramIndex, classNode.name, methodNode.name);

@@ -5,7 +5,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.analysis.method.MethodHelper;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.key.SpecialKeys;
 import org.sinytra.adapter.pipeline.Recipe;
@@ -28,7 +28,7 @@ public class StaticAccessProcessor implements Processor {
         if (cleanStatic == dirtyStatic) return TxResult.PASS;
 
         MethodNode method = context.methodNode();
-        boolean actuallyStatic = MethodHelper.isStatic(context.methodNode());
+        boolean actuallyStatic = MethodAnalyzer.isStatic(context.methodNode());
         // Add static
         if (!actuallyStatic && !cleanStatic && dirtyStatic) {
             // Mixin types add the target instance as the first parameter, which replaces usages of "this"

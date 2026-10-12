@@ -6,7 +6,7 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.analysis.method.MethodHelper;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 
 import java.util.*;
 
@@ -18,8 +18,13 @@ public class LocalVariableLookup {
     private final Int2ObjectMap<LocalVariableNode> byIndex = new Int2ObjectOpenHashMap<>();
     private final Map<Type, List<LocalVariableNode>> byType = new HashMap<>();
 
+    @Nullable
+    public static LocalVariableLookup of(MethodNode method) {
+        return method.localVariables != null ? new LocalVariableLookup(method) : null;
+    }
+
     public LocalVariableLookup(MethodNode methodNode) {
-        this.isNonStatic = !MethodHelper.isStatic(methodNode);
+        this.isNonStatic = !MethodAnalyzer.isStatic(methodNode);
 
         List<LocalVariableNode> localVariables = methodNode.localVariables;
         this.sortedLocals = localVariables == null ? List.of() : localVariables.stream()

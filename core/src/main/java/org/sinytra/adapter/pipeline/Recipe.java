@@ -55,11 +55,11 @@ public final class Recipe {
         } else {
             this.cleanTarget = Cached.of(() -> findTarget(context.cleanMethods(), clean.getTargetMethod()));
             this.newCleanTarget = Cached.of(() -> findTarget(context.dirtyMethods(), clean.getTargetMethod()));
-            this.cleanLocalsTable = Cached.of(() -> getLocalsTable(context, getCleanTarget()));
+            this.cleanLocalsTable = Cached.of(() -> getLocalsTable(getCleanTarget()));
         }
 
         this.dirtyTarget = Cached.keyed(dirty::getTargetMethod, target -> findTarget(context.dirtyMethods(), target));
-        this.dirtyLocalsTable = Cached.keyed(this::getDirtyTarget, target -> getLocalsTable(context, target));
+        this.dirtyLocalsTable = Cached.keyed(this::getDirtyTarget, target -> getLocalsTable(target));
     }
 
     @Nullable
@@ -68,8 +68,8 @@ public final class Recipe {
     }
 
     @Nullable
-    private static LocalVariableLookup getLocalsTable(MixinContext context, @Nullable TargetPair target) {
-        return target != null ? context.methods().getLVT(target.methodNode()) : null;
+    private static LocalVariableLookup getLocalsTable(@Nullable TargetPair target) {
+        return target != null ? LocalVariableLookup.of(target.methodNode()) : null;
     }
 
     @Nullable

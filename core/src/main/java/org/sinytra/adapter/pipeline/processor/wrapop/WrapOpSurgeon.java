@@ -29,7 +29,7 @@ public class WrapOpSurgeon {
 
     public static boolean tryUpgrade(MixinContext context, Recipe recipe, List<Type> methodParams, MethodInsnNode cleanInsn, MethodInsnNode dirtyInsn) {
         MethodNode methodNode = context.methodNode();
-        LocalVariableLookup mixinLocals = context.methods().getLVT(methodNode);
+        LocalVariableLookup mixinLocals = LocalVariableLookup.of(methodNode);
         if (mixinLocals == null) return false;
 
         LocalVariableNode instanceLocal = mixinLocals.getByParameterOrdinalOrNull(0);

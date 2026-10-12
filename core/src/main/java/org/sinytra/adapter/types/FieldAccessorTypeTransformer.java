@@ -7,7 +7,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.analysis.method.MethodHelper;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.api.BytecodeFixerUpper;
 import org.sinytra.adapter.api.ClassTransformer;
 import org.sinytra.adapter.api.PatchEnvironment;
@@ -86,7 +86,7 @@ public class FieldAccessorTypeTransformer implements ClassTransformer {
 
     private static void addRedirectAcceptorMethod(ClassNode node, Type owner, MethodNode methodNode, String field, TypeAdapter adapter, String methodName, Type to, String methodDesc) {
         if (node.methods.stream().noneMatch(m -> m.name.equals(methodName))) {
-            boolean isStatic = MethodHelper.isStatic(methodNode);
+            boolean isStatic = MethodAnalyzer.isStatic(methodNode);
             MethodNode method = (MethodNode) node.visitMethod(Opcodes.ACC_PUBLIC | (isStatic ? Opcodes.ACC_STATIC : 0), methodName, methodDesc, null, null);
             {
                 AnnotationVisitor annotationVisitor = method.visitAnnotation(MixinAnnotations.UNIQUE, true);

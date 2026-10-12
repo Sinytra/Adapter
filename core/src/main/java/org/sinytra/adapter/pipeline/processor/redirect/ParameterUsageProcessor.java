@@ -46,7 +46,7 @@ public class ParameterUsageProcessor implements Processor {
             return TxResult.SUCCESS;
         }
 
-        LocalVariableLookup lookup = context.methods().getLVT(context.methodNode());
+        LocalVariableLookup lookup = LocalVariableLookup.of(context.methodNode());
         if (lookup == null || diff.insertions().stream().anyMatch(i -> lookup.getByParameterOrdinalOrNull(i.index()) == null)) {
             return TxResult.PASS;
         }

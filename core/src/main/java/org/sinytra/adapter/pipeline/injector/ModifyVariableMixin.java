@@ -101,7 +101,7 @@ public class ModifyVariableMixin extends AbstractMixinType {
             MethodNode target = targetPair.methodNode();
 
             Integer index = config.getProperty(MixinKeys.INDEX).orElseThrow();
-            LocalVariableLookup lookup = context.methods().getLVT(target);
+            LocalVariableLookup lookup = LocalVariableLookup.of(target);
             if (lookup == null) return false;
 
             LocalVariableNode node = lookup.getByIndexOrNull(index);

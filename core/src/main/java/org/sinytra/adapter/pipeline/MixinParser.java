@@ -5,7 +5,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.analysis.method.MethodHelper;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.api.ClassLookup;
 import org.sinytra.adapter.api.PatchEnvironment;
 import org.sinytra.adapter.model.MethodQualifier;
@@ -67,7 +67,7 @@ public class MixinParser {
             String targetClass = Objects.requireNonNullElseGet(cls.getSingle(), () -> cls.getTypes().getFirst()).getInternalName();
             properties.setProperty(ControlKeys.TARGET_CLASS, targetClass);
             properties.setProperty(ControlKeys.RETURN_TYPE, Type.getReturnType(method.desc));
-            properties.setProperty(SpecialKeys.STATIC, MethodHelper.isStatic(method));
+            properties.setProperty(SpecialKeys.STATIC, MethodAnalyzer.isStatic(method));
             resolveTargetDescriptor(properties, environment);
 
             return new MixinMethodHandle(mixinType, method, handle, properties);

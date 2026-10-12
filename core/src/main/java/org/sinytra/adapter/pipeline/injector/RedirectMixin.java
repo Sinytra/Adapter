@@ -1,7 +1,7 @@
 package org.sinytra.adapter.pipeline.injector;
 
 import org.objectweb.asm.Type;
-import org.sinytra.adapter.analysis.method.MethodHelper;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.config.Configuration;
@@ -89,8 +89,8 @@ public class RedirectMixin extends AbstractMixinType {
         if (dirtyTarget == null)
             return TxResult.FAIL;
 
-        List<Type> dirtyCaptured = context.methods().resolveCapturedMethodParams(recipe.clean(), recipe.dirty());
-        Type receiver = MethodHelper.isStatic(dirtyTarget.methodNode()) ? null : Type.getObjectType(dirtyTarget.classNode().name);
+        List<Type> dirtyCaptured = context.locals().findDirtyCapturedParams(recipe.clean(), recipe.dirty());
+        Type receiver = MethodAnalyzer.isStatic(dirtyTarget.methodNode()) ? null : Type.getObjectType(dirtyTarget.classNode().name);
         List<Type> callTypes = Parameters.getCallOperandTypes(receiver, targetDesc.desc());
 
         dirty.inheritProperyIfAbsent(ControlKeys.PARAMETERS);
@@ -108,7 +108,7 @@ public class RedirectMixin extends AbstractMixinType {
     private boolean isStaticRedirect(MixinContext context, MethodQualifier targetDesc, List<Type> methodParams, List<Type> callTypes) {
         TargetPair cleanTarget = context.cleanMethods().resolve(targetDesc);
         if (cleanTarget != null) {
-            return MethodHelper.isStatic(cleanTarget.methodNode());
+            return MethodAnalyzer.isStatic(cleanTarget.methodNode());
         }
         return methodParams.size() >= callTypes.size() && methodParams.subList(0, callTypes.size()).equals(callTypes);
     }

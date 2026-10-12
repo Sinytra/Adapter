@@ -6,7 +6,8 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.analysis.flow.DataFlow;
 import org.sinytra.adapter.analysis.injection.InjectionLocator;
-import org.sinytra.adapter.analysis.method.MethodHelper;
+import org.sinytra.adapter.analysis.locals.LocalsAnalyzer;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodLocator;
 import org.sinytra.adapter.api.BytecodeFixerUpper;
 import org.sinytra.adapter.api.ClassLookup;
@@ -46,10 +47,10 @@ public class MixinContext implements RefMapper, Auditor {
     private final List<Object> auditContext = new ArrayList<>();
 
     private final String mixinId;
-    private final MethodHelper methodHelper;
     private final MethodLocator cleanMethods;
     private final MethodLocator dirtyMethods;
     private final InjectionLocator injections;
+    private final LocalsAnalyzer locals;
 
     private final Map<MethodNode, DataFlow> targetFlows;
     private final Resolvers resolvers = new Resolvers();
@@ -65,8 +66,8 @@ public class MixinContext implements RefMapper, Auditor {
         this.injectionPointAnnotation = injectionPointAnnotation;
         this.flags = flags;
 
-        this.methodHelper = new MethodHelper(this);
         this.injections = new InjectionLocator(this);
+        this.locals = new LocalsAnalyzer(this);
         String defaultOwner = classTarget.getTypes().getFirst().getInternalName();
         this.cleanMethods = new MethodLocator(patchContext.environment(), patchContext.environment().cleanClassLookup(), defaultOwner);
         this.dirtyMethods = new MethodLocator(patchContext.environment(), patchContext.environment().dirtyClassLookup(), defaultOwner);
@@ -114,10 +115,6 @@ public class MixinContext implements RefMapper, Auditor {
         return this.originalMethodNode;
     }
 
-    public MethodHelper methods() {
-        return this.methodHelper;
-    }
-
     public MethodLocator cleanMethods() {
         return this.cleanMethods;
     }
@@ -128,6 +125,10 @@ public class MixinContext implements RefMapper, Auditor {
 
     public InjectionLocator injections() {
         return this.injections;
+    }
+
+    public LocalsAnalyzer locals() {
+        return this.locals;
     }
 
     public DataFlow dataFlow(TargetPair target) {
@@ -174,7 +175,7 @@ public class MixinContext implements RefMapper, Auditor {
     }
 
     public boolean isStatic() {
-        return MethodHelper.isStatic(this.methodNode);
+        return MethodAnalyzer.isStatic(this.methodNode);
     }
 
     public List<Type> targetTypes() {

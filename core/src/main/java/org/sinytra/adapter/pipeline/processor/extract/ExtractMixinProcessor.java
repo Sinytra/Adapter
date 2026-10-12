@@ -7,9 +7,9 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.analysis.locals.LocalVarAnalyzer;
 import org.sinytra.adapter.analysis.locals.LocalVariable;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
+import org.sinytra.adapter.analysis.locals.LocalsAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer.IndyHandle;
 import org.sinytra.adapter.api.PatchResult;
@@ -242,15 +242,15 @@ public class ExtractMixinProcessor implements Processor {
      * }</pre>
      */
     private static PatchResult recreateLocalVariables(MethodNode methodNode, MixinContext context, Recipe recipe, ClassNode extractClass) {
-        LocalVarAnalyzer.CapturedLocals capturedLocals = LocalVarAnalyzer.findCapturedLocals(context, recipe);
+        LocalsAnalyzer.CapturedLocals capturedLocals = context.locals().resolveCapturedLocals(recipe.getDirtyTarget());
         if (capturedLocals == null) {
             return PatchResult.PASS;
         }
         int paramLocalStart = capturedLocals.paramLocalStart();
 
         // Mixin requires capturing locals in their original order, so we must filter out unused ones
-        LocalVarAnalyzer.CapturedLocalsTransform transform = LocalVarAnalyzer.analyzeCapturedLocals(capturedLocals, methodNode);
-        LocalVarAnalyzer.CapturedLocalsUsage usage = transform.getUsage(capturedLocals, context);
+        LocalsAnalyzer.CapturedLocalsTransform transform = LocalsAnalyzer.analyzeCapturedLocals(capturedLocals, methodNode);
+        LocalsAnalyzer.CapturedLocalsUsage usage = context.locals().resolveUsage(capturedLocals, transform);
         // Used captured locals in parameter order
         List<Integer> used = transform.used().stream().sorted().toList();
         LocalVariableLookup targetTable = usage.targetTable();

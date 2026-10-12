@@ -63,7 +63,7 @@ public class ModifyExpressionValueMixin extends AbstractMixinType {
             return TxResult.SUCCESS;
         }
 
-        List<Type> dirtyCaptured = context.methods().resolveCapturedMethodParams(recipe.clean(), recipe.dirty());
+        List<Type> dirtyCaptured = context.locals().findDirtyCapturedParams(recipe.clean(), recipe.dirty());
         Type modifyingType = Type.getReturnType(targetDesc.desc());
 
         MethodParameters params = clean.getParameters().mutableCopy()

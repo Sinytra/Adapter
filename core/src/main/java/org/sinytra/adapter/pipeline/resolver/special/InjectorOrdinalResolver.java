@@ -8,8 +8,8 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.InsnTraversal;
 import org.sinytra.adapter.analysis.compare.InsnComparator;
 import org.sinytra.adapter.analysis.compare.InstructionMatcher;
-import org.sinytra.adapter.analysis.locals.LocalVarAnalyzer;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
+import org.sinytra.adapter.analysis.locals.LocalsAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodInsnMatcher;
 import org.sinytra.adapter.model.MethodQualifier;
@@ -422,8 +422,8 @@ public class InjectorOrdinalResolver implements Resolver {
 
         private static Optional<LocalVariableNode> findReplacementLocal(MethodNode cleanMethod, MethodNode dirtyMethod, LocalVariableNode desired) {
             // Find variable initializer insns
-            InsnList desiredInitializerInsns = LocalVarAnalyzer.findInitializerInsns(cleanMethod, desired.index);
-            return LocalVarAnalyzer.findLocalWithInitializer(dirtyMethod, desired.desc, desiredInitializerInsns);
+            InsnList desiredInitializerInsns = LocalsAnalyzer.findInitializerInsns(cleanMethod, desired.index);
+            return LocalsAnalyzer.findLocalWithInitializer(dirtyMethod, desired.desc, desiredInitializerInsns);
         }
     }
 }

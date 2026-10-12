@@ -1,7 +1,7 @@
 package org.sinytra.adapter.pipeline.injector;
 
 import org.objectweb.asm.Type;
-import org.sinytra.adapter.analysis.method.MethodHelper;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.config.Configuration;
@@ -59,9 +59,9 @@ public class WrapOperationMixin extends AbstractMixinType {
         if (dirtyAtTarget == null || dirtyAtTarget.desc() == null)
             return TxResult.FAIL;
 
-        List<Type> dirtyCaptured = context.methods().resolveCapturedMethodParams(recipe.clean(), recipe.dirty());
+        List<Type> dirtyCaptured = context.locals().findDirtyCapturedParams(recipe.clean(), recipe.dirty());
         TargetPair targetMethodCall = dirtyAtTarget.isFull() ? context.dirtyMethods().resolveInherited(dirtyAtTarget) : null;
-        Type receiver = targetMethodCall != null && !MethodHelper.isStatic(targetMethodCall.methodNode()) ? Type.getObjectType(dirtyAtTarget.internalOwnerName()) : null;
+        Type receiver = targetMethodCall != null && !MethodAnalyzer.isStatic(targetMethodCall.methodNode()) ? Type.getObjectType(dirtyAtTarget.internalOwnerName()) : null;
         List<Type> callTypes = Parameters.getCallOperandTypes(receiver, dirtyAtTarget.desc());
 
         MethodParameters params = clean.getParameters().mutableCopy()

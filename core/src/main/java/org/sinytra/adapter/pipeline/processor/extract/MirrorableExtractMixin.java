@@ -5,7 +5,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.analysis.method.MethodHelper;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.api.PatchEnvironment;
 import org.sinytra.adapter.api.PatchResult;
 import org.sinytra.adapter.model.MethodQualifier;
@@ -117,7 +117,7 @@ public class MirrorableExtractMixin {
         // Now call the original mixin
         GeneratorAdapter gen = new GeneratorAdapter(mirror, mirror.access, mirror.name, mirror.desc);
         gen.newLabel();
-        if (!MethodHelper.isStatic(methodNode)) {
+        if (!MethodAnalyzer.isStatic(methodNode)) {
             loadInstance.accept(gen);
         }
         for (int argIndex : argIndices) {
@@ -133,7 +133,7 @@ public class MirrorableExtractMixin {
 
     static void invokeHandler(GeneratorAdapter gen, MethodNode handler, ClassNode handlerOwner) {
         boolean isInterface = (handlerOwner.access & Opcodes.ACC_INTERFACE) != 0;
-        int opcode = MethodHelper.isStatic(handler) ? Opcodes.INVOKESTATIC : isInterface ? Opcodes.INVOKEINTERFACE : Opcodes.INVOKEVIRTUAL;
+        int opcode = MethodAnalyzer.isStatic(handler) ? Opcodes.INVOKESTATIC : isInterface ? Opcodes.INVOKEINTERFACE : Opcodes.INVOKEVIRTUAL;
         gen.visitMethodInsn(opcode, handlerOwner.name, handler.name, handler.desc, isInterface);
     }
 }

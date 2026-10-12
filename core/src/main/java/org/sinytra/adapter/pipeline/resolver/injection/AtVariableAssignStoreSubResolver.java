@@ -3,8 +3,8 @@ package org.sinytra.adapter.pipeline.resolver.injection;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.InsnTraversal;
-import org.sinytra.adapter.analysis.locals.LocalVarAnalyzer;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
+import org.sinytra.adapter.analysis.locals.LocalsAnalyzer;
 import org.sinytra.adapter.model.Targets;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.MutableConfiguration;
@@ -54,12 +54,12 @@ public class AtVariableAssignStoreSubResolver implements SubResolver {
         }
         LocalVariableNode dirtyLocal = dirtyLocals.get(cleanLocals.indexOf(cleanLocal));
         // Find store insns
-        List<VarInsnNode> cleanStoreInsns = LocalVarAnalyzer.findStoreInsns(targets.clean().methodNode(), cleanLocal.index);
+        List<VarInsnNode> cleanStoreInsns = LocalsAnalyzer.findStoreInsns(targets.clean().methodNode(), cleanLocal.index);
         int cleanStoreInsnIndex = cleanStoreInsns.indexOf(varInsn);
         if (cleanStoreInsnIndex == -1) {
             return null;
         }
-        List<VarInsnNode> dirtyStoreInsns = LocalVarAnalyzer.findStoreInsns(targets.dirty().methodNode(), dirtyLocal.index);
+        List<VarInsnNode> dirtyStoreInsns = LocalsAnalyzer.findStoreInsns(targets.dirty().methodNode(), dirtyLocal.index);
         if (cleanStoreInsns.size() != dirtyStoreInsns.size()) {
             return null;
         }

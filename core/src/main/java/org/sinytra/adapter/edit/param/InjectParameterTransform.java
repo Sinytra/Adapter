@@ -4,7 +4,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.TypeReference;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.analysis.method.MethodHelper;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.api.PatchResult;
 import org.sinytra.adapter.edit.LVTSnapshot;
 import org.sinytra.adapter.model.ann.AnnotationHandle;
@@ -28,7 +28,7 @@ public record InjectParameterTransform(int index, Type type) implements Paramete
 
     @Override
     public PatchResult apply(ClassNode classNode, MethodNode methodNode, MixinContext context, List<Type> parameters, int offset) {
-        boolean isNonStatic = !MethodHelper.isStatic(methodNode);
+        boolean isNonStatic = !MethodAnalyzer.isStatic(methodNode);
         int index = this.index + offset;
         if (index >= parameters.size() + 1) {
             return PatchResult.PASS;

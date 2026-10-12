@@ -3,7 +3,6 @@ package org.sinytra.adapter.pipeline.processor.extract;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.analysis.locals.LocalVarAnalyzer;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.key.SpecialKeys;
@@ -30,7 +29,7 @@ public class ProxyExtractMixinSub implements Processor {
         if (recipe.clean().getTargetClass().equals(dirty.getTargetClass()))
             return TxResult.PASS;
 
-        if (!dirty.hasProperty(SpecialKeys.EXTRACT_ORIGIN_PARAM) || LocalVarAnalyzer.capturesLocals(context))
+        if (!dirty.hasProperty(SpecialKeys.EXTRACT_ORIGIN_PARAM) || context.locals().capturesLocals())
             return TxResult.FAIL;
 
         TargetPair dirtyTarget = recipe.getNewCleanTarget();

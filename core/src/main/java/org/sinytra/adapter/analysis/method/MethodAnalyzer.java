@@ -3,6 +3,7 @@ package org.sinytra.adapter.analysis.method;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import org.objectweb.asm.Handle;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.constant.TypeConstants;
@@ -13,6 +14,10 @@ import java.util.*;
 
 public class MethodAnalyzer {
     public static final String LAMBDA_PREFIX = "lambda$";
+
+    public static boolean isStatic(MethodNode methodNode) {
+        return (methodNode.access & Opcodes.ACC_STATIC) != 0;
+    }
 
     public static boolean isLambda(MethodNode methodNode) {
         return methodNode.name.startsWith(LAMBDA_PREFIX);

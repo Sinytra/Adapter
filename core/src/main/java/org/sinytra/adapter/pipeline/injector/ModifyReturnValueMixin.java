@@ -65,7 +65,7 @@ public class ModifyReturnValueMixin extends AbstractMixinType {
             return TxResult.FAIL;
         }
 
-        List<Type> dirtyCaptured = context.methods().resolveCapturedMethodParams(recipe.clean(), recipe.dirty());
+        List<Type> dirtyCaptured = context.locals().findDirtyCapturedParams(recipe.clean(), recipe.dirty());
         Type modifyingType = Type.getReturnType(target.desc());
 
         MethodParameters params = clean.getParameters().mutableCopy()

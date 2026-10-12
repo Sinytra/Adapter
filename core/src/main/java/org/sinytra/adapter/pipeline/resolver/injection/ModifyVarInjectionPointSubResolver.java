@@ -5,8 +5,8 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.analysis.locals.LocalVarAnalyzer;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
+import org.sinytra.adapter.analysis.locals.LocalsAnalyzer;
 import org.sinytra.adapter.model.Targets;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.pipeline.Recipe;
@@ -38,14 +38,14 @@ public class ModifyVarInjectionPointSubResolver implements SubResolver {
         if (desired == null) return null;
 
         // Find variable initializer insns
-        InsnList desiredInitializerInsns = LocalVarAnalyzer.findInitializerInsns(targets.clean().methodNode(), desired.index);
+        InsnList desiredInitializerInsns = LocalsAnalyzer.findInitializerInsns(targets.clean().methodNode(), desired.index);
 
         // Get all matching variables
         for (MethodNode method : targets.dirty().classNode().methods) {
-            LocalVariableLookup dirtyLookup = context.methods().getLVT(method);
+            LocalVariableLookup dirtyLookup = LocalVariableLookup.of(method);
             if (dirtyLookup == null) continue;
 
-            LocalVariableNode match = LocalVarAnalyzer.findLocalWithInitializer(method, desired.desc, desiredInitializerInsns).orElse(null);
+            LocalVariableNode match = LocalsAnalyzer.findLocalWithInitializer(method, desired.desc, desiredInitializerInsns).orElse(null);
             if (match != null) {
                 Integer dirtyOrdinal = dirtyLookup.getTypedOrdinal(match).orElse(null);
                 if (dirtyOrdinal == null) continue;

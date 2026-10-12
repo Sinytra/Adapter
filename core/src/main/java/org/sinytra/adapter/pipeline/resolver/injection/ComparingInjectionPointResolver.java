@@ -128,7 +128,7 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
             TypeInsnNode instanceOfCall = instanceOfCalls.getFirst();
 
             MethodNode methodNode = context.methodNode();
-            LocalVariableLookup lvt = context.methods().getLVT(methodNode);
+            LocalVariableLookup lvt = LocalVariableLookup.of(methodNode);
             if (lvt == null) return Optional.empty();
 
             LocalVariableNode instanceLocal = lvt.getByParameterOrdinalOrNull(0);

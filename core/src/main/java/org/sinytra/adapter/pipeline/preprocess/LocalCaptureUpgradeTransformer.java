@@ -4,8 +4,8 @@ import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.analysis.locals.LocalVarAnalyzer;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
+import org.sinytra.adapter.analysis.locals.LocalsAnalyzer;
 import org.sinytra.adapter.api.AuditTrail;
 import org.sinytra.adapter.api.MethodTransformer;
 import org.sinytra.adapter.api.PatchResult;
@@ -34,13 +34,13 @@ public class LocalCaptureUpgradeTransformer implements MethodTransformer {
         // Already upgraded
         if (Parameters.parse(methodNode).stream().anyMatch(p -> p.hasAnnotation(MixinAnnotations.LOCAL))) return PatchResult.PASS;
 
-        LocalVarAnalyzer.CapturedLocalsInfo info = LocalVarAnalyzer.getCapturedLocals(context, targets.dirty());
+        LocalsAnalyzer.CapturedLocalsInfo info = context.locals().resolveCapturedLocalsInfo(targets.dirty());
         if (info == null || info.diff().isEmpty()) return PatchResult.PASS;
 
-        LocalVarAnalyzer.CapturedLocalsTransform transform = LocalVarAnalyzer.analyzeCapturedLocals(info.capturedLocals(), methodNode);
+        LocalsAnalyzer.CapturedLocalsTransform transform = LocalsAnalyzer.analyzeCapturedLocals(info.capturedLocals(), methodNode);
 
-        LocalVariableLookup cleanLookup = context.methods().getLVT(targets.clean().methodNode());
-        LocalVariableLookup dirtyLookup = context.methods().getLVT(targets.dirty().methodNode());
+        LocalVariableLookup cleanLookup = LocalVariableLookup.of(targets.clean().methodNode());
+        LocalVariableLookup dirtyLookup = LocalVariableLookup.of(targets.dirty().methodNode());
         LocalVariableLookup lookup = info.capturedLocals().lvt();
         if (cleanLookup == null || dirtyLookup == null) return PatchResult.PASS;
 

@@ -52,7 +52,7 @@ public class ParametersPostProcessor implements Processor {
         if (diff == null) return TxResult.PASS;
 
         MethodNode methodNode = context.methodNode();
-        LocalVariableLookup lookup = context.methods().getLVT(context.methodNode());
+        LocalVariableLookup lookup = LocalVariableLookup.of(context.methodNode());
         if (lookup == null) return TxResult.PASS;
 
         boolean matched = false;
