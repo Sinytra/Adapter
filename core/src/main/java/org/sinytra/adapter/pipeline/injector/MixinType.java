@@ -3,6 +3,7 @@ package org.sinytra.adapter.pipeline.injector;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.MutableConfiguration;
 import org.sinytra.adapter.model.config.PropertyContainerTemplate;
+import org.sinytra.adapter.model.param.HandlerSignature;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
@@ -17,6 +18,8 @@ import java.util.Set;
  */
 public interface MixinType {
     PropertyContainerTemplate getConfigurationTemplate();
+
+    HandlerSignature signature();
 
     default Set<MixinFlag> getFlags() {
         return EnumSet.noneOf(MixinFlag.class);

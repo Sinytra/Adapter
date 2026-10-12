@@ -1,6 +1,5 @@
 package org.sinytra.adapter.pipeline.injector;
 
-import org.objectweb.asm.Type;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.Targets;
@@ -10,7 +9,8 @@ import org.sinytra.adapter.model.config.ConfigurationTemplates;
 import org.sinytra.adapter.model.config.MutableConfiguration;
 import org.sinytra.adapter.model.config.PropertyContainerTemplate;
 import org.sinytra.adapter.model.config.key.MixinKeys;
-import org.sinytra.adapter.model.param.MethodParameters;
+import org.sinytra.adapter.model.param.HandlerSignature;
+import org.sinytra.adapter.model.param.HandlerSignature.ValueSource;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
@@ -19,9 +19,9 @@ import org.sinytra.adapter.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.pipeline.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.pipeline.resolver.special.InjectorOrdinalResolver;
 
-import java.util.List;
-
 import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL_RETURN;
+import static org.sinytra.adapter.model.param.HandlerSignature.ParamSource.*;
+import static org.sinytra.adapter.model.param.HandlerSignature.slot;
 import static org.sinytra.adapter.model.param.MethodParameters.ParamGroup.*;
 
 public class ModifyReturnValueMixin extends AbstractMixinType {
@@ -29,8 +29,20 @@ public class ModifyReturnValueMixin extends AbstractMixinType {
         .pluralKeys(MixinKeys.TARGET_METHOD, MixinKeys.TARGET_AT)
         .build();
 
+    private static final HandlerSignature SIGNATURE = HandlerSignature.of(
+        ValueSource.TARGET_RETURN,
+        slot(SINGLE_ANY, VALUE),
+        slot(CAPTURED_PARAMS, CAPTURED_TARGET_ARGS),
+        slot(LOCALS, KEEP)
+    );
+
     public ModifyReturnValueMixin() {
         super(TEMPLATE);
+    }
+
+    @Override
+    public HandlerSignature signature() {
+        return SIGNATURE;
     }
 
     @Override
@@ -50,7 +62,7 @@ public class ModifyReturnValueMixin extends AbstractMixinType {
         resolvers
             .addBefore(InjectionPointResolver.class, new InjectorOrdinalResolver());
 
-        clean.setParameters(MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY, CAPTURED_PARAMS, LOCALS)));
+        clean.setParameters(SIGNATURE.parse(context.methodNode()));
 
         return TxResult.SUCCESS;
     }
@@ -65,17 +77,6 @@ public class ModifyReturnValueMixin extends AbstractMixinType {
             return TxResult.FAIL;
         }
 
-        List<Type> dirtyCaptured = context.locals().findDirtyCapturedParams(recipe.clean(), recipe.dirty());
-        Type modifyingType = Type.getReturnType(target.desc());
-
-        MethodParameters params = clean.getParameters().mutableCopy()
-            .putType(SINGLE_ANY, modifyingType)
-            .putTypes(CAPTURED_PARAMS, dirtyCaptured)
-            .build();
-
-        dirty.setParameters(params);
-        dirty.setReturnType(modifyingType);
-
-        return TxResult.SUCCESS;
+        return HandlerSignatures.apply(context, SIGNATURE, clean, dirty, recipe, null);
     }
 }

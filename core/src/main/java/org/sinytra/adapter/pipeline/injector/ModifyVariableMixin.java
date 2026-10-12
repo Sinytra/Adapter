@@ -11,8 +11,8 @@ import org.sinytra.adapter.model.config.ConfigurationTemplates;
 import org.sinytra.adapter.model.config.MutableConfiguration;
 import org.sinytra.adapter.model.config.PropertyContainerTemplate;
 import org.sinytra.adapter.model.config.key.MixinKeys;
-import org.sinytra.adapter.model.param.MethodParameters;
-import org.sinytra.adapter.model.param.Parameter;
+import org.sinytra.adapter.model.param.HandlerSignature;
+import org.sinytra.adapter.model.param.HandlerSignature.ValueSource;
 import org.sinytra.adapter.model.param.Parameters;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
@@ -27,6 +27,8 @@ import org.sinytra.adapter.pipeline.resolver.special.ModifyVarUpgradeResolver;
 
 import java.util.List;
 
+import static org.sinytra.adapter.model.param.HandlerSignature.ParamSource.*;
+import static org.sinytra.adapter.model.param.HandlerSignature.slot;
 import static org.sinytra.adapter.model.param.MethodParameters.ParamGroup.LOCALS;
 import static org.sinytra.adapter.model.param.MethodParameters.ParamGroup.SINGLE_ANY;
 
@@ -36,8 +38,19 @@ public class ModifyVariableMixin extends AbstractMixinType {
         .pluralKeys(MixinKeys.TARGET_METHOD)
         .build();
 
+    private static final HandlerSignature SIGNATURE = HandlerSignature.of(
+        ValueSource.VARIABLE,
+        slot(SINGLE_ANY, VALUE),
+        slot(LOCALS, KEEP)
+    );
+
     public ModifyVariableMixin() {
         super(TEMPLATE, MixinFlag.TARGETS_VARIABLE);
+    }
+
+    @Override
+    public HandlerSignature signature() {
+        return SIGNATURE;
     }
 
     @Override
@@ -49,7 +62,7 @@ public class ModifyVariableMixin extends AbstractMixinType {
         resolvers.getOrThrow(InjectionPointResolver.class)
             .addSubResolver(new ModifyVarInjectionPointSubResolver());
 
-        clean.setParameters(MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY, LOCALS)));
+        clean.setParameters(SIGNATURE.parse(context.methodNode()));
 
         return TxResult.SUCCESS;
     }
@@ -78,11 +91,7 @@ public class ModifyVariableMixin extends AbstractMixinType {
 
             TypeAdapter adapter = context.getTypeAdapter(cleanVarType, dirtyVarType);
             if (adapter != null) {
-                MethodParameters newParams = MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY, LOCALS));
-                newParams.get(SINGLE_ANY).set(0, Parameter.simple(dirtyVarType));
-
-                dirty.setParameters(newParams);
-                dirty.setReturnType(dirtyVarType);
+                return HandlerSignatures.apply(context, SIGNATURE, clean, dirty, recipe, dirtyVarType);
             }
             return TxResult.SUCCESS;
         }

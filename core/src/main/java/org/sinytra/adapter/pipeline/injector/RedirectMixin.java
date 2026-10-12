@@ -8,9 +8,10 @@ import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.ConfigurationTemplates;
 import org.sinytra.adapter.model.config.MutableConfiguration;
 import org.sinytra.adapter.model.config.PropertyContainerTemplate;
-import org.sinytra.adapter.model.config.key.ControlKeys;
 import org.sinytra.adapter.model.config.key.MixinKeys;
 import org.sinytra.adapter.model.constant.MixinAnnotationConstants;
+import org.sinytra.adapter.model.param.HandlerSignature;
+import org.sinytra.adapter.model.param.HandlerSignature.ValueSource;
 import org.sinytra.adapter.model.param.MethodParameters;
 import org.sinytra.adapter.model.param.MethodParameters.ParamGroup;
 import org.sinytra.adapter.model.param.Parameters;
@@ -27,6 +28,8 @@ import org.sinytra.adapter.pipeline.resolver.special.ResolverSyntheticInstanceof
 
 import java.util.List;
 
+import static org.sinytra.adapter.model.param.HandlerSignature.ParamSource.*;
+import static org.sinytra.adapter.model.param.HandlerSignature.slot;
 import static org.sinytra.adapter.model.param.MethodParameters.ParamGroup.*;
 
 public class RedirectMixin extends AbstractMixinType {
@@ -34,8 +37,20 @@ public class RedirectMixin extends AbstractMixinType {
         .pluralKeys(MixinKeys.TARGET_METHOD)
         .build();
 
+    private static final HandlerSignature SIGNATURE = HandlerSignature.of(
+        ValueSource.CALL_RETURN,
+        slot(METHOD_PARAMS, CALL_OPERANDS),
+        slot(CAPTURED_PARAMS, CAPTURED_TARGET_ARGS),
+        slot(LOCALS, KEEP)
+    );
+
     public RedirectMixin() {
         super(TEMPLATE, MixinFlag.AT_TARGET_SENSITIVE, MixinFlag.ACCEPTS_INSTANCE);
+    }
+
+    @Override
+    public HandlerSignature signature() {
+        return SIGNATURE;
     }
 
     @Override
@@ -81,28 +96,7 @@ public class RedirectMixin extends AbstractMixinType {
         if (dirty.getTargetMethod() == null || dirty.getAtData() == null)
             return TxResult.FAIL;
 
-        MethodQualifier targetDesc = dirty.getAtData().getTargetQualifier().orElse(null);
-        if (targetDesc == null || targetDesc.desc() == null)
-            return TxResult.FAIL;
-
-        TargetPair dirtyTarget = context.dirtyMethods().resolve(targetDesc);
-        if (dirtyTarget == null)
-            return TxResult.FAIL;
-
-        List<Type> dirtyCaptured = context.locals().findDirtyCapturedParams(recipe.clean(), recipe.dirty());
-        Type receiver = MethodAnalyzer.isStatic(dirtyTarget.methodNode()) ? null : Type.getObjectType(dirtyTarget.classNode().name);
-        List<Type> callTypes = Parameters.getCallOperandTypes(receiver, targetDesc.desc());
-
-        dirty.inheritProperyIfAbsent(ControlKeys.PARAMETERS);
-        MethodParameters params = (dirty.getParameters() != null ? dirty.getParameters().mutableCopy() : MethodParameters.builder())
-            .putTypes(METHOD_PARAMS, callTypes)
-            .putTypes(CAPTURED_PARAMS, dirtyCaptured)
-            .build();
-
-        dirty.setParameters(params);
-        dirty.setReturnType(Type.getReturnType(targetDesc.desc()));
-
-        return TxResult.SUCCESS;
+        return HandlerSignatures.apply(context, SIGNATURE, clean, dirty, recipe, null);
     }
 
     private boolean isStaticRedirect(MixinContext context, MethodQualifier targetDesc, List<Type> methodParams, List<Type> callTypes) {

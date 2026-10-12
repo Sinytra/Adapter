@@ -10,7 +10,8 @@ import org.sinytra.adapter.model.config.ConfigurationTemplates;
 import org.sinytra.adapter.model.config.MutableConfiguration;
 import org.sinytra.adapter.model.config.PropertyContainerTemplate;
 import org.sinytra.adapter.model.config.key.MixinKeys;
-import org.sinytra.adapter.model.param.MethodParameters;
+import org.sinytra.adapter.model.param.HandlerSignature;
+import org.sinytra.adapter.model.param.HandlerSignature.ValueSource;
 import org.sinytra.adapter.model.param.Parameter;
 import org.sinytra.adapter.model.param.Parameters;
 import org.sinytra.adapter.pipeline.Recipe;
@@ -24,6 +25,8 @@ import org.sinytra.adapter.pipeline.resolver.injection.InjectionPointResolver;
 import java.util.List;
 
 import static org.sinytra.adapter.model.config.key.MixinKeys.INDEX;
+import static org.sinytra.adapter.model.param.HandlerSignature.ParamSource.*;
+import static org.sinytra.adapter.model.param.HandlerSignature.slot;
 import static org.sinytra.adapter.model.param.MethodParameters.ParamGroup.SINGLE_ANY;
 
 public class ModifyArgMixin extends AbstractMixinType {
@@ -32,8 +35,18 @@ public class ModifyArgMixin extends AbstractMixinType {
         .pluralKeys(MixinKeys.TARGET_METHOD)
         .build();
 
+    private static final HandlerSignature SIGNATURE = HandlerSignature.of(
+        ValueSource.CALL_ARG,
+        slot(SINGLE_ANY, VALUE)
+    );
+
     public ModifyArgMixin() {
         super(TEMPLATE);
+    }
+
+    @Override
+    public HandlerSignature signature() {
+        return SIGNATURE;
     }
 
     @Override
@@ -41,7 +54,7 @@ public class ModifyArgMixin extends AbstractMixinType {
         resolvers.getOrThrow(InjectionPointResolver.class)
             .addSubResolver(new ArbitraryInjectionPointSubResolver());
 
-        clean.setParameters(MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY)));
+        clean.setParameters(SIGNATURE.parse(context.methodNode()));
 
         return TxResult.SUCCESS;
     }
@@ -61,10 +74,7 @@ public class ModifyArgMixin extends AbstractMixinType {
 
         Type type = findArgType(context, recipe.clean().getAtData(), dirty.getAtData(), clean, dirty);
         if (type != null) {
-            MethodParameters parameters = MethodParameters.create(context.methodNode(), List.of(SINGLE_ANY));
-            parameters.set(SINGLE_ANY, Parameter.simple(type));
-            dirty.setParameters(parameters);
-            dirty.setReturnType(type);
+            return HandlerSignatures.apply(context, SIGNATURE, clean, dirty, recipe, type);
         }
 
         return TxResult.SUCCESS;
