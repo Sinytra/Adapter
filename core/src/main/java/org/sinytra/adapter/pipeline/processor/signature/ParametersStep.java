@@ -1,4 +1,4 @@
-package org.sinytra.adapter.pipeline.processor;
+package org.sinytra.adapter.pipeline.processor.signature;
 
 import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
@@ -16,9 +16,9 @@ import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import java.util.List;
 import java.util.Map;
 
-public class ParametersProcessor implements Processor {
+public class ParametersStep implements SignatureStep {
     @Override
-    public TxResult process(MixinContext context, Configuration dirty, Recipe recipe) {
+    public TxResult apply(MixinContext context, Configuration dirty, Recipe recipe) {
         MethodParameters cleanParams = recipe.clean().getParameters();
         MethodParameters dirtyParams = dirty.getParameters();
         if (dirtyParams == null) return TxResult.FAIL;

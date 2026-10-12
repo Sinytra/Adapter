@@ -18,10 +18,9 @@ import org.sinytra.adapter.model.param.Parameters;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
-import org.sinytra.adapter.pipeline.processor.ParametersProcessor;
 import org.sinytra.adapter.pipeline.processor.Processors;
 import org.sinytra.adapter.pipeline.processor.redirect.DivertRedirectProcessor;
-import org.sinytra.adapter.pipeline.processor.redirect.ParameterUsageProcessor;
+import org.sinytra.adapter.pipeline.processor.signature.SignatureProcessor;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.pipeline.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.pipeline.resolver.special.ResolverSyntheticInstanceof;
@@ -58,8 +57,7 @@ public class RedirectMixin extends AbstractMixinType {
         resolvers.
             addBefore(InjectionPointResolver.class, new ResolverSyntheticInstanceof(false));
         processors
-            .addAfter(ParametersProcessor.class, new DivertRedirectProcessor())
-            .addAfter(ParametersProcessor.class, new ParameterUsageProcessor());
+            .addAfter(SignatureProcessor.class, new DivertRedirectProcessor());
 
         if (clean.getAtData() == null || !MixinAnnotationConstants.AT_VAL_INVOKE.equals(clean.getAtData().getValue()))
             return TxResult.FAIL;

@@ -1,4 +1,4 @@
-package org.sinytra.adapter.pipeline.processor;
+package org.sinytra.adapter.pipeline.processor.signature;
 
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -15,9 +15,9 @@ import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-public class ReturnTypeProcessor implements Processor {
+public class ReturnTypeStep implements SignatureStep {
     @Override
-    public TxResult process(MixinContext context, Configuration dirty, Recipe recipe) {
+    public TxResult apply(MixinContext context, Configuration dirty, Recipe recipe) {
         Type cleanType = recipe.clean().getReturnType();
         Type dirtyType = dirty.getReturnType();
 

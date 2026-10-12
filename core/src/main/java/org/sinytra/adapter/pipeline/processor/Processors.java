@@ -1,6 +1,7 @@
 package org.sinytra.adapter.pipeline.processor;
 
 import org.sinytra.adapter.pipeline.processor.extract.ExtractMixinProcessor;
+import org.sinytra.adapter.pipeline.processor.signature.SignatureProcessor;
 import org.sinytra.adapter.util.OrderedRegistry;
 
 public class Processors extends OrderedRegistry<Processor> {
@@ -21,14 +22,8 @@ public class Processors extends OrderedRegistry<Processor> {
         add(new PropertyProcessor());
         // Target method post processor
         add(new TargetMethodProcessor());
-        // Mixin method parameters
-        add(new ParametersProcessor());
-        // Parameter casts
-        add(new ParametersPostProcessor());
-        // Mixin method return type
-        add(new ReturnTypeProcessor());
-        // Static access modifier
-        add(new StaticAccessProcessor());
+        // Mixin method signature
+        add(new SignatureProcessor());
         // Side effects that must only happen once the mixin is otherwise patched
         add(new SplitCancellationProcessor());
 

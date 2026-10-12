@@ -12,9 +12,7 @@ import org.sinytra.adapter.model.param.MethodParameters;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
-import org.sinytra.adapter.pipeline.processor.ParametersProcessor;
 import org.sinytra.adapter.pipeline.processor.Processors;
-import org.sinytra.adapter.pipeline.processor.wrapop.WrapOpParamsProcessor;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.pipeline.resolver.injection.AtVariableAssignStoreSubResolver;
 import org.sinytra.adapter.pipeline.resolver.injection.ComparingInjectionPointResolver;
@@ -53,8 +51,6 @@ public class WrapOperationMixin extends AbstractMixinType {
         resolvers.getOrThrow(InjectionPointResolver.class)
             .addSubResolverFirst(new ComparingInjectionPointResolver.WrapOperation())
             .addSubResolver(new AtVariableAssignStoreSubResolver());
-        processors
-            .addAfter(ParametersProcessor.class, new WrapOpParamsProcessor());
 
         clean.setParameters(SIGNATURE.parse(context.methodNode()));
         

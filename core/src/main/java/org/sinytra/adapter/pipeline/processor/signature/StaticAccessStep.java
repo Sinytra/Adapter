@@ -1,4 +1,4 @@
-package org.sinytra.adapter.pipeline.processor;
+package org.sinytra.adapter.pipeline.processor.signature;
 
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -17,9 +17,9 @@ import org.sinytra.adapter.util.SingleValueHandle;
 import java.util.List;
 import java.util.Objects;
 
-public class StaticAccessProcessor implements Processor {
+public class StaticAccessStep implements SignatureStep {
     @Override
-    public TxResult process(MixinContext context, Configuration dirty, Recipe recipe) {
+    public TxResult apply(MixinContext context, Configuration dirty, Recipe recipe) {
         if (!recipe.clean().hasProperty(SpecialKeys.STATIC) || !dirty.hasProperty(SpecialKeys.STATIC))
             return TxResult.PASS;
 

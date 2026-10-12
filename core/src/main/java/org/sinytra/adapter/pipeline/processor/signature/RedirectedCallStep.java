@@ -1,4 +1,4 @@
-package org.sinytra.adapter.pipeline.processor.redirect;
+package org.sinytra.adapter.pipeline.processor.signature;
 
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
@@ -16,14 +16,13 @@ import org.sinytra.adapter.model.param.MethodParameters.ParamGroup;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
-import org.sinytra.adapter.pipeline.processor.Processor;
 import org.sinytra.adapter.util.AdapterUtil;
 
 import java.util.List;
 
-public class ParameterUsageProcessor implements Processor {
+public class RedirectedCallStep implements SignatureStep {
     @Override
-    public TxResult process(MixinContext context, Configuration dirty, Recipe recipe) {
+    public TxResult apply(MixinContext context, Configuration dirty, Recipe recipe) {
         String cleanTarget = recipe.clean().getAtData().getTarget().orElse(null);
         if (cleanTarget == null) return TxResult.PASS;
         String dirtyTarget = dirty.getAtData().getTarget().orElse(null);

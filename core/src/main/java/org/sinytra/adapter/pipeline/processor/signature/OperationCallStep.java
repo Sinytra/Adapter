@@ -1,4 +1,4 @@
-package org.sinytra.adapter.pipeline.processor.wrapop;
+package org.sinytra.adapter.pipeline.processor.signature;
 
 import com.mojang.logging.LogUtils;
 import org.objectweb.asm.Type;
@@ -12,7 +12,7 @@ import org.sinytra.adapter.model.param.Parameter;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
-import org.sinytra.adapter.pipeline.processor.Processor;
+import org.sinytra.adapter.pipeline.processor.wrapop.WrapOpSurgeon;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.slf4j.Logger;
 
@@ -22,11 +22,11 @@ import java.util.stream.IntStream;
 
 import static org.sinytra.adapter.util.AdapterUtil.MIXINPATCH;
 
-public class WrapOpParamsProcessor implements Processor {
+public class OperationCallStep implements SignatureStep {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     @Override
-    public TxResult process(MixinContext context, Configuration dirty, Recipe recipe) {
+    public TxResult apply(MixinContext context, Configuration dirty, Recipe recipe) {
         if (dirty.getParameters() == null) return TxResult.FAIL;
 
         // Find original.call(...)

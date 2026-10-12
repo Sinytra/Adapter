@@ -1,4 +1,4 @@
-package org.sinytra.adapter.pipeline.processor;
+package org.sinytra.adapter.pipeline.processor.signature;
 
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -37,9 +37,9 @@ import java.util.List;
  * }</pre>
  */
 // TODO Add type safety check
-public class ParametersPostProcessor implements Processor {
+public class ParameterCastStep implements SignatureStep {
     @Override
-    public TxResult process(MixinContext context, Configuration dirty, Recipe recipe) {
+    public TxResult apply(MixinContext context, Configuration dirty, Recipe recipe) {
         MethodParameters cleanParams = recipe.clean().getParameters();
         MethodParameters dirtyParams = dirty.getParameters();
         if (dirtyParams == null || !cleanParams.has(MethodParameters.ParamGroup.METHOD_PARAMS) || !dirtyParams.has(MethodParameters.ParamGroup.METHOD_PARAMS)) {
