@@ -13,6 +13,7 @@ import org.sinytra.adapter.api.ClassTransformer;
 import org.sinytra.adapter.api.PatchEnvironment;
 import org.sinytra.adapter.api.PatchResult;
 import org.sinytra.adapter.api.TypeAdapter;
+import org.sinytra.adapter.mixin.MixinBridge;
 import org.sinytra.adapter.model.ann.AnnotationHandle;
 import org.sinytra.adapter.model.ann.AnnotationValueHandle;
 import org.sinytra.adapter.model.ann.ClassTarget;
@@ -20,7 +21,6 @@ import org.sinytra.adapter.model.constant.MixinAnnotations;
 import org.sinytra.adapter.model.constant.TypeConstants;
 import org.sinytra.adapter.pipeline.ctx.PatchContext;
 import org.sinytra.adapter.util.OpcodeUtil;
-import org.spongepowered.asm.mixin.gen.AccessorInfo;
 
 import java.util.Optional;
 
@@ -138,7 +138,7 @@ public class FieldAccessorTypeTransformer implements ClassTransformer {
         return annotationHandle.<String>getValue("value")
             .map(AnnotationValueHandle::get)
             .filter(str -> !str.isEmpty())
-            .or(() -> Optional.ofNullable(AccessorInfo.AccessorName.of(method.name))
-                .map(name -> environment.refmapHolder().remap(owner, name.name)));
+            .or(() -> Optional.ofNullable(MixinBridge.getAccessorFieldName(method.name))
+                .map(name -> environment.refmapHolder().remap(owner, name)));
     }
 }

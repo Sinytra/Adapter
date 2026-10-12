@@ -15,7 +15,7 @@ import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.analysis.params.ParamDiffResolver;
 import org.sinytra.adapter.edit.param.TransformParameters;
-import org.sinytra.adapter.mixin.MockMixinRuntime;
+import org.sinytra.adapter.mixin.MixinBridge;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.param.MethodParameters;
@@ -198,7 +198,7 @@ public final class LocalsAnalyzer {
             return null;
         }
 
-        LocalVariableNode[] localVariables = MockMixinRuntime.getLocalsAt(target, targetInsns.getFirst(), this.context.environment().fabricLVTCompatibility());
+        LocalVariableNode[] localVariables = MixinBridge.getLocalsAt(target.classNode(), target.methodNode(), targetInsns.getFirst(), this.context.environment().fabricLVTCompatibility());
         LocalVariable[] locals = Stream.of(localVariables)
             .filter(Objects::nonNull)
             .map(lv -> new LocalVariable(lv.index, Type.getType(lv.desc)))

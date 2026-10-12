@@ -1,13 +1,8 @@
 package org.sinytra.adapter.pipeline.audit;
 
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
 import org.jetbrains.annotations.Nullable;
-import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.spongepowered.asm.mixin.injection.Group;
-import org.spongepowered.asm.mixin.injection.struct.InjectorGroupInfo;
-import org.spongepowered.asm.util.Annotations;
+import org.sinytra.adapter.mixin.MixinBridge;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -20,37 +15,21 @@ public class MixinGroups {
     private MixinGroups(Map<String, GroupInfo> groups) {
         this.groups = Map.copyOf(groups);
     }
-    
+
     @Nullable
     public GroupInfo getGroupInfo(MethodNode methodNode) {
-        AnnotationNode node = Annotations.getInvisible(methodNode, Group.class);
-        if (node == null) return null;
-        
-        String name = Annotations.getValue(node, "name");
-        if (name == null || name.isEmpty()) return null;
-        
-        return this.groups.get(name);
+        String name = MixinBridge.getGroupName(methodNode);
+        return name != null ? this.groups.get(name) : null;
     }
-    
+
     public static MixinGroups create(List<MethodNode> methods) {
-        InjectorGroupInfo.Map infos = new InjectorGroupInfo.Map();
-        Multimap<String, MethodNode> members = HashMultimap.create();
-
-        for (MethodNode method : methods) {
-            InjectorGroupInfo info = infos.parseGroup(method, "default");
-            if (info.isDefault() || info.getName().equals("default")) continue;
-            
-            members.put(info.getName(), method);
-        }
-        
         Map<String, GroupInfo> groups = new HashMap<>();
-        members.asMap().forEach((name, mems) -> {
-            InjectorGroupInfo info = infos.forName(name);
-            groups.put(name, new GroupInfo(mems, info.getMinRequired()));
-        });
-
+        for (MixinBridge.InjectorGroup group : MixinBridge.findInjectorGroups(methods)) {
+            groups.put(group.name(), new GroupInfo(group.members(), group.minRequired()));
+        }
         return new MixinGroups(groups);
     }
 
-    public record GroupInfo(Collection<MethodNode> members, int minRequired) {}
+    public record GroupInfo(Collection<MethodNode> members, int minRequired) {
+    }
 }

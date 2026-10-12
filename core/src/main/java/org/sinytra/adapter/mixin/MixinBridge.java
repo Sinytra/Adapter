@@ -1,31 +1,34 @@
-package org.sinytra.adapter.env;
+package org.sinytra.adapter.mixin;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.env.ctx.PatchEnvironment;
-import org.sinytra.adapter.env.ctx.TargetPair;
+import org.sinytra.adapter.api.RefmapHolder;
 import org.slf4j.Logger;
-import org.spongepowered.asm.mixin.FabricUtil;
 import org.spongepowered.asm.mixin.MixinEnvironment;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfig;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigSource;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
+import org.spongepowered.asm.mixin.gen.AccessorInfo;
+import org.spongepowered.asm.mixin.injection.Group;
 import org.spongepowered.asm.mixin.injection.InjectionPoint;
 import org.spongepowered.asm.mixin.injection.code.ISliceContext;
 import org.spongepowered.asm.mixin.injection.code.MethodSlice;
+import org.spongepowered.asm.mixin.injection.modify.LocalVariableDiscriminator;
+import org.spongepowered.asm.mixin.injection.points.BeforeConstant;
 import org.spongepowered.asm.mixin.injection.selectors.ISelectorContext;
-import org.spongepowered.asm.mixin.injection.struct.CallbackInjectionInfo;
-import org.spongepowered.asm.mixin.injection.struct.InjectionInfo;
-import org.spongepowered.asm.mixin.injection.struct.ModifyVariableInjectionInfo;
-import org.spongepowered.asm.mixin.injection.struct.Target;
+import org.spongepowered.asm.mixin.injection.struct.*;
 import org.spongepowered.asm.mixin.refmap.IMixinContext;
 import org.spongepowered.asm.mixin.refmap.IReferenceMapper;
 import org.spongepowered.asm.mixin.struct.AnnotatedMethodInfo;
-import org.spongepowered.asm.mixin.struct.SpecialMethodInfo;
 import org.spongepowered.asm.mixin.transformer.ClassInfo;
 import org.spongepowered.asm.mixin.transformer.ext.Extensions;
+import org.spongepowered.asm.util.Annotations;
+import org.spongepowered.asm.util.Locals;
 import org.spongepowered.asm.util.asm.IAnnotationHandle;
 import sun.misc.Unsafe;
 
@@ -35,9 +38,8 @@ import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
-public class MockMixinRuntime {
+public final class MixinBridge {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final MethodHandles.Lookup TRUSTED_LOOKUP;
     private static final Unsafe UNSAFE;
@@ -45,6 +47,9 @@ public class MockMixinRuntime {
     private static final Class<?> LOCAL_VARIABLE_INJECTION_POINT_CLASS;
     private static final VarHandle ANNOTATED_METHOD_INFO_CONTEXT;
     private static final MethodHandle LOCAL_VARIABLE_INJECTION_POINT_FIND;
+    private static final VarHandle INJECTION_POINT_TYPES;
+    private static final String CLS_REGEX = "^([A-Za-z_][A-Za-z0-9_]*[\\.\\$])+[A-Za-z_][A-Za-z0-9_]*$";
+    private static final Object LOCALS_LOCK = new Object();
 
     static {
         try {
@@ -58,108 +63,144 @@ public class MockMixinRuntime {
 
             LOCAL_VARIABLE_INJECTION_POINT_CLASS = Class.forName("org.spongepowered.asm.mixin.injection.modify.ModifyVariableInjector$LocalVariableInjectionPoint");
             ANNOTATED_METHOD_INFO_CONTEXT = TRUSTED_LOOKUP.findVarHandle(AnnotatedMethodInfo.class, "context", IMixinContext.class);
+            INJECTION_POINT_TYPES = MethodHandles.privateLookupIn(InjectionPoint.class, MethodHandles.lookup()).findStaticVarHandle(InjectionPoint.class, "types", Map.class);
             LOCAL_VARIABLE_INJECTION_POINT_FIND = MethodHandles.privateLookupIn(LOCAL_VARIABLE_INJECTION_POINT_CLASS, MethodHandles.lookup()).findVirtual(LOCAL_VARIABLE_INJECTION_POINT_CLASS, "find", MethodType.methodType(boolean.class, InjectionInfo.class, InsnList.class, Collection.class, Target.class));
         } catch (Throwable t) {
             throw new RuntimeException(t);
         }
     }
 
-    public static Target createMixinTarget(TargetPair pair) {
-        ClassInfo info = ClassInfo.forName(pair.classNode().name);
-        try {
-            return (Target) TARGET_CTR.invoke(info, pair.classNode(), pair.methodNode());
-        } catch (Throwable t) {
-            throw new RuntimeException(t);
+    public static Session session(String mixinClass, MethodNode mixinMethod, ClassNode targetClass, MethodNode targetMethod, RefmapHolder refmapHolder) {
+        return new Session(new ClassMixinContext(mixinClass, targetClass.name, refmapHolder), mixinMethod, targetClass, targetMethod);
+    }
+
+    public static LocalVariableNode[] getLocalsAt(ClassNode targetClass, MethodNode targetMethod, AbstractInsnNode insn, int lvtCompatLevel) {
+        // Synchronize to avoid issues in mixin. This is necessary.
+        synchronized (LOCALS_LOCK) {
+            return Locals.getLocalsAt(targetClass, targetMethod, insn, lvtCompatLevel);
         }
     }
 
-    public static IMixinContext forClass(String className, String targetClass, PatchEnvironment environment) {
-        return new ClassMixinContext(className, targetClass, environment);
+    @SuppressWarnings("unchecked")
+    public static boolean isKnownInjectionPointType(String value) {
+        Map<String, Class<? extends InjectionPoint>> types = (Map<String, Class<? extends InjectionPoint>>) INJECTION_POINT_TYPES.get();
+        return types.containsKey(value.toUpperCase(Locale.ROOT)) || value.matches(CLS_REGEX);
     }
 
-    public static ISliceContext forSlice(IMixinContext context, MethodNode methodNode) {
-        return new MethodSliceContext(context, methodNode);
+    @Nullable
+    public static String getAccessorFieldName(String methodName) {
+        AccessorInfo.AccessorName name = AccessorInfo.AccessorName.of(methodName);
+        return name != null ? name.name : null;
     }
 
-    public static InjectionInfo forInjectionInfo(String className, String targetClass, PatchEnvironment environment) {
-        try {
-            InjectionInfo injectionInfo = (InjectionInfo) UNSAFE.allocateInstance(CallbackInjectionInfo.class);
-            IMixinContext context = forClass(className, targetClass, environment);
-            ANNOTATED_METHOD_INFO_CONTEXT.set(injectionInfo, context);
-            CompatibilityContexts.attach(injectionInfo, environment.fabricLVTCompatibility());
-            return injectionInfo;
-        } catch (Throwable t) {
-            throw new RuntimeException(t);
+    @Nullable
+    public static String getGroupName(MethodNode method) {
+        AnnotationNode node = Annotations.getInvisible(method, Group.class);
+        if (node == null) return null;
+
+        String name = Annotations.getValue(node, "name");
+        return name == null || name.isEmpty() ? null : name;
+    }
+
+    public static List<InjectorGroup> findInjectorGroups(List<MethodNode> methods) {
+        InjectorGroupInfo.Map infos = new InjectorGroupInfo.Map();
+        Multimap<String, MethodNode> members = HashMultimap.create();
+
+        for (MethodNode method : methods) {
+            InjectorGroupInfo info = infos.parseGroup(method, "default");
+            if (info.isDefault() || info.getName().equals("default")) continue;
+
+            members.put(info.getName(), method);
         }
+
+        List<InjectorGroup> groups = new ArrayList<>();
+        members.asMap().forEach((name, mems) ->
+            groups.add(new InjectorGroup(name, List.copyOf(mems), infos.forName(name).getMinRequired())));
+        return groups;
     }
 
-    public static boolean findModifyVariableInjectionInsns(InjectionPoint injectionPoint, IMixinContext mixinContext, InsnList insns, List<AbstractInsnNode> list, Target target) throws Throwable {
-        InjectionInfo info = MockMixinRuntime.createModifyVariableInjectionInfo(mixinContext);
-        return (boolean) LOCAL_VARIABLE_INJECTION_POINT_FIND.invoke(injectionPoint, info, insns, list, target);
+    public record InjectorGroup(String name, List<MethodNode> members, int minRequired) {
     }
 
-    public static boolean injectionPointNeedsSpecialCare(InjectionPoint injectionPoint) {
-        return LOCAL_VARIABLE_INJECTION_POINT_CLASS.isInstance(injectionPoint);
-    }
-
-    public static InjectionInfo createModifyVariableInjectionInfo(IMixinContext mixinContext) throws Exception {
-        ModifyVariableInjectionInfo info = (ModifyVariableInjectionInfo) UNSAFE.allocateInstance(ModifyVariableInjectionInfo.class);
-        ANNOTATED_METHOD_INFO_CONTEXT.set(info, mixinContext);
-        CompatibilityContexts.attach(info, lvtCompatibility(mixinContext));
-        return info;
-    }
-
-    private static int lvtCompatibility(IMixinContext mixinContext) {
-        IMixinConfig config = mixinContext.getMixin().getConfig();
-        return config.hasDecoration(FabricUtil.KEY_COMPATIBILITY) ? config.<Integer>getDecoration(FabricUtil.KEY_COMPATIBILITY) : FabricUtil.COMPATIBILITY_LATEST;
-    }
-
-    private static final class CompatibilityContexts {
+    public static final class Session {
+        private final IMixinContext mixinContext;
+        private final MethodNode mixinMethod;
+        private final ClassNode targetClass;
+        private final MethodNode targetMethod;
         @Nullable
-        private static final VarHandle[] HANDLES;
-        @Nullable
-        private static final Class<?>[] CLASSES;
-        private static final Map<Integer, Object> CONTEXTS = new ConcurrentHashMap<>();
+        private Target target;
 
-        static {
-            VarHandle[] handles = null;
-            Class<?>[] classes = null;
-            try {
-                Class<?> targetContext = Class.forName("org.spongepowered.asm.mixin.transformer.MixinTargetContext");
-                Class<?> mixinInfo = Class.forName("org.spongepowered.asm.mixin.transformer.MixinInfo");
-                Class<?> mixinConfig = Class.forName("org.spongepowered.asm.mixin.transformer.MixinConfig");
-                handles = new VarHandle[]{
-                    TRUSTED_LOOKUP.findVarHandle(SpecialMethodInfo.class, "mixin", targetContext),
-                    TRUSTED_LOOKUP.findVarHandle(targetContext, "mixin", mixinInfo),
-                    TRUSTED_LOOKUP.findVarHandle(mixinInfo, "parent", mixinConfig),
-                    TRUSTED_LOOKUP.findVarHandle(mixinConfig, "decorations", Map.class)
-                };
-                classes = new Class<?>[]{targetContext, mixinInfo, mixinConfig};
-            } catch (Throwable t) {
-                LOGGER.debug("Mixin target contexts are unavailable, local variable compatibility uses the selector context", t);
-            }
-            HANDLES = handles;
-            CLASSES = classes;
+        private Session(IMixinContext mixinContext, MethodNode mixinMethod, ClassNode targetClass, MethodNode targetMethod) {
+            this.mixinContext = mixinContext;
+            this.mixinMethod = mixinMethod;
+            this.targetClass = targetClass;
+            this.targetMethod = targetMethod;
         }
 
-        public static void attach(InjectionInfo info, int lvtCompatibility) {
-            if (HANDLES != null) {
-                HANDLES[0].set(info, CONTEXTS.computeIfAbsent(lvtCompatibility, CompatibilityContexts::create));
+        public List<AbstractInsnNode> findInjectionPoint(AnnotationNode parent, AnnotationNode at, @Nullable AnnotationNode slice) {
+            try {
+                InjectionPoint point = InjectionPoint.parse(this.mixinContext, this.mixinMethod, parent, at);
+                return find(point, slice);
+            } catch (Throwable e) {
+                LOGGER.error("Error finding injection insns", e);
+                return List.of();
             }
         }
 
-        private static Object create(int lvtCompatibility) {
+        public List<AbstractInsnNode> findConstant(AnnotationNode constant, String returnDesc, @Nullable AnnotationNode slice) {
             try {
-                Object config = UNSAFE.allocateInstance(CLASSES[2]);
-                HANDLES[3].set(config, new HashMap<>(Map.of(FabricUtil.KEY_COMPATIBILITY, lvtCompatibility)));
-                Object mixinInfo = UNSAFE.allocateInstance(CLASSES[1]);
-                HANDLES[2].set(mixinInfo, config);
-                Object context = UNSAFE.allocateInstance(CLASSES[0]);
-                HANDLES[1].set(context, mixinInfo);
-                return context;
-            } catch (InstantiationException e) {
-                throw new RuntimeException(e);
+                return find(new BeforeConstant(this.mixinContext, constant, returnDesc), slice);
+            } catch (Throwable e) {
+                LOGGER.error("Error finding injection insns", e);
+                return List.of();
             }
+        }
+
+        public InsnList slice(AnnotationNode slice) {
+            ISliceContext sliceContext = new MethodSliceContext(this.mixinContext, this.mixinMethod);
+            return MethodSlice.parse(sliceContext, slice).getSlice(target());
+        }
+
+        public int findModifiedLocal(AnnotationNode modifyVariable, Type returnType, AbstractInsnNode insn) {
+            LocalVariableDiscriminator discriminator = LocalVariableDiscriminator.parse(modifyVariable);
+            InjectionInfo injectionInfo = createInjectionInfo(CallbackInjectionInfo.class, this.mixinContext);
+            LocalVariableDiscriminator.Context ctx = new LocalVariableDiscriminator.Context(injectionInfo, returnType, discriminator.isArgsOnly(), target(), insn);
+            return discriminator.findLocal(ctx);
+        }
+
+        private List<AbstractInsnNode> find(InjectionPoint point, @Nullable AnnotationNode slice) throws Throwable {
+            List<AbstractInsnNode> targetInsns = new ArrayList<>();
+            if (LOCAL_VARIABLE_INJECTION_POINT_CLASS.isInstance(point)) {
+                // Local variable injection points need a ModifyVariable injector, and always search the whole method
+                InjectionInfo info = createInjectionInfo(ModifyVariableInjectionInfo.class, this.mixinContext);
+                LOCAL_VARIABLE_INJECTION_POINT_FIND.invoke(point, info, this.targetMethod.instructions, targetInsns, target());
+            } else {
+                InsnList instructions = slice != null ? slice(slice) : this.targetMethod.instructions;
+                point.find(this.targetMethod.desc, instructions, targetInsns);
+            }
+            return targetInsns;
+        }
+
+        private Target target() {
+            if (this.target == null) {
+                ClassInfo info = ClassInfo.forName(this.targetClass.name);
+                try {
+                    this.target = (Target) TARGET_CTR.invoke(info, this.targetClass, this.targetMethod);
+                } catch (Throwable t) {
+                    throw new RuntimeException(t);
+                }
+            }
+            return this.target;
+        }
+    }
+
+    private static InjectionInfo createInjectionInfo(Class<? extends InjectionInfo> type, IMixinContext mixinContext) {
+        try {
+            InjectionInfo info = (InjectionInfo) UNSAFE.allocateInstance(type);
+            ANNOTATED_METHOD_INFO_CONTEXT.set(info, mixinContext);
+            return info;
+        } catch (InstantiationException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -187,10 +228,10 @@ public class MockMixinRuntime {
         //@formatter:on
     }
 
-    private record ReferenceRemapper(PatchEnvironment env) implements IReferenceMapper {
+    private record ReferenceRemapper(RefmapHolder refmapHolder) implements IReferenceMapper {
         @Override
         public String remapWithContext(String context, String className, String reference) {
-            return this.env.refmapHolder().remap(className, reference);
+            return this.refmapHolder.remap(className, reference);
         }
 
         //@formatter:off
@@ -203,21 +244,10 @@ public class MockMixinRuntime {
         //@formatter:on
     }
 
-    private record DummyMixinConfig(int lvtCompatibility) implements IMixinConfig {
+    private static class DummyMixinConfig implements IMixinConfig {
         @Override
         public MixinEnvironment getEnvironment() {
             return MixinEnvironment.getCurrentEnvironment();
-        }
-
-        @Override
-        public boolean hasDecoration(String key) {
-            return FabricUtil.KEY_COMPATIBILITY.equals(key);
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public <V> V getDecoration(String key) {
-            return FabricUtil.KEY_COMPATIBILITY.equals(key) ? (V) (Integer) this.lvtCompatibility : null;
         }
 
         //@formatter:off
@@ -230,6 +260,8 @@ public class MockMixinRuntime {
         @Override public boolean isRequired() {throw new UnsupportedOperationException();}
         @Override public Set<String> getTargets() {throw new UnsupportedOperationException();}
         @Override public <V> void decorate(String key, V value) {}
+        @Override public boolean hasDecoration(String key) {return false;}
+        @Override public <V> V getDecoration(String key) {return null;}
         //@formatter:on
     }
 
@@ -258,11 +290,11 @@ public class MockMixinRuntime {
         private final ReferenceRemapper referenceRemapper;
         private final IMixinInfo mixinInfo;
 
-        public ClassMixinContext(String className, String targetClass, PatchEnvironment env) {
+        public ClassMixinContext(String className, String targetClass, RefmapHolder refmapHolder) {
             this.className = className;
             this.targetClass = targetClass;
-            this.referenceRemapper = new ReferenceRemapper(env);
-            this.mixinInfo = new DummyMixinInfo(new DummyMixinConfig(env.fabricLVTCompatibility()));
+            this.referenceRemapper = new ReferenceRemapper(refmapHolder);
+            this.mixinInfo = new DummyMixinInfo(new DummyMixinConfig());
         }
 
         @Override

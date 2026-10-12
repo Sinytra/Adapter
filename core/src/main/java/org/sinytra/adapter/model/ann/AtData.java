@@ -2,7 +2,7 @@ package org.sinytra.adapter.model.ann;
 
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.MethodInsnNode;
-import org.sinytra.adapter.mixin.MixinUtil;
+import org.sinytra.adapter.mixin.MixinBridge;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.config.MutablePropertyContainer;
 import org.sinytra.adapter.model.config.PropertyContainer;
@@ -98,7 +98,7 @@ public class AtData extends AnnotationData {
 
     private static boolean validateInjectionPointType(PropertyContainer container) {
         return container.getProperty(Keys.VALUE)
-            .map(MixinUtil::isKnownInjectionPointType)
+            .map(MixinBridge::isKnownInjectionPointType)
             .orElse(true);
     }
 

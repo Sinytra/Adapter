@@ -1,31 +1,21 @@
 package org.sinytra.adapter.analysis.injection;
 
-import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.InsnList;
-import org.sinytra.adapter.mixin.MockMixinRuntime;
+import org.sinytra.adapter.mixin.MixinBridge;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.ann.AnnotationHandle;
 import org.sinytra.adapter.model.ann.SliceData;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
-import org.slf4j.Logger;
-import org.spongepowered.asm.mixin.injection.InjectionPoint;
-import org.spongepowered.asm.mixin.injection.code.ISliceContext;
-import org.spongepowered.asm.mixin.injection.code.MethodSlice;
-import org.spongepowered.asm.mixin.injection.points.BeforeConstant;
-import org.spongepowered.asm.mixin.injection.struct.Target;
-import org.spongepowered.asm.mixin.refmap.IMixinContext;
 
 import java.util.*;
 
 import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.*;
 
 public final class InjectionLocator {
-    private static final Logger LOGGER = LogUtils.getLogger();
-
     private final MixinContext context;
     private final Map<CacheKey, List<AbstractInsnNode>> cache;
 
@@ -89,7 +79,7 @@ public final class InjectionLocator {
 
     /// {@return the instructions of the target method within the slice}
     public InsnList slice(TargetPair target, SliceData slice) {
-        return computeSlice(target, slice.toAnnotationNode(), createMixinTarget(target));
+        return session(target).slice(slice.toAnnotationNode());
     }
 
     private List<AbstractInsnNode> compute(TargetPair target, InjectionQuery query) {
@@ -110,52 +100,29 @@ public final class InjectionLocator {
             node.removeValues(PROPERTY_ORDINAL);
         }
 
-        IMixinContext mixinContext = MockMixinRuntime.forClass(this.context.classNode().name, target.classNode().name, this.context.environment());
-        List<AbstractInsnNode> targetInsns = new ArrayList<>();
-        try {
-            InjectionPoint point = parse(mixinContext, query, node);
-            Target mixinTarget = createMixinTarget(target);
-            InsnList instructions = query.ignoreSlice() ? target.methodNode().instructions : getSlicedInsns(target, mixinTarget);
-            if (MockMixinRuntime.injectionPointNeedsSpecialCare(point)) {
-                MockMixinRuntime.findModifyVariableInjectionInsns(point, mixinContext, target.methodNode().instructions, targetInsns, mixinTarget);
-            } else {
-                point.find(target.methodNode().desc, instructions, targetInsns);
-            }
-        } catch (Throwable e) {
-            LOGGER.error("Error finding injection insns", e);
-            return List.of();
-        }
-        return targetInsns;
-    }
-
-    private InjectionPoint parse(IMixinContext mixinContext, InjectionQuery query, AnnotationHandle node) {
+        MixinBridge.Session session = session(target);
+        AnnotationNode slice = query.ignoreSlice() ? null : getSlice();
         AnnotationHandle methodAnnotation = this.context.methodAnnotation();
         return switch (query.source()) {
-            case CURRENT, SLICE_BOUNDARY -> InjectionPoint.parse(mixinContext, this.context.methodNode(), methodAnnotation.unwrap(), node.unwrap());
+            case CURRENT, SLICE_BOUNDARY -> session.findInjectionPoint(methodAnnotation.unwrap(), node.unwrap(), slice);
             case AT -> {
                 AnnotationHandle parent = methodAnnotation.copy();
                 parent.setOrAppendNonNull(PROPERTY_AT, node.unwrap());
-                yield InjectionPoint.parse(mixinContext, this.context.methodNode(), parent.unwrap(), node.unwrap());
+                yield session.findInjectionPoint(parent.unwrap(), node.unwrap(), slice);
             }
-            case CONSTANT -> new BeforeConstant(mixinContext, node.unwrap(), Type.getReturnType(this.context.methodNode().desc).getDescriptor());
+            case CONSTANT -> session.findConstant(node.unwrap(), Type.getReturnType(this.context.methodNode().desc).getDescriptor(), slice);
         };
     }
 
-    private static Target createMixinTarget(TargetPair target) {
-        return MockMixinRuntime.createMixinTarget(target);
+    private MixinBridge.Session session(TargetPair target) {
+        return MixinBridge.session(this.context.classNode().name, this.context.methodNode(), target.classNode(), target.methodNode(), this.context.environment().refmapHolder());
     }
 
-    private InsnList getSlicedInsns(TargetPair target, Target mixinTarget) {
+    @Nullable
+    private AnnotationNode getSlice() {
         return this.context.methodAnnotation().getValue(PROPERTY_SLICE)
             .map(handle -> handle.get() instanceof List<?> list ? (AnnotationNode) list.getFirst() : (AnnotationNode) handle.get())
-            .map(slice -> computeSlice(target, slice, mixinTarget))
-            .orElse(target.methodNode().instructions);
-    }
-
-    private InsnList computeSlice(TargetPair target, AnnotationNode slice, Target mixinTarget) {
-        IMixinContext mixinContext = MockMixinRuntime.forClass(this.context.classNode().name, target.classNode().name, this.context.environment());
-        ISliceContext sliceContext = MockMixinRuntime.forSlice(mixinContext, this.context.methodNode());
-        return MethodSlice.parse(sliceContext, slice).getSlice(mixinTarget);
+            .orElse(null);
     }
 
     @Nullable

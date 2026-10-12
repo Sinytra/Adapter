@@ -1,11 +1,10 @@
 package org.sinytra.adapter.pipeline.resolver.special;
 
 import com.mojang.datafixers.util.Pair;
-import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
-import org.sinytra.adapter.mixin.MockMixinRuntime;
+import org.sinytra.adapter.mixin.MixinBridge;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.Targets;
@@ -16,9 +15,6 @@ import org.sinytra.adapter.model.constant.MixinAnnotations;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.resolver.Resolver;
-import org.spongepowered.asm.mixin.injection.modify.LocalVariableDiscriminator;
-import org.spongepowered.asm.mixin.injection.struct.InjectionInfo;
-import org.spongepowered.asm.mixin.injection.struct.Target;
 
 import java.util.List;
 
@@ -131,14 +127,12 @@ public class ModifyVarAtReturnResolver implements Resolver {
 
         AbstractInsnNode targetInsn = targetInsns.get(index);
         // Find modified variable
-        LocalVariableDiscriminator discriminator = LocalVariableDiscriminator.parse(context.methodAnnotation().unwrap());
-        InjectionInfo injectionInfo = MockMixinRuntime.forInjectionInfo(context.classNode().name, injectionTarget.classNode().name, context.environment());
-
-        Type returnType = clean.getReturnType();
-        Target target = MockMixinRuntime.createMixinTarget(injectionTarget);
-        LocalVariableDiscriminator.Context ctx = new LocalVariableDiscriminator.Context(injectionInfo, returnType, discriminator.isArgsOnly(), target, targetInsn);
-
-        int local = discriminator.findLocal(ctx);
+        MixinBridge.Session session = MixinBridge.session(
+            context.classNode().name,
+            context.methodNode(), injectionTarget.classNode(), injectionTarget.methodNode(),
+            context.environment().refmapHolder()
+        );
+        int local = session.findModifiedLocal(context.methodAnnotation().unwrap(), clean.getReturnType(), targetInsn);
         return Pair.of(targetInsn, local);
     }
 }
