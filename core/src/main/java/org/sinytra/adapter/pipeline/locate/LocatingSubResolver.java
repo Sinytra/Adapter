@@ -4,6 +4,7 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.sinytra.adapter.analysis.compare.MethodAlignment;
 import org.sinytra.adapter.model.Targets;
+import org.sinytra.adapter.model.ann.AtData;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
@@ -27,8 +28,11 @@ public final class LocatingSubResolver implements SubResolver {
         if (targets == null) {
             return null;
         }
-        return locateAll(context, recipe, targets, context.injections().find(targets.clean()), this.locators,
-            candidate -> Describer.describe(context, recipe, candidate));
+        AtData cleanAt = recipe.clean().getAtData();
+        List<AbstractInsnNode> cleanInsns = context.injections().find(targets.clean()).stream()
+            .map(insn -> cleanAt != null ? Describer.toLocatable(context, cleanAt, insn) : insn)
+            .toList();
+        return locateAll(context, recipe, targets, cleanInsns, this.locators, candidate -> Describer.describe(context, recipe, candidate));
     }
 
     @Nullable

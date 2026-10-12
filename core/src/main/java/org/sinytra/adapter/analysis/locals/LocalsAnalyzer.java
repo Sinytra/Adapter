@@ -192,6 +192,11 @@ public final class LocalsAnalyzer {
             .findLocalCandidates(type, insn, false);
     }
 
+    public int resolveSelectedLocal(TargetPair target, AbstractInsnNode insn, Type type) {
+        return MixinBridge.session(this.context.classNode().name, this.context.methodNode(), target.classNode(), target.methodNode(), this.context.environment().refmapHolder())
+            .findLocal(this.context.methodAnnotation().unwrap(), type, insn);
+    }
+
     public int resolveLocalOrdinal(TargetPair target, AbstractInsnNode insn, Type type, int index) {
         return findSelectableLocals(target, insn, type).stream()
             .filter(c -> c.index() == index)

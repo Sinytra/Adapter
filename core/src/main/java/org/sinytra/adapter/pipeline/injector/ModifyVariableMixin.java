@@ -20,8 +20,7 @@ import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.processor.Processors;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.pipeline.resolver.injection.InjectionPointResolver;
-import org.sinytra.adapter.pipeline.resolver.injection.ModifyVarInjectionPointSubResolver;
-import org.sinytra.adapter.pipeline.resolver.special.InjectorOrdinalResolver;
+import org.sinytra.adapter.pipeline.resolver.special.LocalResolver;
 import org.sinytra.adapter.pipeline.rewrite.RewriteResolver;
 import org.sinytra.adapter.pipeline.rewrite.ShiftedVariableToExpression;
 
@@ -57,9 +56,7 @@ public class ModifyVariableMixin extends AbstractMixinType {
     public TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers, Processors processors) {
         resolvers
             .addBefore(InjectionPointResolver.class, new RewriteResolver(List.of(new ShiftedVariableToExpression())))
-            .addBefore(InjectionPointResolver.class, new InjectorOrdinalResolver());
-        resolvers.getOrThrow(InjectionPointResolver.class)
-            .addSubResolver(new ModifyVarInjectionPointSubResolver());
+            .addAfter(InjectionPointResolver.class, new LocalResolver());
 
         clean.setParameters(SIGNATURE.parse(context.methodNode()));
 

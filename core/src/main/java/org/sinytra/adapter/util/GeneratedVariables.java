@@ -1,11 +1,9 @@
 package org.sinytra.adapter.util;
 
-import com.google.common.base.Strings;
 import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
 
 import java.util.*;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -60,11 +58,6 @@ public class GeneratedVariables {
         return knownGenerated;
     }
 
-    public static OptionalInt getGeneratedVariableOrdinal(String name, Type type) {
-        GeneratedVarName generator = GENERATED_VAR_NAMES.get(type);
-        return generator != null ? generator.getOrdinal(name) : OptionalInt.empty();
-    }
-
     public static class GeneratedVarName {
         private final Set<Type> types;
         private final Pattern pattern;
@@ -86,19 +79,6 @@ public class GeneratedVariables {
 
         public boolean test(String str) {
             return this.pattern.matcher(str).matches();
-        }
-
-        public OptionalInt getOrdinal(String str) {
-            Matcher matcher = this.pattern.matcher(str);
-            if (matcher.matches()) {
-                String ordinal = matcher.group("index");
-                if (Strings.isNullOrEmpty(ordinal)) {
-                    return OptionalInt.of(0);
-                }
-                int intOrdinal = Integer.parseInt(ordinal);
-                return OptionalInt.of(intOrdinal);
-            }
-            return OptionalInt.empty();
         }
     }
 }

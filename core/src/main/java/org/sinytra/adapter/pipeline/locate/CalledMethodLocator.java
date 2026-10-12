@@ -73,7 +73,7 @@ public final class CalledMethodLocator implements Locator {
 
     /// {@return the instructions the clean `@At` selects in the callee, matched to the clean instruction where the alignment can}
     private static List<Candidate> findIn(MixinContext context, Targets targets, AtData cleanAt, AbstractInsnNode cleanInsn, Callee callee) {
-        List<AbstractInsnNode> selected = context.injections().find(callee.method(), InjectionQuery.of(cleanAt.withOrdinal(null)));
+        List<AbstractInsnNode> selected = Describer.findSelectable(context, callee.method(), cleanAt, InjectionQuery::of);
         if (selected.isEmpty()) {
             return List.of();
         }

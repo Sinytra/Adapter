@@ -18,6 +18,7 @@ import org.spongepowered.asm.mixin.injection.Group;
 import org.spongepowered.asm.mixin.injection.InjectionPoint;
 import org.spongepowered.asm.mixin.injection.code.ISliceContext;
 import org.spongepowered.asm.mixin.injection.code.MethodSlice;
+import org.spongepowered.asm.mixin.injection.modify.InvalidImplicitDiscriminatorException;
 import org.spongepowered.asm.mixin.injection.modify.LocalVariableDiscriminator;
 import org.spongepowered.asm.mixin.injection.points.BeforeConstant;
 import org.spongepowered.asm.mixin.injection.selectors.ISelectorContext;
@@ -184,7 +185,11 @@ public final class MixinBridge {
 
         public int findLocal(AnnotationNode selector, Type type, AbstractInsnNode insn) {
             LocalVariableDiscriminator discriminator = LocalVariableDiscriminator.parse(selector);
-            return discriminator.findLocal(localsContext(type, discriminator.isArgsOnly(), insn));
+            try {
+                return discriminator.findLocal(localsContext(type, discriminator.isArgsOnly(), insn));
+            } catch (InvalidImplicitDiscriminatorException e) {
+                return -1;
+            }
         }
 
         public List<LocalCandidate> findLocalCandidates(Type type, AbstractInsnNode insn, boolean argsOnly) {
