@@ -41,6 +41,8 @@ public class MixinContext implements RefMapper, Auditor {
     private final MethodNode methodNode;
     private final MethodNode originalMethodNode;
     private final Set<MixinFlag> flags;
+    @Nullable
+    private String rejection;
 
     private final AnnotationHandle methodAnnotation;
     private final AnnotationHandle injectionPointAnnotation;
@@ -193,6 +195,18 @@ public class MixinContext implements RefMapper, Auditor {
         } finally {
             this.auditContext.removeLast();
         }
+    }
+
+    public void reject(Object actor, String reason) {
+        if (this.rejection == null) {
+            this.rejection = reason;
+        }
+        recordAudit(actor, "Rejected: %s", reason);
+    }
+
+    @Nullable
+    public String getRejection() {
+        return this.rejection;
     }
 
     public void recordCtxAudit(String message, Object... args) {

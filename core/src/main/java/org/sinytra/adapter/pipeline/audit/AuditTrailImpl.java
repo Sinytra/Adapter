@@ -71,6 +71,12 @@ public class AuditTrailImpl implements AuditTrail {
         });
     }
 
+    @Override
+    public void recordRejection(MixinContext context, Configuration configuration) {
+        boolean isNotRequired = configuration.getProperty(MixinKeys.REQUIRE).map(i -> i == 0).orElse(false);
+        this.candidates.put(new Candidate(context.classNode(), context.methodNode()), isNotRequired ? Match.IGNORED : Match.NONE);
+    }
+
     public String getCompleteReport() {
         StringBuilder builder = new StringBuilder();
 

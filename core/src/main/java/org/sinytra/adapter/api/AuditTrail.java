@@ -27,6 +27,10 @@ public interface AuditTrail {
 
     void recordResult(MixinContext context, Configuration configuration, Match match);
 
+    default void recordRejection(MixinContext context, Configuration configuration) {
+        recordResult(context, configuration, Match.NONE);
+    }
+
     void processGroups(ClassNode classNode, MixinGroups groups);
 
     String getCompleteReport();

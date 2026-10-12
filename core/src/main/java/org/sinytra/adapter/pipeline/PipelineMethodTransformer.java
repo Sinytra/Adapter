@@ -132,7 +132,16 @@ public class PipelineMethodTransformer implements MethodTransformer {
                 break;
             }
             if (res == TxResult.FAIL) {
-                LOGGER.debug(MIXINPATCH, "Skipping mixin {} due to failed PROCESSOR {}", mixinId, processor.getClass().getSimpleName());
+                context.reject(processor, "processor %s failed".formatted(processor.getClass().getSimpleName()));
+                return PatchResult.PASS;
+            }
+        }
+
+        // 5. Check that the patched mixin will apply
+        if (!this.patchesOnly && !this.patchResolver.matches(config)) {
+            String problem = HandlerValidator.validate(context, recipe.dirty(), recipe);
+            if (problem != null) {
+                context.reject(this, "validation failed: " + problem);
                 return PatchResult.PASS;
             }
         }

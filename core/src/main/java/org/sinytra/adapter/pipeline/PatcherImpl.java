@@ -90,20 +90,31 @@ public class PatcherImpl implements Patcher {
         this.environment.auditTrail().prepareMethod(mixinContext);
 
         int checkpoint = patchContext.checkpoint();
+        PatchResult result;
         try {
-            return applyPatches(mixinContext, configuration);
+            result = applyPatches(mixinContext, configuration);
         } catch (Exception e) {
             LOGGER.error(MIXINPATCH, "Error patching mixin {}, reverting changes", mixinId, e);
-
-            int index = classNode.methods.indexOf(mixinContext.methodNode());
-            if (index != -1) {
-                classNode.methods.set(index, mixinContext.unmodifiedMethodNode());
-            }
-            patchContext.rollback(checkpoint);
-
+            rollback(classNode, patchContext, checkpoint, mixinContext);
             this.environment.auditTrail().recordResult(mixinContext, configuration, AuditTrail.Match.NONE);
             return PatchResult.PASS;
         }
+
+        if (mixinContext.getRejection() != null) {
+            LOGGER.debug(MIXINPATCH, "Rejected patch of mixin {}, reverting changes: {}", mixinId, mixinContext.getRejection());
+            rollback(classNode, patchContext, checkpoint, mixinContext);
+            this.environment.auditTrail().recordRejection(mixinContext, configuration);
+            return PatchResult.PASS;
+        }
+        return result;
+    }
+
+    private static void rollback(ClassNode classNode, PatchContextImpl patchContext, int checkpoint, MixinContext mixinContext) {
+        int index = classNode.methods.indexOf(mixinContext.methodNode());
+        if (index != -1) {
+            classNode.methods.set(index, mixinContext.unmodifiedMethodNode());
+        }
+        patchContext.rollback(checkpoint);
     }
 
     private PatchResult applyPatches(MixinContext mixinContext, MutableConfiguration configuration) {
