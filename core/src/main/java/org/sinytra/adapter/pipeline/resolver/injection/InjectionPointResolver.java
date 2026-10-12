@@ -5,10 +5,12 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.TargetPair;
+import org.sinytra.adapter.model.Targets;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.locate.CalledMethodLocator;
+import org.sinytra.adapter.pipeline.locate.Candidate;
 import org.sinytra.adapter.pipeline.locate.LocatingSubResolver;
 import org.sinytra.adapter.pipeline.locate.ReplacedCallLocator;
 import org.sinytra.adapter.pipeline.locate.SameMethodLocator;
@@ -17,9 +19,10 @@ import org.sinytra.adapter.pipeline.resolver.CompoundResolver;
 import java.util.List;
 
 public class InjectionPointResolver extends CompoundResolver {
+    private static final SameMethodLocator SAME_METHOD = new SameMethodLocator();
 
     public InjectionPointResolver() {
-        addSubResolver(new LocatingSubResolver(List.of(new SameMethodLocator(), new CalledMethodLocator(), new ReplacedCallLocator())));
+        addSubResolver(new LocatingSubResolver(List.of(SAME_METHOD, new CalledMethodLocator(), new ReplacedCallLocator())));
     }
 
     @Override
@@ -43,11 +46,28 @@ public class InjectionPointResolver extends CompoundResolver {
 
         // Try reusing the original
         List<AbstractInsnNode> insns = context.injections().find(dirtyTarget);
-        if (!insns.isEmpty()) {
+        if (!insns.isEmpty() && selectsLocatedInsns(context, recipe, dirtyTarget, insns)) {
             return dirty.copyClean()
                 .inheritAtData();
         }
 
         return null;
+    }
+
+    private static boolean selectsLocatedInsns(MixinContext context, Recipe recipe, TargetPair dirtyTarget, List<AbstractInsnNode> dirtyInsns) {
+        TargetPair cleanTarget = recipe.getCleanTarget();
+        if (cleanTarget == null || !cleanTarget.methodNode().name.equals(dirtyTarget.methodNode().name)
+            || !cleanTarget.methodNode().desc.equals(dirtyTarget.methodNode().desc)
+        ) {
+            return true;
+        }
+        Targets targets = new Targets(cleanTarget, dirtyTarget);
+        for (AbstractInsnNode cleanInsn : context.injections().find(cleanTarget)) {
+            List<Candidate> candidates = SAME_METHOD.locate(context, recipe, targets, cleanInsn);
+            if (!candidates.isEmpty() && candidates.stream().noneMatch(c -> dirtyInsns.contains(c.insn()))) {
+                return false;
+            }
+        }
+        return true;
     }
 }

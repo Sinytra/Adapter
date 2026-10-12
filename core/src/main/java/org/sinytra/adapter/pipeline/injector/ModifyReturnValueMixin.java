@@ -16,8 +16,6 @@ import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.processor.Processors;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
-import org.sinytra.adapter.pipeline.resolver.injection.InjectionPointResolver;
-import org.sinytra.adapter.pipeline.resolver.special.InjectorOrdinalResolver;
 
 import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL_RETURN;
 import static org.sinytra.adapter.model.param.HandlerSignature.ParamSource.*;
@@ -59,9 +57,6 @@ public class ModifyReturnValueMixin extends AbstractMixinType {
 
     @Override
     public TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers, Processors processors) {
-        resolvers
-            .addBefore(InjectionPointResolver.class, new InjectorOrdinalResolver());
-
         clean.setParameters(SIGNATURE.parse(context.methodNode()));
 
         return TxResult.SUCCESS;

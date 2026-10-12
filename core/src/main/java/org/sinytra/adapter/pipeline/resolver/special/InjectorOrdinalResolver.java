@@ -5,15 +5,10 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.InsnTraversal;
-import org.sinytra.adapter.analysis.compare.InsnComparator;
-import org.sinytra.adapter.analysis.compare.InstructionMatcher;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.locals.LocalsAnalyzer;
-import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.mixin.MixinBridge.LocalCandidate;
-import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.TargetPair;
-import org.sinytra.adapter.model.ann.AtData;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.MutableConfiguration;
 import org.sinytra.adapter.model.config.key.MixinKeys;
@@ -23,20 +18,13 @@ import org.sinytra.adapter.pipeline.injector.MixinFlag;
 import org.sinytra.adapter.pipeline.resolver.Resolver;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.GeneratedVariables;
-import org.sinytra.adapter.util.OpcodeUtil;
 import org.sinytra.adapter.util.SingleValueHandle;
 
 import java.util.*;
 import java.util.function.Function;
 
-import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL_RETURN;
 
 public class InjectorOrdinalResolver implements Resolver {
-    // INVOKE ordinals are handled by the locators, see LocatingSubResolver
-    private static final Map<String, OffsetUpdateHandler> OFFSET_HANDLERS = Map.of(
-        AT_VAL_RETURN, ReturnOffsetHandler.INSTANCE
-    );
-
     @Override
     public ResolutionResult resolve(MixinContext context, Recipe recipe) {
         Type returnType = recipe.clean().getReturnType();
@@ -62,21 +50,7 @@ public class InjectorOrdinalResolver implements Resolver {
 
     private static List<HandlerInstance<?, ?>> getOffsetHandlers(MixinContext context, Recipe recipe, Type returnType) {
         Configuration cleanConfig = recipe.clean();
-        AtData at = cleanConfig.getAtData();
         List<HandlerInstance<?, ?>> handlers = new ArrayList<>();
-
-        at.getProperty(AtData.Keys.ORDINAL).ifPresent(ordinal -> {
-            String target = at.getTarget().orElse(null);
-            OffsetUpdateHandler handler = OFFSET_HANDLERS.get(at.getValue());
-            if (handler != null) {
-                OffsetUpdateHandler.Context handleContext = new OffsetUpdateHandler.Context(target, ordinal);
-                HandlerInstance<?, ?> instance = new HandlerInstance<>(handler, handleContext, i ->
-                    MutableConfiguration.create()
-                        .setAtData(at.withOrdinal(i))
-                );
-                handlers.add(instance);
-            }
-        });
 
         if (context.hasFlag(MixinFlag.TARGETS_VARIABLE)) {
             LocalVariableLookup cleanTable = recipe.cleanLocalsTable();
@@ -116,11 +90,6 @@ public class InjectorOrdinalResolver implements Resolver {
         Optional<U> apply(MixinContext mixinContext, Recipe recipe, T context);
     }
 
-    private interface OffsetUpdateHandler extends UpdateHandler<OffsetUpdateHandler.Context, Integer> {
-        record Context(@Nullable String target, int ordinal) {
-        }
-    }
-
     private record LocalVar(LocalVariableNode lvn, int ordinal, boolean relative) {
         public LocalVar(LocalVariableNode lvn, int ordinal) {
             this(lvn, ordinal, false);
@@ -137,98 +106,6 @@ public class InjectorOrdinalResolver implements Resolver {
                 return this.applicator.apply(value);
             }
             return null;
-        }
-    }
-
-    private static class ReturnOffsetHandler implements OffsetUpdateHandler {
-        public static final OffsetUpdateHandler INSTANCE = new ReturnOffsetHandler();
-
-        @Override
-        public Optional<Integer> apply(MixinContext mixinContext, Recipe recipe, Context context) {
-            TargetPair cleanTarget = recipe.getCleanTarget();
-            TargetPair dirtyTarget = recipe.getDirtyTarget();
-            int ordinal = context.ordinal();
-
-            List<AbstractInsnNode> cleanReturnInsns = MethodAnalyzer.findReturnInsns(cleanTarget.methodNode());
-            List<AbstractInsnNode> dirtyReturnInsns = MethodAnalyzer.findReturnInsns(dirtyTarget.methodNode());
-
-            if (cleanReturnInsns.size() == dirtyReturnInsns.size()) {
-                return Optional.empty();
-            }
-
-            if (ordinal < cleanReturnInsns.size()) {
-                AbstractInsnNode cleanInsn = cleanReturnInsns.get(ordinal);
-                InstructionMatcher original = new InstructionMatcher(cleanInsn, findReturnPrecedingInsns(cleanInsn), List.of());
-                List<InstructionMatcher> dirtyMatchers = dirtyReturnInsns.stream()
-                    .map(i -> new InstructionMatcher(i, findReturnPrecedingInsns(i), List.of()))
-                    .toList();
-                Optional<InstructionMatcher> match = AdapterUtil.findOne(dirtyMatchers, m -> original.test(m, InsnComparator.IGNORE_VAR_INDEX));
-                if (match.isPresent()) {
-                    return match.map(dirtyMatchers::indexOf);
-                }
-            }
-
-            return findByMethodCalls(ordinal, cleanTarget, dirtyTarget);
-        }
-        
-        private static Optional<Integer> findByMethodCalls(int ordinal, TargetPair cleanTarget, TargetPair dirtyTarget) {
-            List<Pair<InsnNode, List<String>>> cleanCalls = getBlockCalls(cleanTarget.methodNode());
-            List<Pair<InsnNode, List<String>>> dirtyCalls = getBlockCalls(dirtyTarget.methodNode());
-            
-            if (ordinal >= cleanCalls.size()) {
-                return Optional.empty();
-            }
-
-            List<String> cleanCall = cleanCalls.get(ordinal).getSecond();
-            for (int i = 0; i < dirtyCalls.size(); i++) {
-                Pair<InsnNode, List<String>> dirtyCall = dirtyCalls.get(i);
-                boolean haveCommon = !Collections.disjoint(cleanCall, dirtyCall.getSecond());
-                if (haveCommon) {
-                    return Optional.of(i);   
-                }
-            }
-
-            return Optional.empty();
-        }
-
-        private static List<Pair<InsnNode, List<String>>> getBlockCalls(MethodNode methodNode) {
-            List<Pair<InsnNode, List<String>>> blockCalls = new ArrayList<>();
-
-            List<String> minsns = new ArrayList<>();
-            for (AbstractInsnNode insn : methodNode.instructions) {
-                if (insn instanceof MethodInsnNode minsn) {
-                    minsns.add(MethodQualifier.create(minsn).asDescriptor());
-                }
-                if (OpcodeUtil.isReturnOpcode(insn.getOpcode())) {
-                    blockCalls.add(Pair.of((InsnNode) insn, minsns));
-                    minsns = new ArrayList<>();
-                }
-            }
-            
-            // Remove non-unique calls
-            List<List<String>> values = blockCalls.stream()
-                .map(Pair::getSecond)
-                .toList();
-            Map<String, Integer> counts = new HashMap<>();
-            for (List<String> list : values) {
-                for (String s : list) {
-                    counts.merge(s, 1, Integer::sum);
-                }
-            }
-            for (List<String> list : values) {
-                list.removeIf(s -> counts.getOrDefault(s, 0) > 1);
-            }
-
-            return blockCalls;
-        }
-
-        private static List<AbstractInsnNode> findReturnPrecedingInsns(AbstractInsnNode insn) {
-            return InsnTraversal.walk(insn.getPrevious(), InsnTraversal.BACKWARD)
-                .takeWhile(prev -> !OpcodeUtil.isReturnOpcode(prev.getOpcode()))
-                .filter(prev -> !(prev instanceof LabelNode) && !InsnTraversal.isDebugNode(prev))
-                .limit(6)
-                .toList()
-                .reversed();
         }
     }
 

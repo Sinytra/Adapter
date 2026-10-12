@@ -35,7 +35,8 @@ public final class CalledMethodLocator implements Locator {
 
     /// A method reached from the dirty target
     /// @param originLocals the local slots that hold the dirty target's instance
-    private record Callee(TargetPair method, Set<Integer> originLocals) {
+    /// @param calledFrom the dirty target's call of a static method in another class that doesn't receive the instance
+    private record Callee(TargetPair method, Set<Integer> originLocals, @Nullable MethodInsnNode calledFrom) {
     }
 
     @Override
@@ -49,9 +50,9 @@ public final class CalledMethodLocator implements Locator {
         Set<MethodNode> visited = new HashSet<>();
         visited.add(origin.methodNode());
         Set<MethodInsnNode> newCalls = new HashSet<>(MethodAnalyzer.findDirtyOnlyCalls(targets.clean().methodNode(), origin.methodNode(), false));
-        Callee start = new Callee(origin, context.isStatic() ? Set.of() : Set.of(0));
+        Callee start = new Callee(origin, context.isStatic() ? Set.of() : Set.of(0), null);
 
-        List<Callee> frontier = findCallees(context, start, newCalls::contains, visited);
+        List<Callee> frontier = findCallees(context, start, newCalls::contains, visited, true);
         for (int depth = 1; !frontier.isEmpty(); depth++) {
             List<Candidate> candidates = new ArrayList<>();
             for (Callee callee : frontier) {
@@ -63,7 +64,7 @@ public final class CalledMethodLocator implements Locator {
 
             List<Callee> next = new ArrayList<>();
             for (Callee callee : frontier) {
-                next.addAll(findCallees(context, callee, call -> true, visited));
+                next.addAll(findCallees(context, callee, call -> true, visited, false));
             }
             frontier = next;
         }
@@ -105,12 +106,12 @@ public final class CalledMethodLocator implements Locator {
             }
             slot += args[i].getSize();
         }
-        return null;
+        return callee.calledFrom() != null ? new Relocation.CalledFrom(callee.calledFrom()) : null;
     }
 
     /// {@return the methods the caller calls at the top level and the lambdas it creates, that weren't visited yet}
-    /// When the handler is an instance method, a callee must receive the origin instance.
-    private static List<Callee> findCallees(MixinContext context, Callee caller, Predicate<MethodInsnNode> filter, Set<MethodNode> visited) {
+    /// When the handler is an instance method, a callee must receive the origin instance, unless the origin calls it statically.
+    private static List<Callee> findCallees(MixinContext context, Callee caller, Predicate<MethodInsnNode> filter, Set<MethodNode> visited, boolean fromOrigin) {
         TargetPair from = caller.method();
         DataFlow flow = context.dataFlow(from);
         List<Callee> callees = new ArrayList<>();
@@ -124,7 +125,9 @@ public final class CalledMethodLocator implements Locator {
             }
             TargetPair method = context.dirtyMethods().resolveInherited(MethodQualifier.create(call));
             if (method != null && !visited.contains(method.methodNode())) {
-                addCallee(context, callees, visited, method, passedLocals(flow, call, call.getOpcode() != Opcodes.INVOKESTATIC, call.desc, caller.originLocals()));
+                Set<Integer> locals = passedLocals(flow, call, call.getOpcode() != Opcodes.INVOKESTATIC, call.desc, caller.originLocals());
+                boolean mirrorable = fromOrigin && call.getOpcode() == Opcodes.INVOKESTATIC && !method.classNode().name.equals(from.classNode().name);
+                addCallee(context, callees, visited, new Callee(method, locals, mirrorable ? call : null));
             }
         }
 
@@ -132,16 +135,16 @@ public final class CalledMethodLocator implements Locator {
             if (!visited.contains(lambda.method())) {
                 Handle handle = lambda.handle();
                 Set<Integer> locals = passedLocals(flow, lambda.indy(), handle.getTag() != Opcodes.H_INVOKESTATIC, handle.getDesc(), caller.originLocals());
-                addCallee(context, callees, visited, new TargetPair(from.classNode(), lambda.method()), locals);
+                addCallee(context, callees, visited, new Callee(new TargetPair(from.classNode(), lambda.method()), locals, null));
             }
         }
         return callees;
     }
 
-    private static void addCallee(MixinContext context, List<Callee> callees, Set<MethodNode> visited, TargetPair method, Set<Integer> originLocals) {
-        if (context.isStatic() || !originLocals.isEmpty()) {
-            visited.add(method.methodNode());
-            callees.add(new Callee(method, originLocals));
+    private static void addCallee(MixinContext context, List<Callee> callees, Set<MethodNode> visited, Callee callee) {
+        if (context.isStatic() || !callee.originLocals().isEmpty() || callee.calledFrom() != null) {
+            visited.add(callee.method().methodNode());
+            callees.add(callee);
         }
     }
 

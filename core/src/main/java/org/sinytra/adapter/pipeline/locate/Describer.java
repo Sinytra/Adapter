@@ -13,23 +13,19 @@ import org.sinytra.adapter.pipeline.ctx.MixinContext;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
+
+import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL_INVOKE;
+import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL_INVOKE_ASSIGN;
 
 public final class Describer {
     @Nullable
     public static Configuration describe(MixinContext context, Recipe recipe, Candidate candidate) {
         AtData cleanAt = recipe.clean().getAtData();
-        if (cleanAt == null) {
+        AtData described = cleanAt != null ? describeAt(context, cleanAt, candidate, InjectionQuery::of) : null;
+        if (described == null) {
             return null;
         }
-
-        AtData at = candidate.insn() instanceof MethodInsnNode call && cleanAt.getTarget().isPresent() ? cleanAt.withTarget(call) : cleanAt;
-        List<AbstractInsnNode> selected = context.injections().find(candidate.target(), InjectionQuery.of(at.withOrdinal(null)));
-        int ordinal = selected.indexOf(candidate.insn());
-        if (ordinal == -1) {
-            return null;
-        }
-
-        AtData described = cleanAt.getOrdinal().isEmpty() ? at.withOrdinal(null) : at.withOrdinal(ordinal);
         MutableConfiguration config = MutableConfiguration.create().setAtData(described);
 
         if (candidate.target() != recipe.getDirtyTarget()) {
@@ -45,7 +41,24 @@ public final class Describer {
         return config;
     }
 
-    /// {@return whether both configurations describe the same injection point}
+    @Nullable
+    public static AtData describeAt(MixinContext context, AtData cleanAt, Candidate candidate, Function<AtData, InjectionQuery> query) {
+        boolean changesKind = candidate.insn() instanceof MethodInsnNode && !AT_VAL_INVOKE.equals(cleanAt.getValue()) && !AT_VAL_INVOKE_ASSIGN.equals(cleanAt.getValue());
+        AtData at;
+        if (changesKind) {
+            at = AtData.create(AT_VAL_INVOKE, (MethodInsnNode) candidate.insn());
+        } else {
+            at = candidate.insn() instanceof MethodInsnNode call && cleanAt.getTarget().isPresent() ? cleanAt.withTarget(call) : cleanAt;
+        }
+        List<AbstractInsnNode> selected = context.injections().find(candidate.target(), query.apply(at.withOrdinal(null)));
+        int ordinal = selected.indexOf(candidate.insn());
+        if (ordinal == -1) {
+            return null;
+        }
+        boolean keepsOrdinal = changesKind ? selected.size() > 1 : cleanAt.getOrdinal().isPresent();
+        return keepsOrdinal ? at.withOrdinal(ordinal) : at.withOrdinal(null);
+    }
+
     public static boolean isSame(Configuration a, Configuration b) {
         return Objects.equals(a.getAtData(), b.getAtData())
             && Objects.equals(a.getTargetMethod(), b.getTargetMethod())
