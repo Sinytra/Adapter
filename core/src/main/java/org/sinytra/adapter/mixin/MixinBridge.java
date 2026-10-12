@@ -21,6 +21,7 @@ import org.spongepowered.asm.mixin.injection.code.MethodSlice;
 import org.spongepowered.asm.mixin.injection.modify.LocalVariableDiscriminator;
 import org.spongepowered.asm.mixin.injection.points.BeforeConstant;
 import org.spongepowered.asm.mixin.injection.selectors.ISelectorContext;
+import org.spongepowered.asm.mixin.injection.selectors.InvalidSelectorException;
 import org.spongepowered.asm.mixin.injection.struct.*;
 import org.spongepowered.asm.mixin.refmap.IMixinContext;
 import org.spongepowered.asm.mixin.refmap.IReferenceMapper;
@@ -120,6 +121,23 @@ public final class MixinBridge {
     }
 
     public record InjectorGroup(String name, List<MethodNode> members, int minRequired) {
+    }
+
+    public record MemberSelector(@Nullable String owner, @Nullable String name, @Nullable String desc, int maxMatches, boolean field) {
+    }
+
+    @Nullable
+    public static MemberSelector parseMemberSelector(String input) {
+        String selector = input.strip();
+        if (selector.startsWith("/") || selector.startsWith("@")) {
+            return null;
+        }
+        try {
+            MemberInfo info = MemberInfo.parse(selector, null).validate();
+            return new MemberSelector(info.getOwner(), info.getName(), info.getDesc(), info.getMaxMatchCount(), info.isField());
+        } catch (InvalidSelectorException e) {
+            return null;
+        }
     }
 
     public record LocalCandidate(int ordinal, int index) {

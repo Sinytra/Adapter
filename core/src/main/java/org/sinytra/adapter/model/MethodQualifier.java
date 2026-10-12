@@ -5,28 +5,23 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.mixin.MixinBridge;
 
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nullable String desc) {
-    public static final Pattern METHOD_QUALIFIER_PATTERN = Pattern.compile("^(?<owner>L.+?;)?(?<name>[^(:]+)?(?<desc>\\((?:\\[*[ZCBSIFJD]|\\[*L[a-zA-Z0-9/_$]+;)*\\)(?:\\[*[VZCBSIFJD]|\\[?L[a-zA-Z0-9/_;$]+))?$");
 
     public MethodQualifier(@Nullable String name, @Nullable String desc) {
         this(null, name, desc);
     }
 
     public static Optional<MethodQualifier> parse(String qualifier) {
-        Matcher matcher = METHOD_QUALIFIER_PATTERN.matcher(qualifier);
-        if (matcher.matches()) {
-            String name = matcher.group("name");
-            String desc = matcher.group("desc");
-            if (name != null || desc != null) {
-                return Optional.of(new MethodQualifier(matcher.group("owner"), name, desc));
-            }
+        MixinBridge.MemberSelector selector = MixinBridge.parseMemberSelector(qualifier);
+        if (selector == null || selector.field() || selector.maxMatches() != 1 || selector.name() == null && selector.desc() == null) {
+            return Optional.empty();
         }
-        return Optional.empty();
+        String owner = selector.owner() != null ? Type.getObjectType(selector.owner()).getDescriptor() : null;
+        return Optional.of(new MethodQualifier(owner, selector.name(), selector.desc()));
     }
 
     public static MethodQualifier create(ClassNode classNode, MethodNode methodNode) {
