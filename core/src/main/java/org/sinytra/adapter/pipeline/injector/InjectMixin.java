@@ -7,8 +7,8 @@ import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.ConfigurationTemplates;
 import org.sinytra.adapter.model.config.MutableConfiguration;
 import org.sinytra.adapter.model.config.PropertyContainerTemplate;
+import org.sinytra.adapter.model.config.key.ControlKeys;
 import org.sinytra.adapter.model.config.key.MixinKeys;
-import org.sinytra.adapter.model.config.key.SpecialKeys;
 import org.sinytra.adapter.model.param.HandlerSignature;
 import org.sinytra.adapter.model.param.HandlerSignature.ValueSource;
 import org.sinytra.adapter.model.param.MethodParameters;
@@ -85,7 +85,7 @@ public class InjectMixin extends AbstractMixinType {
         }
 
         // Process static modifier
-        if (!clean.getProperty(SpecialKeys.STATIC).orElse(false) && dirty.getProperty(SpecialKeys.STATIC).orElse(false)) {
+        if (!clean.getProperty(ControlKeys.STATIC).orElse(false) && dirty.getProperty(ControlKeys.STATIC).orElse(false)) {
             List<Type> types = context.targetTypes();
             if (types.size() != 1) {
                 return TxResult.FAIL;

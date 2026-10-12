@@ -9,14 +9,15 @@ import org.sinytra.adapter.analysis.compare.MethodLabelComparator;
 import org.sinytra.adapter.analysis.injection.InjectionQuery;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.model.MethodQualifier;
+import org.sinytra.adapter.model.Relocation;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.Targets;
 import org.sinytra.adapter.model.ann.AtData;
 import org.sinytra.adapter.model.ann.ConstantData;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.MutableConfiguration;
+import org.sinytra.adapter.model.config.key.IntentKeys;
 import org.sinytra.adapter.model.config.key.MixinKeys;
-import org.sinytra.adapter.model.config.key.SpecialKeys;
 import org.sinytra.adapter.model.constant.MixinAnnotations;
 import org.sinytra.adapter.model.constant.TypeConstants;
 import org.sinytra.adapter.model.param.MethodParameters;
@@ -87,7 +88,7 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
                 .setTargetClass(target.classNode().name)
                 .setTargetMethod(minsn)
                 .setAtData(clean.getAtData().withOrdinal(null)) // TODO Find new ordinal
-                .setProperty(SpecialKeys.EXTRACT_TARGET, minsn);
+                .setProperty(IntentKeys.RELOCATION, new Relocation.CalledFrom(minsn));
         }
     }
 

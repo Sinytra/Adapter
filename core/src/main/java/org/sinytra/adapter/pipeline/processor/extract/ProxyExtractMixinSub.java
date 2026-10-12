@@ -3,9 +3,10 @@ package org.sinytra.adapter.pipeline.processor.extract;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.model.Relocation;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.config.Configuration;
-import org.sinytra.adapter.model.config.key.SpecialKeys;
+import org.sinytra.adapter.model.config.key.IntentKeys;
 import org.sinytra.adapter.model.constant.MixinAnnotations;
 import org.sinytra.adapter.model.param.Parameters;
 import org.sinytra.adapter.pipeline.Recipe;
@@ -29,7 +30,7 @@ public class ProxyExtractMixinSub implements Processor {
         if (recipe.clean().getTargetClass().equals(dirty.getTargetClass()))
             return TxResult.PASS;
 
-        if (!dirty.hasProperty(SpecialKeys.EXTRACT_ORIGIN_PARAM) || context.locals().capturesLocals())
+        if (!(dirty.getProperty(IntentKeys.RELOCATION).orElse(null) instanceof Relocation.ReceivesOrigin(int originParamIndex)) || context.locals().capturesLocals())
             return TxResult.FAIL;
 
         TargetPair dirtyTarget = recipe.getNewCleanTarget();
@@ -37,7 +38,6 @@ public class ProxyExtractMixinSub implements Processor {
 
         MethodNode methodNode = context.methodNode();
 
-        int originParamIndex = dirty.getProperty(SpecialKeys.EXTRACT_ORIGIN_PARAM).orElseThrow();
         if (dirty.getTargetMethod() == null || dirty.getTargetMethod().desc() == null) return TxResult.FAIL;
 
         List<Type> destParams = Parameters.getParameterTypes(dirty.getTargetMethod().desc());

@@ -7,7 +7,7 @@ import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.model.config.Configuration;
-import org.sinytra.adapter.model.config.key.SpecialKeys;
+import org.sinytra.adapter.model.config.key.ControlKeys;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
@@ -20,11 +20,11 @@ import java.util.Objects;
 public class StaticAccessStep implements SignatureStep {
     @Override
     public TxResult apply(MixinContext context, Configuration dirty, Recipe recipe) {
-        if (!recipe.clean().hasProperty(SpecialKeys.STATIC) || !dirty.hasProperty(SpecialKeys.STATIC))
+        if (!recipe.clean().hasProperty(ControlKeys.STATIC) || !dirty.hasProperty(ControlKeys.STATIC))
             return TxResult.PASS;
 
-        boolean cleanStatic = recipe.clean().getProperty(SpecialKeys.STATIC).orElseThrow();
-        boolean dirtyStatic = dirty.getProperty(SpecialKeys.STATIC).orElseThrow();
+        boolean cleanStatic = recipe.clean().getProperty(ControlKeys.STATIC).orElseThrow();
+        boolean dirtyStatic = dirty.getProperty(ControlKeys.STATIC).orElseThrow();
         if (cleanStatic == dirtyStatic) return TxResult.PASS;
 
         MethodNode method = context.methodNode();

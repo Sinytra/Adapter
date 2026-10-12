@@ -17,6 +17,7 @@ public final class ControlKeys {
     // Method
     public static final PropertyKey<MethodParameters> PARAMETERS = PropertyKey.create("parameters");
     public static final PropertyKey<Type> RETURN_TYPE = PropertyKey.create("return_type");
+    public static final PropertyKey<Boolean> STATIC = PropertyKey.create("static");
     // Control
     public static final PropertyKey<Boolean> DELETE = PropertyKey.create("delete");
 

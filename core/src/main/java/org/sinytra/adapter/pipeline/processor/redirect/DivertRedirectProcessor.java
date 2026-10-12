@@ -7,7 +7,7 @@ import org.sinytra.adapter.analysis.InsnTraversal;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.config.Configuration;
-import org.sinytra.adapter.model.config.key.SpecialKeys;
+import org.sinytra.adapter.model.config.key.IntentKeys;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
@@ -20,7 +20,7 @@ import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL
 public class DivertRedirectProcessor implements Processor {
     @Override
     public TxResult process(MixinContext context, Configuration dirty, Recipe recipe) {
-        Consumer<InstructionAdapter> patcher = dirty.getProperty(SpecialKeys.REDIRECT_ADAPTER).orElse(null);
+        Consumer<InstructionAdapter> patcher = dirty.getProperty(IntentKeys.DIVERT_REDIRECT).orElse(null);
         if (patcher == null) return TxResult.PASS;
 
         if (!recipe.hasInjectionPointValue(AT_VAL_INVOKE)) return TxResult.PASS;

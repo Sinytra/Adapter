@@ -14,10 +14,11 @@ import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer.IndyHandle;
 import org.sinytra.adapter.api.PatchResult;
 import org.sinytra.adapter.edit.param.TransformParameters;
+import org.sinytra.adapter.model.Relocation;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.config.Configuration;
+import org.sinytra.adapter.model.config.key.IntentKeys;
 import org.sinytra.adapter.model.config.key.MixinKeys;
-import org.sinytra.adapter.model.config.key.SpecialKeys;
 import org.sinytra.adapter.model.constant.MixinAnnotations;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
@@ -39,13 +40,11 @@ public class ExtractMixinProcessor implements Processor {
         if (recipe.clean().getTargetClass().equals(dirty.getTargetClass())) return TxResult.PASS;
 
         PatchResult result = apply(dirty.getTargetClass(), context, recipe);
-        if (result == PatchResult.PASS && dirty.hasProperty(SpecialKeys.EXTRACT_TARGET)) {
-            MethodInsnNode minsn = dirty.getProperty(SpecialKeys.EXTRACT_TARGET).orElseThrow();
-            result = MirrorableExtractMixin.apply(context, recipe, dirty.getTargetClass(), minsn);
+        Relocation relocation = dirty.getProperty(IntentKeys.RELOCATION).orElse(null);
+        if (result == PatchResult.PASS && relocation instanceof Relocation.CalledFrom(MethodInsnNode call)) {
+            result = MirrorableExtractMixin.apply(context, recipe, dirty.getTargetClass(), call);
         }
-
-        // Defer to ProxyExtractMixinSub
-        if (result == PatchResult.PASS && dirty.hasProperty(SpecialKeys.EXTRACT_ORIGIN_PARAM)) {
+        if (result == PatchResult.PASS && relocation instanceof Relocation.ReceivesOrigin) {
             return ProxyExtractMixinSub.INSTANCE.process(context, dirty, recipe);
         }
 

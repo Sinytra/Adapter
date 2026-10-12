@@ -9,8 +9,9 @@ import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.ann.AtData;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.MutableConfiguration;
+import org.sinytra.adapter.model.config.key.ControlKeys;
+import org.sinytra.adapter.model.config.key.IntentKeys;
 import org.sinytra.adapter.model.config.key.MixinKeys;
-import org.sinytra.adapter.model.config.key.SpecialKeys;
 import org.sinytra.adapter.model.constant.MixinAnnotationConstants;
 import org.sinytra.adapter.model.param.MethodParameters;
 
@@ -148,7 +149,7 @@ public class MethodPatchBuilderImpl implements MethodPatchBuilder {
 
     @Override
     public MethodPatchBuilder modifyStatic(boolean isStatic) {
-        this.config.setProperty(SpecialKeys.STATIC, isStatic);
+        this.config.setProperty(ControlKeys.STATIC, isStatic);
         return this;
     }
 
@@ -166,7 +167,7 @@ public class MethodPatchBuilderImpl implements MethodPatchBuilder {
 
     @Override
     public MethodPatchBuilder divertRedirector(Consumer<InstructionAdapter> patcher) {
-        this.config.setProperty(SpecialKeys.REDIRECT_ADAPTER, patcher);
+        this.config.setProperty(IntentKeys.DIVERT_REDIRECT, patcher);
         return this;
     }
 

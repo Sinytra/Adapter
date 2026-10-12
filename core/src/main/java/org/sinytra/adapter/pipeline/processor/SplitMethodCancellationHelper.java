@@ -1,4 +1,4 @@
-package org.sinytra.adapter.pipeline.resolver.target;
+package org.sinytra.adapter.pipeline.processor;
 
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Label;

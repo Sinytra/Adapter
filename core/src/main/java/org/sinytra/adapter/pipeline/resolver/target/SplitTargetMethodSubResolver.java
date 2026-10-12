@@ -12,7 +12,7 @@ import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.MutableConfiguration;
-import org.sinytra.adapter.model.config.key.SpecialKeys;
+import org.sinytra.adapter.model.config.key.IntentKeys;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.resolver.SubResolver;
@@ -40,7 +40,7 @@ public class SplitTargetMethodSubResolver implements SubResolver {
             MutableConfiguration config = MutableConfiguration.create()
                 .setTargetMethod(method);
             if (recipe.clean().isCancellable()) {
-                config.setProperty(SpecialKeys.SPLIT_CANCELLATION, true);
+                config.setProperty(IntentKeys.PROPAGATE_CANCELLATION, true);
             }
             return config;
         }

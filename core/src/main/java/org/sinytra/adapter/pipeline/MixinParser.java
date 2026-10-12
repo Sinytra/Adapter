@@ -17,7 +17,6 @@ import org.sinytra.adapter.model.config.PropertyContainer;
 import org.sinytra.adapter.model.config.PropertyContainerTemplate;
 import org.sinytra.adapter.model.config.key.ControlKeys;
 import org.sinytra.adapter.model.config.key.MixinKeys;
-import org.sinytra.adapter.model.config.key.SpecialKeys;
 import org.sinytra.adapter.model.constant.MixinAnnotations;
 import org.sinytra.adapter.pipeline.injector.MixinType;
 import org.sinytra.adapter.pipeline.injector.MixinTypes;
@@ -67,7 +66,7 @@ public class MixinParser {
             String targetClass = Objects.requireNonNullElseGet(cls.getSingle(), () -> cls.getTypes().getFirst()).getInternalName();
             properties.setProperty(ControlKeys.TARGET_CLASS, targetClass);
             properties.setProperty(ControlKeys.RETURN_TYPE, Type.getReturnType(method.desc));
-            properties.setProperty(SpecialKeys.STATIC, MethodAnalyzer.isStatic(method));
+            properties.setProperty(ControlKeys.STATIC, MethodAnalyzer.isStatic(method));
             resolveTargetDescriptor(properties, environment);
 
             return new MixinMethodHandle(mixinType, method, handle, properties);
