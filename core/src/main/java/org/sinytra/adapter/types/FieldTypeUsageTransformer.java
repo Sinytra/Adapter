@@ -5,7 +5,7 @@ import com.mojang.logging.LogUtils;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.analysis.method.MethodAnalyzer;
+import org.sinytra.adapter.analysis.flow.DataFlow;
 import org.sinytra.adapter.api.BytecodeFixerUpper;
 import org.sinytra.adapter.api.ClassTransformer;
 import org.sinytra.adapter.api.PatchResult;
@@ -68,7 +68,7 @@ public class FieldTypeUsageTransformer implements ClassTransformer {
                 // Search for method calls made on modified class fields and update their owners to match the new field types
                 if (!classUpdatedTypes.isEmpty()) {
                     AtomicBoolean retargeted = new AtomicBoolean();
-                    MethodAnalyzer.forEachReceiver(method, (call, receiver) -> {
+                    DataFlow.of(method).forEachReceiver((call, receiver) -> {
                         if (call.getOpcode() == Opcodes.INVOKEVIRTUAL
                             && AdapterUtil.getSingleOrNull(receiver) instanceof FieldInsnNode finsn
                             && finsn.owner.equals(classNode.name)

@@ -2,7 +2,7 @@ package org.sinytra.adapter.edit.param;
 
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.analysis.method.MethodAnalyzer;
+import org.sinytra.adapter.analysis.flow.DataFlow;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.constant.TypeConstants;
 import org.sinytra.adapter.util.AdapterUtil;
@@ -16,7 +16,7 @@ public class ModifyArgsOffsetUpgrader {
 
     public static boolean upgradeAfterParamInsert(MethodNode methodNode, int index) {
         Set<AbstractInsnNode> insns = new LinkedHashSet<>();
-        MethodAnalyzer.forEachCall(methodNode, (call, operands) -> {
+        DataFlow.of(methodNode).forEachCall((call, operands) -> {
             if ((ARGS_GET.matches(call) || ARGS_SET.matches(call)) && operands.size() > 1) {
                 insns.add(AdapterUtil.getSingleInsn(operands.get(1)));
             }

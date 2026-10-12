@@ -7,8 +7,8 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.analysis.flow.DataFlow;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.model.param.Annotation;
 import org.sinytra.adapter.model.param.Parameter;
 import org.sinytra.adapter.util.AdapterUtil;
@@ -134,7 +134,7 @@ public final class ParamTransformationUtil {
 
     public static void retypeVariableAndReceivers(MethodNode methodNode, VarInsnNode targetVarInsn, int newIndex, String newOwner) {
         targetVarInsn.var = newIndex;
-        MethodAnalyzer.forEachReceiver(methodNode, (call, receiver) -> {
+        DataFlow.of(methodNode).forEachReceiver((call, receiver) -> {
             if (receiver.contains(targetVarInsn)) {
                 call.owner = newOwner;
             }

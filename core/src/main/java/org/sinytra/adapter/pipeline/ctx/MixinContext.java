@@ -4,6 +4,7 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.analysis.flow.DataFlow;
 import org.sinytra.adapter.analysis.injection.InjectionLocator;
 import org.sinytra.adapter.analysis.method.MethodHelper;
 import org.sinytra.adapter.analysis.method.MethodLocator;
@@ -25,7 +26,9 @@ import org.sinytra.adapter.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.util.AdapterUtil;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -47,6 +50,8 @@ public class MixinContext implements RefMapper, Auditor {
     private final MethodLocator cleanMethods;
     private final MethodLocator dirtyMethods;
     private final InjectionLocator injections;
+
+    private final Map<MethodNode, DataFlow> targetFlows;
     private final Resolvers resolvers = new Resolvers();
     private final Processors processors = new Processors();
 
@@ -68,6 +73,8 @@ public class MixinContext implements RefMapper, Auditor {
         this.originalMethodNode = AdapterUtil.copyMethod(this.methodNode);
 
         this.mixinId = classNode.name + "#" + methodNode.name + methodNode.desc;
+
+        this.targetFlows = new HashMap<>();
     }
 
     public MixinType getMixinType() {
@@ -121,6 +128,10 @@ public class MixinContext implements RefMapper, Auditor {
 
     public InjectionLocator injections() {
         return this.injections;
+    }
+
+    public DataFlow dataFlow(TargetPair target) {
+        return this.targetFlows.computeIfAbsent(target.methodNode(), DataFlow::of);
     }
 
     @Nullable

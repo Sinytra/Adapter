@@ -4,8 +4,8 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodInsnNode;
+import org.sinytra.adapter.analysis.flow.DataFlow;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.edit.param.InjectParameterTransform;
@@ -41,7 +41,7 @@ public class ParameterUsageProcessor implements Processor {
         LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(cleanParams, dirtyParams);
         if (diff == null) return TxResult.PASS;
 
-        List<List<AbstractInsnNode>> callInsns = MethodAnalyzer.getAllMethodCallSrcInsnsInclusive(context.methodNode(), cleanTargetQual);
+        List<List<AbstractInsnNode>> callInsns = DataFlow.of(context.methodNode(), DataFlow.Producers.COMPUTER).findCallsWithProducers(cleanTargetQual);
         if (callInsns.isEmpty()) {
             return TxResult.SUCCESS;
         }

@@ -69,7 +69,7 @@ public class InjectionPointSubResolvers {
             if (minsn.getOpcode() != Opcodes.INVOKESTATIC || minsn.owner.equals(targets.dirty().classNode().name))
                 continue;
 
-            List<AbstractInsnNode> argInsns = MethodAnalyzer.getMethodCallSrcInsns(targets.dirty().methodNode(), minsn);
+            List<AbstractInsnNode> argInsns = context.dataFlow(targets.dirty()).resolveCallOperandProducers(minsn);
             if (argInsns == null) continue;
 
             AbstractInsnNode self = argInsns.stream()

@@ -4,7 +4,8 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.InsnTraversal;
-import org.sinytra.adapter.analysis.flow.WrapOpAnalyzer;
+import org.sinytra.adapter.analysis.flow.DataFlow;
+import org.sinytra.adapter.analysis.flow.DataFlow.Producers;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.constant.TypeConstants;
 import org.sinytra.adapter.util.AdapterUtil;
@@ -19,12 +20,12 @@ public record WrapOpOriginalCall(List<CallArg> args) {
     public static final MethodQualifier QUALIFIER = new MethodQualifier(TypeConstants.OPERATION_TYPE.getDescriptor(), "call", "([Ljava/lang/Object;)Ljava/lang/Object;");
 
     public static List<List<AbstractInsnNode>> findAll(MethodNode methodNode) {
-        return MethodAnalyzer.getAllMethodCallSrcInsnsInclusive(methodNode, QUALIFIER);
+        return DataFlow.of(methodNode, Producers.COMPUTER).findCallsWithProducers(QUALIFIER);
     }
 
     public static List<AbstractInsnNode> findFirstCallInsns(MethodNode methodNode) {
         List<MethodInsnNode> calls = MethodAnalyzer.findCalls(methodNode, QUALIFIER);
-        return calls.isEmpty() ? List.of() : Objects.requireNonNullElseGet(MethodAnalyzer.getMethodCallInsns(methodNode, calls.getFirst()), List::of);
+        return calls.isEmpty() ? List.of() : Objects.requireNonNullElseGet(DataFlow.of(methodNode).resolveOperandProducers(calls.getFirst()), List::of);
     }
 
     public static List<AbstractInsnNode> findCallVarInsns(MethodNode methodNode) {
@@ -43,7 +44,7 @@ public record WrapOpOriginalCall(List<CallArg> args) {
         if (!(singleArg instanceof TypeInsnNode tinsn) || tinsn.getOpcode() != Opcodes.ANEWARRAY) {
             return null;
         }
-        return parse(WrapOpAnalyzer.groupArrayInitializers(methodNode, singleArg));
+        return parse(DataFlow.of(methodNode, Producers.COMPUTER).findArrayElements(singleArg));
     }
 
     public record CallArg(List<AbstractInsnNode> pre, List<AbstractInsnNode> load, List<AbstractInsnNode> post) {

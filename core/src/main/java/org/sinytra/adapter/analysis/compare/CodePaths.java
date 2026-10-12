@@ -6,8 +6,8 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
+import org.sinytra.adapter.analysis.flow.DataFlow.ImplicitCalls;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
@@ -68,7 +68,7 @@ public class CodePaths {
         }
         visited.put(key, depth);
 
-        List<MethodInsnNode> topTierCalls = MethodAnalyzer.getTopTierMethodCalls(from, true);
+        List<MethodInsnNode> topTierCalls = context.dataFlow(from).findTopLevelCalls(ImplicitCalls.UNWRAP);
 
         for (MethodInsnNode minsn : topTierCalls) {
             if (!filter.test(minsn)
@@ -88,7 +88,7 @@ public class CodePaths {
 
             Map<Integer, Integer> locals = new Int2IntOpenHashMap();
             if (!trackLocals.isEmpty()) {
-                List<List<AbstractInsnNode>> receiverInsns = MethodAnalyzer.getMethodCallArgInsns(from.methodNode(), minsn);
+                List<List<AbstractInsnNode>> receiverInsns = context.dataFlow(from).findOperandExpressions(minsn);
                 for (int i = 0; i < receiverInsns.size(); i++) {
                     List<AbstractInsnNode> argInsns = receiverInsns.get(i);
                     if (argInsns.size() != 1 || !(argInsns.getFirst() instanceof VarInsnNode varInsn)) continue;

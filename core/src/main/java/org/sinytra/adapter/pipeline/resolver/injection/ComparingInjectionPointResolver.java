@@ -8,7 +8,6 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.compare.MethodLabelComparator;
 import org.sinytra.adapter.analysis.injection.InjectionQuery;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.Targets;
@@ -153,7 +152,7 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
                 LocalVariableLookup dirtyLocals = recipe.dirtyLocalsTable();
                 if (cleanTarget == null || cleanLocals == null || dirtyLocals == null) return Optional.empty();
 
-                List<AbstractInsnNode> originalCallArgs = MethodAnalyzer.getMethodCallSrcInsns(cleanTarget.methodNode(), cleanInjectionInsn);
+                List<AbstractInsnNode> originalCallArgs = context.dataFlow(cleanTarget).resolveCallOperandProducers(cleanInjectionInsn);
                 if (originalCallArgs == null || originalCallArgs.isEmpty() || !(originalCallArgs.getFirst() instanceof VarInsnNode originalInstanceInsn))
                     return Optional.empty();
                 LocalVariableNode originalInstanceLocal = cleanLocals.getByIndexOrNull(originalInstanceInsn.var);

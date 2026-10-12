@@ -7,8 +7,8 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.analysis.flow.DataFlow;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.analysis.method.WrapOpOriginalCall;
 import org.sinytra.adapter.api.TypeAdapter;
 import org.sinytra.adapter.model.TargetPair;
@@ -69,7 +69,7 @@ public class WrapOpSurgeon {
         TargetPair cleanTarget = recipe.getCleanTarget();
         if (cleanTarget == null) return null;
 
-        List<List<AbstractInsnNode>> callArgInsns = MethodAnalyzer.getMethodCallArgInsns(cleanTarget.methodNode(), cleanInsn);
+        List<List<AbstractInsnNode>> callArgInsns = context.dataFlow(cleanTarget).findOperandExpressions(cleanInsn);
         if (callArgInsns.isEmpty()) return null;
 
         List<AbstractInsnNode> receiverInsns = callArgInsns.getFirst();
@@ -89,7 +89,7 @@ public class WrapOpSurgeon {
 
             TypeAdapter adapter = typeAdapter.andThen((list, insn) -> {
                 // Fix receiver type originally changed by ReplaceParametersTransformer
-                MethodAnalyzer.forEachReceiver(context.methodNode(), (call, receiver) -> {
+                DataFlow.of(context.methodNode()).forEachReceiver((call, receiver) -> {
                     if (call.owner.equals(dirtyInsn.owner) && receiver.contains(insn)) {
                         call.owner = cleanInsn.owner;
                     }

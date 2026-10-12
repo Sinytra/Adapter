@@ -5,7 +5,6 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
-import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.mixin.MockMixinRuntime;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.TargetPair;
@@ -97,7 +96,7 @@ public class ModifyVarAtReturnResolver implements Resolver {
             return ResolutionResult.pass();
         }
         // Get method call argument instructions
-        List<AbstractInsnNode> args = MethodAnalyzer.getMethodCallSrcInsns(targets.dirty().methodNode(), dirtyMinsn);
+        List<AbstractInsnNode> args = context.dataFlow(targets.dirty()).resolveCallOperandProducers(dirtyMinsn);
         if (args == null) {
             return ResolutionResult.pass();
         }

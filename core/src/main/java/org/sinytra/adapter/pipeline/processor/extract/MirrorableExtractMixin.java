@@ -5,7 +5,6 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodHelper;
 import org.sinytra.adapter.api.PatchEnvironment;
 import org.sinytra.adapter.api.PatchResult;
@@ -48,7 +47,7 @@ public class MirrorableExtractMixin {
             return PatchResult.PASS;
         }
 
-        List<AbstractInsnNode> callInsns = MethodAnalyzer.getMethodCallSrcInsns(dirtyTarget.methodNode(), destinationMethodInvocation);
+        List<AbstractInsnNode> callInsns = context.dataFlow(dirtyTarget).resolveCallOperandProducers(destinationMethodInvocation);
         if (callInsns == null || callInsns.size() <= selfIndex) {
             return PatchResult.PASS;
         }

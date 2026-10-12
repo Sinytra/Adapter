@@ -98,7 +98,7 @@ public class TargetMethodSubResolvers {
         TargetPair dirtyTarget = recipe.getNewCleanTarget();
         if (dirtyTarget == null || !MethodAnalyzer.isDeprecated(dirtyTarget.methodNode())) return null;
 
-        List<MethodNode> invocations = MethodAnalyzer.getSelfTopTierMethodCalls(dirtyTarget);
+        List<MethodNode> invocations = context.dataFlow(dirtyTarget).findTopLevelOwnCalls(dirtyTarget.classNode());
         for (MethodNode invocation : invocations) {
             if (context.injections().matches(new TargetPair(dirtyTarget.classNode(), invocation))) {
                 return MutableConfiguration.create()

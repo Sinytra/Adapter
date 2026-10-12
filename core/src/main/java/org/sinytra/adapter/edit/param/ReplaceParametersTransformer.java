@@ -4,8 +4,8 @@ import com.mojang.logging.LogUtils;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.analysis.flow.DataFlow;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.analysis.method.WrapOpOriginalCall;
 import org.sinytra.adapter.api.PatchResult;
 import org.sinytra.adapter.api.TypeAdapter;
@@ -85,7 +85,7 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
             }
 
             // Calls made on the variable must target the new type unless its value was adapted back to the original above
-            MethodAnalyzer.forEachReceiver(methodNode, (call, receiver) -> {
+            DataFlow.of(methodNode).forEachReceiver((call, receiver) -> {
                 if (call.owner.equals(originalType.getInternalName())
                     && receiver.stream().anyMatch(p -> p instanceof VarInsnNode varInsn && varInsn.var == localVar.index)
                 ) {

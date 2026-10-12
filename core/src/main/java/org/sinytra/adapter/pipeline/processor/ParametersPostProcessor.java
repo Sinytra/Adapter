@@ -3,8 +3,8 @@ package org.sinytra.adapter.pipeline.processor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.analysis.flow.DataFlow;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.edit.param.ReplaceParametersTransformer;
@@ -68,7 +68,7 @@ public class ParametersPostProcessor implements Processor {
 
                 // Add casts to usage in method calls
                 List<Type> methodArgs = Parameters.getParameterTypes(minsn.desc);
-                List<AbstractInsnNode> callArgs = MethodAnalyzer.getMethodCallSrcInsns(methodNode, minsn);
+                List<AbstractInsnNode> callArgs = DataFlow.of(methodNode).resolveCallOperandProducers(minsn);
                 if (callArgs == null) continue;
 
                 int instanceOffset = minsn.getOpcode() == Opcodes.INVOKESTATIC ? 0 : 1;
