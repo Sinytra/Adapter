@@ -35,7 +35,7 @@ public final class SplitMethodCancellationHelper {
             return;
         }
 
-        List<MethodNode> invocations = context.dataFlow(newCleanTarget).findTopLevelOwnCalls(newCleanTarget.classNode());
+        List<MethodNode> invocations = context.dataFlow(newCleanTarget).findTopLevelOwnCalls();
         if (invocations == null) {
             return;
         }

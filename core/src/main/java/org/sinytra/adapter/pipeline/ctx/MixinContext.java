@@ -132,7 +132,7 @@ public class MixinContext implements RefMapper, Auditor {
     }
 
     public DataFlow dataFlow(TargetPair target) {
-        return this.targetFlows.computeIfAbsent(target.methodNode(), DataFlow::of);
+        return this.targetFlows.computeIfAbsent(target.methodNode(), m -> DataFlow.of(target));
     }
 
     @Nullable

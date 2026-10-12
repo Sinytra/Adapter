@@ -7,6 +7,7 @@ import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.*;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.model.MethodQualifier;
+import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.util.AdapterUtil;
 
 import java.util.*;
@@ -36,12 +37,15 @@ public final class DataFlow {
     );
 
     private final MethodNode method;
+    @Nullable
+    private final ClassNode owner;
     private final Producers producers;
     @Nullable
     private Frame<SourceValue>[] frames;
 
-    private DataFlow(MethodNode method, Producers producers) {
+    private DataFlow(MethodNode method, @Nullable ClassNode owner, Producers producers) {
         this.method = method;
+        this.owner = owner;
         this.producers = producers;
     }
 
@@ -50,7 +54,15 @@ public final class DataFlow {
     }
 
     public static DataFlow of(MethodNode method, Producers producers) {
-        return new DataFlow(method, producers);
+        return new DataFlow(method, null, producers);
+    }
+
+    public static DataFlow of(TargetPair target) {
+        return of(target, Producers.LOADER);
+    }
+
+    public static DataFlow of(TargetPair target, Producers producers) {
+        return new DataFlow(target.methodNode(), target.classNode(), producers);
     }
 
     public MethodNode method() {
@@ -191,10 +203,13 @@ public final class DataFlow {
     }
 
     /// {@return methods of the owner class that are called at the top level}
-    public List<MethodNode> findTopLevelOwnCalls(ClassNode owner) {
+    public List<MethodNode> findTopLevelOwnCalls() {
+        if (this.owner == null) {
+            throw new IllegalStateException("Missing owner for data flow of " + this.method.name + this.method.desc);
+        }
         List<MethodNode> ownCalls = new ArrayList<>();
         for (MethodInsnNode insn : findTopLevelCalls(ImplicitCalls.KEEP)) {
-            MethodNode method = AdapterUtil.findMethod(owner, insn.name, insn.desc);
+            MethodNode method = AdapterUtil.findMethod(this.owner, insn.name, insn.desc);
             if (method != null) {
                 ownCalls.add(method);
             }

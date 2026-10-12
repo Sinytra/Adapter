@@ -58,7 +58,7 @@ public class SplitTargetMethodSubResolver implements SubResolver {
             return tryFindPartialCandidates(cleanTargetMethod, dirtyTargetClass, dirtyTargetMethod, context);
         }
 
-        List<MethodNode> invocations = context.dataFlow(dirtyTarget).findTopLevelOwnCalls(dirtyTarget.classNode());
+        List<MethodNode> invocations = context.dataFlow(dirtyTarget).findTopLevelOwnCalls();
         if (invocations == null) {
             return List.of();
         }
