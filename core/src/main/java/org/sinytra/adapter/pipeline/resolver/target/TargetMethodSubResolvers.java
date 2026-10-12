@@ -5,7 +5,6 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
-import org.sinytra.adapter.analysis.method.MethodAnalyzer.IndyHandle;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.config.Configuration;
@@ -67,25 +66,6 @@ public class TargetMethodSubResolvers {
         // Only apply single candidate change when the target desc has changed
         if (resolved.getTargetMethod() != null && !resolved.getTargetMethod().matches(cleanQualifier)) {
             return resolved;
-        }
-
-        return null;
-    };
-
-    /**
-     * Handle cases where the target instructions have been moved into a lambda inside the target method
-     */
-    public static final SubResolver MOVED_INTO_LAMBDA = (MixinContext context, Recipe recipe) -> {
-        TargetPair target = recipe.getNewCleanTarget();
-        if (target == null) return null;
-
-        // Find lambda invocations and search for target insns inside the lambda
-        for (IndyHandle handle : MethodAnalyzer.findOwnIndyHandles(target.classNode(), target.methodNode())) {
-            TargetPair lambda = new TargetPair(target.classNode(), handle.method());
-            if (context.injections().matches(lambda)) {
-                return MutableConfiguration.create()
-                    .setTargetMethod(lambda.methodNode());
-            }
         }
 
         return null;
