@@ -31,5 +31,5 @@ include("runtime", "test")
 include("test:mc-1.21.1")
 project(":test:mc-1.21.1").projectDir = file("test/mc-1.21.1")
 
-include("test:mc-26.1.2")
-project(":test:mc-26.1.2").projectDir = file("test/mc-26.1.2")
+include("test:mc-26.2")
+project(":test:mc-26.2").projectDir = file("test/mc-26.2")
