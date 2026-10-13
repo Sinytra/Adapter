@@ -56,8 +56,8 @@ public class SugarLocalProcessor implements Processor {
         }
 
         String mixin = context.classNode().name;
-        MixinBridge.Session cleanSession = MixinBridge.session(mixin, cleanHandler, cleanTarget.classNode(), cleanTarget.methodNode(), context.environment().refmapHolder());
-        MixinBridge.Session dirtySession = MixinBridge.session(mixin, handler, dirtyTarget.classNode(), dirtyTarget.methodNode(), context.environment().refmapHolder());
+        MixinBridge.Session cleanSession = MixinBridge.session(mixin, cleanHandler, cleanTarget.classNode(), cleanTarget.methodNode(), context.environment());
+        MixinBridge.Session dirtySession = MixinBridge.session(mixin, handler, dirtyTarget.classNode(), dirtyTarget.methodNode(), context.environment());
         TargetPair origin = recipe.getNewCleanTarget();
         boolean sameMethod = origin != null && origin.classNode().name.equals(dirtyTarget.classNode().name)
             && origin.methodNode().name.equals(dirtyTarget.methodNode().name) && origin.methodNode().desc.equals(dirtyTarget.methodNode().desc);

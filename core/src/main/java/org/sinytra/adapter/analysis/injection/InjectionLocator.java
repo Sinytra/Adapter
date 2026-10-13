@@ -115,7 +115,7 @@ public final class InjectionLocator {
     }
 
     private MixinBridge.Session session(TargetPair target) {
-        return MixinBridge.session(this.context.classNode().name, this.context.methodNode(), target.classNode(), target.methodNode(), this.context.environment().refmapHolder());
+        return MixinBridge.session(this.context.classNode().name, this.context.methodNode(), target.classNode(), target.methodNode(), this.context.environment());
     }
 
     @Nullable

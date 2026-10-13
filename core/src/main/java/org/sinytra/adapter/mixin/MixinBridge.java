@@ -6,8 +6,10 @@ import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.api.PatchEnvironment;
 import org.sinytra.adapter.api.RefmapHolder;
 import org.slf4j.Logger;
+import org.spongepowered.asm.mixin.FabricUtil;
 import org.spongepowered.asm.mixin.MixinEnvironment;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfig;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
@@ -27,6 +29,7 @@ import org.spongepowered.asm.mixin.injection.struct.*;
 import org.spongepowered.asm.mixin.refmap.IMixinContext;
 import org.spongepowered.asm.mixin.refmap.IReferenceMapper;
 import org.spongepowered.asm.mixin.struct.AnnotatedMethodInfo;
+import org.spongepowered.asm.mixin.struct.SpecialMethodInfo;
 import org.spongepowered.asm.mixin.transformer.ClassInfo;
 import org.spongepowered.asm.mixin.transformer.ext.Extensions;
 import org.spongepowered.asm.util.Annotations;
@@ -40,6 +43,7 @@ import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class MixinBridge {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -72,8 +76,12 @@ public final class MixinBridge {
         }
     }
 
-    public static Session session(String mixinClass, MethodNode mixinMethod, ClassNode targetClass, MethodNode targetMethod, RefmapHolder refmapHolder) {
-        return new Session(new ClassMixinContext(mixinClass, targetClass.name, refmapHolder), mixinMethod, targetClass, targetMethod);
+    public static Session session(String mixinClass, MethodNode mixinMethod, ClassNode targetClass, MethodNode targetMethod, PatchEnvironment environment) {
+        return session(mixinClass, mixinMethod, targetClass, targetMethod, environment.refmapHolder(), environment.fabricLVTCompatibility());
+    }
+
+    public static Session session(String mixinClass, MethodNode mixinMethod, ClassNode targetClass, MethodNode targetMethod, RefmapHolder refmapHolder, int lvtCompatibility) {
+        return new Session(new ClassMixinContext(mixinClass, targetClass.name, refmapHolder, lvtCompatibility), mixinMethod, targetClass, targetMethod, lvtCompatibility);
     }
 
     public static LocalVariableNode[] getLocalsAt(ClassNode targetClass, MethodNode targetMethod, AbstractInsnNode insn, int lvtCompatLevel) {
@@ -146,14 +154,16 @@ public final class MixinBridge {
 
     public static final class Session {
         private final IMixinContext mixinContext;
+        private final int lvtCompatibility;
         private final MethodNode mixinMethod;
         private final ClassNode targetClass;
         private final MethodNode targetMethod;
         @Nullable
         private Target target;
 
-        private Session(IMixinContext mixinContext, MethodNode mixinMethod, ClassNode targetClass, MethodNode targetMethod) {
+        private Session(IMixinContext mixinContext, MethodNode mixinMethod, ClassNode targetClass, MethodNode targetMethod, int lvtCompatibility) {
             this.mixinContext = mixinContext;
+            this.lvtCompatibility = lvtCompatibility;
             this.mixinMethod = mixinMethod;
             this.targetClass = targetClass;
             this.targetMethod = targetMethod;
@@ -206,7 +216,7 @@ public final class MixinBridge {
         }
 
         private LocalVariableDiscriminator.Context localsContext(Type type, boolean argsOnly, AbstractInsnNode insn) {
-            InjectionInfo injectionInfo = createInjectionInfo(CallbackInjectionInfo.class, this.mixinContext);
+            InjectionInfo injectionInfo = createInjectionInfo(CallbackInjectionInfo.class, this.mixinContext, this.lvtCompatibility);
             // The context reads the locals through Locals.getLocalsAt, which isn't thread safe
             synchronized (LOCALS_LOCK) {
                 return new LocalVariableDiscriminator.Context(injectionInfo, type, argsOnly, target(), insn);
@@ -217,7 +227,7 @@ public final class MixinBridge {
             List<AbstractInsnNode> targetInsns = new ArrayList<>();
             if (LOCAL_VARIABLE_INJECTION_POINT_CLASS.isInstance(point)) {
                 // Local variable injection points need a ModifyVariable injector, and always search the whole method
-                InjectionInfo info = createInjectionInfo(ModifyVariableInjectionInfo.class, this.mixinContext);
+                InjectionInfo info = createInjectionInfo(ModifyVariableInjectionInfo.class, this.mixinContext, this.lvtCompatibility);
                 LOCAL_VARIABLE_INJECTION_POINT_FIND.invoke(point, info, this.targetMethod.instructions, targetInsns, target());
             } else {
                 InsnList instructions = slice != null ? slice(slice) : this.targetMethod.instructions;
@@ -239,13 +249,63 @@ public final class MixinBridge {
         }
     }
 
-    private static InjectionInfo createInjectionInfo(Class<? extends InjectionInfo> type, IMixinContext mixinContext) {
+    private static InjectionInfo createInjectionInfo(Class<? extends InjectionInfo> type, IMixinContext mixinContext, int lvtCompatibility) {
         try {
             InjectionInfo info = (InjectionInfo) UNSAFE.allocateInstance(type);
             ANNOTATED_METHOD_INFO_CONTEXT.set(info, mixinContext);
+            CompatibilityContexts.attach(info, lvtCompatibility);
             return info;
         } catch (InstantiationException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private static final class CompatibilityContexts {
+        @Nullable
+        private static final VarHandle[] HANDLES;
+        @Nullable
+        private static final Class<?>[] CLASSES;
+        private static final Map<Integer, Object> CONTEXTS = new ConcurrentHashMap<>();
+
+        static {
+            VarHandle[] handles = null;
+            Class<?>[] classes = null;
+            try {
+                Class<?> targetContext = Class.forName("org.spongepowered.asm.mixin.transformer.MixinTargetContext");
+                Class<?> mixinInfo = Class.forName("org.spongepowered.asm.mixin.transformer.MixinInfo");
+                Class<?> mixinConfig = Class.forName("org.spongepowered.asm.mixin.transformer.MixinConfig");
+                handles = new VarHandle[]{
+                    TRUSTED_LOOKUP.findVarHandle(SpecialMethodInfo.class, "mixin", targetContext),
+                    TRUSTED_LOOKUP.findVarHandle(targetContext, "mixin", mixinInfo),
+                    TRUSTED_LOOKUP.findVarHandle(mixinInfo, "parent", mixinConfig),
+                    TRUSTED_LOOKUP.findVarHandle(mixinConfig, "decorations", Map.class)
+                };
+                classes = new Class<?>[]{targetContext, mixinInfo, mixinConfig};
+            } catch (Throwable t) {
+                LOGGER.debug("Mixin target contexts are unavailable, local variable compatibility uses the selector context", t);
+            }
+            HANDLES = handles;
+            CLASSES = classes;
+        }
+
+        public static void attach(InjectionInfo info, int lvtCompatibility) {
+            if (HANDLES != null) {
+                HANDLES[0].set(info, CONTEXTS.computeIfAbsent(lvtCompatibility, CompatibilityContexts::create));
+            }
+        }
+
+        private static Object create(int lvtCompatibility) {
+            try {
+                Object config = UNSAFE.allocateInstance(CLASSES[2]);
+                HANDLES[3].set(config, new HashMap<>(Map.of(FabricUtil.KEY_COMPATIBILITY, lvtCompatibility)));
+                Object mixinInfo = UNSAFE.allocateInstance(CLASSES[1]);
+                HANDLES[2].set(mixinInfo, config);
+                Object context = UNSAFE.allocateInstance(CLASSES[0]);
+                HANDLES[1].set(context, mixinInfo);
+                return context;
+            } catch (InstantiationException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
@@ -289,10 +349,21 @@ public final class MixinBridge {
         //@formatter:on
     }
 
-    private static class DummyMixinConfig implements IMixinConfig {
+    private record DummyMixinConfig(int lvtCompatibility) implements IMixinConfig {
         @Override
         public MixinEnvironment getEnvironment() {
             return MixinEnvironment.getCurrentEnvironment();
+        }
+
+        @Override
+        public boolean hasDecoration(String key) {
+            return FabricUtil.KEY_COMPATIBILITY.equals(key);
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public <V> V getDecoration(String key) {
+            return FabricUtil.KEY_COMPATIBILITY.equals(key) ? (V) (Integer) this.lvtCompatibility : null;
         }
 
         //@formatter:off
@@ -305,8 +376,6 @@ public final class MixinBridge {
         @Override public boolean isRequired() {throw new UnsupportedOperationException();}
         @Override public Set<String> getTargets() {throw new UnsupportedOperationException();}
         @Override public <V> void decorate(String key, V value) {}
-        @Override public boolean hasDecoration(String key) {return false;}
-        @Override public <V> V getDecoration(String key) {return null;}
         //@formatter:on
     }
 
@@ -335,11 +404,11 @@ public final class MixinBridge {
         private final ReferenceRemapper referenceRemapper;
         private final IMixinInfo mixinInfo;
 
-        public ClassMixinContext(String className, String targetClass, RefmapHolder refmapHolder) {
+        public ClassMixinContext(String className, String targetClass, RefmapHolder refmapHolder, int lvtCompatibility) {
             this.className = className;
             this.targetClass = targetClass;
             this.referenceRemapper = new ReferenceRemapper(refmapHolder);
-            this.mixinInfo = new DummyMixinInfo(new DummyMixinConfig());
+            this.mixinInfo = new DummyMixinInfo(new DummyMixinConfig(lvtCompatibility));
         }
 
         @Override

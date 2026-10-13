@@ -105,7 +105,7 @@ public final class MultiTargetSplitter {
         AnnotationNode slice = annotation.getValue(PROPERTY_SLICE)
             .map(handle -> handle.get() instanceof List<?> list ? (list.isEmpty() ? null : (AnnotationNode) list.getFirst()) : (AnnotationNode) handle.get())
             .orElse(null);
-        return MixinBridge.session(mixinClass.name, mixin.methodNode(), dirty, dirtyTarget, environment.refmapHolder())
+        return MixinBridge.session(mixinClass.name, mixin.methodNode(), dirty, dirtyTarget, environment)
             .findInjectionPoint(annotation.unwrap(), at, slice)
             .isEmpty();
     }

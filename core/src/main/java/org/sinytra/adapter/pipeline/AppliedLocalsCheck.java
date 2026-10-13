@@ -37,8 +37,8 @@ public final class AppliedLocalsCheck {
                 continue;
             }
             if (cleanSession == null) {
-                cleanSession = MixinBridge.session(context.classNode().name, handler, cleanTarget.classNode(), cleanTarget.methodNode(), context.environment().refmapHolder());
-                dirtySession = MixinBridge.session(context.classNode().name, handler, dirtyTarget.classNode(), dirtyTarget.methodNode(), context.environment().refmapHolder());
+                cleanSession = MixinBridge.session(context.classNode().name, handler, cleanTarget.classNode(), cleanTarget.methodNode(), context.environment());
+                dirtySession = MixinBridge.session(context.classNode().name, handler, dirtyTarget.classNode(), dirtyTarget.methodNode(), context.environment());
             }
             int cleanSlot = cleanSession.findLocal(local, params[i], cleanInsn);
             int slot = dirtySession.findLocal(local, params[i], dirtyInsn);

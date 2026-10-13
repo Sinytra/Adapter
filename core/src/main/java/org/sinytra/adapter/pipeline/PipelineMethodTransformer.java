@@ -57,7 +57,11 @@ public class PipelineMethodTransformer implements MethodTransformer {
         TargetPair dirtyTarget = context.dirtyMethods().resolve(config.getTargetMethod());
         if (!this.patchResolver.matches(config) && !failsDirtyInjectionCheck(context, config, dirtyTarget) && hasValidSlice(context, config, dirtyTarget)) {
             if (dirtyTarget != null && !this.patchesOnly) {
-                AppliedLocalsCheck.check(this, context, cleanTarget, dirtyTarget);
+                try {
+                    AppliedLocalsCheck.check(this, context, cleanTarget, dirtyTarget);
+                } catch (Exception e) {
+                    LOGGER.debug(MIXINPATCH, "Failed to check the local selectors of applying mixin {}", context.getMixinId(), e);
+                }
             }
             return PatchResult.PASS;
         }

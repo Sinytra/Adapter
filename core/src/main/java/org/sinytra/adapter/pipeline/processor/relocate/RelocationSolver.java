@@ -134,7 +134,7 @@ public final class RelocationSolver {
         if (insn == null) {
             return false;
         }
-        MixinBridge.Session session = MixinBridge.session(context.classNode().name, context.methodNode(), newTarget.classNode(), newTarget.methodNode(), context.environment().refmapHolder());
+        MixinBridge.Session session = MixinBridge.session(context.classNode().name, context.methodNode(), newTarget.classNode(), newTarget.methodNode(), context.environment());
         for (Parameter param : params) {
             for (Annotation annotation : param.annotations()) {
                 if (annotation.getDesc().equals(MixinAnnotations.LOCAL) && session.findLocal(annotation.toAnnotationNode(), param.type(), insn) == -1) {

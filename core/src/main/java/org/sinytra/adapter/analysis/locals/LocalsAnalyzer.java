@@ -187,12 +187,12 @@ public final class LocalsAnalyzer {
     }
 
     public List<LocalCandidate> findSelectableLocals(TargetPair target, AbstractInsnNode insn, Type type) {
-        return MixinBridge.session(this.context.classNode().name, this.context.methodNode(), target.classNode(), target.methodNode(), this.context.environment().refmapHolder())
+        return MixinBridge.session(this.context.classNode().name, this.context.methodNode(), target.classNode(), target.methodNode(), this.context.environment())
             .findLocalCandidates(type, insn, false);
     }
 
     public int resolveSelectedLocal(TargetPair target, AbstractInsnNode insn, Type type) {
-        return MixinBridge.session(this.context.classNode().name, this.context.methodNode(), target.classNode(), target.methodNode(), this.context.environment().refmapHolder())
+        return MixinBridge.session(this.context.classNode().name, this.context.methodNode(), target.classNode(), target.methodNode(), this.context.environment())
             .findLocal(this.context.methodAnnotation().unwrap(), type, insn);
     }
 
