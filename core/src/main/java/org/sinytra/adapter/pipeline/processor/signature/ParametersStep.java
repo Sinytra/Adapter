@@ -3,7 +3,7 @@ package org.sinytra.adapter.pipeline.processor.signature;
 import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.VarInsnNode;
-import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
+import org.sinytra.adapter.analysis.params.ParamsEditDistance;
 import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.api.PatchResult;
 import org.sinytra.adapter.edit.param.ParamTransformationUtil;
@@ -55,10 +55,7 @@ public class ParametersStep implements SignatureStep {
     }
 
     private boolean applyDiff(List<Type> clean, List<Type> dirty, MixinContext context, int offset) {
-        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(clean, dirty);
-        if (diff == null) {
-            return false;
-        }
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(clean, dirty).snapshot();
         if (!diff.isEmpty()) {
             PatchResult result = diff.offset(offset).asParameterTransformer(false)
                 .apply(context);

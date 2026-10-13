@@ -3,14 +3,7 @@ package org.sinytra.adapter.analysis.params;
 import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
-import org.sinytra.adapter.edit.param.InjectParameterTransform;
-import org.sinytra.adapter.edit.param.InlineParameterTransformer;
-import org.sinytra.adapter.edit.param.MoveParametersTransformer;
-import org.sinytra.adapter.edit.param.ParameterTransformer;
-import org.sinytra.adapter.edit.param.RemoveParameterTransformer;
-import org.sinytra.adapter.edit.param.ReplaceParametersTransformer;
-import org.sinytra.adapter.edit.param.SubstituteParameterTransformer;
-import org.sinytra.adapter.edit.param.SwapParametersTransformer;
+import org.sinytra.adapter.edit.param.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,8 +22,9 @@ public class ParamDiffResolver {
         }
     }
 
-    public record ParamState(Type type, int cleanIndex, int dirtyIndex) {}
-    
+    public record ParamState(Type type, int cleanIndex, int dirtyIndex) {
+    }
+
     public static class ParamEvalResult {
         private final List<Type> original;
         private final Map<Integer, ParamState> params;
@@ -49,7 +43,23 @@ public class ParamDiffResolver {
         }
     }
 
+    public static List<Type> applyTypes(List<Type> input, LayeredParamsDiffSnapshot diff) {
+        return simulate(input, diff).stream().map(param -> param.type).toList();
+    }
+
     public static ParamEvalResult resolve(List<Type> input, LayeredParamsDiffSnapshot diff) {
+        List<PositionedParam> state = simulate(input, diff);
+
+        List<ParamState> result = new ArrayList<>();
+        for (int i = 0; i < state.size(); i++) {
+            PositionedParam param = state.get(i);
+            result.add(new ParamState(param.type, param.cleanPos, i));
+        }
+
+        return new ParamEvalResult(input, result);
+    }
+
+    private static List<PositionedParam> simulate(List<Type> input, LayeredParamsDiffSnapshot diff) {
         List<PositionedParam> state = new ArrayList<>();
         for (int i = 0; i < input.size(); i++) {
             Type type = input.get(i);
@@ -75,13 +85,6 @@ public class ParamDiffResolver {
                 case null, default -> throw new RuntimeException("Unknown parameter modification: " + modification);
             }
         }
-        
-        List<ParamState> result = new ArrayList<>(state.size());
-        for (int i = 0; i < state.size(); i++) {
-            PositionedParam param = state.get(i);
-            result.add(new ParamState(param.type, param.cleanPos, i));
-        }
-
-        return new ParamEvalResult(input, result);
+        return state;
     }
 }

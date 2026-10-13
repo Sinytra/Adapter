@@ -6,7 +6,7 @@ import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.sinytra.adapter.analysis.flow.DataFlow;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
+import org.sinytra.adapter.analysis.params.ParamsEditDistance;
 import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.edit.param.InjectParameterTransform;
 import org.sinytra.adapter.model.MethodQualifier;
@@ -37,8 +37,7 @@ public class RedirectedCallStep implements SignatureStep {
 
         List<Type> cleanParams = recipe.clean().getParameters().getTypes(ParamGroup.METHOD_PARAMS);
         List<Type> dirtyParams = dirtyMethodParams.getTypes(ParamGroup.METHOD_PARAMS);
-        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(cleanParams, dirtyParams);
-        if (diff == null) return TxResult.PASS;
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(cleanParams, dirtyParams).snapshot();
 
         List<List<AbstractInsnNode>> callInsns = DataFlow.of(context.methodNode(), DataFlow.Producers.COMPUTER).findCallsWithProducers(cleanTargetQual);
         if (callInsns.isEmpty()) {

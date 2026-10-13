@@ -11,7 +11,8 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.InsnTraversal;
 import org.sinytra.adapter.analysis.compare.InstructionMatcher;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
-import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
+import org.sinytra.adapter.analysis.params.ParamsEditDistance;
+import org.sinytra.adapter.analysis.params.TypeRelation;
 import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.analysis.params.ParamDiffResolver;
 import org.sinytra.adapter.edit.param.TransformParameters;
@@ -112,8 +113,7 @@ public final class LocalsAnalyzer {
 
         List<Type> availableTypes = available.stream().map(LocalVariable::type).toList();
         // Compare expected and available params
-        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(capturedLocals.expected(), availableTypes);
-        if (diff == null) return null;
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(capturedLocals.expected(), availableTypes).snapshot();
 
         return new CapturedLocalsInfo(capturedLocals, diff, availableTypes);
     }
@@ -244,8 +244,7 @@ public final class LocalsAnalyzer {
             MethodNode cleanTarget = cleanPair.methodNode();
             MethodNode dirtyTarget = dirtyPair.methodNode();
 
-            LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.compareMethodParameters(cleanTarget, dirtyTarget);
-            if (diff == null) return dirtyCaptured;
+            LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffParameters(cleanTarget, dirtyTarget, TypeRelation.STATIC).snapshot();
 
             List<Type> cleanTargetParams = Parameters.getParameterTypes(cleanTarget.desc);
             if (cleanCaptured.size() > cleanTargetParams.size()) return dirtyCaptured;

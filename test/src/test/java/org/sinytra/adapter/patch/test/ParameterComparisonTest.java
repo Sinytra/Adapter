@@ -4,9 +4,9 @@ import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
 import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
-import org.sinytra.adapter.analysis.params.ParametersDiff;
+import org.sinytra.adapter.analysis.params.ParamsEditDistance;
+import org.sinytra.adapter.analysis.params.TypeRelation;
 import org.sinytra.adapter.patch.test_main.mixin.MinecraftMixinPatchTest;
 
 import java.io.IOException;
@@ -18,77 +18,42 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class ParameterComparisonTest {
     @Test
     public void testCompareInsertedParameters() {
-        Type[] original = new Type[]{Type.getType(String.class), Type.INT_TYPE, Type.getType(Object.class)};
-        Type[] modified = new Type[]{Type.getType(String.class), Type.DOUBLE_TYPE, Type.FLOAT_TYPE, Type.INT_TYPE, Type.getType(Object.class)};
-
-        ParametersDiff diff = ParametersDiff.compareTypeParameters(original, modified);
-        System.out.println("Original originalCount: " + original.length);
-        System.out.println("Actual originalCount: " + diff.originalCount());
-        assertEquals(original.length, diff.originalCount());
-
-        System.out.println("Insertions:");
-        diff.insertions().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
+        LayeredParamsDiffSnapshot diff = diff(
+            List.of(Type.getType(String.class), Type.INT_TYPE, Type.getType(Object.class)),
+            List.of(Type.getType(String.class), Type.DOUBLE_TYPE, Type.FLOAT_TYPE, Type.INT_TYPE, Type.getType(Object.class))
+        );
         assertEquals(2, diff.insertions().size());
-
-        System.out.println("Replacements:");
-        diff.replacements().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
         assertTrue(diff.replacements().isEmpty());
     }
 
     @Test
     public void testCompareReplacedParameters() {
-        Type[] original = new Type[]{Type.getType(String.class), Type.INT_TYPE, Type.getType(Object.class)};
-        Type[] modified = new Type[]{Type.getType(String.class), Type.INT_TYPE, Type.getType(List.class)};
-
-        ParametersDiff diff = ParametersDiff.compareTypeParameters(original, modified);
-        System.out.println("Original originalCount: " + original.length);
-        System.out.println("Actual originalCount: " + diff.originalCount());
-        assertEquals(original.length, diff.originalCount());
-
-        System.out.println("Insertions:");
-        diff.insertions().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
+        LayeredParamsDiffSnapshot diff = diff(
+            List.of(Type.getType(String.class), Type.INT_TYPE, Type.getType(Object.class)),
+            List.of(Type.getType(String.class), Type.INT_TYPE, Type.getType(List.class))
+        );
         assertTrue(diff.insertions().isEmpty());
-
-        System.out.println("Replacements:");
-        diff.replacements().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
         assertEquals(1, diff.replacements().size());
     }
 
     @Test
     public void testCompareCombinedParameters() {
-        Type[] original = new Type[]{Type.getType(String.class), Type.INT_TYPE, Type.getType(Object.class)};
-        Type[] modified = new Type[]{Type.getType(String.class), Type.FLOAT_TYPE, Type.INT_TYPE, Type.getType(List.class), Type.DOUBLE_TYPE};
-
-        ParametersDiff diff = ParametersDiff.compareTypeParameters(original, modified);
-        System.out.println("Original originalCount: " + original.length);
-        System.out.println("Actual originalCount: " + diff.originalCount());
-        assertEquals(original.length, diff.originalCount());
-
-        System.out.println("Insertions:");
-        diff.insertions().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
+        LayeredParamsDiffSnapshot diff = diff(
+            List.of(Type.getType(String.class), Type.INT_TYPE, Type.getType(Object.class)),
+            List.of(Type.getType(String.class), Type.FLOAT_TYPE, Type.INT_TYPE, Type.getType(List.class), Type.DOUBLE_TYPE)
+        );
         assertEquals(2, diff.insertions().size());
-
-        System.out.println("Replacements:");
-        diff.replacements().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
         assertEquals(1, diff.replacements().size());
     }
 
     @Test
     public void testCompareAppendedParameters() {
-        Type[] original = new Type[]{Type.getType(String.class), Type.INT_TYPE, Type.getType(Object.class)};
-        Type[] modified = new Type[]{Type.getType(String.class), Type.INT_TYPE, Type.getType(Object.class), Type.FLOAT_TYPE, Type.DOUBLE_TYPE};
-
-        ParametersDiff diff = ParametersDiff.compareTypeParameters(original, modified);
-        System.out.println("Original originalCount: " + original.length);
-        System.out.println("Actual originalCount: " + diff.originalCount());
-        assertEquals(original.length, diff.originalCount());
-
-        System.out.println("Insertions:");
-        diff.insertions().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
+        LayeredParamsDiffSnapshot diff = diff(
+            List.of(Type.getType(String.class), Type.INT_TYPE, Type.getType(Object.class)),
+            List.of(Type.getType(String.class), Type.INT_TYPE, Type.getType(Object.class), Type.FLOAT_TYPE, Type.DOUBLE_TYPE)
+        );
         assertEquals(2, diff.insertions().size());
-
-        System.out.println("Replacements:");
-        diff.replacements().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
+        assertEquals(3, diff.insertions().getFirst().index());
         assertTrue(diff.replacements().isEmpty());
     }
 
@@ -100,43 +65,26 @@ public class ParameterComparisonTest {
         MethodNode cleanMethod = cleanNode.methods.stream().filter(m -> m.name.equals("namedInsertionTest")).findFirst().orElseThrow();
         MethodNode dirtyMethod = dirtyNode.methods.stream().filter(m -> m.name.equals("namedInsertionTest")).findFirst().orElseThrow();
 
-        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.compareMethodParameters(cleanMethod, dirtyMethod);
-
-        System.out.println("Insertions:");
-        diff.insertions().forEach(param -> System.out.println("AT " + param.index() + " TYPE " + param.type()));
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffParameters(cleanMethod, dirtyMethod, TypeRelation.STATIC).snapshot();
         assertEquals(1, diff.insertions().size());
         assertEquals(7, diff.insertions().getFirst().index());
         assertEquals(Type.FLOAT_TYPE, diff.insertions().getFirst().type());
-
-        System.out.println("Replacements:");
-        diff.replacements().forEach(param -> System.out.println("AT " + param.index() + " TYPE " + param.type()));
         assertTrue(diff.replacements().isEmpty());
     }
 
     @Test
     public void testCompareRemovedParameters() {
-        Type[] original = new Type[]{Type.getType(String.class), Type.INT_TYPE, Type.getType(Object.class), Type.FLOAT_TYPE};
-        Type[] modified = new Type[]{Type.getType(String.class), Type.getType(Object.class), Type.FLOAT_TYPE, Type.DOUBLE_TYPE};
-
-        ParametersDiff diff = ParametersDiff.compareTypeParameters(original, modified);
-        System.out.println("Original originalCount: " + original.length);
-        System.out.println("Actual originalCount: " + diff.originalCount());
-        assertEquals(original.length, diff.originalCount());
-
-        System.out.println("Insertions:");
-        diff.insertions().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
+        LayeredParamsDiffSnapshot diff = diff(
+            List.of(Type.getType(String.class), Type.INT_TYPE, Type.getType(Object.class), Type.FLOAT_TYPE),
+            List.of(Type.getType(String.class), Type.getType(Object.class), Type.FLOAT_TYPE, Type.DOUBLE_TYPE)
+        );
         assertEquals(1, diff.insertions().size());
-
-        System.out.println("Replacements:");
-        diff.replacements().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
         assertTrue(diff.replacements().isEmpty());
-
-        System.out.println("Swaps:");
-        diff.swaps().forEach(param -> System.out.println("AT " + param.getFirst() + " TYPE " + param.getSecond()));
         assertTrue(diff.swaps().isEmpty());
-
-        System.out.println("Removals:");
-        diff.removals().forEach(param -> System.out.println("AT " + param));
         assertEquals(1, diff.removals().size());
+    }
+
+    private static LayeredParamsDiffSnapshot diff(List<Type> clean, List<Type> dirty) {
+        return ParamsEditDistance.diffTypes(clean, dirty).snapshot();
     }
 }

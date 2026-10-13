@@ -5,7 +5,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.flow.DataFlow;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
+import org.sinytra.adapter.analysis.params.ParamsEditDistance;
 import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.edit.param.ReplaceParametersTransformer;
 import org.sinytra.adapter.model.config.Configuration;
@@ -48,8 +48,7 @@ public class ParameterCastStep implements SignatureStep {
 
         List<Type> cleanTypes = cleanParams.getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
         List<Type> dirtyTypes = dirtyParams.getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
-        LayeredParamsDiffSnapshot diff = EnhancedParamsDiff.createLayered(cleanTypes, dirtyTypes);
-        if (diff == null) return TxResult.PASS;
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(cleanTypes, dirtyTypes).snapshot();
 
         MethodNode methodNode = context.methodNode();
         LocalVariableLookup lookup = LocalVariableLookup.of(context.methodNode());

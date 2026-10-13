@@ -8,7 +8,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public class GeneratedVariables {
-    private static final String MOJMAP_PARAM_NAME_PREFIX = "p_";
     // Obfuscated variable names consist of '$$' followed by a number
     private static final String OBF_VAR_PATTERN = "^\\$\\$\\d+$";
     private static final Map<Type, GeneratedVarName> GENERATED_VAR_NAMES = new HashMap<>();
@@ -42,8 +41,8 @@ public class GeneratedVariables {
             });
     }
 
-    public static boolean isGeneratedVariableName(String name, Type type) {
-        if (name.startsWith(MOJMAP_PARAM_NAME_PREFIX) || name.matches(OBF_VAR_PATTERN)) {
+    public static boolean isPositionalName(String name, Type type) {
+        if (name.matches(OBF_VAR_PATTERN)) {
             return true;
         }
         GeneratedVarName generator = GENERATED_VAR_NAMES.get(type);
