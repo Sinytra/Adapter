@@ -1,6 +1,7 @@
 package org.sinytra.adapter.pipeline;
 
 import org.jetbrains.annotations.Nullable;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.method.MethodLocator;
@@ -58,8 +59,18 @@ public final class Recipe {
             this.cleanLocalsTable = Cached.of(() -> getLocalsTable(getCleanTarget()));
         }
 
-        this.dirtyTarget = Cached.keyed(dirty::getTargetMethod, target -> findTarget(context.dirtyMethods(), target));
+        this.dirtyTarget = Cached.keyed(this::getDirtyTargetQualifier, target -> findTarget(context.dirtyMethods(), target));
         this.dirtyLocalsTable = Cached.keyed(this::getDirtyTarget, target -> getLocalsTable(target));
+    }
+
+    @Nullable
+    private MethodQualifier getDirtyTargetQualifier() {
+        MethodQualifier target = this.dirty.getTargetMethod();
+        String targetClass = this.dirty.getTargetClass();
+        if (target != null && target.owner() == null && targetClass != null && !targetClass.equals(this.clean.getTargetClass())) {
+            return target.withOwner(Type.getObjectType(targetClass));
+        }
+        return target;
     }
 
     @Nullable

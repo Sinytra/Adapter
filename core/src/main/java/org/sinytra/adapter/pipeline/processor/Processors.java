@@ -1,6 +1,6 @@
 package org.sinytra.adapter.pipeline.processor;
 
-import org.sinytra.adapter.pipeline.processor.extract.ExtractMixinProcessor;
+import org.sinytra.adapter.pipeline.processor.relocate.RelocationProcessor;
 import org.sinytra.adapter.pipeline.processor.signature.SignatureProcessor;
 import org.sinytra.adapter.util.OrderedRegistry;
 
@@ -29,6 +29,6 @@ public class Processors extends OrderedRegistry<Processor> {
 
         // Late extract processor - must come last
         // Changed class target
-        add(new ExtractMixinProcessor());
+        add(new RelocationProcessor());
     }
 }

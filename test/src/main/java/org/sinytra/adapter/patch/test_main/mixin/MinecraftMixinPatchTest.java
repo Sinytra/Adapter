@@ -120,6 +120,15 @@ public abstract class MinecraftMixinPatchTest {
         Stream.of(assertions).forEach(c -> c.accept(patched, expected, result.env()));
     }
 
+    protected final void assertPatched(String className, String testName, AssertCallback... assertions) throws Exception {
+        LoadResult result = load(className, List.of(testName));
+        MethodNode patched = result.patched.methods.stream()
+            .filter(m -> m.name.equals(testName))
+            .findFirst()
+            .orElseThrow();
+        Stream.of(assertions).forEach(c -> c.accept(patched, null, result.env()));
+    }
+
     protected final void assertSameField(
         String className,
         String testName
@@ -218,6 +227,24 @@ public abstract class MinecraftMixinPatchTest {
         };
     }
 
+    /// The generated class, if there is one, has neither the patched handler and its lambdas nor an injector that calls the handler
+    protected AssertCallback assertNotRelocated(String targetClass) {
+        return (patched, expected, env) -> {
+            MixinClassGenerator.GeneratedClass generatedClass = env.classGenerator().getGeneratedMixinClasses().get(targetClass);
+            if (generatedClass == null) {
+                return;
+            }
+            List<String> leftovers = generatedClass.node().methods.stream()
+                .filter(m -> m.name.equals(patched.name) || m.name.startsWith("lambda$" + patched.name + "$")
+                    || StreamSupport.stream(m.instructions.spliterator(), false)
+                        .anyMatch(insn -> insn instanceof MethodInsnNode call && call.name.equals(patched.name)))
+                .map(m -> m.name)
+                .toList();
+            Assertions.assertThat(leftovers).as("Generated methods left by " + patched.name).isEmpty();
+        };
+    }
+
+    /// The audit log of the patched method has an entry containing the text
     protected AssertCallback assertAudit(String text) {
         return (patched, expected, env) -> {
             boolean found = env.auditTrail().getAuditTrail().values().stream()

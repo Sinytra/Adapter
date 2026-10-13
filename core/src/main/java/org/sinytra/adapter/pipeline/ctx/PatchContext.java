@@ -19,4 +19,6 @@ public interface PatchContext extends RefMapper {
     PatchEnvironment environment();
 
     void postApply(Runnable consumer);
+
+    void onRollback(Runnable undo);
 }

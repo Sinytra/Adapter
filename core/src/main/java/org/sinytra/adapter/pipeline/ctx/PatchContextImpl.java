@@ -12,6 +12,10 @@ public class PatchContextImpl implements PatchContext {
     private final List<Type> targetTypes;
     private final PatchEnvironment environment;
     private final List<Runnable> postApply = new ArrayList<>();
+    private final List<Runnable> undo = new ArrayList<>();
+
+    public record Checkpoint(int postApply, int undo) {
+    }
 
     public PatchContextImpl(ClassNode classNode, List<Type> targetTypes, PatchEnvironment environment) {
         this.classNode = classNode;
@@ -44,12 +48,20 @@ public class PatchContextImpl implements PatchContext {
         this.postApply.add(consumer);
     }
 
-    public int checkpoint() {
-        return this.postApply.size();
+    @Override
+    public void onRollback(Runnable undo) {
+        this.undo.add(undo);
     }
 
-    public void rollback(int checkpoint) {
-        this.postApply.subList(checkpoint, this.postApply.size()).clear();
+    public Checkpoint checkpoint() {
+        return new Checkpoint(this.postApply.size(), this.undo.size());
+    }
+
+    public void rollback(Checkpoint checkpoint) {
+        this.postApply.subList(checkpoint.postApply(), this.postApply.size()).clear();
+        List<Runnable> undone = this.undo.subList(checkpoint.undo(), this.undo.size());
+        undone.reversed().forEach(Runnable::run);
+        undone.clear();
     }
 
     public void run() {

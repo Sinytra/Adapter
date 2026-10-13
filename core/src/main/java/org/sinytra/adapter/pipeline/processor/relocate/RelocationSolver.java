@@ -1,10 +1,9 @@
-package org.sinytra.adapter.pipeline.processor.extract;
+package org.sinytra.adapter.pipeline.processor.relocate;
 
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
-import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.Relocation;
 import org.sinytra.adapter.model.RelocationPlan;
 import org.sinytra.adapter.model.TargetPair;
@@ -47,10 +46,7 @@ public final class RelocationSolver {
         if (relocation == null) {
             return new Result.Unbound("the handler uses its own class, and nothing at the new target holds its instance");
         }
-        MethodQualifier targetMethod = dirty.getTargetMethod();
-        TargetPair newTarget = targetMethod != null
-            ? context.dirtyMethods().resolveDeclared(targetMethod.withOwner(Type.getObjectType(destination)))
-            : null;
+        TargetPair newTarget = recipe.getDirtyTarget();
         if (newTarget == null) {
             return new Result.Unbound("the new target method doesn't exist");
         }

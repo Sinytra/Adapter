@@ -9,13 +9,16 @@ import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 
 import java.util.List;
+import java.util.Objects;
 
 public class TargetMethodProcessor implements Processor {
     @Override
     public TxResult process(MixinContext context, Configuration dirty, Recipe recipe) {
         if (dirty.getTargetMethod() == null) return TxResult.FAIL;
 
-        upgradeCapturedLocals(context.methodNode(), context, recipe);
+        if (Objects.equals(recipe.clean().getTargetClass(), dirty.getTargetClass())) {
+            upgradeCapturedLocals(context.methodNode(), context, recipe);
+        }
 
         return TxResult.SUCCESS;
     }

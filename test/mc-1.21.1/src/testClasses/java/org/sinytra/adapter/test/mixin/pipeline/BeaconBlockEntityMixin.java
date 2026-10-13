@@ -35,6 +35,22 @@ public abstract class BeaconBlockEntityMixin {
         return instance.getTextureDiffuseColor();
     }
 
+    @Redirect(
+        method = "tick(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/block/entity/BeaconBlockEntity;)V",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/DyeColor;getTextureDiffuseColor()I")
+    )
+    private static int failAfterMove(DyeColor instance) {
+        return instance.getTextureDiffuseColor();
+    }
+
+    @Redirect(
+        method = "tick(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/block/entity/BeaconBlockEntity;)V",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/DyeColor;getTextureDiffuseColor()I")
+    )
+    private static int failAfterMoveExpected(DyeColor instance) {
+        return instance.getTextureDiffuseColor();
+    }
+
     @Inject(
         method = "tick(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/block/entity/BeaconBlockEntity;)V",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/DyeColor;getTextureDiffuseColor()I"),

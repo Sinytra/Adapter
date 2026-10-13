@@ -89,7 +89,7 @@ public class PatcherImpl implements Patcher {
 
         this.environment.auditTrail().prepareMethod(mixinContext);
 
-        int checkpoint = patchContext.checkpoint();
+        PatchContextImpl.Checkpoint checkpoint = patchContext.checkpoint();
         PatchResult result;
         try {
             result = applyPatches(mixinContext, configuration);
@@ -109,7 +109,7 @@ public class PatcherImpl implements Patcher {
         return result;
     }
 
-    private static void rollback(ClassNode classNode, PatchContextImpl patchContext, int checkpoint, MixinContext mixinContext) {
+    private static void rollback(ClassNode classNode, PatchContextImpl patchContext, PatchContextImpl.Checkpoint checkpoint, MixinContext mixinContext) {
         int index = classNode.methods.indexOf(mixinContext.methodNode());
         if (index != -1) {
             classNode.methods.set(index, mixinContext.unmodifiedMethodNode());

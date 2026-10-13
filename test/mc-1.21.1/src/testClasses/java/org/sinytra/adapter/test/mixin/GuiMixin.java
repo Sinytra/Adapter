@@ -164,4 +164,22 @@ public class GuiMixin {
     private int moveAirUpExpected(int y) {
         return y;
     }
+
+    @Inject(
+        method = "renderPlayerHealth",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/Gui;renderArmor(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/world/entity/player/Player;IIII)V"),
+        cancellable = true
+    )
+    private void cancelAfterArmor(GuiGraphics guiGraphics, CallbackInfo ci) {
+        ci.cancel();
+    }
+
+    @Inject(
+        method = "renderPlayerHealth",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/Gui;renderArmor(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/world/entity/player/Player;IIII)V"),
+        cancellable = true
+    )
+    private void failAfterCancelling(GuiGraphics guiGraphics, CallbackInfo ci) {
+        ci.cancel();
+    }
 }

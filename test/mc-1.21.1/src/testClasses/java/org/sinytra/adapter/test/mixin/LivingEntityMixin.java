@@ -73,6 +73,16 @@ public class LivingEntityMixin {
         ourUniqueMethod();
     }
 
+    @Inject(method = "baseTick", at = @At(value = "FIELD", target = "Lnet/minecraft/world/level/Level;isClientSide:Z", ordinal = 2))
+    public void failAfterMirror(CallbackInfo ci) {
+        ourUniqueMethod();
+    }
+
+    @Inject(method = "baseTick", at = @At(value = "FIELD", target = "Lnet/minecraft/world/level/Level;isClientSide:Z", ordinal = 2))
+    public void failAfterMirrorExpected(CallbackInfo ci) {
+        ourUniqueMethod();
+    }
+
     @Unique
     private void ourUniqueMethod() {
         // Noop

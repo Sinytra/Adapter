@@ -3,15 +3,19 @@ package org.sinytra.adapter.edit;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Handle;
+import org.objectweb.asm.Label;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
+import org.objectweb.asm.commons.Method;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.api.PatchEnvironment;
+import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.RelocationPlan;
 import org.sinytra.adapter.model.ValueSource;
 import org.sinytra.adapter.model.constant.MixinAnnotations;
+import org.sinytra.adapter.model.constant.TypeConstants;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.OpcodeUtil;
@@ -57,7 +61,7 @@ public final class RelocationGenerator {
             }
         }
 
-        String name = handler.name + "$adapter$mirror$" + AdapterUtil.randomString(5);
+        String name = handler.name + "$adapter$mirror$" + simpleName(context.classNode());
         String desc = Type.getMethodDescriptor(Type.getReturnType(handler.desc), params.toArray(Type[]::new));
         MethodNode mirror = new MethodNode(Opcodes.ACC_PRIVATE | (isStatic ? Opcodes.ACC_STATIC : 0), name, desc, null, null);
         mirror.visibleAnnotations = new ArrayList<>(handler.visibleAnnotations);
@@ -95,8 +99,14 @@ public final class RelocationGenerator {
 
         ClassNode generatedTarget = getGeneratedTarget(context, destinationClass);
         synchronized (generatedTarget) {
+            mirror.name = uniqueMethodName(generatedTarget, mirror.name);
             generatedTarget.methods.add(mirror);
         }
+        context.patchContext().onRollback(() -> {
+            synchronized (generatedTarget) {
+                generatedTarget.methods.remove(mirror);
+            }
+        });
         return mirror;
     }
 
@@ -105,6 +115,7 @@ public final class RelocationGenerator {
         ClassNode generatedTarget = getGeneratedTarget(context, destinationClass);
         List<MethodNode> moved = new ArrayList<>(plan.lambdas());
         moved.addFirst(context.methodNode());
+        registerMoveRollback(context, generatedTarget, plan, moved);
 
         plan.widenedFields().forEach(field -> field.access = widenAccess(field.access));
         plan.widenedMethods().forEach(method -> method.access = widenAccess(method.access));
@@ -130,6 +141,134 @@ public final class RelocationGenerator {
             generatedTarget.methods.addAll(moved);
         }
         context.patchContext().postApply(() -> mixin.methods.removeAll(moved));
+    }
+
+    public static void generateCancellers(MixinContext context, ClassNode targetClass, List<MethodNode> laterPieces) {
+        MethodNode handler = context.methodNode();
+        boolean isStatic = context.isStatic();
+        ClassNode generatedTarget = getGeneratedTarget(context, targetClass.name);
+        FieldNode tracker = new FieldNode(Opcodes.ACC_PRIVATE | (isStatic ? Opcodes.ACC_STATIC : 0),
+            "adapter$cancelled$" + simpleName(context.classNode()) + "$" + handler.name, Type.BOOLEAN_TYPE.getDescriptor(), null, null);
+        List<MethodNode> cancellers = new ArrayList<>();
+        synchronized (generatedTarget) {
+            String base = tracker.name;
+            for (int i = 1; generatedTarget.fields.stream().anyMatch(f -> f.name.equals(tracker.name)); i++) {
+                tracker.name = base + "$" + i;
+            }
+            generatedTarget.fields.add(tracker);
+            for (int i = 0; i < laterPieces.size(); i++) {
+                MethodNode canceller = generateCanceller(generatedTarget, tracker, handler, laterPieces.get(i), isStatic, i == laterPieces.size() - 1);
+                canceller.name = uniqueMethodName(generatedTarget, canceller.name);
+                generatedTarget.methods.add(canceller);
+                cancellers.add(canceller);
+            }
+        }
+        context.patchContext().onRollback(() -> {
+            synchronized (generatedTarget) {
+                generatedTarget.fields.remove(tracker);
+                generatedTarget.methods.removeAll(cancellers);
+            }
+        });
+
+        MethodQualifier cancel = new MethodQualifier(TypeConstants.CI_TYPE.getDescriptor(), "cancel", "()V");
+        for (MethodInsnNode call : MethodAnalyzer.findCalls(handler, cancel)) {
+            InsnList set = new InsnList();
+            if (!isStatic) {
+                set.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            }
+            set.add(new InsnNode(Opcodes.ICONST_1));
+            set.add(new FieldInsnNode(isStatic ? Opcodes.PUTSTATIC : Opcodes.PUTFIELD, targetClass.name, tracker.name, tracker.desc));
+            handler.instructions.insertBefore(call, set);
+        }
+    }
+
+    private static MethodNode generateCanceller(ClassNode generatedTarget, FieldNode tracker, MethodNode handler, MethodNode piece, boolean isStatic, boolean last) {
+        String desc = Type.getMethodDescriptor(Type.VOID_TYPE, TypeConstants.CI_TYPE);
+        MethodNode canceller = new MethodNode(Opcodes.ACC_PRIVATE | (isStatic ? Opcodes.ACC_STATIC : 0), handler.name + "$adapter$canceller$" + piece.name, desc, null, null);
+        AnnotationVisitor inject = canceller.visitAnnotation(MixinAnnotations.INJECT, true);
+        AnnotationVisitor method = inject.visitArray("method");
+        method.visit(null, piece.name + piece.desc);
+        method.visitEnd();
+        AnnotationVisitor at = inject.visitArray("at");
+        AnnotationVisitor head = at.visitAnnotation(null, MixinAnnotations.AT);
+        head.visit("value", "HEAD");
+        head.visitEnd();
+        at.visitEnd();
+        inject.visit("cancellable", Boolean.TRUE);
+        inject.visitEnd();
+
+        Type owner = Type.getObjectType(generatedTarget.name);
+        GeneratorAdapter gen = new GeneratorAdapter(canceller, canceller.access, canceller.name, canceller.desc);
+        Label end = new Label();
+        gen.newLabel();
+        if (isStatic) {
+            gen.getStatic(owner, tracker.name, Type.BOOLEAN_TYPE);
+        } else {
+            gen.loadThis();
+            gen.getField(owner, tracker.name, Type.BOOLEAN_TYPE);
+        }
+        gen.visitJumpInsn(Opcodes.IFEQ, end);
+        if (last) {
+            gen.newLabel();
+            if (isStatic) {
+                gen.push(false);
+                gen.putStatic(owner, tracker.name, Type.BOOLEAN_TYPE);
+            } else {
+                gen.loadThis();
+                gen.push(false);
+                gen.putField(owner, tracker.name, Type.BOOLEAN_TYPE);
+            }
+        }
+        gen.newLabel();
+        gen.loadArg(0);
+        gen.invokeVirtual(TypeConstants.CI_TYPE, new Method("cancel", "()V"));
+        gen.visitLabel(end);
+        gen.returnValue();
+        gen.newLabel();
+        gen.endMethod();
+        canceller.maxStack = 2;
+        canceller.maxLocals = isStatic ? 1 : 2;
+        return canceller;
+    }
+
+    private static String uniqueMethodName(ClassNode generatedTarget, String name) {
+        String unique = name;
+        for (int i = 1; hasMethodNamed(generatedTarget, unique); i++) {
+            unique = name + "$" + i;
+        }
+        return unique;
+    }
+
+    private static boolean hasMethodNamed(ClassNode cls, String name) {
+        return cls.methods.stream().anyMatch(m -> m.name.equals(name));
+    }
+
+    private static String simpleName(ClassNode cls) {
+        return cls.name.substring(cls.name.lastIndexOf('/') + 1);
+    }
+
+    private static void registerMoveRollback(MixinContext context, ClassNode generatedTarget, RelocationPlan.Move plan, List<MethodNode> moved) {
+        ClassNode mixin = context.classNode();
+        int[] fieldAccess = plan.widenedFields().stream().mapToInt(field -> field.access).toArray();
+        int[] methodAccess = plan.widenedMethods().stream().mapToInt(method -> method.access).toArray();
+        List<MethodNode> lambdaCopies = plan.lambdas().stream().map(AdapterUtil::copyMethod).toList();
+        context.patchContext().onRollback(() -> {
+            synchronized (generatedTarget) {
+                generatedTarget.methods.removeAll(moved);
+            }
+            for (int i = 0; i < fieldAccess.length; i++) {
+                plan.widenedFields().get(i).access = fieldAccess[i];
+            }
+            for (int i = 0; i < methodAccess.length; i++) {
+                plan.widenedMethods().get(i).access = methodAccess[i];
+            }
+            for (int i = 0; i < lambdaCopies.size(); i++) {
+                int index = mixin.methods.indexOf(plan.lambdas().get(i));
+                if (index != -1) {
+                    mixin.methods.set(index, lambdaCopies.get(i));
+                }
+            }
+        });
     }
 
     private static ClassNode getGeneratedTarget(MixinContext context, String destinationClass) {
@@ -158,7 +297,7 @@ public final class RelocationGenerator {
         return access;
     }
 
-    public static void invokeHandler(GeneratorAdapter gen, MethodNode handler, ClassNode handlerOwner) {
+    private static void invokeHandler(GeneratorAdapter gen, MethodNode handler, ClassNode handlerOwner) {
         boolean isInterface = (handlerOwner.access & Opcodes.ACC_INTERFACE) != 0;
         int opcode = MethodAnalyzer.isStatic(handler) ? Opcodes.INVOKESTATIC : isInterface ? Opcodes.INVOKEINTERFACE : Opcodes.INVOKEVIRTUAL;
         gen.visitMethodInsn(opcode, handlerOwner.name, handler.name, handler.desc, isInterface);
