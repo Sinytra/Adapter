@@ -4,6 +4,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.InnerClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.sinytra.adapter.api.ClassPatchContext;
 import org.sinytra.adapter.api.ClassTransformer;
 import org.sinytra.adapter.api.PatchResult;
 import org.sinytra.adapter.model.MethodQualifier;
@@ -19,7 +20,11 @@ import org.sinytra.adapter.util.AdapterUtil;
  */
 public class DynamicAnonClassIndexPatch implements ClassTransformer {
     @Override
-    public PatchResult apply(ClassNode classNode, ClassTarget classTarget, PatchContext context) {
+    public PatchResult apply(ClassNode classNode, ClassPatchContext patchContext) {
+        if (!(patchContext instanceof PatchContext context) || context.classTarget() == null) {
+            return PatchResult.PASS;
+        }
+        ClassTarget classTarget = context.classTarget();
         Type singleTarget = classTarget.getSingle();
         if (singleTarget == null) return PatchResult.PASS;
 

@@ -1,6 +1,7 @@
 package org.sinytra.adapter.pipeline.injector;
 
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AbstractInsnNode;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.TargetPair;
@@ -15,6 +16,7 @@ import org.sinytra.adapter.model.param.HandlerSignature.ValueSource;
 import org.sinytra.adapter.model.param.MethodParameters;
 import org.sinytra.adapter.model.param.MethodParameters.ParamGroup;
 import org.sinytra.adapter.model.param.Parameters;
+import org.sinytra.adapter.model.param.RedirectedInsn;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
@@ -25,6 +27,7 @@ import org.sinytra.adapter.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.pipeline.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.pipeline.rewrite.InstanceofMakesRedirectRedundant;
 import org.sinytra.adapter.pipeline.rewrite.RewriteResolver;
+import org.sinytra.adapter.util.AdapterUtil;
 
 import java.util.List;
 
@@ -60,18 +63,28 @@ public class RedirectMixin extends AbstractMixinType {
         processors
             .addAfter(SignatureProcessor.class, new DivertRedirectProcessor());
 
-        if (clean.getAtData() == null || !MixinAnnotationConstants.AT_VAL_INVOKE.equals(clean.getAtData().getValue()))
+        if (clean.getAtData() == null)
             return TxResult.FAIL;
 
-        MethodQualifier targetDesc = clean.getAtData().getTargetQualifier().orElse(null);
-        if (targetDesc == null || targetDesc.desc() == null)
-            return TxResult.FAIL;
+        List<Type> callTypes;
+        if (MixinAnnotationConstants.AT_VAL_INVOKE.equals(clean.getAtData().getValue())) {
+            MethodQualifier targetDesc = clean.getAtData().getTargetQualifier().orElse(null);
+            if (targetDesc == null || targetDesc.desc() == null)
+                return TxResult.FAIL;
 
-        List<Type> methodParams = Parameters.getParameterTypes(context.methodNode().desc);
-        boolean isStatic = isStaticRedirect(context, targetDesc, methodParams, Parameters.getParameterTypes(targetDesc.desc()));
-        if (!isStatic && methodParams.isEmpty())
-            return TxResult.FAIL;
-        List<Type> callTypes = Parameters.getCallOperandTypes(isStatic ? null : methodParams.getFirst(), targetDesc.desc());
+            List<Type> methodParams = Parameters.getParameterTypes(context.methodNode().desc);
+            boolean isStatic = isStaticRedirect(context, targetDesc, methodParams, Parameters.getParameterTypes(targetDesc.desc()));
+            if (!isStatic && methodParams.isEmpty())
+                return TxResult.FAIL;
+            callTypes = Parameters.getCallOperandTypes(isStatic ? null : methodParams.getFirst(), targetDesc.desc());
+        } else {
+            TargetPair cleanTarget = clean.getTargetMethod() != null ? context.cleanMethods().resolve(clean.getTargetMethod()) : null;
+            AbstractInsnNode insn = cleanTarget != null ? AdapterUtil.getFirstOrNull(context.injections().find(cleanTarget)) : null;
+            RedirectedInsn redirected = insn != null ? RedirectedInsn.of(insn) : null;
+            if (redirected == null)
+                return TxResult.FAIL;
+            callTypes = redirected.operands();
+        }
 
         MethodParameters capturedMethodParams = MethodParameters.create(
             Parameters.parse(context.methodNode(), callTypes.size(), -1),

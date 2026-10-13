@@ -1,14 +1,18 @@
 package org.sinytra.adapter.pipeline.ctx;
 
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.sinytra.adapter.api.PatchEnvironment;
+import org.sinytra.adapter.model.ann.ClassTarget;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class PatchContextImpl implements PatchContext {
     private final ClassNode classNode;
+    @Nullable
+    private final ClassTarget classTarget;
     private final List<Type> targetTypes;
     private final PatchEnvironment environment;
     private final List<Runnable> postApply = new ArrayList<>();
@@ -17,8 +21,9 @@ public class PatchContextImpl implements PatchContext {
     public record Checkpoint(int postApply, int undo) {
     }
 
-    public PatchContextImpl(ClassNode classNode, List<Type> targetTypes, PatchEnvironment environment) {
+    public PatchContextImpl(ClassNode classNode, @Nullable ClassTarget classTarget, List<Type> targetTypes, PatchEnvironment environment) {
         this.classNode = classNode;
+        this.classTarget = classTarget;
         this.targetTypes = targetTypes;
         this.environment = environment;
     }
@@ -29,8 +34,14 @@ public class PatchContextImpl implements PatchContext {
     }
 
     @Override
+    @Nullable
+    public ClassTarget classTarget() {
+        return this.classTarget;
+    }
+
+    @Override
     public List<Type> targetTypes() {
-        return this.targetTypes;
+        return this.classTarget != null ? this.classTarget.getTypes() : this.targetTypes;
     }
 
     @Override

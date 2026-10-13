@@ -7,6 +7,7 @@ import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.analysis.injection.InjectionQuery;
 import org.sinytra.adapter.api.AuditTrail;
 import org.sinytra.adapter.api.MethodPatch;
+import org.sinytra.adapter.api.MethodPatchContext;
 import org.sinytra.adapter.api.MethodTransformer;
 import org.sinytra.adapter.api.PatchResult;
 import org.sinytra.adapter.model.TargetPair;
@@ -44,13 +45,22 @@ public class PipelineMethodTransformer implements MethodTransformer {
     }
 
     @Override
+    public PatchResult apply(MethodPatchContext patchContext) {
+        MixinContext context = (MixinContext) patchContext;
+        return apply(context, context.configuration());
+    }
+
     public PatchResult apply(MixinContext context, Configuration config) {
         TargetPair cleanTarget = context.cleanMethods().resolve(config.getTargetMethod());
         if (cleanTarget == null) return PatchResult.PASS;
 
         TargetPair dirtyTarget = context.dirtyMethods().resolve(config.getTargetMethod());
-        if (!this.patchResolver.matches(config) && !failsDirtyInjectionCheck(context, config, dirtyTarget) && hasValidSlice(context, config, dirtyTarget))
+        if (!this.patchResolver.matches(config) && !failsDirtyInjectionCheck(context, config, dirtyTarget) && hasValidSlice(context, config, dirtyTarget)) {
+            if (dirtyTarget != null && !this.patchesOnly) {
+                AppliedLocalsCheck.check(this, context, cleanTarget, dirtyTarget);
+            }
             return PatchResult.PASS;
+        }
 
         LOGGER.debug(MIXINPATCH, "Considering method {}", context.getMixinId());
 

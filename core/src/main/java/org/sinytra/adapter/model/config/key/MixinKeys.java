@@ -21,7 +21,7 @@ public class MixinKeys {
             // Get method targets
             String methodRef = ControlKeys.parseSingle(value, String.class);
             if (methodRef == null) {
-                // We only support single method targets for now
+                // Several targets are split into one handler each by MultiTargetSplitter
                 return null;
             }
             // Resolve method reference

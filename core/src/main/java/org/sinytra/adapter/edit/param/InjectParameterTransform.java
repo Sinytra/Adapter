@@ -10,14 +10,12 @@ import org.sinytra.adapter.edit.LVTSnapshot;
 import org.sinytra.adapter.model.ann.AnnotationHandle;
 import org.sinytra.adapter.model.constant.MixinAnnotations;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
-import org.sinytra.adapter.pipeline.injector.MixinFlag;
 import org.sinytra.adapter.util.AdapterUtil;
 
 import java.util.Comparator;
 import java.util.List;
 
 import static org.sinytra.adapter.edit.param.ParamTransformationUtil.getLVTIndex;
-import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.PROPERTY_INDEX;
 
 // TODO Cleanup param transformers
 public record InjectParameterTransform(int index, Type type) implements ParameterTransformer {
@@ -35,19 +33,6 @@ public record InjectParameterTransform(int index, Type type) implements Paramete
         }
 
         AnnotationHandle annotation = context.methodAnnotation();
-        if (context.hasFlag(MixinFlag.TARGETS_VARIABLE)) {
-            if (index < 1) {
-                return PatchResult.PASS;
-            }
-            int insertedLvtIndex = getLVTIndex(parameters.subList(1, parameters.size()), isNonStatic, index - 1);
-            annotation.<Integer>getValue(PROPERTY_INDEX).ifPresent(indexHandle -> {
-                int indexValue = indexHandle.get();
-                if (indexValue >= insertedLvtIndex) {
-                    indexHandle.set(indexValue + this.type.getSize());
-                }
-            });
-            return PatchResult.APPLY;
-        }
         if (annotation.matchesDesc(MixinAnnotations.MODIFY_ARGS)) {
             return ModifyArgsOffsetUpgrader.upgradeAfterParamInsert(methodNode, index) ? PatchResult.APPLY : PatchResult.PASS;
         }

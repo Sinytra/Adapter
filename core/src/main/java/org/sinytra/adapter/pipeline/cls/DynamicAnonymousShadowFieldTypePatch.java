@@ -4,11 +4,10 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.api.ClassPatchContext;
 import org.sinytra.adapter.api.ClassTransformer;
 import org.sinytra.adapter.api.PatchResult;
-import org.sinytra.adapter.model.ann.ClassTarget;
 import org.sinytra.adapter.model.constant.MixinAnnotations;
-import org.sinytra.adapter.pipeline.ctx.PatchContext;
 import org.sinytra.adapter.util.AdapterUtil;
 
 import java.util.Collection;
@@ -17,8 +16,8 @@ import java.util.Map;
 
 public class DynamicAnonymousShadowFieldTypePatch implements ClassTransformer {
     @Override
-    public PatchResult apply(ClassNode classNode, ClassTarget classTarget, PatchContext context) {
-        Type singleTarget = classTarget.getSingle();
+    public PatchResult apply(ClassNode classNode, ClassPatchContext context) {
+        Type singleTarget = context.targetTypes().size() == 1 ? context.targetTypes().getFirst() : null;
         if (singleTarget == null) return PatchResult.PASS;
 
         String target = singleTarget.getInternalName();

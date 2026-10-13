@@ -50,7 +50,11 @@ public final class ParamsEditDistance {
     }
 
     public static ParamsDiff diffTypes(List<Type> clean, List<Type> dirty) {
-        return diff(Param.of(clean), Param.of(dirty), TypeRelation.STATIC);
+        return diffTypes(clean, dirty, TypeRelation.STATIC);
+    }
+
+    public static ParamsDiff diffTypes(List<Type> clean, List<Type> dirty, TypeRelation relation) {
+        return diff(Param.of(clean), Param.of(dirty), relation);
     }
 
     public static ParamsDiff diffParameters(MethodNode clean, MethodNode dirty, TypeRelation relation) {

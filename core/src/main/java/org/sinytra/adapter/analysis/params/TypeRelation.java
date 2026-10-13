@@ -1,6 +1,7 @@
 package org.sinytra.adapter.analysis.params;
 
 import org.objectweb.asm.Type;
+import org.sinytra.adapter.analysis.method.InheritanceHandler;
 
 public interface TypeRelation {
     enum Kind {
@@ -27,6 +28,19 @@ public interface TypeRelation {
         }
         return Kind.UNRELATED;
     };
+
+    static TypeRelation inheritance(InheritanceHandler inheritance) {
+        return (clean, dirty) -> {
+            Kind kind = STATIC.relate(clean, dirty);
+            if (kind == Kind.UNRELATED && clean.getSort() == Type.OBJECT && dirty.getSort() == Type.OBJECT
+                && (inheritance.isClassInherited(clean.getInternalName(), dirty.getInternalName())
+                || inheritance.isClassInherited(dirty.getInternalName(), clean.getInternalName()))
+            ) {
+                return Kind.CONVERTIBLE;
+            }
+            return kind;
+        };
+    }
 
     private static boolean isReference(Type type) {
         return type.getSort() == Type.OBJECT || type.getSort() == Type.ARRAY;

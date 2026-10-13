@@ -20,6 +20,7 @@ import org.sinytra.adapter.pipeline.injector.MixinFlag;
 import org.sinytra.adapter.pipeline.injector.MixinType;
 import org.slf4j.Logger;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -46,11 +47,11 @@ public class PatcherImpl implements Patcher {
         if (classTarget == null || classTarget.getTypes().isEmpty()) return PatchResult.PASS;
 
         PatchResult result = PatchResult.PASS;
-        PatchContextImpl context = new PatchContextImpl(classNode, classTarget.getTypes(), this.environment);
+        PatchContextImpl context = new PatchContextImpl(classNode, classTarget, classTarget.getTypes(), this.environment);
 
         // Class-level transformations
         for (ClassTransformer patch : this.classPatches) {
-            result = result.or(patch.apply(classNode, classTarget, context));
+            result = result.or(patch.apply(classNode, context));
         }
 
         // Parse mixin methods
@@ -58,14 +59,18 @@ public class PatcherImpl implements Patcher {
         MixinParser.MixinClassHandle mixinClass = MixinParser.parseMixins(classTarget, classNode, this.environment);
         if (mixinClass == null) return result;
 
-        // Mixin-level transformations 
+        // Mixin-level transformations with one handler per target method
+        List<MixinParser.MixinMethodHandle> mixins = new ArrayList<>();
         for (MixinParser.MixinMethodHandle mixin : mixinClass.mixins()) {
+            mixins.addAll(MultiTargetSplitter.split(classNode, classTarget, mixin, this.environment));
+        }
+        for (MixinParser.MixinMethodHandle mixin : mixins) {
             PatchResult subResult = processMixin(classNode, classTarget, context, mixin);
             result = result.or(subResult);
         }
 
         context.run();
-        MixinGroups groups = MixinGroups.create(mixinClass.mixins().stream().map(MixinMethodHandle::methodNode).toList());
+        MixinGroups groups = MixinGroups.create(mixins.stream().map(MixinMethodHandle::methodNode).toList());
         this.environment.auditTrail().processGroups(classNode, groups);
 
         return result;
@@ -79,13 +84,13 @@ public class PatcherImpl implements Patcher {
         AnnotationHandle atHandle = mixin.methodAnnotation().getNested(MixinAnnotationConstants.PROPERTY_AT).orElse(null);
         MixinType mixinType = mixin.mixinType();
         Set<MixinFlag> flags = mixinType.getFlags();
-        MixinContext mixinContext = new MixinContext(mixinType, patchContext, classTarget, classNode, mixin.methodNode(), mixin.methodAnnotation(), atHandle, flags);
-        String mixinId = mixinContext.getMixinId();
-
         // Build base config
         PropertyContainerTemplate template = mixin.mixinType().getConfigurationTemplate();
         MutableConfiguration configuration = MutableConfiguration.create(template);
         configuration.mergeFrom(mixin.properties());
+
+        MixinContext mixinContext = new MixinContext(mixinType, patchContext, classTarget, classNode, mixin.methodNode(), mixin.methodAnnotation(), atHandle, flags, configuration);
+        String mixinId = mixinContext.getMixinId();
 
         this.environment.auditTrail().prepareMethod(mixinContext);
 
@@ -122,7 +127,7 @@ public class PatcherImpl implements Patcher {
         String mixinId = mixinContext.getMixinId();
 
         // << RUN EARLY PHASE
-        PatchResult result = runPhase(TxPhase.EARLY, mixinContext, configuration);
+        PatchResult result = runPhase(TxPhase.EARLY, mixinContext);
 
         // Complete clean config
         TxResult preResult = mixinType.preProcess(mixinContext, configuration, mixinContext.getResolvers(), mixinContext.getProcessors());
@@ -132,7 +137,7 @@ public class PatcherImpl implements Patcher {
         }
 
         // << RUN LOADED PHASE
-        result = result.or(runPhase(TxPhase.LOADED, mixinContext, configuration));
+        result = result.or(runPhase(TxPhase.LOADED, mixinContext));
 
         // Validate clean config
         if (!configuration.validate()) {
@@ -145,13 +150,13 @@ public class PatcherImpl implements Patcher {
         MethodNode methodNode = mixinContext.methodNode();
         methodNode.maxLocals = methodNode.maxStack = 999;
 
-        return result.or(runPhase(TxPhase.VALIDATED, mixinContext, configuration));
+        return result.or(runPhase(TxPhase.VALIDATED, mixinContext));
     }
 
-    private PatchResult runPhase(TxPhase phase, MixinContext mixinContext, MutableConfiguration configuration) {
+    private PatchResult runPhase(TxPhase phase, MixinContext mixinContext) {
         PatchResult result = PatchResult.PASS;
         for (MethodTransformer transformer : this.methodTransformers.get(phase)) {
-            result = result.or(mixinContext.audited(transformer, () -> transformer.apply(mixinContext, configuration)));
+            result = result.or(mixinContext.audited(transformer, () -> transformer.apply(mixinContext)));
         }
         return result;
     }

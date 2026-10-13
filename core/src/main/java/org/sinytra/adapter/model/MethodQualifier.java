@@ -51,7 +51,7 @@ public record MethodQualifier(@Nullable String owner, @Nullable String name, @Nu
 
     public boolean matches(@Nullable String owner, @Nullable String name, @Nullable String desc) {
         return (this.owner == null || this.owner.equals(owner))
-            && this.name != null && this.name.equals(name)
+            && (this.name != null ? this.name.equals(name) : this.desc != null && name != null && !name.startsWith("<"))
             && (this.desc == null || this.desc.equals(desc));
     }
 

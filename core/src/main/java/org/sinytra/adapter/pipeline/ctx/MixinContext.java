@@ -2,6 +2,7 @@ package org.sinytra.adapter.pipeline.ctx;
 
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.analysis.flow.DataFlow;
@@ -9,8 +10,10 @@ import org.sinytra.adapter.analysis.injection.InjectionLocator;
 import org.sinytra.adapter.analysis.locals.LocalsAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodLocator;
+import org.sinytra.adapter.analysis.params.TypeRelation;
 import org.sinytra.adapter.api.BytecodeFixerUpper;
 import org.sinytra.adapter.api.ClassLookup;
+import org.sinytra.adapter.api.MethodPatchContext;
 import org.sinytra.adapter.api.PatchEnvironment;
 import org.sinytra.adapter.api.TypeAdapter;
 import org.sinytra.adapter.model.MethodQualifier;
@@ -19,6 +22,7 @@ import org.sinytra.adapter.model.Targets;
 import org.sinytra.adapter.model.ann.AnnotationHandle;
 import org.sinytra.adapter.model.ann.ClassTarget;
 import org.sinytra.adapter.model.ann.RefMapper;
+import org.sinytra.adapter.model.config.MutableConfiguration;
 import org.sinytra.adapter.pipeline.audit.Auditor;
 import org.sinytra.adapter.pipeline.injector.MixinFlag;
 import org.sinytra.adapter.pipeline.injector.MixinType;
@@ -33,7 +37,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
-public class MixinContext implements RefMapper, Auditor {
+public class MixinContext implements MethodPatchContext, RefMapper, Auditor {
     private final MixinType mixinType;
     private final PatchContext patchContext;
     private final ClassTarget classTarget;
@@ -41,6 +45,7 @@ public class MixinContext implements RefMapper, Auditor {
     private final MethodNode methodNode;
     private final MethodNode originalMethodNode;
     private final Set<MixinFlag> flags;
+    private final MutableConfiguration configuration;
     @Nullable
     private String rejection;
 
@@ -58,7 +63,7 @@ public class MixinContext implements RefMapper, Auditor {
     private final Resolvers resolvers = new Resolvers();
     private final Processors processors = new Processors();
 
-    public MixinContext(MixinType mixinType, PatchContext patchContext, ClassTarget classTarget, ClassNode classNode, MethodNode methodNode, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation, Set<MixinFlag> flags) {
+    public MixinContext(MixinType mixinType, PatchContext patchContext, ClassTarget classTarget, ClassNode classNode, MethodNode methodNode, AnnotationHandle methodAnnotation, AnnotationHandle injectionPointAnnotation, Set<MixinFlag> flags, MutableConfiguration configuration) {
         this.mixinType = mixinType;
         this.patchContext = patchContext;
         this.classTarget = classTarget;
@@ -67,6 +72,7 @@ public class MixinContext implements RefMapper, Auditor {
         this.methodAnnotation = methodAnnotation;
         this.injectionPointAnnotation = injectionPointAnnotation;
         this.flags = flags;
+        this.configuration = configuration;
 
         this.injections = new InjectionLocator(this);
         this.locals = new LocalsAnalyzer(this);
@@ -105,12 +111,18 @@ public class MixinContext implements RefMapper, Auditor {
         return this.classTarget;
     }
 
+    @Override
     public ClassNode classNode() {
         return this.classNode;
     }
 
+    @Override
     public MethodNode methodNode() {
         return this.methodNode;
+    }
+
+    public MutableConfiguration configuration() {
+        return this.configuration;
     }
 
     public MethodNode unmodifiedMethodNode() {
@@ -119,6 +131,10 @@ public class MixinContext implements RefMapper, Auditor {
 
     public MethodLocator cleanMethods() {
         return this.cleanMethods;
+    }
+
+    public TypeRelation typeRelation() {
+        return TypeRelation.inheritance(this.patchContext.environment().inheritanceHandler(dirtyLookup()));
     }
 
     public MethodLocator dirtyMethods() {
@@ -156,6 +172,11 @@ public class MixinContext implements RefMapper, Auditor {
         return this.methodAnnotation;
     }
 
+    @Override
+    public AnnotationNode injectorAnnotation() {
+        return this.methodAnnotation.unwrap();
+    }
+
     @Nullable
     public AnnotationHandle injectionPointAnnotation() {
         return this.injectionPointAnnotation;
@@ -184,6 +205,7 @@ public class MixinContext implements RefMapper, Auditor {
         return this.classTarget.getTypes();
     }
 
+    @Override
     public PatchEnvironment environment() {
         return patchContext().environment();
     }

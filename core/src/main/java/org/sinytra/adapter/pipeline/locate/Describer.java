@@ -6,16 +6,19 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.TypeInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
 import org.sinytra.adapter.analysis.InsnTraversal;
 import org.sinytra.adapter.analysis.injection.InjectionQuery;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.ann.AtData;
+import org.sinytra.adapter.model.ann.SliceData;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.MutableConfiguration;
 import org.sinytra.adapter.model.config.key.IntentKeys;
 import org.sinytra.adapter.model.config.key.MixinKeys;
+import org.sinytra.adapter.model.param.RedirectedInsn;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.injector.MixinFlag;
@@ -30,17 +33,28 @@ import java.util.function.Function;
 import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL_INVOKE;
 import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL_INVOKE_ASSIGN;
 import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL_LOAD;
+import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL_NEW;
 import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL_STORE;
 
 public final class Describer {
     @Nullable
     public static Configuration describe(MixinContext context, Recipe recipe, Candidate candidate) {
         AtData cleanAt = recipe.clean().getAtData();
-        AtData described = cleanAt != null ? describeAt(context, cleanAt, candidate, InjectionQuery::of) : null;
+        TargetPair origin = recipe.getDirtyTarget();
+        boolean otherMethod = origin == null || !candidate.target().classNode().name.equals(origin.classNode().name)
+            || !candidate.target().methodNode().name.equals(origin.methodNode().name) || !candidate.target().methodNode().desc.equals(origin.methodNode().desc);
+        Function<AtData, InjectionQuery> query = otherMethod ? at -> InjectionQuery.of(at).ignoringSlice() : InjectionQuery::of;
+        AtData described = cleanAt != null ? describeAt(context, cleanAt, candidate, query) : null;
         if (described == null) {
             return null;
         }
         MutableConfiguration config = MutableConfiguration.create().setAtData(described);
+        if (otherMethod && recipe.clean().getProperty(MixinKeys.SLICES).map(slices -> !slices.isEmpty()).orElse(false)) {
+            config.setProperty(MixinKeys.SLICES, List.of());
+        }
+        if (otherMethod && recipe.clean().hasProperty(MixinKeys.SLICE)) {
+            config.setProperty(MixinKeys.SLICE, new SliceData(null, null, null));
+        }
 
         if (isLocalAt(context, described) && candidate.insn() instanceof VarInsnNode var) {
             AbstractInsnNode position = OpcodeUtil.isStoreOpcode(var.getOpcode()) ? var.getNext() : var;
@@ -83,6 +97,11 @@ public final class Describer {
         AtData at;
         if (changesKind) {
             at = AtData.create(AT_VAL_INVOKE, (MethodInsnNode) candidate.insn());
+        } else if (candidate.insn() instanceof TypeInsnNode creation && AT_VAL_NEW.equals(cleanAt.getValue()) && cleanAt.getTarget().isPresent()) {
+            at = retargetCreation(cleanAt, creation);
+            if (at == null) {
+                return null;
+            }
         } else {
             at = candidate.insn() instanceof MethodInsnNode call && cleanAt.getTarget().isPresent() ? cleanAt.withTarget(call) : cleanAt;
         }
@@ -117,6 +136,23 @@ public final class Describer {
         return config;
     }
 
+    @Nullable
+    private static AtData retargetCreation(AtData cleanAt, TypeInsnNode creation) {
+        String target = cleanAt.getTargetOrThrow();
+        boolean descriptor = target.startsWith("(");
+        if (!descriptor && !target.contains("<init>")) {
+            return cleanAt;
+        }
+        MethodInsnNode constructor = RedirectedInsn.findConstructorCall(creation);
+        if (constructor == null) {
+            return null;
+        }
+        Type owner = Type.getObjectType(creation.desc);
+        return cleanAt.withTarget(descriptor
+            ? Type.getMethodDescriptor(owner, Type.getArgumentTypes(constructor.desc))
+            : owner.getDescriptor() + "<init>" + constructor.desc);
+    }
+
     public static List<AbstractInsnNode> findSelectable(MixinContext context, TargetPair target, AtData at, Function<AtData, InjectionQuery> query) {
         if (!isLocalAt(context, at)) {
             return context.injections().find(target, query.apply(at.withOrdinal(null)));
@@ -149,15 +185,15 @@ public final class Describer {
             && Objects.equals(a.getProperty(MixinKeys.INDEX), b.getProperty(MixinKeys.INDEX));
     }
 
-    private static boolean isLocalAt(MixinContext context, AtData at) {
+    public static boolean isLocalAt(MixinContext context, AtData at) {
         return context.hasFlag(MixinFlag.TARGETS_VARIABLE) && (AT_VAL_STORE.equals(at.getValue()) || AT_VAL_LOAD.equals(at.getValue()));
     }
 
-    private static boolean isParameter(MethodNode method, int slot) {
+    public static boolean isParameter(MethodNode method, int slot) {
         return slot < (MethodAnalyzer.isStatic(method) ? 0 : 1) + Arrays.stream(Type.getArgumentTypes(method.desc)).mapToInt(Type::getSize).sum();
     }
 
-    private static int getParameterOrdinal(MethodNode method, int slot, Type type) {
+    public static int getParameterOrdinal(MethodNode method, int slot, Type type) {
         int current = MethodAnalyzer.isStatic(method) ? 0 : 1;
         int ordinal = 0;
         for (Type arg : Type.getArgumentTypes(method.desc)) {

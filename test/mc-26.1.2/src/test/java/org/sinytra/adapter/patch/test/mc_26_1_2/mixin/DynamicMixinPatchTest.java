@@ -85,10 +85,29 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    @Test
+    void testTargetInheritedDelegatingDefault() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mc_26_1_2/mixin/MultiPartModelMixin",
+            "onSetSeed",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
+    void testModifyVariableCapturedTargetArgs() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mc_26_1_2/mixin/MultiPartModelMixin",
+            "modifyRandom",
+            assertTargetMethod()
+        );
+    }
+
     @Override
     protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
         ClassNode patched = loadClass(className);
-        patched.methods.removeIf(m -> !allowedMethods.contains(m.name));
+        patched.methods.removeIf(m -> !allowedMethods.contains(m.name) && allowedMethods.stream().noneMatch(name -> m.name.startsWith("lambda$" + name + "$")));
         patcher.process(patched);
         return new LoadResult(patchEnvironment, patched, loadClass(className));
     }

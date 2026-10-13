@@ -24,6 +24,8 @@ public class Processors extends OrderedRegistry<Processor> {
         add(new TargetMethodProcessor());
         // Mixin method signature
         add(new SignatureProcessor());
+        // Sugar @Local parameters, once the signature fits the dirty target
+        add(new SugarLocalProcessor());
         // Side effects that must only happen once the mixin is otherwise patched
         add(new SplitCancellationProcessor());
 

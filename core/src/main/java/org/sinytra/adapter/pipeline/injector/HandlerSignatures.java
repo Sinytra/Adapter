@@ -12,10 +12,12 @@ import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.ann.AtData;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.MutableConfiguration;
+import org.sinytra.adapter.model.constant.MixinAnnotationConstants;
 import org.sinytra.adapter.model.constant.TypeConstants;
 import org.sinytra.adapter.model.param.HandlerSignature;
 import org.sinytra.adapter.model.param.MethodParameters;
 import org.sinytra.adapter.model.param.Parameters;
+import org.sinytra.adapter.model.param.RedirectedInsn;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
@@ -29,8 +31,9 @@ public final class HandlerSignatures {
         Type valueType = switch (signature.returns()) {
             case VOID -> Type.VOID_TYPE;
             case CALL_RETURN -> {
+                RedirectedInsn redirected = isInvoke(dirty) ? null : findRedirected(context, recipe, dirty);
                 MethodQualifier call = getCallQualifier(dirty);
-                yield call != null ? Type.getReturnType(call.desc()) : null;
+                yield redirected != null ? redirected.result() : call != null ? Type.getReturnType(call.desc()) : null;
             }
             case TARGET_RETURN -> dirty.getTargetMethod() != null && dirty.getTargetMethod().desc() != null
                 ? Type.getReturnType(dirty.getTargetMethod().desc()) : null;
@@ -49,7 +52,8 @@ public final class HandlerSignatures {
                     params.putTypes(slot.group(), Parameters.getParameterTypes(dirty.getTargetMethod().desc()));
                 }
                 case CALL_OPERANDS -> {
-                    List<Type> operands = findCallOperands(context, dirty);
+                    RedirectedInsn redirected = isInvoke(dirty) ? null : findRedirected(context, recipe, dirty);
+                    List<Type> operands = redirected != null ? redirected.operands() : findCallOperands(context, recipe, dirty);
                     if (operands == null) return TxResult.FAIL;
 
                     params.putTypes(slot.group(), operands);
@@ -74,12 +78,26 @@ public final class HandlerSignatures {
         return call != null && call.desc() != null ? call : null;
     }
 
+    private static boolean isInvoke(Configuration dirty) {
+        AtData at = dirty.getAtData();
+        return at == null || MixinAnnotationConstants.AT_VAL_INVOKE.equals(at.getValue()) || MixinAnnotationConstants.AT_VAL_INVOKE_ASSIGN.equals(at.getValue());
+    }
+
     @Nullable
-    private static List<Type> findCallOperands(MixinContext context, Configuration dirty) {
+    private static RedirectedInsn findRedirected(MixinContext context, Recipe recipe, Configuration dirty) {
+        TargetPair dirtyTarget = recipe.getDirtyTarget();
+        AbstractInsnNode insn = dirtyTarget != null && dirty.getAtData() != null
+            ? AdapterUtil.getFirstOrNull(context.injections().find(dirtyTarget, InjectionQuery.of(dirty.getAtData())))
+            : null;
+        return insn != null ? RedirectedInsn.of(insn) : null;
+    }
+
+    @Nullable
+    private static List<Type> findCallOperands(MixinContext context, Recipe recipe, Configuration dirty) {
         MethodQualifier call = getCallQualifier(dirty);
         if (call == null) return null;
 
-        TargetPair dirtyTarget = dirty.getTargetMethod() != null ? context.dirtyMethods().resolve(dirty.getTargetMethod()) : null;
+        TargetPair dirtyTarget = recipe.getDirtyTarget();
         AbstractInsnNode insn = dirtyTarget != null ? AdapterUtil.getFirstOrNull(context.injections().find(dirtyTarget, InjectionQuery.of(dirty.getAtData()))) : null;
 
         boolean isStatic;

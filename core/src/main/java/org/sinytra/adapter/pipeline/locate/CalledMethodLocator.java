@@ -7,8 +7,6 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.objectweb.asm.tree.VarInsnNode;
-import org.objectweb.asm.tree.analysis.SourceValue;
 import org.sinytra.adapter.analysis.compare.MethodAlignment;
 import org.sinytra.adapter.analysis.flow.DataFlow;
 import org.sinytra.adapter.analysis.flow.DataFlow.ImplicitCalls;
@@ -73,7 +71,7 @@ public final class CalledMethodLocator implements Locator {
 
     /// {@return the instructions the clean `@At` selects in the callee, matched to the clean instruction where the alignment can}
     private static List<Candidate> findIn(MixinContext context, Targets targets, AtData cleanAt, AbstractInsnNode cleanInsn, Callee callee) {
-        List<AbstractInsnNode> selected = Describer.findSelectable(context, callee.method(), cleanAt, InjectionQuery::of);
+        List<AbstractInsnNode> selected = Describer.findSelectable(context, callee.method(), cleanAt, at -> InjectionQuery.of(at).ignoringSlice());
         if (selected.isEmpty()) {
             return List.of();
         }
@@ -106,7 +104,7 @@ public final class CalledMethodLocator implements Locator {
             }
             slot += args[i].getSize();
         }
-        return callee.calledFrom() != null ? new Relocation.CalledFrom(callee.calledFrom()) : null;
+        return callee.calledFrom() != null ? new Relocation.CalledFrom() : null;
     }
 
     /// {@return the methods the caller calls at the top level and the lambdas it creates, that weren't visited yet}
@@ -125,7 +123,7 @@ public final class CalledMethodLocator implements Locator {
             }
             TargetPair method = context.dirtyMethods().resolveInherited(MethodQualifier.create(call));
             if (method != null && !visited.contains(method.methodNode())) {
-                Set<Integer> locals = passedLocals(flow, call, call.getOpcode() != Opcodes.INVOKESTATIC, call.desc, caller.originLocals());
+                Set<Integer> locals = PassedLocals.findPassedSlots(flow, call, call.getOpcode() != Opcodes.INVOKESTATIC, call.desc, caller.originLocals());
                 boolean mirrorable = fromOrigin && call.getOpcode() == Opcodes.INVOKESTATIC && !method.classNode().name.equals(from.classNode().name);
                 addCallee(context, callees, visited, new Callee(method, locals, mirrorable ? call : null));
             }
@@ -134,7 +132,7 @@ public final class CalledMethodLocator implements Locator {
         for (IndyHandle lambda : MethodAnalyzer.findOwnIndyHandles(from.classNode(), from.methodNode())) {
             if (!visited.contains(lambda.method())) {
                 Handle handle = lambda.handle();
-                Set<Integer> locals = passedLocals(flow, lambda.indy(), handle.getTag() != Opcodes.H_INVOKESTATIC, handle.getDesc(), caller.originLocals());
+                Set<Integer> locals = PassedLocals.findPassedSlots(flow, lambda.indy(), handle.getTag() != Opcodes.H_INVOKESTATIC, handle.getDesc(), caller.originLocals());
                 addCallee(context, callees, visited, new Callee(new TargetPair(from.classNode(), lambda.method()), locals, null));
             }
         }
@@ -146,33 +144,5 @@ public final class CalledMethodLocator implements Locator {
             visited.add(callee.method().methodNode());
             callees.add(callee);
         }
-    }
-
-    /// {@return the callee's local slots that receive one of the caller's tracked locals}
-    /// The operands are the receiver, if any, followed by the leading arguments of the callee descriptor. Lambdas only take their captured arguments.
-    private static Set<Integer> passedLocals(DataFlow flow, AbstractInsnNode insn, boolean hasReceiver, String calleeDesc, Set<Integer> tracked) {
-        if (tracked.isEmpty()) {
-            return Set.of();
-        }
-        List<SourceValue> operands = flow.operands(insn);
-        Type[] args = Type.getArgumentTypes(calleeDesc);
-        Set<Integer> passed = new HashSet<>();
-        int slot = 0;
-        for (int i = 0; i < operands.size(); i++) {
-            int argIndex = hasReceiver ? i - 1 : i;
-            if (argIndex >= args.length) {
-                break;
-            }
-            if (isTrackedLoad(operands.get(i), tracked)) {
-                passed.add(slot);
-            }
-            slot += argIndex < 0 ? 1 : args[argIndex].getSize();
-        }
-        return passed;
-    }
-
-    private static boolean isTrackedLoad(SourceValue value, Set<Integer> tracked) {
-        return value.insns.size() == 1 && value.insns.iterator().next() instanceof VarInsnNode load
-            && load.getOpcode() == Opcodes.ALOAD && tracked.contains(load.var);
     }
 }

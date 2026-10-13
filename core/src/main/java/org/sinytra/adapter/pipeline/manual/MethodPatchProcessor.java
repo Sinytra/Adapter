@@ -13,7 +13,7 @@ public record MethodPatchProcessor(List<MethodTransformer> transforms) implement
     @Override
     public TxResult process(MixinContext context, Configuration dirty, Recipe recipe) {
         for (MethodTransformer transformer : this.transforms) {
-            transformer.apply(context, recipe.clean());
+            transformer.apply(context);
         }
         return TxResult.SUCCESS;
     }

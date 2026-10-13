@@ -3,14 +3,18 @@ package org.sinytra.adapter.pipeline.processor.relocate;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.sinytra.adapter.analysis.injection.InjectionQuery;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
+import org.sinytra.adapter.mixin.MixinBridge;
 import org.sinytra.adapter.model.Relocation;
 import org.sinytra.adapter.model.RelocationPlan;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.ValueSource;
+import org.sinytra.adapter.model.ann.AtData;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.key.IntentKeys;
 import org.sinytra.adapter.model.constant.MixinAnnotations;
+import org.sinytra.adapter.model.param.Annotation;
 import org.sinytra.adapter.model.param.Parameter;
 import org.sinytra.adapter.model.param.Parameters;
 import org.sinytra.adapter.pipeline.Recipe;
@@ -56,8 +60,11 @@ public final class RelocationSolver {
             return new Result.Unbound("the original target method doesn't exist");
         }
         boolean isStatic = MethodAnalyzer.isStatic(newTarget.methodNode());
-        if (params.stream().anyMatch(Parameter::isLocalOrShare)) {
-            return new Result.Unbound("the handler has @Local or @Share parameters, which the generated injector can't pass on");
+        if (params.stream().anyMatch(Parameter::isShare)) {
+            return new Result.Unbound("the handler has @Share parameters, which the generated injector can't share");
+        }
+        if (!selectsLocals(context, recipe, dirty, newTarget, params)) {
+            return new Result.Unbound("a @Local parameter selects nothing at the new target");
         }
 
         List<ValueSource> forwarded = IntStream.range(0, params.size()).<ValueSource>mapToObj(ValueSource.Forwarded::new).toList();
@@ -116,6 +123,26 @@ public final class RelocationSolver {
         if (!AdapterUtil.hasAnnotation(annotations, MixinAnnotations.SHADOW) && !widened.contains(member)) {
             widened.add(member);
         }
+    }
+
+    private static boolean selectsLocals(MixinContext context, Recipe recipe, Configuration dirty, TargetPair newTarget, List<Parameter> params) {
+        if (params.stream().noneMatch(Parameter::isLocal)) {
+            return true;
+        }
+        AtData at = dirty.getAtData();
+        AbstractInsnNode insn = at != null ? AdapterUtil.getFirstOrNull(context.injections().find(newTarget, InjectionQuery.of(at))) : null;
+        if (insn == null) {
+            return false;
+        }
+        MixinBridge.Session session = MixinBridge.session(context.classNode().name, context.methodNode(), newTarget.classNode(), newTarget.methodNode(), context.environment().refmapHolder());
+        for (Parameter param : params) {
+            for (Annotation annotation : param.annotations()) {
+                if (annotation.getDesc().equals(MixinAnnotations.LOCAL) && session.findLocal(annotation.toAnnotationNode(), param.type(), insn) == -1) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     @Nullable

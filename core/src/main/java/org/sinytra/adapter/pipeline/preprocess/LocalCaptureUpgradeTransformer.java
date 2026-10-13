@@ -9,6 +9,7 @@ import org.sinytra.adapter.analysis.locals.LocalVariable;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.locals.LocalsAnalyzer;
 import org.sinytra.adapter.api.AuditTrail;
+import org.sinytra.adapter.api.MethodPatchContext;
 import org.sinytra.adapter.api.MethodTransformer;
 import org.sinytra.adapter.api.PatchResult;
 import org.sinytra.adapter.mixin.MixinBridge.LocalCandidate;
@@ -25,6 +26,11 @@ import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.PROPER
 
 public class LocalCaptureUpgradeTransformer implements MethodTransformer {
     @Override
+    public PatchResult apply(MethodPatchContext patchContext) {
+        MixinContext context = (MixinContext) patchContext;
+        return apply(context, context.configuration());
+    }
+
     public PatchResult apply(MixinContext context, Configuration config) {
         // Check requirements
         Targets targets = context.targets(config.getTargetMethod());

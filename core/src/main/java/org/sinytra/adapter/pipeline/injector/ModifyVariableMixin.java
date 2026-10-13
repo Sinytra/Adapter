@@ -28,6 +28,7 @@ import java.util.List;
 
 import static org.sinytra.adapter.model.param.HandlerSignature.ParamSource.*;
 import static org.sinytra.adapter.model.param.HandlerSignature.slot;
+import static org.sinytra.adapter.model.param.MethodParameters.ParamGroup.CAPTURED_PARAMS;
 import static org.sinytra.adapter.model.param.MethodParameters.ParamGroup.LOCALS;
 import static org.sinytra.adapter.model.param.MethodParameters.ParamGroup.SINGLE_ANY;
 
@@ -40,6 +41,7 @@ public class ModifyVariableMixin extends AbstractMixinType {
     private static final HandlerSignature SIGNATURE = HandlerSignature.of(
         ValueSource.VARIABLE,
         slot(SINGLE_ANY, VALUE),
+        slot(CAPTURED_PARAMS, CAPTURED_TARGET_ARGS),
         slot(LOCALS, KEEP)
     );
 
@@ -73,8 +75,9 @@ public class ModifyVariableMixin extends AbstractMixinType {
 
         boolean argsOnly = clean.getProperty(MixinKeys.ARGS_ONLY).orElse(false);
         String cleanDesc = clean.getTargetMethod().desc();
-        if (argsOnly && cleanDesc != null && !dirty.getTargetMethod().desc().equals(cleanDesc)) {
-            Type cleanVarType = clean.getParameters().getTypes(SINGLE_ANY).getFirst();
+        boolean targetChanged = cleanDesc != null && !dirty.getTargetMethod().desc().equals(cleanDesc);
+        Type cleanVarType = clean.getParameters().getTypes(SINGLE_ANY).getFirst();
+        if (argsOnly && targetChanged) {
             List<Type> cleanTargetMethodParams = Parameters.getParameterTypes(cleanDesc);
             int cleanIndex = cleanTargetMethodParams.indexOf(cleanVarType);
 
@@ -89,7 +92,10 @@ public class ModifyVariableMixin extends AbstractMixinType {
             if (adapter != null) {
                 return HandlerSignatures.apply(context, SIGNATURE, clean, dirty, recipe, dirtyVarType);
             }
-            return TxResult.SUCCESS;
+        }
+
+        if (targetChanged && !clean.getParameters().getTypes(CAPTURED_PARAMS).isEmpty()) {
+            return HandlerSignatures.apply(context, SIGNATURE, clean, dirty, recipe, cleanVarType);
         }
 
         dirty.inheritSignature();

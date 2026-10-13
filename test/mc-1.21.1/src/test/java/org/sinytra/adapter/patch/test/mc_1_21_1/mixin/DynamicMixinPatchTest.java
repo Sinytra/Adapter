@@ -61,7 +61,7 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
             .classTransformer(new FieldTypeUsageTransformer())
             .methodTransformers(ImmutableMultimap.<TxPhase, MethodTransformer>builder()
                 .putAll(DynamicPatches.methodTransformers(List.of()))
-                .put(TxPhase.VALIDATED, (context, config) -> {
+                .put(TxPhase.VALIDATED, context -> {
                     if (context.methodNode().name.startsWith("failAfter")) {
                         throw new IllegalStateException("Simulated failure");
                     }
@@ -277,6 +277,16 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     }
 
     @Test
+    void testDescriptorOnlyTargetSelector() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/FarmLandBlockMixin",
+            "isNearWaterByDescriptor",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
     void testUpdatedInjectionPointModifyExprValConst() throws Exception {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/FarmLandBlockMixin",
@@ -358,6 +368,16 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         });
     }
 
+    @Test
+    void testMultiTargetSplit() throws Exception {
+        LoadResult result = load("org/sinytra/adapter/test/mixin/GuiMixin", List.of("modifyStatusBarY"));
+        MethodNode original = result.patched().methods.stream().filter(m -> m.name.equals("modifyStatusBarY")).findFirst().orElseThrow();
+        MethodNode copy = result.patched().methods.stream().filter(m -> m.name.equals("modifyStatusBarY$adapter$target$1")).findFirst().orElseThrow();
+        Assertions.assertThat(getTargetMethods(original)).containsExactly("renderAirLevel(Lnet/minecraft/client/gui/GuiGraphics;)V");
+        Assertions.assertThat(getTargetMethods(copy)).containsExactly("renderVehicleHealth(Lnet/minecraft/client/gui/GuiGraphics;)V");
+        Assertions.assertThat(new AnnotationHandle(copy.visibleAnnotations.getFirst()).<Integer>getValue("require").orElseThrow().get()).isZero();
+    }
+
     private static List<String> getTargetMethods(MethodNode method) {
         return new AnnotationHandle(method.visibleAnnotations.getFirst()).<List<String>>getValue("method").orElseThrow().get();
     }
@@ -389,7 +409,46 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
             "org/sinytra/adapter/test/mixin/LivingEntityMixin",
             "onUnderwater",
             assertUnique(),
-            assertHasGeneratedMethod("org/sinytra/adapter/test/mixin/adapter_generated_net_neoforged_neoforge_common_CommonHooks")
+            assertHasGeneratedMethod("org/sinytra/adapter/test/mixin/adapter_generated_net_neoforged_neoforge_common_CommonHooks"),
+            (patched, expected, env) -> {
+                ClassNode generated = env.classGenerator().getGeneratedMixinClasses().get("org/sinytra/adapter/test/mixin/adapter_generated_net_neoforged_neoforge_common_CommonHooks").node();
+                MethodNode mirror = generated.methods.stream().filter(m -> m.name.startsWith("onUnderwater$adapter$mirror")).findFirst().orElseThrow();
+                List<?> slices = new AnnotationHandle(mirror.visibleAnnotations.getFirst()).<List<?>>getValue("slice").map(v -> v.get()).orElse(List.of());
+                Assertions.assertThat(slices).isEmpty();
+            }
+        );
+    }
+
+    @Test
+    void testRedirectFieldMirrored() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/LivingEntityMixin",
+            "redirectClientSide",
+            assertUnique(),
+            assertHasGeneratedMethod("org/sinytra/adapter/test/mixin/adapter_generated_net_neoforged_neoforge_common_CommonHooks"),
+            (patched, expected, env) -> {
+                ClassNode generated = env.classGenerator().getGeneratedMixinClasses().get("org/sinytra/adapter/test/mixin/adapter_generated_net_neoforged_neoforge_common_CommonHooks").node();
+                MethodNode mirror = generated.methods.stream().filter(m -> m.name.startsWith("redirectClientSide$adapter$mirror")).findFirst().orElseThrow();
+                Assertions.assertThat(mirror.desc).isEqualTo("(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/LivingEntity;)Z");
+            }
+        );
+    }
+
+    @Test
+    void testRedirectChangedConstructor() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/FaceBakeryMixin",
+            "createQuad",
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
+    void testAppliedLocalWarning() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/LivingEntityMixin",
+            "modifyHealthDamage",
+            assertAudit("Warning: The variable selector selects local 2")
         );
     }
 
@@ -559,7 +618,19 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
             "org/sinytra/adapter/test/mixin/pipeline/BeaconBlockEntityMixin",
             "replaceDyeColor",
             "org/sinytra/adapter/test/mixin/pipeline/adapter_generated_net_neoforged_neoforge_common_extensions_IBlockExtension",
-            assertTargetMethod()
+            assertTargetMethod(),
+            assertLocalSelectors()
+        );
+    }
+
+    @Test
+    void testExtractWidenedLocal() throws Exception {
+        assertSameCodeExtracted(
+            "org/sinytra/adapter/test/mixin/pipeline/BeaconBlockEntityMixin",
+            "replaceDyeColorOnClient",
+            "org/sinytra/adapter/test/mixin/pipeline/adapter_generated_net_neoforged_neoforge_common_extensions_IBlockExtension",
+            assertTargetMethod(),
+            assertLocalSelectors()
         );
     }
 
@@ -593,6 +664,12 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
 
     @Test
     void testRollbackMove() throws Exception {
+        LoadResult result = load("org/sinytra/adapter/test/mixin/pipeline/BeaconBlockEntityMixin", List.of("failAfterMove"));
+        MethodNode lambda = result.patched().methods.stream().filter(m -> m.name.startsWith("lambda$failAfterMove$")).findFirst().orElseThrow();
+        MethodNode expected = result.expected().methods.stream().filter(m -> m.name.equals(lambda.name)).findFirst().orElseThrow();
+        Assertions.assertThat(StreamSupport.stream(lambda.instructions.spliterator(), false).toList())
+            .usingElementComparator(new InsnComparator())
+            .isEqualTo(StreamSupport.stream(expected.instructions.spliterator(), false).toList());
         assertSameCode(
             "org/sinytra/adapter/test/mixin/pipeline/BeaconBlockEntityMixin",
             "failAfterMove",
@@ -632,10 +709,20 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    @Test
+    void testTargetInheritedDelegatingDefault() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/MultiPartBakedModelMixin",
+            "onGetQuads",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
     @Override
     protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
         ClassNode patched = loadClass(className);
-        patched.methods.removeIf(m -> !allowedMethods.contains(m.name));
+        patched.methods.removeIf(m -> !allowedMethods.contains(m.name) && allowedMethods.stream().noneMatch(name -> m.name.startsWith("lambda$" + name + "$")));
         patcher.process(patched);
         return new LoadResult(patchEnvironment, patched, loadClass(className));
     }

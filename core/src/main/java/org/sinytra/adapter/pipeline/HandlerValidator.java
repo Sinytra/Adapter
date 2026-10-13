@@ -1,10 +1,8 @@
 package org.sinytra.adapter.pipeline;
 
 import org.jetbrains.annotations.Nullable;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.MethodInsnNode;
 import org.sinytra.adapter.analysis.injection.InjectionQuery;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.ann.AtData;
@@ -17,6 +15,7 @@ import org.sinytra.adapter.model.param.HandlerSignature;
 import org.sinytra.adapter.model.param.MethodParameters;
 import org.sinytra.adapter.model.param.Parameter;
 import org.sinytra.adapter.model.param.Parameters;
+import org.sinytra.adapter.model.param.RedirectedInsn;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 
 import java.util.Arrays;
@@ -27,13 +26,12 @@ public final class HandlerValidator {
     @Nullable
     public static String validate(MixinContext context, Configuration dirty, Recipe recipe) {
         if (dirty.getProperty(ControlKeys.DELETE).orElse(false)
-            || !Objects.equals(recipe.clean().getTargetClass(), dirty.getTargetClass())
             || !Objects.equals(recipe.clean().getProperty(ControlKeys.MIXIN_TYPE), dirty.getProperty(ControlKeys.MIXIN_TYPE))
             || dirty.getTargetMethod() == null) {
             return null;
         }
 
-        TargetPair target = context.dirtyMethods().resolve(dirty.getTargetMethod());
+        TargetPair target = recipe.getDirtyTarget();
         if (target == null) {
             return "dirty target method %s not found".formatted(dirty.getTargetMethod().asDescriptor());
         }
@@ -70,13 +68,13 @@ public final class HandlerValidator {
             return "handler returns %s instead of the expected %s".formatted(handlerReturn, dirty.getReturnType());
         }
 
-        MethodInsnNode call = insn instanceof MethodInsnNode minsn ? minsn : null;
+        RedirectedInsn redirected = RedirectedInsn.of(insn);
         List<Type> targetArgs = Parameters.getParameterTypes(target.methodNode().desc);
         Type targetReturn = Type.getReturnType(target.methodNode().desc);
 
         Type expectedReturn = switch (signature.returns()) {
             case VOID -> Type.VOID_TYPE;
-            case CALL_RETURN -> call != null ? Type.getReturnType(call.desc) : null;
+            case CALL_RETURN -> redirected != null ? redirected.result() : null;
             case TARGET_RETURN -> targetReturn;
             case CALL_ARG, VARIABLE -> null;
         };
@@ -88,8 +86,7 @@ public final class HandlerValidator {
             if (!params.has(slot.group())) continue;
             List<Parameter> group = params.get(slot.group());
             String problem = switch (slot.source()) {
-                case CALL_OPERANDS -> call == null ? null : checkTypes("call operand", group, Parameters.getCallOperandTypes(
-                    call.getOpcode() == Opcodes.INVOKESTATIC ? null : Type.getObjectType(call.owner), call.desc));
+                case CALL_OPERANDS -> redirected == null ? null : checkTypes("call operand", group, redirected.operands());
                 case OPERATION -> checkTypes("operation", group, List.of(TypeConstants.OPERATION_TYPE));
                 case CALLBACK_INFO -> group.isEmpty() ? null
                     : checkTypes("callback info", group, List.of(targetReturn.equals(Type.VOID_TYPE) ? TypeConstants.CI_TYPE : TypeConstants.CIR_TYPE));

@@ -1,22 +1,13 @@
 package org.sinytra.adapter.pipeline.ctx;
 
-import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.ClassNode;
-import org.sinytra.adapter.api.PatchEnvironment;
+import org.jetbrains.annotations.Nullable;
+import org.sinytra.adapter.api.ClassPatchContext;
+import org.sinytra.adapter.model.ann.ClassTarget;
 import org.sinytra.adapter.model.ann.RefMapper;
 
-import java.util.List;
-
-public interface PatchContext extends RefMapper {
-    static PatchContext create(ClassNode classNode, List<Type> targetTypes, PatchEnvironment environment) {
-        return new PatchContextImpl(classNode, targetTypes, environment);
-    }
-
-    ClassNode classNode();
-
-    List<Type> targetTypes();
-
-    PatchEnvironment environment();
+public interface PatchContext extends ClassPatchContext, RefMapper {
+    @Nullable
+    ClassTarget classTarget();
 
     void postApply(Runnable consumer);
 

@@ -91,7 +91,7 @@ public final class MethodLocator {
 
     @Nullable
     private Pair<ClassNode, List<MethodNode>> findCandidates(@Nullable MethodQualifier qualifier, boolean useDefaultOwner, boolean ignoreDesc) {
-        if (qualifier == null || qualifier.name() == null) {
+        if (qualifier == null || qualifier.name() == null && qualifier.desc() == null) {
             return null;
         }
 
@@ -114,7 +114,7 @@ public final class MethodLocator {
         // Find target method in class
         String desc = qualifier.desc();
         List<MethodNode> candidates = targetClass.methods.stream()
-            .filter(mtd -> mtd.name.equals(qualifier.name()) && (ignoreDesc || desc == null || mtd.desc.equals(desc)))
+            .filter(mtd -> ignoreDesc ? qualifier.ignoreDesc().matches(null, mtd.name, null) : qualifier.withOwner(null).matches(null, mtd.name, mtd.desc))
             .toList();
 
         // If there's multiple candidates, try removing bouncer methods

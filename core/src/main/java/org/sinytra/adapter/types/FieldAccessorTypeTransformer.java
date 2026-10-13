@@ -9,6 +9,7 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.api.BytecodeFixerUpper;
+import org.sinytra.adapter.api.ClassPatchContext;
 import org.sinytra.adapter.api.ClassTransformer;
 import org.sinytra.adapter.api.PatchEnvironment;
 import org.sinytra.adapter.api.PatchResult;
@@ -16,10 +17,8 @@ import org.sinytra.adapter.api.TypeAdapter;
 import org.sinytra.adapter.mixin.MixinBridge;
 import org.sinytra.adapter.model.ann.AnnotationHandle;
 import org.sinytra.adapter.model.ann.AnnotationValueHandle;
-import org.sinytra.adapter.model.ann.ClassTarget;
 import org.sinytra.adapter.model.constant.MixinAnnotations;
 import org.sinytra.adapter.model.constant.TypeConstants;
-import org.sinytra.adapter.pipeline.ctx.PatchContext;
 import org.sinytra.adapter.util.OpcodeUtil;
 
 import java.util.Optional;
@@ -29,7 +28,7 @@ public class FieldAccessorTypeTransformer implements ClassTransformer {
     private static final int PRIORITY_MAX = 9999;
 
     @Override
-    public PatchResult apply(ClassNode classNode, ClassTarget classTarget, PatchContext context) {
+    public PatchResult apply(ClassNode classNode, ClassPatchContext context) {
         BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
         if (bfu == null || context.targetTypes().size() != 1) return PatchResult.PASS;
 
@@ -48,7 +47,7 @@ public class FieldAccessorTypeTransformer implements ClassTransformer {
         return result;
     }
 
-    private PatchResult redirectAccessor(ClassNode classNode, MethodNode methodNode, AnnotationNode accessor, Type owner, BytecodeFixerUpper bfu, PatchContext context) {
+    private PatchResult redirectAccessor(ClassNode classNode, MethodNode methodNode, AnnotationNode accessor, Type owner, BytecodeFixerUpper bfu, ClassPatchContext context) {
         String fieldFqn = getAccessorTargetFieldName(classNode.name, methodNode, new AnnotationHandle(accessor), context.environment())
             .orElse(null);
         if (fieldFqn == null) return PatchResult.PASS;

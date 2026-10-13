@@ -7,11 +7,10 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.flow.DataFlow;
 import org.sinytra.adapter.api.BytecodeFixerUpper;
+import org.sinytra.adapter.api.ClassPatchContext;
 import org.sinytra.adapter.api.ClassTransformer;
 import org.sinytra.adapter.api.PatchResult;
 import org.sinytra.adapter.api.TypeAdapter;
-import org.sinytra.adapter.model.ann.ClassTarget;
-import org.sinytra.adapter.pipeline.ctx.PatchContext;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.slf4j.Logger;
 
@@ -25,7 +24,7 @@ public class FieldTypeUsageTransformer implements ClassTransformer {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     @Override
-    public PatchResult apply(ClassNode classNode, ClassTarget classTarget, PatchContext context) {
+    public PatchResult apply(ClassNode classNode, ClassPatchContext context) {
         BytecodeFixerUpper bfu = context.environment().bytecodeFixerUpper();
         boolean applied = false;
         if (bfu != null) {

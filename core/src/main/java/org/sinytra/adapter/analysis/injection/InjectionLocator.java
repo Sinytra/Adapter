@@ -121,7 +121,7 @@ public final class InjectionLocator {
     @Nullable
     private AnnotationNode getSlice() {
         return this.context.methodAnnotation().getValue(PROPERTY_SLICE)
-            .map(handle -> handle.get() instanceof List<?> list ? (AnnotationNode) list.getFirst() : (AnnotationNode) handle.get())
+            .map(handle -> handle.get() instanceof List<?> list ? (list.isEmpty() ? null : (AnnotationNode) list.getFirst()) : (AnnotationNode) handle.get())
             .orElse(null);
     }
 

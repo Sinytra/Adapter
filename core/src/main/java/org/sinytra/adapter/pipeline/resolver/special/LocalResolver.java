@@ -2,13 +2,7 @@ package org.sinytra.adapter.pipeline.resolver.special;
 
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.InsnList;
-import org.objectweb.asm.tree.LocalVariableNode;
-import org.sinytra.adapter.analysis.compare.MethodAlignment;
 import org.sinytra.adapter.analysis.injection.InjectionQuery;
-import org.sinytra.adapter.analysis.locals.LocalAlignment;
-import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
-import org.sinytra.adapter.analysis.locals.LocalsAnalyzer;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.ann.AtData;
 import org.sinytra.adapter.model.config.Configuration;
@@ -17,6 +11,7 @@ import org.sinytra.adapter.model.config.key.MixinKeys;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.locate.Describer;
+import org.sinytra.adapter.pipeline.locate.LocalLocator;
 import org.sinytra.adapter.pipeline.resolver.Resolver;
 import org.sinytra.adapter.util.AdapterUtil;
 
@@ -47,7 +42,7 @@ public final class LocalResolver implements Resolver {
         if (cleanSlot < 0) {
             return ResolutionResult.pass();
         }
-        int dirtySlot = findDirtySlot(recipe, cleanTarget, dirtyTarget, cleanSlot, cleanInsn);
+        int dirtySlot = LocalLocator.resolve(context, recipe, cleanTarget, cleanSlot, cleanInsn, dirtyTarget);
         if (dirtySlot < 0 || context.locals().resolveSelectedLocal(dirtyTarget, dirtyInsn, type) == dirtySlot) {
             return ResolutionResult.pass();
         }
@@ -58,23 +53,5 @@ public final class LocalResolver implements Resolver {
         }
         context.recordCtxAudit("Select local %s instead of %s", dirtySlot, cleanSlot);
         return ResolutionResult.success(local);
-    }
-
-    private static int findDirtySlot(Recipe recipe, TargetPair cleanTarget, TargetPair dirtyTarget, int cleanSlot, AbstractInsnNode cleanInsn) {
-        if (cleanTarget.methodNode().name.equals(dirtyTarget.methodNode().name) && cleanTarget.methodNode().desc.equals(dirtyTarget.methodNode().desc)) {
-            MethodAlignment alignment = MethodAlignment.align(cleanTarget.methodNode(), dirtyTarget.methodNode());
-            return LocalAlignment.of(alignment).resolve(cleanSlot, cleanInsn);
-        }
-
-        LocalVariableLookup cleanLocals = recipe.cleanLocalsTable();
-        LocalVariableNode cleanLocal = cleanLocals != null ? cleanLocals.getInScopeOrNull(cleanSlot, cleanInsn) : null;
-        if (cleanLocal == null) {
-            return -1;
-        }
-
-        InsnList initializer = LocalsAnalyzer.findInitializerInsns(cleanTarget.methodNode(), cleanSlot);
-        return LocalsAnalyzer.findLocalWithInitializer(dirtyTarget.methodNode(), cleanLocal.desc, initializer)
-            .map(local -> local.index)
-            .orElse(-1);
     }
 }

@@ -5,10 +5,12 @@ import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.flow.DataFlow;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
+import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.model.param.Annotation;
 import org.sinytra.adapter.model.param.Parameter;
 import org.sinytra.adapter.util.AdapterUtil;
@@ -64,6 +66,30 @@ public final class ParamTransformationUtil {
 
         for (int pos = 0; pos < order.length; pos++) {
             parameters.set(pos, permuted.get(pos));
+        }
+    }
+
+    public static void retypeParameter(MethodNode method, int index, Type type, boolean castLoads) {
+        Type[] args = Type.getArgumentTypes(method.desc);
+        Type old = args[index];
+        int slot = getLVTIndex(Arrays.asList(args), !MethodAnalyzer.isStatic(method), index);
+        args[index] = type;
+        method.desc = Type.getMethodDescriptor(Type.getReturnType(method.desc), args);
+        if (method.localVariables != null) {
+            method.localVariables.stream()
+                .filter(local -> local.index == slot)
+                .findFirst()
+                .ifPresent(local -> {
+                    local.desc = type.getDescriptor();
+                    local.signature = null;
+                });
+        }
+        if (castLoads) {
+            for (AbstractInsnNode insn : method.instructions) {
+                if (insn instanceof VarInsnNode load && load.getOpcode() == Opcodes.ALOAD && load.var == slot) {
+                    method.instructions.insert(load, new TypeInsnNode(Opcodes.CHECKCAST, old.getInternalName()));
+                }
+            }
         }
     }
 

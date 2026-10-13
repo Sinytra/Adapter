@@ -1,6 +1,7 @@
 package org.sinytra.adapter.edit.param;
 
 import com.mojang.logging.LogUtils;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -10,7 +11,6 @@ import org.sinytra.adapter.analysis.method.WrapOpOriginalCall;
 import org.sinytra.adapter.api.PatchResult;
 import org.sinytra.adapter.api.TypeAdapter;
 import org.sinytra.adapter.model.constant.MixinAnnotations;
-import org.sinytra.adapter.model.param.Parameters;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.slf4j.Logger;
 
@@ -35,12 +35,13 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
     public PatchResult apply(ClassNode classNode, MethodNode methodNode, MixinContext context, List<Type> parameters, int offset) {
         final int paramIndex = this.index + offset;
 
-        if (Type.getArgumentCount(methodNode.desc) <= paramIndex) {
+        if (paramIndex >= parameters.size()) {
             return PatchResult.PASS;
         }
 
+        boolean nonStatic = !context.isStatic();
         LocalVariableLookup lvtLookup = LocalVariableLookup.of(methodNode);
-        LocalVariableNode localVar = lvtLookup == null ? null : lvtLookup.getByParameterOrdinalOrNull(paramIndex);
+        LocalVariableNode localVar = lvtLookup == null ? null : findParameterLocal(lvtLookup, ParamTransformationUtil.getLVTIndex(parameters, nonStatic, paramIndex));
         if (localVar == null) {
             LOGGER.info(MIXINPATCH, "Cannot replace parameter {}, missing local variable info in {}.{}", paramIndex, classNode.name, methodNode.name);
             return PatchResult.PASS;
@@ -68,10 +69,9 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
                         TypeAdapter typeFix = context.getTypeAdapter(type, originalType);
                         // If this is a wrap operation, make an educated guess and try adapting the instance type
                         if (typeFix == null && context.methodAnnotation().matchesDesc(MixinAnnotations.WRAP_OPERATION)) {
-                            List<Type> params = Parameters.getParameterTypes(methodNode.desc);
-                            LocalVariableNode firstParam = lvtLookup.getByParameterOrdinalOrNull(0);
-                            if (!params.isEmpty() && firstParam != null) {
-                                typeFix = context.getTypeAdapter(params.getFirst(), originalType);
+                            LocalVariableNode firstParam = parameters.isEmpty() ? null : findParameterLocal(lvtLookup, nonStatic ? 1 : 0);
+                            if (firstParam != null) {
+                                typeFix = context.getTypeAdapter(parameters.getFirst(), originalType);
                                 if (typeFix != null) {
                                     varInsn.var = firstParam.index;
                                 }
@@ -95,5 +95,10 @@ public record ReplaceParametersTransformer(int index, Type type, boolean upgrade
         }
 
         return PatchResult.COMPUTE_FRAMES;
+    }
+
+    @Nullable
+    private static LocalVariableNode findParameterLocal(LocalVariableLookup lookup, int slot) {
+        return lookup.getLocals().stream().filter(local -> local.index == slot).findFirst().orElse(null);
     }
 }

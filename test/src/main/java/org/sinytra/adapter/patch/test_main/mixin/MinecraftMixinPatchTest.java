@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -241,6 +242,22 @@ public abstract class MinecraftMixinPatchTest {
                 .map(m -> m.name)
                 .toList();
             Assertions.assertThat(leftovers).as("Generated methods left by " + patched.name).isEmpty();
+        };
+    }
+
+    protected AssertCallback assertLocalSelectors() {
+        return (patched, expected, env) -> {
+            Function<MethodNode, List<String>> selectors = method -> {
+                List<String> values = new ArrayList<>();
+                List<AnnotationNode>[] annotations = Objects.requireNonNullElseGet(method.invisibleParameterAnnotations, () -> new List[0]);
+                for (List<AnnotationNode> list : annotations) {
+                    if (list != null) {
+                        list.stream().filter(a -> a.desc.equals(MixinAnnotations.LOCAL)).forEach(a -> values.add(String.valueOf(a.values)));
+                    }
+                }
+                return values;
+            };
+            Assertions.assertThat(selectors.apply(patched)).as("@Local selectors").isEqualTo(selectors.apply(expected));
         };
     }
 

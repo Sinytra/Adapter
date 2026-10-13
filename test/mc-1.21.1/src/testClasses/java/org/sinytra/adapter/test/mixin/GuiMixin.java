@@ -182,4 +182,13 @@ public class GuiMixin {
     private void failAfterCancelling(GuiGraphics guiGraphics, CallbackInfo ci) {
         ci.cancel();
     }
+
+    @ModifyArg(
+        method = {"renderPlayerHealth", "renderVehicleHealth"},
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;blitSprite(Lnet/minecraft/resources/ResourceLocation;IIII)V"),
+        index = 2
+    )
+    public int modifyStatusBarY(int y) {
+        return y;
+    }
 }
