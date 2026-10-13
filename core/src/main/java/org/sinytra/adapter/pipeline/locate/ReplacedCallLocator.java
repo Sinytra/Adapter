@@ -10,7 +10,6 @@ import org.objectweb.asm.tree.analysis.SourceValue;
 import org.sinytra.adapter.analysis.InsnTraversal;
 import org.sinytra.adapter.analysis.compare.MethodAlignment;
 import org.sinytra.adapter.analysis.flow.DataFlow;
-import org.sinytra.adapter.model.Targets;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.injector.MixinFlag;
@@ -20,13 +19,13 @@ import java.util.List;
 
 public final class ReplacedCallLocator implements Locator {
     @Override
-    public List<Candidate> locate(MixinContext context, Recipe recipe, Targets targets, AbstractInsnNode cleanInsn) {
+    public List<Candidate> locate(MixinContext context, Recipe recipe, Scope scope, AbstractInsnNode cleanInsn) {
         if (!(cleanInsn instanceof MethodInsnNode cleanCall)) {
             return List.of();
         }
 
         Type returnType = Type.getReturnType(cleanCall.desc);
-        MethodAlignment alignment = MethodAlignment.align(targets.clean().methodNode(), targets.dirty().methodNode());
+        MethodAlignment alignment = scope.alignment();
         List<MethodInsnNode> calls = alignment.findDirtyAround(cleanCall).stream()
             .filter(insn -> insn instanceof MethodInsnNode call && Type.getReturnType(call.desc).equals(returnType))
             .map(MethodInsnNode.class::cast)
@@ -41,17 +40,17 @@ public final class ReplacedCallLocator implements Locator {
             }
         }
         if (calls.isEmpty() && !context.hasFlag(MixinFlag.RETURN_TYPE_SENSITIVE) && !context.hasFlag(MixinFlag.AT_TARGET_SENSITIVE)) {
-            MethodInsnNode storing = findStoringCall(context, targets, alignment, cleanCall);
+            MethodInsnNode storing = findStoringCall(context, scope, alignment, cleanCall);
             calls = storing != null ? List.of(storing) : List.of();
         }
         return calls.stream()
-            .map(call -> new Candidate(targets.dirty(), call, MethodAlignment.Confidence.POSITIONAL))
+            .map(call -> scope.candidate(call, MethodAlignment.Confidence.POSITIONAL))
             .toList();
     }
 
     /// {@return the dirty call whose value goes into the local the clean call's result was stored into, or null}
     @Nullable
-    private static MethodInsnNode findStoringCall(MixinContext context, Targets targets, MethodAlignment alignment, MethodInsnNode cleanCall) {
+    private static MethodInsnNode findStoringCall(MixinContext context, Scope scope, MethodAlignment alignment, MethodInsnNode cleanCall) {
         AbstractInsnNode cleanStore = skipCasts(nextReal(cleanCall));
         if (cleanStore == null || !OpcodeUtil.isStoreOpcode(cleanStore.getOpcode())
             || !(alignment.resolve(cleanStore) instanceof VarInsnNode dirtyStore)
@@ -59,7 +58,7 @@ public final class ReplacedCallLocator implements Locator {
             return null;
         }
 
-        DataFlow flow = context.dataFlow(targets.dirty());
+        DataFlow flow = context.dataFlow(scope.method());
         AbstractInsnNode producer = dirtyStore;
         do {
             List<SourceValue> operands = flow.operands(producer);

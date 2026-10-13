@@ -10,32 +10,56 @@ import org.sinytra.adapter.model.ann.AtData;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
-import org.sinytra.adapter.pipeline.locate.CalledMethodLocator;
 import org.sinytra.adapter.pipeline.locate.Candidate;
 import org.sinytra.adapter.pipeline.locate.Describer;
 import org.sinytra.adapter.pipeline.locate.LocalLocator;
 import org.sinytra.adapter.pipeline.locate.LocatingSubResolver;
 import org.sinytra.adapter.pipeline.locate.ReplacedCallLocator;
 import org.sinytra.adapter.pipeline.locate.SameMethodLocator;
+import org.sinytra.adapter.pipeline.locate.Scope;
+import org.sinytra.adapter.pipeline.locate.ScopeSearch;
+import org.sinytra.adapter.pipeline.locate.SelectedLocator;
 import org.sinytra.adapter.util.AdapterUtil;
 
+import java.util.ArrayList;
 import java.util.List;
 
-public class InjectionPointResolver extends CompoundResolver {
+public class InjectionPointResolver implements Resolver {
     private static final SameMethodLocator SAME_METHOD = new SameMethodLocator();
 
+    private final List<LocatingSubResolver> subResolvers = new ArrayList<>();
+
     public InjectionPointResolver() {
-        addSubResolver(new LocatingSubResolver(List.of(SAME_METHOD, new CalledMethodLocator(), new ReplacedCallLocator())));
+        addSubResolver(new LocatingSubResolver(List.of(SAME_METHOD, new SelectedLocator(), new ReplacedCallLocator()), ScopeSearch.Reach.CALLS));
+    }
+
+    public InjectionPointResolver addSubResolver(LocatingSubResolver subResolver) {
+        this.subResolvers.add(subResolver);
+        return this;
     }
 
     @Override
-    protected boolean canApply(Recipe recipe) {
-        return recipe.dirty().getAtData() == null;
+    public ResolutionResult resolve(MixinContext context, Recipe recipe) {
+        if (recipe.dirty().getAtData() != null) {
+            return ResolutionResult.pass();
+        }
+
+        Configuration reused = tryReuse(context, recipe);
+        if (reused != null) {
+            return ResolutionResult.success(reused);
+        }
+
+        for (LocatingSubResolver subResolver : this.subResolvers) {
+            Configuration result = context.audited(subResolver, () -> subResolver.resolve(context, recipe));
+            if (result != null) {
+                return ResolutionResult.success(result);
+            }
+        }
+        return ResolutionResult.fail();
     }
 
     @Nullable
-    @Override
-    protected Configuration tryReuse(MixinContext context, Recipe recipe) {
+    private static Configuration tryReuse(MixinContext context, Recipe recipe) {
         Configuration dirty = recipe.dirty();
 
         String targetClass = dirty.getTargetClass();
@@ -80,9 +104,9 @@ public class InjectionPointResolver extends CompoundResolver {
         ) {
             return true;
         }
-        Targets targets = new Targets(cleanTarget, dirtyTarget);
+        Scope scope = Scope.of(new Targets(cleanTarget, dirtyTarget));
         for (AbstractInsnNode cleanInsn : context.injections().find(cleanTarget)) {
-            List<Candidate> candidates = SAME_METHOD.locate(context, recipe, targets, cleanInsn);
+            List<Candidate> candidates = SAME_METHOD.locate(context, recipe, scope, cleanInsn);
             if (!candidates.isEmpty() && candidates.stream().noneMatch(c -> dirtyInsns.contains(c.insn()))) {
                 return false;
             }

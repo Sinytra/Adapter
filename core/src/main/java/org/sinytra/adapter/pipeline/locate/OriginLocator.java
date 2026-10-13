@@ -13,7 +13,10 @@ import java.util.Comparator;
 import java.util.List;
 
 public final class OriginLocator {
-    public record Origin(TargetPair method, boolean matches, double similarity, boolean deprecated) {
+    public record Origin(TargetPair method, boolean matches, MethodAlignment alignment, boolean deprecated) {
+        public double similarity() {
+            return this.alignment.similarity();
+        }
     }
 
     private static final Comparator<Origin> RANKING = Comparator.comparing(Origin::matches).reversed()
@@ -36,7 +39,7 @@ public final class OriginLocator {
             .map(candidate -> new Origin(
                 candidate,
                 context.injections().matches(candidate),
-                MethodAlignment.align(cleanTarget.methodNode(), candidate.methodNode()).similarity(),
+                MethodAlignment.align(cleanTarget.methodNode(), candidate.methodNode()),
                 isDirtyDeprecated(context, candidate.methodNode())
             ))
             .sorted(RANKING)

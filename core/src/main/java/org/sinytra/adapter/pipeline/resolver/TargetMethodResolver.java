@@ -15,8 +15,7 @@ public class TargetMethodResolver implements Resolver {
         if (recipe.dirty().getTargetMethod() != null) {
             return ResolutionResult.pass();
         }
-        TargetPair same = recipe.getNewCleanTarget();
-        if (same != null && context.injections().matches(same)) {
+        if (recipe.getNewCleanTarget() != null) {
             return ResolutionResult.success(recipe.dirty().copyClean().inheritTargetMethod());
         }
 
@@ -26,8 +25,9 @@ public class TargetMethodResolver implements Resolver {
             ? OriginLocator.locate(context, cleanTarget, recipe.clean().getTargetClass(), cleanQualifier)
             : List.of();
         OriginLocator.Origin origin = origins.isEmpty() ? null : origins.getFirst();
-        if (origin == null || same != null && origin.method().isSameMethod(same)) {
-            return same != null ? ResolutionResult.success(recipe.dirty().copyClean().inheritTargetMethod()) : ResolutionResult.fail();
+        boolean hasAt = recipe.clean().getAtData() != null;
+        if (origin == null || hasAt && !origin.matches()) {
+            return hasAt ? ResolutionResult.pass() : ResolutionResult.fail();
         }
         context.recordCtxAudit("Located target method %s (similarity %.2f%s)", MethodQualifier.create(origin.method().methodNode()).asDescriptor(),
             origin.similarity(), origin.matches() ? ", injection point matches" : "");

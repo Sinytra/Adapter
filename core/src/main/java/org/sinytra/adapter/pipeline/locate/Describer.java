@@ -64,7 +64,7 @@ public final class Describer {
             config.mergeFrom(local);
         }
 
-        if (candidate.target() != recipe.getDirtyTarget()) {
+        if (otherMethod) {
             config.setTargetMethod(candidate.target().methodNode());
             String targetClass = candidate.target().classNode().name;
             if (!targetClass.equals(recipe.dirty().getTargetClass())) {

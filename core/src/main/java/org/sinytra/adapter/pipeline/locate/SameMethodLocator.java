@@ -8,38 +8,48 @@ import org.objectweb.asm.tree.JumpInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.sinytra.adapter.analysis.compare.MethodAlignment;
 import org.sinytra.adapter.analysis.method.InheritanceHandler;
-import org.sinytra.adapter.model.Targets;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.util.OpcodeUtil;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 public final class SameMethodLocator implements Locator {
     @Override
-    public List<Candidate> locate(MixinContext context, Recipe recipe, Targets targets, AbstractInsnNode cleanInsn) {
-        MethodAlignment alignment = MethodAlignment.align(targets.clean().methodNode(), targets.dirty().methodNode());
+    public List<Candidate> locate(MixinContext context, Recipe recipe, Scope scope, AbstractInsnNode cleanInsn) {
+        MethodAlignment alignment = scope.alignment();
         List<MethodAlignment.Match> matches = alignment.find(cleanInsn);
         if (!matches.isEmpty()) {
             return matches.stream()
-                .map(match -> new Candidate(targets.dirty(), match.dirty(), match.confidence()))
+                .map(match -> scope.candidate(match.dirty(), match.confidence()))
                 .toList();
         }
 
         if (OpcodeUtil.isReturnOpcode(cleanInsn.getOpcode())) {
             AbstractInsnNode dirtyReturn = findReturnReached(alignment, cleanInsn);
-            return dirtyReturn != null ? List.of(new Candidate(targets.dirty(), dirtyReturn, MethodAlignment.Confidence.POSITIONAL)) : List.of();
+            return dirtyReturn != null ? List.of(scope.candidate(dirtyReturn, MethodAlignment.Confidence.POSITIONAL)) : List.of();
         }
 
         if (!(cleanInsn instanceof MethodInsnNode cleanCall)) {
             return List.of();
         }
-        return alignment.findDirtyAround(cleanInsn).stream()
+        List<Candidate> replacements = alignment.findDirtyAround(cleanInsn).stream()
             .filter(insn -> insn instanceof MethodInsnNode dirtyCall && isReplacement(context, cleanCall, dirtyCall))
-            .map(insn -> new Candidate(targets.dirty(), insn, MethodAlignment.Confidence.POSITIONAL))
+            .map(insn -> scope.candidate(insn, MethodAlignment.Confidence.POSITIONAL))
             .toList();
+        if (!replacements.isEmpty() || scope.kind() == Scope.Kind.SAME) {
+            return replacements;
+        }
+        List<Candidate> anywhere = new ArrayList<>();
+        for (AbstractInsnNode insn : scope.method().methodNode().instructions) {
+            if (insn instanceof MethodInsnNode dirtyCall && isReplacement(context, cleanCall, dirtyCall)) {
+                anywhere.add(scope.candidate(insn, MethodAlignment.Confidence.POSITIONAL));
+            }
+        }
+        return anywhere;
     }
 
     @Nullable
