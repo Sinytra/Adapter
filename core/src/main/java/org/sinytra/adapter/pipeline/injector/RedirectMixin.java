@@ -20,9 +20,7 @@ import org.sinytra.adapter.model.param.RedirectedInsn;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
-import org.sinytra.adapter.pipeline.processor.DivertRedirectProcessor;
 import org.sinytra.adapter.pipeline.processor.Processors;
-import org.sinytra.adapter.pipeline.processor.signature.SignatureProcessor;
 import org.sinytra.adapter.pipeline.resolver.InjectionPointResolver;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.pipeline.rewrite.InstanceofMakesRedirectRedundant;
@@ -60,8 +58,6 @@ public class RedirectMixin extends AbstractMixinType {
     public TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers, Processors processors) {
         resolvers.
             addBefore(InjectionPointResolver.class, new RewriteResolver(List.of(new InstanceofMakesRedirectRedundant())));
-        processors
-            .addAfter(SignatureProcessor.class, new DivertRedirectProcessor());
 
         if (clean.getAtData() == null)
             return TxResult.FAIL;

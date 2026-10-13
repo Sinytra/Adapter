@@ -1,4 +1,4 @@
-package org.sinytra.adapter.edit;
+package org.sinytra.adapter.pipeline.processor.relocate;
 
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.AnnotationVisitor;

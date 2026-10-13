@@ -1,10 +1,8 @@
 package org.sinytra.adapter.api;
 
 import org.jetbrains.annotations.Nullable;
-import org.objectweb.asm.commons.InstructionAdapter;
 import org.sinytra.adapter.model.param.MethodParameters;
 
-import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
 public interface MethodPatchBuilder {
@@ -41,8 +39,6 @@ public interface MethodPatchBuilder {
     MethodPatchBuilder modifyStatic(boolean isStatic);
 
     MethodPatchBuilder modifyMixinType(String newType);
-
-    MethodPatchBuilder divertRedirector(Consumer<InstructionAdapter> patcher);
 
     MethodPatchBuilder disable();
 

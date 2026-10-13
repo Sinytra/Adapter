@@ -1,7 +1,6 @@
 package org.sinytra.adapter.pipeline.manual;
 
 import org.jetbrains.annotations.Nullable;
-import org.objectweb.asm.commons.InstructionAdapter;
 import org.sinytra.adapter.api.MethodPatch;
 import org.sinytra.adapter.api.MethodPatchBuilder;
 import org.sinytra.adapter.api.MethodTransformer;
@@ -10,7 +9,6 @@ import org.sinytra.adapter.model.ann.AtData;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.MutableConfiguration;
 import org.sinytra.adapter.model.config.key.ControlKeys;
-import org.sinytra.adapter.model.config.key.IntentKeys;
 import org.sinytra.adapter.model.config.key.MixinKeys;
 import org.sinytra.adapter.model.constant.MixinAnnotationConstants;
 import org.sinytra.adapter.model.param.MethodParameters;
@@ -20,7 +18,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
@@ -162,12 +159,6 @@ public class MethodPatchBuilderImpl implements MethodPatchBuilder {
     @Override
     public MethodPatchBuilder disable() {
         this.config.setShouldDelete(true);
-        return this;
-    }
-
-    @Override
-    public MethodPatchBuilder divertRedirector(Consumer<InstructionAdapter> patcher) {
-        this.config.setProperty(IntentKeys.DIVERT_REDIRECT, patcher);
         return this;
     }
 

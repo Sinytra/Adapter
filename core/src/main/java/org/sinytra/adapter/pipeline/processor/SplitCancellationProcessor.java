@@ -3,7 +3,7 @@ package org.sinytra.adapter.pipeline.processor;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
-import org.sinytra.adapter.edit.RelocationGenerator;
+import org.sinytra.adapter.pipeline.processor.relocate.RelocationGenerator;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.pipeline.Recipe;

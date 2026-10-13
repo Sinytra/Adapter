@@ -1,6 +1,5 @@
 package org.sinytra.adapter.pipeline.processor.relocate;
 
-import org.sinytra.adapter.edit.RelocationGenerator;
 import org.sinytra.adapter.model.RelocationPlan;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.pipeline.Recipe;

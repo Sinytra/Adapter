@@ -63,7 +63,7 @@ public final class RelocationSolver {
         if (params.stream().anyMatch(Parameter::isShare)) {
             return new Result.Unbound("the handler has @Share parameters, which the generated injector can't share");
         }
-        if (!selectsLocals(context, recipe, dirty, newTarget, params)) {
+        if (!selectsLocals(context, dirty, newTarget, params)) {
             return new Result.Unbound("a @Local parameter selects nothing at the new target");
         }
 
@@ -125,7 +125,7 @@ public final class RelocationSolver {
         }
     }
 
-    private static boolean selectsLocals(MixinContext context, Recipe recipe, Configuration dirty, TargetPair newTarget, List<Parameter> params) {
+    private static boolean selectsLocals(MixinContext context, Configuration dirty, TargetPair newTarget, List<Parameter> params) {
         if (params.stream().noneMatch(Parameter::isLocal)) {
             return true;
         }
