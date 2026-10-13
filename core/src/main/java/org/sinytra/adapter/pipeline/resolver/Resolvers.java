@@ -1,6 +1,5 @@
 package org.sinytra.adapter.pipeline.resolver;
 
-import org.sinytra.adapter.pipeline.resolver.target.TargetMethodResolver;
 import org.sinytra.adapter.util.OrderedRegistry;
 
 public class Resolvers extends OrderedRegistry<Resolver> {

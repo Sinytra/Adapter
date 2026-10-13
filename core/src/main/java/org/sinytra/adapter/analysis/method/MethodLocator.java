@@ -71,6 +71,11 @@ public final class MethodLocator {
         return pair != null ? pair.getSecond() : List.of();
     }
 
+    public List<TargetPair> findTargetsByName(MethodQualifier qualifier) {
+        Pair<ClassNode, List<MethodNode>> pair = findCandidates(qualifier, true, true);
+        return pair != null ? pair.getSecond().stream().map(method -> new TargetPair(pair.getFirst(), method)).toList() : List.of();
+    }
+
     @Nullable
     private TargetPair resolveSingle(MethodQualifier qualifier, boolean useDefaultOwner) {
         Pair<ClassNode, List<MethodNode>> pair = findCandidates(qualifier, useDefaultOwner, false);

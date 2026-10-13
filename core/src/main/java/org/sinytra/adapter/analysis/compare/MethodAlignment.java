@@ -55,6 +55,11 @@ public final class MethodAlignment {
         return alignment;
     }
 
+    public double similarity() {
+        int total = this.clean.size() + this.dirty.size();
+        return total == 0 ? 1 : 2.0 * this.pairings.size() / total;
+    }
+
     public List<Match> find(AbstractInsnNode cleanInsn) {
         Integer index = indexOf(cleanInsn);
         if (index == null) {

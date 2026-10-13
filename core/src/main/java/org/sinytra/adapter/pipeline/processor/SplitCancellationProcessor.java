@@ -6,7 +6,6 @@ import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.edit.RelocationGenerator;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.config.Configuration;
-import org.sinytra.adapter.model.config.key.IntentKeys;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
@@ -17,7 +16,7 @@ import java.util.stream.IntStream;
 public class SplitCancellationProcessor implements Processor {
     @Override
     public TxResult process(MixinContext context, Configuration dirty, Recipe recipe) {
-        if (!dirty.getProperty(IntentKeys.PROPAGATE_CANCELLATION).orElse(false)) {
+        if (!recipe.clean().isCancellable()) {
             return TxResult.PASS;
         }
 
