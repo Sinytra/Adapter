@@ -265,7 +265,7 @@ public abstract class MinecraftMixinPatchTest {
     protected AssertCallback assertAudit(String text) {
         return (patched, expected, env) -> {
             boolean found = env.auditTrail().getAuditTrail().values().stream()
-                .filter(log -> (patched.name + patched.desc).equals(log.originalMethod()))
+                .filter(log -> log.originalMethod() != null && log.originalMethod().startsWith(patched.name + "("))
                 .flatMap(log -> log.entries().stream())
                 .anyMatch(entry -> entry.second().toString().contains(text));
             Assertions.assertThat(found).as("Audit log of " + patched.name + " contains \"" + text + "\"").isTrue();

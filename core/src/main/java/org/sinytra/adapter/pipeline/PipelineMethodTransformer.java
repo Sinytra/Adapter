@@ -3,6 +3,7 @@ package org.sinytra.adapter.pipeline;
 import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.analysis.injection.InjectionQuery;
 import org.sinytra.adapter.api.AuditTrail;
@@ -23,6 +24,7 @@ import org.sinytra.adapter.pipeline.injector.MixinTypes;
 import org.sinytra.adapter.pipeline.manual.MethodPatchResolver;
 import org.sinytra.adapter.pipeline.processor.Processor;
 import org.sinytra.adapter.pipeline.processor.Processors;
+import org.sinytra.adapter.pipeline.resolver.InjectionPointResolver;
 import org.sinytra.adapter.pipeline.resolver.Resolver;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
 import org.slf4j.Logger;
@@ -55,7 +57,9 @@ public class PipelineMethodTransformer implements MethodTransformer {
         if (cleanTarget == null) return PatchResult.PASS;
 
         TargetPair dirtyTarget = context.dirtyMethods().resolve(config.getTargetMethod());
-        if (!this.patchResolver.matches(config) && !failsDirtyInjectionCheck(context, config, dirtyTarget) && hasValidSlice(context, config, dirtyTarget)) {
+        if (!this.patchResolver.matches(config) && !failsDirtyInjectionCheck(context, config, dirtyTarget) && hasValidSlice(context, config, dirtyTarget)
+            && !selectsShiftedInsn(context, config, cleanTarget, dirtyTarget)
+        ) {
             if (dirtyTarget != null && !this.patchesOnly) {
                 try {
                     AppliedLocalsCheck.check(this, context, cleanTarget, dirtyTarget);
@@ -172,6 +176,25 @@ public class PipelineMethodTransformer implements MethodTransformer {
         }
 
         return PatchResult.APPLY;
+    }
+
+    private boolean selectsShiftedInsn(MixinContext context, Configuration config, TargetPair cleanTarget, @Nullable TargetPair dirtyTarget) {
+        AtData at = config.getAtData();
+        if (this.patchesOnly || dirtyTarget == null || at == null || at.getOrdinal().isEmpty()) {
+            return false;
+        }
+        try {
+            List<AbstractInsnNode> insns = context.injections().find(dirtyTarget);
+            if (insns.isEmpty() || InjectionPointResolver.selectsLocatedInsns(context, cleanTarget, dirtyTarget, insns)) {
+                return false;
+            }
+            context.recordAudit(this, "The @At still applies, but ordinal %s now selects another instruction than the clean one became",
+                at.getOrdinal().get());
+            return true;
+        } catch (Exception e) {
+            LOGGER.debug(MIXINPATCH, "Failed to check the injection point of applying mixin {}", context.getMixinId(), e);
+            return false;
+        }
     }
 
     public boolean failsDirtyInjectionCheck(MixinContext context, Configuration config, TargetPair dirtyTarget) {

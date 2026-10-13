@@ -105,6 +105,27 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     }
 
     @Test
+    void testAppliedOrdinalShift() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mc_26_1_2/mixin/CameraMixin",
+            "addRoll1",
+            assertTargetMethod(),
+            assertInjectionPoint(),
+            assertAudit("ordinal 1 now selects another instruction")
+        );
+    }
+
+    @Test
+    void testShiftedOrdinal() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mc_26_1_2/mixin/CameraMixin",
+            "addRoll3",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
     void testWrapWithConditionReplacedCall() throws Exception {
         assertSameCode(
             "org/sinytra/adapter/test/mc_26_1_2/mixin/CameraMixin",

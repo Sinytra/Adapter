@@ -20,6 +20,10 @@ import java.util.Set;
 public final class SameMethodLocator implements Locator {
     @Override
     public List<Candidate> locate(MixinContext context, Recipe recipe, Scope scope, AbstractInsnNode cleanInsn) {
+        return find(context, scope, cleanInsn);
+    }
+
+    public static List<Candidate> find(MixinContext context, Scope scope, AbstractInsnNode cleanInsn) {
         MethodAlignment alignment = scope.alignment();
         List<MethodAlignment.Match> matches = alignment.find(cleanInsn);
         if (!matches.isEmpty()) {

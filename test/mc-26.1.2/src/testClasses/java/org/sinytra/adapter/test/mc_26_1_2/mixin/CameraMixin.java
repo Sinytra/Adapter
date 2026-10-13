@@ -16,4 +16,24 @@ public class CameraMixin {
     private boolean addRoll2Expected(Camera instance, float yRot, float xRot, float adapter_injected_3) {
         return true;
     }
+
+    @WrapWithCondition(method = "alignWithEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Camera;setRotation(FF)V", ordinal = 1))
+    private boolean addRoll1(Camera instance, float yRot, float xRot) {
+        return true;
+    }
+
+    @WrapWithCondition(method = "alignWithEntity(F)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Camera;setRotation(FFF)V", ordinal = 0))
+    private boolean addRoll1Expected(Camera instance, float yRot, float xRot, float adapter_injected_3) {
+        return true;
+    }
+
+    @WrapWithCondition(method = "alignWithEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Camera;setRotation(FF)V", ordinal = 3))
+    private boolean addRoll3(Camera instance, float yRot, float xRot) {
+        return true;
+    }
+
+    @WrapWithCondition(method = "alignWithEntity(F)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Camera;setRotation(FF)V", ordinal = 1))
+    private boolean addRoll3Expected(Camera instance, float yRot, float xRot) {
+        return true;
+    }
 }

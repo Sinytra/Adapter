@@ -25,12 +25,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class InjectionPointResolver implements Resolver {
-    private static final SameMethodLocator SAME_METHOD = new SameMethodLocator();
-
     private final List<LocatingSubResolver> subResolvers = new ArrayList<>();
 
     public InjectionPointResolver() {
-        addSubResolver(new LocatingSubResolver(List.of(SAME_METHOD, new SelectedLocator(), new ReplacedCallLocator()), ScopeSearch.Reach.CALLS));
+        addSubResolver(new LocatingSubResolver(List.of(new SameMethodLocator(), new SelectedLocator(), new ReplacedCallLocator()), ScopeSearch.Reach.CALLS));
     }
 
     public InjectionPointResolver addSubResolver(LocatingSubResolver subResolver) {
@@ -73,7 +71,10 @@ public class InjectionPointResolver implements Resolver {
 
         // Try reusing the original
         List<AbstractInsnNode> insns = context.injections().find(dirtyTarget);
-        if (!insns.isEmpty() && selectsLocatedInsns(context, recipe, dirtyTarget, insns) && selectsSameLocal(context, recipe, dirtyTarget, insns.getFirst())) {
+        TargetPair cleanTarget = recipe.getCleanTarget();
+        if (!insns.isEmpty() && (cleanTarget == null || selectsLocatedInsns(context, cleanTarget, dirtyTarget, insns))
+            && selectsSameLocal(context, recipe, dirtyTarget, insns.getFirst())
+        ) {
             return dirty.copyClean()
                 .inheritAtData();
         }
@@ -97,16 +98,15 @@ public class InjectionPointResolver implements Resolver {
         return expected == -1 || context.locals().resolveSelectedLocal(dirtyTarget, dirtyInsn, type) == expected;
     }
 
-    private static boolean selectsLocatedInsns(MixinContext context, Recipe recipe, TargetPair dirtyTarget, List<AbstractInsnNode> dirtyInsns) {
-        TargetPair cleanTarget = recipe.getCleanTarget();
-        if (cleanTarget == null || !cleanTarget.methodNode().name.equals(dirtyTarget.methodNode().name)
+    public static boolean selectsLocatedInsns(MixinContext context, TargetPair cleanTarget, TargetPair dirtyTarget, List<AbstractInsnNode> dirtyInsns) {
+        if (!cleanTarget.methodNode().name.equals(dirtyTarget.methodNode().name)
             || !cleanTarget.methodNode().desc.equals(dirtyTarget.methodNode().desc)
         ) {
             return true;
         }
         Scope scope = Scope.of(new Targets(cleanTarget, dirtyTarget));
         for (AbstractInsnNode cleanInsn : context.injections().find(cleanTarget)) {
-            List<Candidate> candidates = SAME_METHOD.locate(context, recipe, scope, cleanInsn);
+            List<Candidate> candidates = SameMethodLocator.find(context, scope, cleanInsn);
             if (!candidates.isEmpty() && candidates.stream().noneMatch(c -> dirtyInsns.contains(c.insn()))) {
                 return false;
             }
