@@ -1,4 +1,4 @@
-package org.sinytra.adapter.pipeline.rewrite;
+package org.sinytra.adapter.pipeline.resolver.rewrite;
 
 import com.google.common.collect.Multimap;
 import org.jetbrains.annotations.Nullable;

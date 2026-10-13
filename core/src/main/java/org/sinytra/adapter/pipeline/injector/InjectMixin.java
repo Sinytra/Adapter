@@ -16,10 +16,9 @@ import org.sinytra.adapter.model.param.Parameter;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
-import org.sinytra.adapter.pipeline.locate.LocatingSubResolver;
+import org.sinytra.adapter.pipeline.locate.LocatorChain;
 import org.sinytra.adapter.pipeline.locate.NearestCallLocator;
 import org.sinytra.adapter.pipeline.locate.ScopeSearch;
-import org.sinytra.adapter.pipeline.processor.Processors;
 import org.sinytra.adapter.pipeline.resolver.InjectionPointResolver;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
 
@@ -53,10 +52,10 @@ public class InjectMixin extends AbstractMixinType {
     }
 
     @Override
-    public TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers, Processors processors) {
+    public TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers) {
         // An @Inject only needs a position, so it can fall back to the nearest call
         resolvers.getOrThrow(InjectionPointResolver.class)
-            .addSubResolver(new LocatingSubResolver(List.of(new NearestCallLocator()), ScopeSearch.Reach.TARGET));
+            .addChain(new LocatorChain(List.of(new NearestCallLocator()), ScopeSearch.Reach.TARGET));
 
         clean.setParameters(SIGNATURE.parse(context.methodNode()));
 

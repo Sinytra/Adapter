@@ -13,7 +13,7 @@ import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.locate.Candidate;
 import org.sinytra.adapter.pipeline.locate.Describer;
 import org.sinytra.adapter.pipeline.locate.LocalLocator;
-import org.sinytra.adapter.pipeline.locate.LocatingSubResolver;
+import org.sinytra.adapter.pipeline.locate.LocatorChain;
 import org.sinytra.adapter.pipeline.locate.ReplacedCallLocator;
 import org.sinytra.adapter.pipeline.locate.SameMethodLocator;
 import org.sinytra.adapter.pipeline.locate.Scope;
@@ -25,14 +25,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class InjectionPointResolver implements Resolver {
-    private final List<LocatingSubResolver> subResolvers = new ArrayList<>();
+    private final List<LocatorChain> chains = new ArrayList<>();
 
     public InjectionPointResolver() {
-        addSubResolver(new LocatingSubResolver(List.of(new SameMethodLocator(), new SelectedLocator(), new ReplacedCallLocator()), ScopeSearch.Reach.CALLS));
+        addChain(new LocatorChain(List.of(new SameMethodLocator(), new SelectedLocator(), new ReplacedCallLocator()), ScopeSearch.Reach.CALLS));
     }
 
-    public InjectionPointResolver addSubResolver(LocatingSubResolver subResolver) {
-        this.subResolvers.add(subResolver);
+    public InjectionPointResolver addChain(LocatorChain chain) {
+        this.chains.add(chain);
         return this;
     }
 
@@ -47,8 +47,8 @@ public class InjectionPointResolver implements Resolver {
             return ResolutionResult.success(reused);
         }
 
-        for (LocatingSubResolver subResolver : this.subResolvers) {
-            Configuration result = context.audited(subResolver, () -> subResolver.resolve(context, recipe));
+        for (LocatorChain chain : this.chains) {
+            Configuration result = context.audited(chain, () -> chain.resolve(context, recipe));
             if (result != null) {
                 return ResolutionResult.success(result);
             }

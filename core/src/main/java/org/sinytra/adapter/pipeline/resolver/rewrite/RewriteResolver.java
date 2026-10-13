@@ -1,4 +1,4 @@
-package org.sinytra.adapter.pipeline.rewrite;
+package org.sinytra.adapter.pipeline.resolver.rewrite;
 
 import org.sinytra.adapter.model.config.Configurations;
 import org.sinytra.adapter.pipeline.Recipe;

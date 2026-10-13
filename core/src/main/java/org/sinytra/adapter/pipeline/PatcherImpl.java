@@ -130,7 +130,7 @@ public class PatcherImpl implements Patcher {
         PatchResult result = runPhase(TxPhase.EARLY, mixinContext);
 
         // Complete clean config
-        TxResult preResult = mixinType.preProcess(mixinContext, configuration, mixinContext.getResolvers(), mixinContext.getProcessors());
+        TxResult preResult = mixinType.preProcess(mixinContext, configuration, mixinContext.getResolvers());
         if (preResult == TxResult.FAIL) {
             LOGGER.debug(MIXINPATCH, "Skipping mixin {} due to failed preProcess", mixinId);
             return PatchResult.PASS;

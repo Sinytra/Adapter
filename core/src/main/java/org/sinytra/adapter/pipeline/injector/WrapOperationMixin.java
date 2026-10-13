@@ -12,11 +12,10 @@ import org.sinytra.adapter.model.param.MethodParameters;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
-import org.sinytra.adapter.pipeline.processor.Processors;
 import org.sinytra.adapter.pipeline.resolver.InjectionPointResolver;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
-import org.sinytra.adapter.pipeline.rewrite.InstanceofToConstant;
-import org.sinytra.adapter.pipeline.rewrite.RewriteResolver;
+import org.sinytra.adapter.pipeline.resolver.rewrite.InstanceofToConstant;
+import org.sinytra.adapter.pipeline.resolver.rewrite.RewriteResolver;
 
 import java.util.List;
 
@@ -49,7 +48,7 @@ public class WrapOperationMixin extends AbstractMixinType {
     }
 
     @Override
-    public TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers, Processors processors) {
+    public TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers) {
         resolvers.addBefore(InjectionPointResolver.class, new RewriteResolver(List.of(new InstanceofToConstant())));
 
         clean.setParameters(SIGNATURE.parse(context.methodNode()));

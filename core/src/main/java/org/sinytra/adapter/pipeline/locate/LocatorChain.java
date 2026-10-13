@@ -12,11 +12,11 @@ import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import java.util.*;
 import java.util.function.Function;
 
-public final class LocatingSubResolver {
+public final class LocatorChain {
     private final List<Locator> locators;
     private final ScopeSearch.Reach reach;
 
-    public LocatingSubResolver(List<Locator> locators, ScopeSearch.Reach reach) {
+    public LocatorChain(List<Locator> locators, ScopeSearch.Reach reach) {
         this.locators = locators;
         this.reach = reach;
     }

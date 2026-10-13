@@ -17,7 +17,6 @@ import org.sinytra.adapter.model.param.Parameters;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
-import org.sinytra.adapter.pipeline.processor.Processors;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
 
 import java.util.List;
@@ -48,7 +47,7 @@ public class ModifyArgMixin extends AbstractMixinType {
     }
 
     @Override
-    public TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers, Processors processors) {
+    public TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers) {
         clean.setParameters(SIGNATURE.parse(context.methodNode()));
 
         return TxResult.SUCCESS;

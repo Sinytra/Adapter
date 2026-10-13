@@ -7,7 +7,6 @@ import org.sinytra.adapter.model.param.HandlerSignature;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
-import org.sinytra.adapter.pipeline.processor.Processors;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
 
 import java.util.EnumSet;
@@ -29,7 +28,7 @@ public interface MixinType {
         return true;
     }
 
-    TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers, Processors processors);
+    TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers);
 
     TxResult postProcess(MixinContext context, Configuration clean, MutableConfiguration dirty, Recipe recipe);
 }

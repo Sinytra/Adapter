@@ -11,7 +11,7 @@ import org.sinytra.adapter.model.config.MutableConfiguration;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.locate.Describer;
-import org.sinytra.adapter.pipeline.locate.LocatingSubResolver;
+import org.sinytra.adapter.pipeline.locate.LocatorChain;
 import org.sinytra.adapter.pipeline.locate.Locator;
 import org.sinytra.adapter.pipeline.locate.ReplacedCallLocator;
 import org.sinytra.adapter.pipeline.locate.SameMethodLocator;
@@ -69,7 +69,7 @@ public class SliceBoundaryResolver implements Resolver {
         }
 
         List<AbstractInsnNode> cleanInsns = context.injections().find(targets.clean(), InjectionQuery.of(boundary).ignoringSlice());
-        Configuration located = LocatingSubResolver.locateAll(context, recipe, ScopeSearch.of(context, Scope.of(targets)), cleanInsns, LOCATORS, candidate -> {
+        Configuration located = LocatorChain.locateAll(context, recipe, ScopeSearch.of(context, Scope.of(targets)), cleanInsns, LOCATORS, candidate -> {
             if (candidate.target() != targets.dirty()) {
                 return null;
             }

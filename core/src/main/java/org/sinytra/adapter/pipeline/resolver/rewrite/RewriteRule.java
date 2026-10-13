@@ -1,4 +1,4 @@
-package org.sinytra.adapter.pipeline.rewrite;
+package org.sinytra.adapter.pipeline.resolver.rewrite;
 
 import org.jetbrains.annotations.Nullable;
 import org.sinytra.adapter.pipeline.Recipe;
