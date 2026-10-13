@@ -12,7 +12,7 @@ import org.sinytra.adapter.model.param.Parameter;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
-import org.sinytra.adapter.pipeline.processor.wrapop.WrapOpSurgeon;
+import org.sinytra.adapter.pipeline.processor.WrapOpSurgeon;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.slf4j.Logger;
 

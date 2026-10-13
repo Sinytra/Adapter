@@ -1,4 +1,4 @@
-package org.sinytra.adapter.pipeline.resolver.injection;
+package org.sinytra.adapter.pipeline.resolver;
 
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
@@ -17,7 +17,6 @@ import org.sinytra.adapter.pipeline.locate.LocalLocator;
 import org.sinytra.adapter.pipeline.locate.LocatingSubResolver;
 import org.sinytra.adapter.pipeline.locate.ReplacedCallLocator;
 import org.sinytra.adapter.pipeline.locate.SameMethodLocator;
-import org.sinytra.adapter.pipeline.resolver.CompoundResolver;
 import org.sinytra.adapter.util.AdapterUtil;
 
 import java.util.List;

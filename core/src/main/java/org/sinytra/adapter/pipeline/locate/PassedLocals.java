@@ -32,7 +32,7 @@ public final class PassedLocals {
             List<Step> next = new ArrayList<>();
             for (Step step : frontier) {
                 for (Step passed : findPassed(context, step)) {
-                    if (isSame(passed.method(), callee)) {
+                    if (passed.method().isSameMethod(callee)) {
                         return passed.slot();
                     }
                     if (visited.add(passed.method().methodNode())) {
@@ -94,10 +94,6 @@ public final class PassedLocals {
             && OpcodeUtil.isLoadOpcode(load.getOpcode()) && tracked.contains(load.var);
     }
 
-    private static boolean isSame(TargetPair a, TargetPair b) {
-        return a.classNode().name.equals(b.classNode().name) && a.methodNode().name.equals(b.methodNode().name)
-            && a.methodNode().desc.equals(b.methodNode().desc);
-    }
 
     private PassedLocals() {
     }

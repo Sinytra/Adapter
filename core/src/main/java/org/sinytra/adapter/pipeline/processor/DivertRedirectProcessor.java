@@ -1,4 +1,4 @@
-package org.sinytra.adapter.pipeline.processor.redirect;
+package org.sinytra.adapter.pipeline.processor;
 
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.commons.InstructionAdapter;
@@ -11,7 +11,6 @@ import org.sinytra.adapter.model.config.key.IntentKeys;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
-import org.sinytra.adapter.pipeline.processor.Processor;
 
 import java.util.function.Consumer;
 

@@ -1,7 +1,5 @@
 package org.sinytra.adapter.pipeline.resolver;
 
-import org.sinytra.adapter.pipeline.resolver.injection.InjectionPointResolver;
-import org.sinytra.adapter.pipeline.resolver.special.SliceBoundaryResolver;
 import org.sinytra.adapter.pipeline.resolver.target.TargetMethodResolver;
 import org.sinytra.adapter.util.OrderedRegistry;
 

@@ -22,10 +22,6 @@ public class OpcodeUtil {
         return type.getOpcode(Opcodes.ILOAD);
     }
 
-    public static int getStoreOpcode(Type type) {
-        return type.getOpcode(Opcodes.ISTORE);
-    }
-
     public static int getReturnOpcode(MethodNode methodNode) {
         return getReturnOpcode(Type.getReturnType(methodNode.desc));
     }

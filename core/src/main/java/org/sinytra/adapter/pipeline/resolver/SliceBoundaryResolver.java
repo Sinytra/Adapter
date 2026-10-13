@@ -1,4 +1,4 @@
-package org.sinytra.adapter.pipeline.resolver.special;
+package org.sinytra.adapter.pipeline.resolver;
 
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.AbstractInsnNode;
@@ -15,7 +15,6 @@ import org.sinytra.adapter.pipeline.locate.LocatingSubResolver;
 import org.sinytra.adapter.pipeline.locate.Locator;
 import org.sinytra.adapter.pipeline.locate.ReplacedCallLocator;
 import org.sinytra.adapter.pipeline.locate.SameMethodLocator;
-import org.sinytra.adapter.pipeline.resolver.Resolver;
 
 import java.util.ArrayList;
 import java.util.List;

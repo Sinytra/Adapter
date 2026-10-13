@@ -11,11 +11,6 @@ import java.util.List;
 public abstract class CompoundResolver implements Resolver {
     protected final List<SubResolver> subResolvers = new ArrayList<>();
 
-    public CompoundResolver addSubResolverFirst(SubResolver subResolver) {
-        this.subResolvers.addFirst(subResolver);
-        return this;
-    }
-
     public CompoundResolver addSubResolver(SubResolver subResolver) {
         this.subResolvers.add(subResolver);
         return this;

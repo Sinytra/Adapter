@@ -4,13 +4,13 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.mixin.MixinBridge;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.injector.MixinFlag;
 import org.sinytra.adapter.pipeline.locate.LocalLocator;
 import org.sinytra.adapter.pipeline.processor.SugarLocalProcessor;
 import org.sinytra.adapter.util.AdapterUtil;
+import org.sinytra.adapter.util.MixinBridge;
 
 public final class AppliedLocalsCheck {
     public static void check(Object actor, MixinContext context, TargetPair cleanTarget, TargetPair dirtyTarget) {

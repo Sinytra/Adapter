@@ -80,8 +80,6 @@ public class ParamDiffResolver {
                 }
                 case MoveParametersTransformer(int from, int to) -> state.add(to, state.remove(from));
                 case RemoveParameterTransformer remove -> state.remove(remove.index());
-                case InlineParameterTransformer inline -> state.remove(inline.target());
-                case SubstituteParameterTransformer substitute -> state.remove(substitute.target());
                 case null, default -> throw new RuntimeException("Unknown parameter modification: " + modification);
             }
         }

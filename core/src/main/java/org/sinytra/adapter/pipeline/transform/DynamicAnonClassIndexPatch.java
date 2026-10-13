@@ -1,4 +1,4 @@
-package org.sinytra.adapter.pipeline.cls;
+package org.sinytra.adapter.pipeline.transform;
 
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;

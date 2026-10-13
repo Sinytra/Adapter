@@ -5,7 +5,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.mixin.MixinBridge;
+import org.sinytra.adapter.util.MixinBridge;
 
 import java.util.Optional;
 

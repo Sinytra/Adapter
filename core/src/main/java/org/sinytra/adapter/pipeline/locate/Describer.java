@@ -41,8 +41,7 @@ public final class Describer {
     public static Configuration describe(MixinContext context, Recipe recipe, Candidate candidate) {
         AtData cleanAt = recipe.clean().getAtData();
         TargetPair origin = recipe.getDirtyTarget();
-        boolean otherMethod = origin == null || !candidate.target().classNode().name.equals(origin.classNode().name)
-            || !candidate.target().methodNode().name.equals(origin.methodNode().name) || !candidate.target().methodNode().desc.equals(origin.methodNode().desc);
+        boolean otherMethod = origin == null || !candidate.target().isSameMethod(origin);
         Function<AtData, InjectionQuery> query = otherMethod ? at -> InjectionQuery.of(at).ignoringSlice() : InjectionQuery::of;
         AtData described = cleanAt != null ? describeAt(context, cleanAt, candidate, query) : null;
         if (described == null) {

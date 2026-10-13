@@ -2,7 +2,7 @@ package org.sinytra.adapter.pipeline.audit;
 
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.MethodNode;
-import org.sinytra.adapter.mixin.MixinBridge;
+import org.sinytra.adapter.util.MixinBridge;
 
 import java.util.Collection;
 import java.util.HashMap;

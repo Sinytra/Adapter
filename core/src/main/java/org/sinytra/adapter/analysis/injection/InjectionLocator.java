@@ -5,11 +5,11 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.InsnList;
-import org.sinytra.adapter.mixin.MixinBridge;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.ann.AnnotationHandle;
 import org.sinytra.adapter.model.ann.SliceData;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
+import org.sinytra.adapter.util.MixinBridge;
 
 import java.util.*;
 
@@ -19,7 +19,7 @@ public final class InjectionLocator {
     private final MixinContext context;
     private final Map<CacheKey, List<AbstractInsnNode>> cache;
 
-    private record CacheKey(TargetPair target, boolean ignoreOrdinal, boolean keepShift, boolean ignoreSlice,
+    private record CacheKey(TargetPair target, boolean keepShift, boolean ignoreSlice,
                             @Nullable Object injectionPoint, @Nullable Object methodAnnotation
     ) {
     }
@@ -43,7 +43,7 @@ public final class InjectionLocator {
             return compute(target, query);
         }
         CacheKey key = new CacheKey(
-            target, query.ignoreOrdinal(), query.keepShift(), query.ignoreSlice(),
+            target, query.keepShift(), query.ignoreSlice(),
             annotationKey(this.context.injectionPointAnnotation()), annotationKey(this.context.methodAnnotation())
         );
         List<AbstractInsnNode> insns = this.cache.get(key);
@@ -95,9 +95,6 @@ public final class InjectionLocator {
         AnnotationHandle node = source.copy();
         if (!query.keepShift()) {
             node.removeValues(AT_SHIFT);
-        }
-        if (query.ignoreOrdinal()) {
-            node.removeValues(PROPERTY_ORDINAL);
         }
 
         MixinBridge.Session session = session(target);

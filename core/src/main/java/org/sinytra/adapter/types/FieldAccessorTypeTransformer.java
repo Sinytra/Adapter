@@ -14,11 +14,11 @@ import org.sinytra.adapter.api.ClassTransformer;
 import org.sinytra.adapter.api.PatchEnvironment;
 import org.sinytra.adapter.api.PatchResult;
 import org.sinytra.adapter.api.TypeAdapter;
-import org.sinytra.adapter.mixin.MixinBridge;
 import org.sinytra.adapter.model.ann.AnnotationHandle;
 import org.sinytra.adapter.model.ann.AnnotationValueHandle;
 import org.sinytra.adapter.model.constant.MixinAnnotations;
 import org.sinytra.adapter.model.constant.TypeConstants;
+import org.sinytra.adapter.util.MixinBridge;
 import org.sinytra.adapter.util.OpcodeUtil;
 
 import java.util.Optional;

@@ -32,16 +32,6 @@ public final class AnnotationHandle {
         return new AnnotationHandle(copy);
     }
 
-    public AnnotationHandle getNestedOrAppend(String key, String desc) {
-        AnnotationHandle existing = getNested(key).orElse(null);
-        if (existing != null) {
-            return existing;
-        }
-        AnnotationNode node = new AnnotationNode(desc);
-        appendValue(key, node);
-        return getNested(key).orElseThrow();
-    }
-
     public Optional<AnnotationHandle> getNested(String key) {
         return getValue(key)
             .<AnnotationNode>flatMap(AnnotationValueHandle::maybeUnwrap)

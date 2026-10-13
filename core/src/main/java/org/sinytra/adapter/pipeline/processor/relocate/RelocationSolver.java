@@ -5,7 +5,6 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.injection.InjectionQuery;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
-import org.sinytra.adapter.mixin.MixinBridge;
 import org.sinytra.adapter.model.Relocation;
 import org.sinytra.adapter.model.RelocationPlan;
 import org.sinytra.adapter.model.TargetPair;
@@ -20,6 +19,7 @@ import org.sinytra.adapter.model.param.Parameters;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.util.AdapterUtil;
+import org.sinytra.adapter.util.MixinBridge;
 
 import java.util.ArrayList;
 import java.util.List;

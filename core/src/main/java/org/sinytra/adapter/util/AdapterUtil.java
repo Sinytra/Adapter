@@ -17,7 +17,6 @@ import org.slf4j.MarkerFactory;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.*;
-import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -71,11 +70,6 @@ public final class AdapterUtil {
 
     public static boolean canHandleLocalVarInsnValue(AbstractInsnNode insn) {
         return insn instanceof VarInsnNode || insn instanceof IincInsnNode;
-    }
-
-    public static int getInsnIntConstValue(AbstractInsnNode insn) {
-        return getIntConstValue(insn)
-            .orElseThrow(() -> new IllegalArgumentException("Not an int constant opcode: " + insn.getOpcode()));
     }
 
     public static OptionalInt getIntConstValue(AbstractInsnNode insn) {
@@ -190,20 +184,6 @@ public final class AdapterUtil {
             }
         }
         return Optional.ofNullable(match);
-    }
-
-    public static <T> boolean allElementsEqual(Collection<T> list, BiPredicate<T, T> equalityFn) {
-        Iterator<T> iterator = list.iterator();
-        if (!iterator.hasNext()) {
-            return true;
-        }
-        T first = iterator.next();
-        while (iterator.hasNext()) {
-            if (!equalityFn.test(first, iterator.next())) {
-                return false;
-            }
-        }
-        return true;
     }
 
     public static void replaceRangeInclusive(InsnList list, AbstractInsnNode start, AbstractInsnNode end, List<AbstractInsnNode> replacement) {

@@ -12,9 +12,9 @@ import org.sinytra.adapter.model.config.MutableConfiguration;
 import org.sinytra.adapter.model.param.Parameters;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
+import org.sinytra.adapter.pipeline.resolver.InjectionPointResolver;
 import org.sinytra.adapter.pipeline.resolver.Resolver;
 import org.sinytra.adapter.pipeline.resolver.SubResolver;
-import org.sinytra.adapter.pipeline.resolver.injection.InjectionPointResolver;
 
 import java.util.Comparator;
 import java.util.List;

@@ -76,10 +76,6 @@ public class MethodParameters implements Copiable<MethodParameters> {
         set(group, List.of(param));
     }
 
-    public void setTypes(ParamGroup group, List<Type> params) {
-        set(group, params.stream().map(Parameter::simple).toList());
-    }
-
     public void set(ParamGroup group, List<Parameter> params) {
         if (!this.groups.containsKey(group)) {
             throw new IllegalArgumentException("Group %s is not available".formatted(group.name()));

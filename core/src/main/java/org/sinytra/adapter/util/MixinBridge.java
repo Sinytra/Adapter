@@ -1,4 +1,4 @@
-package org.sinytra.adapter.mixin;
+package org.sinytra.adapter.util;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;

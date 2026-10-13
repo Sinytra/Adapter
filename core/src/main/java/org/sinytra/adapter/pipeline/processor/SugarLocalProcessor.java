@@ -10,7 +10,6 @@ import org.sinytra.adapter.analysis.injection.InjectionQuery;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.method.InheritanceHandler;
 import org.sinytra.adapter.edit.param.ParamTransformationUtil;
-import org.sinytra.adapter.mixin.MixinBridge;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.ann.AtData;
 import org.sinytra.adapter.model.config.Configuration;
@@ -24,6 +23,7 @@ import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.locate.Describer;
 import org.sinytra.adapter.pipeline.locate.LocalLocator;
 import org.sinytra.adapter.util.AdapterUtil;
+import org.sinytra.adapter.util.MixinBridge;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -59,8 +59,7 @@ public class SugarLocalProcessor implements Processor {
         MixinBridge.Session cleanSession = MixinBridge.session(mixin, cleanHandler, cleanTarget.classNode(), cleanTarget.methodNode(), context.environment());
         MixinBridge.Session dirtySession = MixinBridge.session(mixin, handler, dirtyTarget.classNode(), dirtyTarget.methodNode(), context.environment());
         TargetPair origin = recipe.getNewCleanTarget();
-        boolean sameMethod = origin != null && origin.classNode().name.equals(dirtyTarget.classNode().name)
-            && origin.methodNode().name.equals(dirtyTarget.methodNode().name) && origin.methodNode().desc.equals(dirtyTarget.methodNode().desc);
+        boolean sameMethod = origin != null && origin.isSameMethod(dirtyTarget);
         boolean changed = false;
         for (int i = 0; i < locals.size(); i++) {
             int cleanIndex = cleanLocals.get(i);

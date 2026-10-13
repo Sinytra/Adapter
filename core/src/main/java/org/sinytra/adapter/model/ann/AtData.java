@@ -2,13 +2,13 @@ package org.sinytra.adapter.model.ann;
 
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.MethodInsnNode;
-import org.sinytra.adapter.mixin.MixinBridge;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.config.MutablePropertyContainer;
 import org.sinytra.adapter.model.config.PropertyContainer;
 import org.sinytra.adapter.model.config.PropertyContainerTemplate;
 import org.sinytra.adapter.model.config.PropertyKey;
 import org.sinytra.adapter.model.constant.MixinAnnotations;
+import org.sinytra.adapter.util.MixinBridge;
 import org.spongepowered.asm.mixin.injection.At;
 
 import java.util.List;

@@ -1,4 +1,4 @@
-package org.sinytra.adapter.pipeline.resolver.special;
+package org.sinytra.adapter.pipeline.resolver;
 
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
@@ -12,7 +12,6 @@ import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.locate.Describer;
 import org.sinytra.adapter.pipeline.locate.LocalLocator;
-import org.sinytra.adapter.pipeline.resolver.Resolver;
 import org.sinytra.adapter.util.AdapterUtil;
 
 public final class LocalResolver implements Resolver {

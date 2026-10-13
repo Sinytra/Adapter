@@ -2,20 +2,16 @@ package org.sinytra.adapter.analysis.params;
 
 import com.google.errorprone.annotations.CheckReturnValue;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.commons.InstructionAdapter;
 import org.sinytra.adapter.edit.param.InjectParameterTransform;
-import org.sinytra.adapter.edit.param.InlineParameterTransformer;
 import org.sinytra.adapter.edit.param.MoveParametersTransformer;
 import org.sinytra.adapter.edit.param.ParameterTransformer;
 import org.sinytra.adapter.edit.param.RemoveParameterTransformer;
 import org.sinytra.adapter.edit.param.ReplaceParametersTransformer;
-import org.sinytra.adapter.edit.param.SubstituteParameterTransformer;
 import org.sinytra.adapter.edit.param.SwapParametersTransformer;
 import org.sinytra.adapter.edit.param.TransformParameters;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 
 public record LayeredParamsDiffSnapshot(List<ParameterTransformer> modifications) {
     public static final LayeredParamsDiffSnapshot EMPTY = new LayeredParamsDiffSnapshot(List.of());
@@ -81,10 +77,6 @@ public record LayeredParamsDiffSnapshot(List<ParameterTransformer> modifications
             return add(new SwapParametersTransformer(from, to));
         }
 
-        public Builder substitute(int target, int substitute) {
-            return add(new SubstituteParameterTransformer(target, substitute));
-        }
-
         public Builder move(int from, int to) {
             return add(new MoveParametersTransformer(from, to));
         }
@@ -94,10 +86,6 @@ public record LayeredParamsDiffSnapshot(List<ParameterTransformer> modifications
             return add(new RemoveParameterTransformer(index, false));
         }
 
-        public Builder inline(int target, Consumer<InstructionAdapter> adapter) {
-            return add(new InlineParameterTransformer(target, adapter));
-        }
-
         public Builder merge(LayeredParamsDiffSnapshot diff) {
             return merge(diff, 0);
         }
@@ -105,13 +93,6 @@ public record LayeredParamsDiffSnapshot(List<ParameterTransformer> modifications
         public Builder merge(LayeredParamsDiffSnapshot diff, int indexOffset) {
             diff.modifications().forEach(m -> add(m.offset(indexOffset)));
             return this;
-        }
-
-        public List<Integer> getRemovals() {
-            return this.modifications.stream()
-                .filter(RemoveParameterTransformer.class::isInstance)
-                .map(m -> ((RemoveParameterTransformer) m).index())
-                .toList();
         }
 
         private Builder add(ParameterTransformer modification) {

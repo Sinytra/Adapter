@@ -1,4 +1,4 @@
-package org.sinytra.adapter.pipeline.preprocess;
+package org.sinytra.adapter.pipeline.transform;
 
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Type;
@@ -12,13 +12,13 @@ import org.sinytra.adapter.api.AuditTrail;
 import org.sinytra.adapter.api.MethodPatchContext;
 import org.sinytra.adapter.api.MethodTransformer;
 import org.sinytra.adapter.api.PatchResult;
-import org.sinytra.adapter.mixin.MixinBridge.LocalCandidate;
 import org.sinytra.adapter.model.Targets;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.key.MixinKeys;
 import org.sinytra.adapter.model.constant.MixinAnnotations;
 import org.sinytra.adapter.model.param.Parameters;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
+import org.sinytra.adapter.util.MixinBridge.LocalCandidate;
 
 import java.util.*;
 

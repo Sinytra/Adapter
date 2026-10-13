@@ -5,13 +5,13 @@ import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.api.PatchEnvironment;
-import org.sinytra.adapter.mixin.MixinBridge;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.ann.AnnotationHandle;
 import org.sinytra.adapter.model.ann.ClassTarget;
 import org.sinytra.adapter.model.config.key.ControlKeys;
 import org.sinytra.adapter.model.config.key.MixinKeys;
 import org.sinytra.adapter.util.AdapterUtil;
+import org.sinytra.adapter.util.MixinBridge;
 
 import java.util.ArrayList;
 import java.util.List;

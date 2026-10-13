@@ -13,10 +13,10 @@ import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.processor.Processors;
+import org.sinytra.adapter.pipeline.resolver.InjectionPointResolver;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.pipeline.rewrite.InstanceofToConstant;
 import org.sinytra.adapter.pipeline.rewrite.RewriteResolver;
-import org.sinytra.adapter.pipeline.resolver.injection.InjectionPointResolver;
 
 import java.util.List;
 

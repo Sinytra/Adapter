@@ -7,10 +7,6 @@ import java.util.Arrays;
 import java.util.List;
 
 public record InstructionMatcher(AbstractInsnNode insn, List<AbstractInsnNode> before, List<AbstractInsnNode> after) {
-    public InstructionMatcher inverse() {
-        return new InstructionMatcher(insn, after.reversed(), before.reversed());
-    }
-
     public boolean test(InstructionMatcher other) {
         return test(other, 0);
     }

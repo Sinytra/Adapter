@@ -62,25 +62,6 @@ public class AnnotationValueHandle<T> {
         this.origin.set(index, value);
     }
 
-    public Optional<AnnotationHandle> findNested(String name) {
-        assertValid();
-        Object value = unwrap();
-        if (value instanceof AnnotationNode annotationNode) {
-            return create(annotationNode, name).map(h -> h.unwrap() instanceof AnnotationNode ann ? new AnnotationHandle(ann) : null);
-        }
-        throw new IllegalArgumentException("Expected value to be an AnnotationNode, was " + value.getClass());
-    }
-
-    public void refresh(AnnotationNode annotationNode) {
-        AnnotationValueHandle.<T>create(annotationNode, this.key).ifPresentOrElse(
-            v -> {
-                this.origin = v.origin;
-                this.index = v.index;
-            },
-            () -> this.invalid = true
-        );
-    }
-
     private void assertValid() {
         if (this.invalid) {
             throw new RuntimeException("Annotation value handle for " + this.key + " is no longer valid.");

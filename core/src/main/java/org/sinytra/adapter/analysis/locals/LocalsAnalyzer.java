@@ -1,22 +1,16 @@
 package org.sinytra.adapter.analysis.locals;
 
 import com.mojang.logging.LogUtils;
-import it.unimi.dsi.fastutil.ints.Int2IntMap;
-import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.InsnTraversal;
 import org.sinytra.adapter.analysis.compare.InstructionMatcher;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
-import org.sinytra.adapter.analysis.params.ParamsEditDistance;
 import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.analysis.params.ParamDiffResolver;
+import org.sinytra.adapter.analysis.params.ParamsEditDistance;
 import org.sinytra.adapter.edit.param.TransformParameters;
-import org.sinytra.adapter.mixin.MixinBridge;
-import org.sinytra.adapter.mixin.MixinBridge.LocalCandidate;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.param.MethodParameters;
@@ -24,6 +18,8 @@ import org.sinytra.adapter.model.param.Parameter;
 import org.sinytra.adapter.model.param.Parameters;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.util.AdapterUtil;
+import org.sinytra.adapter.util.MixinBridge;
+import org.sinytra.adapter.util.MixinBridge.LocalCandidate;
 import org.sinytra.adapter.util.OpcodeUtil;
 import org.slf4j.Logger;
 
@@ -154,36 +150,7 @@ public final class LocalsAnalyzer {
         return insns;
     }
 
-    public record CapturedLocalsUsage(
-        @Nullable LocalVariableLookup targetTable,
-        Int2ObjectMap<LocalVariable> usedLocals,
-        Int2IntMap usageCount,
-        Int2ObjectMap<InsnList> varInsnLists
-    ) {
-    }
-
     public record CapturedLocalsTransform(Collection<Integer> used, TransformParameters remover, Collection<LocalVariableNode> usedLocalNodes) {
-    }
-
-    public CapturedLocalsUsage resolveUsage(CapturedLocals captured, CapturedLocalsTransform transform) {
-        LocalVariableLookup targetTable = LocalVariableLookup.of(captured.target().methodNode());
-        Int2ObjectMap<LocalVariable> usedLocals = new Int2ObjectOpenHashMap<>();
-        Int2ObjectMap<InsnList> varInsnLists = new Int2ObjectOpenHashMap<>();
-        Int2IntMap usageCount = new Int2IntOpenHashMap();
-
-        // Captured locals are the locals available at the injection point, in order
-        List<LocalVariable> available = resolveAvailableLocals(captured.target());
-        if (targetTable != null && available != null) {
-            transform.used().forEach(ordinal -> {
-                int localIndex = ordinal - captured.paramLocalStart();
-                if (localIndex >= 0 && localIndex < available.size()) {
-                    LocalVariable local = available.get(localIndex);
-                    usedLocals.put((int) ordinal, local);
-                    findVariableInitializerInsns(captured.target().methodNode(), captured.isStatic(), local.index(), varInsnLists, usageCount);
-                }
-            });
-        }
-        return new CapturedLocalsUsage(targetTable, usedLocals, usageCount, varInsnLists);
     }
 
     public List<LocalCandidate> findSelectableLocals(TargetPair target, AbstractInsnNode insn, Type type) {
@@ -297,18 +264,5 @@ public final class LocalsAnalyzer {
                 .forEach(b::remove))
             .build();
         return new CapturedLocalsTransform(used, remover, usedLocalNodes);
-    }
-
-    public static void findVariableInitializerInsns(MethodNode methodNode, boolean isStatic, int index, Int2ObjectMap<InsnList> varInsnLists, Int2IntMap usageCount) {
-        InsnList insns = collectInitializerInsns(methodNode, index, load -> {
-            // TODO Handle method params
-            if (isStatic || load.var != 0) {
-                if (!varInsnLists.containsKey(load.var)) {
-                    findVariableInitializerInsns(methodNode, isStatic, load.var, varInsnLists, usageCount);
-                }
-                usageCount.compute(load.var, (key, existing) -> existing == null ? 1 : existing + 1);
-            }
-        });
-        varInsnLists.put(index, insns);
     }
 }

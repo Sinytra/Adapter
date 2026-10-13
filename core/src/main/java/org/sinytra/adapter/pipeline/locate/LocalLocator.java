@@ -25,7 +25,7 @@ public final class LocalLocator {
             && Describer.isParameter(cleanTarget.methodNode(), cleanSlot)) {
             originSlot = cleanSlot;
         }
-        if (origin != null && isSame(origin, dirtyTarget)) {
+        if (origin != null && origin.isSameMethod(dirtyTarget)) {
             return originSlot;
         }
         if (originSlot != -1) {
@@ -46,10 +46,6 @@ public final class LocalLocator {
             .orElse(-1);
     }
 
-    private static boolean isSame(TargetPair a, TargetPair b) {
-        return a.classNode().name.equals(b.classNode().name) && a.methodNode().name.equals(b.methodNode().name)
-            && a.methodNode().desc.equals(b.methodNode().desc);
-    }
 
     private LocalLocator() {
     }

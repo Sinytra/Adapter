@@ -160,10 +160,6 @@ public class MixinContext implements MethodPatchContext, RefMapper, Auditor {
         return clean != null && dirty != null ? new Targets(clean, dirty) : null;
     }
 
-    public ClassLookup cleanLookup() {
-        return this.patchContext.environment().cleanClassLookup();
-    }
-
     public ClassLookup dirtyLookup() {
         return this.patchContext.environment().dirtyClassLookup();
     }

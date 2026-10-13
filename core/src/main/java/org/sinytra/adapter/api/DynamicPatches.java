@@ -3,9 +3,9 @@ package org.sinytra.adapter.api;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import org.sinytra.adapter.pipeline.PipelineMethodTransformer;
-import org.sinytra.adapter.pipeline.cls.DynamicAnonClassIndexPatch;
-import org.sinytra.adapter.pipeline.cls.DynamicAnonymousShadowFieldTypePatch;
-import org.sinytra.adapter.pipeline.preprocess.LocalCaptureUpgradeTransformer;
+import org.sinytra.adapter.pipeline.transform.DynamicAnonClassIndexPatch;
+import org.sinytra.adapter.pipeline.transform.DynamicAnonymousShadowFieldTypePatch;
+import org.sinytra.adapter.pipeline.transform.LocalCaptureUpgradeTransformer;
 import org.sinytra.adapter.types.FieldAccessorTypeTransformer;
 import org.sinytra.adapter.types.FieldTypeUsageTransformer;
 

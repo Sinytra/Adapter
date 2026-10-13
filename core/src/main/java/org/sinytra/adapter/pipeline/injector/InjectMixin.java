@@ -16,11 +16,11 @@ import org.sinytra.adapter.model.param.Parameter;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
-import org.sinytra.adapter.pipeline.processor.Processors;
-import org.sinytra.adapter.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.pipeline.locate.LocatingSubResolver;
 import org.sinytra.adapter.pipeline.locate.NearestCallLocator;
-import org.sinytra.adapter.pipeline.resolver.injection.InjectionPointResolver;
+import org.sinytra.adapter.pipeline.processor.Processors;
+import org.sinytra.adapter.pipeline.resolver.InjectionPointResolver;
+import org.sinytra.adapter.pipeline.resolver.Resolvers;
 
 import java.util.List;
 import java.util.Objects;
