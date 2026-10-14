@@ -23,13 +23,8 @@ import java.util.List;
 public class RedirectedCallStep implements SignatureStep {
     @Override
     public TxResult apply(MixinContext context, Configuration dirty, Recipe recipe) {
-        String cleanTarget = recipe.clean().getAtData().getTarget().orElse(null);
-        if (cleanTarget == null) return TxResult.PASS;
-        String dirtyTarget = dirty.getAtData().getTarget().orElse(null);
-        if (dirtyTarget == null) return TxResult.PASS;
-
-        MethodQualifier cleanTargetQual = MethodQualifier.parse(cleanTarget).orElse(null);
-        MethodQualifier dirtyTargetQual = MethodQualifier.parse(dirtyTarget).orElse(null);
+        MethodQualifier cleanTargetQual = recipe.clean().getAtData().getTargetQualifier().orElse(null);
+        MethodQualifier dirtyTargetQual = dirty.getAtData().getTargetQualifier().orElse(null);
         if (cleanTargetQual == null || dirtyTargetQual == null) return TxResult.PASS;
 
         MethodParameters dirtyMethodParams = dirty.getParameters();

@@ -10,12 +10,16 @@ import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
 import org.sinytra.adapter.edit.param.ReplaceParametersTransformer;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.param.MethodParameters;
+import org.sinytra.adapter.model.param.MethodParameters.ParamGroup;
 import org.sinytra.adapter.model.param.Parameters;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * If a mixin has its parameter changed to a higher class e.g. ServerPlayer -> LivingEntity but
@@ -38,52 +42,46 @@ import java.util.List;
  */
 // TODO Add type safety check
 public class ParameterCastStep implements SignatureStep {
+    private record Cast(VarInsnNode load, Type type) {
+    }
+
     @Override
     public TxResult apply(MixinContext context, Configuration dirty, Recipe recipe) {
         MethodParameters cleanParams = recipe.clean().getParameters();
         MethodParameters dirtyParams = dirty.getParameters();
-        if (dirtyParams == null || !cleanParams.has(MethodParameters.ParamGroup.METHOD_PARAMS) || !dirtyParams.has(MethodParameters.ParamGroup.METHOD_PARAMS)) {
+        MethodNode methodNode = context.methodNode();
+        LocalVariableLookup lookup = LocalVariableLookup.of(methodNode);
+        if (dirtyParams == null || lookup == null || !cleanParams.has(ParamGroup.METHOD_PARAMS) || !dirtyParams.has(ParamGroup.METHOD_PARAMS)) {
             return TxResult.PASS;
         }
 
-        List<Type> cleanTypes = cleanParams.getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
-        List<Type> dirtyTypes = dirtyParams.getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(cleanTypes, dirtyTypes, context.typeRelation());
-
-        MethodNode methodNode = context.methodNode();
-        LocalVariableLookup lookup = LocalVariableLookup.of(context.methodNode());
-        if (lookup == null) return TxResult.PASS;
-
-        boolean matched = false;
+        Map<Integer, Type> replaced = new HashMap<>();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(cleanParams.getTypes(ParamGroup.METHOD_PARAMS), dirtyParams.getTypes(ParamGroup.METHOD_PARAMS),
+            context.typeRelation());
         for (ReplaceParametersTransformer replacement : diff.replacements()) {
-            int ordinal = replacement.index();
-            LocalVariableNode node = lookup.getByParameterOrdinalOrNull(ordinal);
-            if (node == null) continue;
-
-            Type currentType = Type.getType(node.desc);
-
-            for (AbstractInsnNode insn : methodNode.instructions) {
-                if (!(insn instanceof MethodInsnNode minsn)) continue;
-
-                // Add casts to usage in method calls
-                List<Type> methodArgs = Parameters.getParameterTypes(minsn.desc);
-                List<AbstractInsnNode> callArgs = DataFlow.of(methodNode).resolveCallOperandProducers(minsn);
-                if (callArgs == null) continue;
-
-                int instanceOffset = minsn.getOpcode() == Opcodes.INVOKESTATIC ? 0 : 1;
-                for (int i = instanceOffset; i < callArgs.size(); i++) {
-                    AbstractInsnNode arg = callArgs.get(i);
-                    if (arg instanceof VarInsnNode varInsn && varInsn.var == node.index) {
-                        Type type = methodArgs.get(i - instanceOffset);
-                        if (!currentType.equals(type)) {
-                            methodNode.instructions.insert(varInsn, new TypeInsnNode(Opcodes.CHECKCAST, type.getInternalName()));
-                            matched = true;
-                        }
-                    }
-                }
+            LocalVariableNode node = lookup.getByParameterOrdinalOrNull(replacement.index());
+            if (node != null) {
+                replaced.put(node.index, Type.getType(node.desc));
             }
         }
 
-        return matched ? TxResult.SUCCESS : TxResult.PASS;
+        List<Cast> casts = new ArrayList<>();
+        DataFlow flow = DataFlow.of(methodNode);
+        for (AbstractInsnNode insn : methodNode.instructions) {
+            List<AbstractInsnNode> operands = insn instanceof MethodInsnNode call ? flow.resolveCallOperandProducers(call) : null;
+            if (operands == null) continue;
+
+            MethodInsnNode call = (MethodInsnNode) insn;
+            List<Type> args = Parameters.getParameterTypes(call.desc);
+            int instanceOffset = call.getOpcode() == Opcodes.INVOKESTATIC ? 0 : 1;
+            for (int i = instanceOffset; i < operands.size(); i++) {
+                Type expected = args.get(i - instanceOffset);
+                if (operands.get(i) instanceof VarInsnNode load && replaced.containsKey(load.var) && !replaced.get(load.var).equals(expected)) {
+                    casts.add(new Cast(load, expected));
+                }
+            }
+        }
+        casts.forEach(cast -> methodNode.instructions.insert(cast.load(), new TypeInsnNode(Opcodes.CHECKCAST, cast.type().getInternalName())));
+        return casts.isEmpty() ? TxResult.PASS : TxResult.SUCCESS;
     }
 }

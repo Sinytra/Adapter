@@ -18,7 +18,6 @@ import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.IntStream;
 
 import static org.sinytra.adapter.util.AdapterUtil.MIXINPATCH;
 
@@ -37,9 +36,7 @@ public class OperationCallStep implements SignatureStep {
         }
 
         for (int i = 0; i < dirtyCalls.size(); i++) {
-            List<AbstractInsnNode> cleanCall = cleanCalls.get(i);
-            List<AbstractInsnNode> dirtyCall = dirtyCalls.get(i);
-            if (!upgradeOriginalCall(context, dirty, cleanCall, dirtyCall)) {
+            if (!upgradeOriginalCall(context, dirty, cleanCalls.get(i), dirtyCalls.get(i))) {
                 return TxResult.FAIL;
             }
         }
@@ -60,40 +57,31 @@ public class OperationCallStep implements SignatureStep {
     }
 
     private static boolean upgradeOriginalCall(MixinContext context, Configuration dirty, List<AbstractInsnNode> cleanCallInsns, List<AbstractInsnNode> dirtyCallInsns) {
-        WrapOpOriginalCall cleanCall = WrapOpOriginalCall.parse(context.unmodifiedMethodNode(), cleanCallInsns);
-        if (cleanCall == null) return false;
-
-        WrapOpOriginalCall dirtyCall = WrapOpOriginalCall.parse(context.methodNode(), dirtyCallInsns);
-        if (dirtyCall == null) return false;
-
-        AbstractInsnNode arrayInit = dirtyCallInsns.get(1);
-        List<Parameter> params = dirty.getParameters().get(MethodParameters.ParamGroup.METHOD_PARAMS);
-
         LocalVariableLookup lookup = LocalVariableLookup.of(context.methodNode());
-        if (lookup == null || IntStream.range(0, params.size()).anyMatch(i -> lookup.getByParameterOrdinalOrNull(i) == null)) {
+        if (lookup == null || !(dirtyCallInsns.getLast() instanceof MethodInsnNode dirtyInvoke)
+            || WrapOpOriginalCall.parse(context.unmodifiedMethodNode(), cleanCallInsns) == null
+            || WrapOpOriginalCall.parse(context.methodNode(), dirtyCallInsns) == null) {
             return false;
         }
 
-        List<WrapOpOriginalCall.CallArg> args = IntStream.range(0, params.size())
-            .mapToObj(i -> {
-                Parameter param = params.get(i);
-                int index = lookup.getByParameterOrdinalOrNull(i).index;
-                Type type = param.type();
-
-                List<AbstractInsnNode> loadInsns = new ArrayList<>();
-                loadInsns.add(AdapterUtil.loadType(type, index));
-                if (type.getSort() < Type.ARRAY) {
-                    loadInsns.add(AdapterUtil.box(type));
-                }
-
-                return WrapOpOriginalCall.CallArg.create(i, loadInsns);
-            })
-            .toList();
+        List<Parameter> params = dirty.getParameters().get(MethodParameters.ParamGroup.METHOD_PARAMS);
+        List<WrapOpOriginalCall.CallArg> args = new ArrayList<>();
+        for (int i = 0; i < params.size(); i++) {
+            LocalVariableNode local = lookup.getByParameterOrdinalOrNull(i);
+            if (local == null) {
+                return false;
+            }
+            Type type = params.get(i).type();
+            List<AbstractInsnNode> loadInsns = new ArrayList<>(List.of(AdapterUtil.loadType(type, local.index)));
+            if (type.getSort() < Type.ARRAY) {
+                loadInsns.add(AdapterUtil.box(type));
+            }
+            args.add(WrapOpOriginalCall.CallArg.create(i, loadInsns));
+        }
         WrapOpOriginalCall reconstruct = new WrapOpOriginalCall(args);
 
+        AbstractInsnNode arrayInit = dirtyCallInsns.get(1);
         AbstractInsnNode start = arrayInit.getNext(); // After ANEWARRAY
-        AbstractInsnNode dirtyInvoke = dirtyCallInsns.getLast();
-        if (!(dirtyInvoke instanceof MethodInsnNode)) return false;
         AbstractInsnNode end = dirtyInvoke.getPrevious(); // Before INVOKEVIRTUAL call()
 
         InsnList methodInsns = context.methodNode().instructions;

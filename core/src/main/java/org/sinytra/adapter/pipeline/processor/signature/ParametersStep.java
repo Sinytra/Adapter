@@ -2,6 +2,7 @@ package org.sinytra.adapter.pipeline.processor.signature;
 
 import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.VarInsnNode;
 import org.sinytra.adapter.analysis.params.ParamsEditDistance;
 import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
@@ -22,45 +23,33 @@ public class ParametersStep implements SignatureStep {
         MethodParameters cleanParams = recipe.clean().getParameters();
         MethodParameters dirtyParams = dirty.getParameters();
         if (dirtyParams == null) return TxResult.FAIL;
-        if (cleanParams.merge().equals(dirtyParams.merge()))
-            return TxResult.PASS;
+        if (cleanParams.merge().equals(dirtyParams.merge())) return TxResult.PASS;
 
         // Apply mappings of params that will be removed in dirty
-        Map<VarInsnNode, Pair<Integer, Type>> oldVarMap = ParamTransformationUtil.gatherVarMappings(context.methodNode(), cleanParams.merge(), dirtyParams.merge(), dirtyParams.getMapping());
+        MethodNode method = context.methodNode();
+        Map<VarInsnNode, Pair<Integer, Type>> oldVarMap = ParamTransformationUtil.gatherVarMappings(method, cleanParams.merge(), dirtyParams.merge(), dirtyParams.getMapping());
 
         if (cleanParams.getOrder().equals(dirtyParams.getOrder())) {
-            List<MethodParameters.ParamGroup> order = dirtyParams.getOrder();
             int offset = 0;
-            for (MethodParameters.ParamGroup group : order) {
-                List<Type> cleanList = cleanParams.getTypes(group);
-                List<Type> dirtyList = dirtyParams.getTypes(group);
-
-                if (!applyDiff(cleanList, dirtyList, context, offset)) {
+            for (MethodParameters.ParamGroup group : dirtyParams.getOrder()) {
+                if (!applyDiff(cleanParams.getTypes(group), dirtyParams.getTypes(group), context, offset)) {
                     return TxResult.FAIL;
                 }
-                offset += dirtyList.size();
+                offset += dirtyParams.getTypes(group).size();
             }
-        } else {
-            if (!applyDiff(cleanParams.mergeTypes(), dirtyParams.mergeTypes(), context, 0)) {
-                return TxResult.FAIL;
-            }
+        } else if (!applyDiff(cleanParams.mergeTypes(), dirtyParams.mergeTypes(), context, 0)) {
+            return TxResult.FAIL;
         }
 
         // Apply mappings of params that only exist in dirty
-        ParamTransformationUtil.applyVarMappings(context.methodNode(), ParamTransformationUtil.gatherVarMappings(context.methodNode(), dirtyParams.merge(), dirtyParams.merge(), dirtyParams.getMapping()));
-        ParamTransformationUtil.applyVarMappings(context.methodNode(), oldVarMap);
-        ParamTransformationUtil.applyAnnotations(context.methodNode(), dirtyParams.merge());
-
+        ParamTransformationUtil.applyVarMappings(method, ParamTransformationUtil.gatherVarMappings(method, dirtyParams.merge(), dirtyParams.merge(), dirtyParams.getMapping()));
+        ParamTransformationUtil.applyVarMappings(method, oldVarMap);
+        ParamTransformationUtil.applyAnnotations(method, dirtyParams.merge());
         return TxResult.SUCCESS;
     }
 
-    private boolean applyDiff(List<Type> clean, List<Type> dirty, MixinContext context, int offset) {
+    private static boolean applyDiff(List<Type> clean, List<Type> dirty, MixinContext context, int offset) {
         LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(clean, dirty, context.typeRelation());
-        if (!diff.isEmpty()) {
-            PatchResult result = diff.offset(offset).asParameterTransformer(false)
-                .apply(context);
-            return result != PatchResult.PASS;
-        }
-        return true;
+        return diff.isEmpty() || diff.offset(offset).asParameterTransformer(false).apply(context) != PatchResult.PASS;
     }
 }

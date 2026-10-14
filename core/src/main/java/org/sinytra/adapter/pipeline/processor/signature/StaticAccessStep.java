@@ -2,7 +2,6 @@ package org.sinytra.adapter.pipeline.processor.signature;
 
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
@@ -12,79 +11,60 @@ import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.util.AdapterUtil;
-import org.sinytra.adapter.util.SingleValueHandle;
 
 import java.util.List;
-import java.util.Objects;
+import java.util.stream.StreamSupport;
 
 public class StaticAccessStep implements SignatureStep {
     @Override
     public TxResult apply(MixinContext context, Configuration dirty, Recipe recipe) {
-        if (!recipe.clean().hasProperty(ControlKeys.STATIC) || !dirty.hasProperty(ControlKeys.STATIC))
+        Boolean cleanStatic = recipe.clean().getProperty(ControlKeys.STATIC).orElse(null);
+        Boolean dirtyStatic = dirty.getProperty(ControlKeys.STATIC).orElse(null);
+        if (cleanStatic == null || dirtyStatic == null || cleanStatic.equals(dirtyStatic)) {
             return TxResult.PASS;
-
-        boolean cleanStatic = recipe.clean().getProperty(ControlKeys.STATIC).orElseThrow();
-        boolean dirtyStatic = dirty.getProperty(ControlKeys.STATIC).orElseThrow();
-        if (cleanStatic == dirtyStatic) return TxResult.PASS;
+        }
 
         MethodNode method = context.methodNode();
-        boolean actuallyStatic = MethodAnalyzer.isStatic(context.methodNode());
-        // Add static
-        if (!actuallyStatic && !cleanStatic && dirtyStatic) {
+        boolean actuallyStatic = MethodAnalyzer.isStatic(method);
+        if (dirtyStatic && !actuallyStatic) {
             // Mixin types add the target instance as the first parameter, which replaces usages of "this"
             Type[] args = Type.getArgumentTypes(method.desc);
             List<Type> targetTypes = context.targetTypes();
             boolean hasInstanceParam = args.length > 0 && targetTypes.size() == 1 && args[0].equals(targetTypes.getFirst());
-            boolean usesThis = false;
-            for (AbstractInsnNode insn : method.instructions) {
-                SingleValueHandle<Integer> handle = AdapterUtil.handleLocalVarInsnValue(insn);
-                if (handle != null && handle.get() == 0) {
-                    usesThis = true;
-                    break;
-                }
-            }
+            boolean usesThis = StreamSupport.stream(method.instructions.spliterator(), false)
+                .map(AdapterUtil::handleLocalVarInsnValue)
+                .anyMatch(handle -> handle != null && handle.get() == 0);
             if (usesThis && !hasInstanceParam) {
                 return TxResult.FAIL;
             }
 
             context.recordCtxAudit("Made method static");
             method.access |= Opcodes.ACC_STATIC;
-
-            // Remove "this" and shift all other locals down by one slot
             if (method.localVariables != null) {
                 method.localVariables.removeIf(lvn -> lvn.index == 0);
-                for (LocalVariableNode lvn : method.localVariables) {
-                    lvn.index--;
-                }
             }
-            AdapterUtil.replaceLVT(method, idx -> idx == 0 ? 0 : idx - 1);
-
+            shiftLocals(method, -1);
             return TxResult.SUCCESS;
         }
-        // Remove static
-        else if (actuallyStatic && cleanStatic && !dirtyStatic) {
+        if (!dirtyStatic && actuallyStatic) {
             context.recordCtxAudit("Made method non-static");
             method.access &= ~Opcodes.ACC_STATIC;
-
-            List<LocalVariableNode> localVariables = Objects.requireNonNullElseGet(method.localVariables, List::of);
-            LocalVariableNode firstParam = localVariables.stream().filter(lvn -> lvn.index == 0)
-                .findFirst()
-                .orElse(null);
-            // Offset everything by 1
-            for (LocalVariableNode lvn : localVariables) {
-                lvn.index++;
-            }
-            AdapterUtil.replaceLVT(method, idx -> idx + 1);
-
-            // Insert instance local variable
+            LocalVariableNode firstParam = method.localVariables == null ? null
+                : method.localVariables.stream().filter(lvn -> lvn.index == 0).findFirst().orElse(null);
+            shiftLocals(method, 1);
             if (firstParam != null) {
                 method.localVariables.add(new LocalVariableNode("this", Type.getObjectType(context.classNode().name).getDescriptor(), null, firstParam.start, firstParam.end, 0));
             }
-
             // TODO Must compute frames
             return TxResult.SUCCESS;
         }
-
         return TxResult.PASS;
+    }
+
+    private static void shiftLocals(MethodNode method, int delta) {
+        if (method.localVariables != null) {
+            method.localVariables.forEach(lvn -> lvn.index += delta);
+        }
+        AdapterUtil.replaceLVT(method, index -> Math.max(index + delta, 0));
     }
 }
