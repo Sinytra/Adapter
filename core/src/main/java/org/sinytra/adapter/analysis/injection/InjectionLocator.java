@@ -67,6 +67,19 @@ public final class InjectionLocator {
         return insns.size() == 1 ? insns.getFirst() : null;
     }
 
+    /// {@return the first instruction the mixin's @At matches in the target method, or null if it matches none}
+    @Nullable
+    public AbstractInsnNode resolveFirst(@Nullable TargetPair target) {
+        return resolveFirst(target, InjectionQuery.current());
+    }
+
+    /// {@return the first instruction the query matches in the target method, or null if it matches none}
+    @Nullable
+    public AbstractInsnNode resolveFirst(@Nullable TargetPair target, InjectionQuery query) {
+        List<AbstractInsnNode> insns = find(target, query);
+        return insns.isEmpty() ? null : insns.getFirst();
+    }
+
     /// {@return whether the mixin's @At matches any instructions in the target method}
     public boolean matches(@Nullable TargetPair target) {
         return !find(target).isEmpty();

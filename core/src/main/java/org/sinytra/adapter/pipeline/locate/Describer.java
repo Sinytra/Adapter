@@ -4,6 +4,7 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.TypeInsnNode;
@@ -22,6 +23,8 @@ import org.sinytra.adapter.model.param.RedirectedInsn;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.injector.MixinFlag;
+import org.sinytra.adapter.util.AdapterUtil;
+import org.sinytra.adapter.util.MixinBridge;
 import org.sinytra.adapter.util.OpcodeUtil;
 
 import java.util.ArrayList;
@@ -35,6 +38,9 @@ import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL
 import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL_LOAD;
 import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL_NEW;
 import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL_STORE;
+import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.PROPERTY_ARGS_ONLY;
+import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.PROPERTY_INDEX;
+import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.PROPERTY_ORDINAL;
 
 public final class Describer {
     @Nullable
@@ -186,6 +192,33 @@ public final class Describer {
 
     public static boolean isLocalAt(MixinContext context, AtData at) {
         return context.hasFlag(MixinFlag.TARGETS_VARIABLE) && (AT_VAL_STORE.equals(at.getValue()) || AT_VAL_LOAD.equals(at.getValue()));
+    }
+
+    @Nullable
+    public static AnnotationNode describeLocalSelector(MixinContext context, MixinBridge.Session session, AnnotationNode selector, TargetPair target,
+                                                       AbstractInsnNode insn, int slot, Type type) {
+        boolean argsOnly = Boolean.TRUE.equals(AdapterUtil.getAnnotationValue(selector, PROPERTY_ARGS_ONLY)) && isParameter(target.methodNode(), slot);
+        AnnotationNode adjusted = new AnnotationNode(selector.desc);
+        if (argsOnly) {
+            adjusted.visit(PROPERTY_ARGS_ONLY, true);
+        }
+        if (AdapterUtil.getAnnotationValue(selector, PROPERTY_INDEX) != null) {
+            adjusted.visit(PROPERTY_INDEX, slot);
+            return session.findLocal(adjusted, type, insn) == slot ? adjusted : null;
+        }
+        if (AdapterUtil.getAnnotationValue(selector, PROPERTY_ORDINAL) == null && session.findLocal(adjusted, type, insn) == slot) {
+            return adjusted;
+        }
+        int ordinal = argsOnly
+            ? getParameterOrdinal(target.methodNode(), slot, type)
+            : context.locals().resolveLocalOrdinal(target, insn, type, slot);
+        if (ordinal != -1) {
+            adjusted.visit(PROPERTY_ORDINAL, ordinal);
+            if (session.findLocal(adjusted, type, insn) == slot) {
+                return adjusted;
+            }
+        }
+        return null;
     }
 
     public static boolean isParameter(MethodNode method, int slot) {

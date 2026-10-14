@@ -540,6 +540,17 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     }
 
     @Test
+    void testLocalCaptureUpgradeOrdinal() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/GuiMixin",
+            "captureSecondInt",
+            assertTargetMethod(),
+            assertInjectionPoint(),
+            assertLocalSelectors()
+        );
+    }
+
+    @Test
     void testSyntheticInstanceof() throws Exception {
         assertSameCode(
             "org/sinytra/adapter/test/mixin/pipeline/ItemInHandRendererMixin",

@@ -24,7 +24,6 @@ import org.sinytra.adapter.pipeline.resolver.InjectionPointResolver;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.pipeline.resolver.rewrite.InstanceofMakesRedirectRedundant;
 import org.sinytra.adapter.pipeline.resolver.rewrite.RewriteResolver;
-import org.sinytra.adapter.util.AdapterUtil;
 
 import java.util.List;
 
@@ -74,7 +73,7 @@ public class RedirectMixin extends AbstractMixinType {
             callTypes = Parameters.getCallOperandTypes(isStatic ? null : methodParams.getFirst(), targetDesc.desc());
         } else {
             TargetPair cleanTarget = clean.getTargetMethod() != null ? context.cleanMethods().resolve(clean.getTargetMethod()) : null;
-            AbstractInsnNode insn = cleanTarget != null ? AdapterUtil.getFirstOrNull(context.injections().find(cleanTarget)) : null;
+            AbstractInsnNode insn = context.injections().resolveFirst(cleanTarget);
             RedirectedInsn redirected = insn != null ? RedirectedInsn.of(insn) : null;
             if (redirected == null)
                 return TxResult.FAIL;

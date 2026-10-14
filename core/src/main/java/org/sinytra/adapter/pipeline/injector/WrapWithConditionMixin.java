@@ -17,7 +17,6 @@ import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
-import org.sinytra.adapter.util.AdapterUtil;
 
 import java.util.List;
 
@@ -49,7 +48,7 @@ public class WrapWithConditionMixin extends AbstractMixinType {
     @Override
     public TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers) {
         TargetPair cleanTarget = clean.getTargetMethod() != null ? context.cleanMethods().resolve(clean.getTargetMethod()) : null;
-        AbstractInsnNode insn = cleanTarget != null ? AdapterUtil.getFirstOrNull(context.injections().find(cleanTarget)) : null;
+        AbstractInsnNode insn = context.injections().resolveFirst(cleanTarget);
         RedirectedInsn wrapped = insn != null ? RedirectedInsn.of(insn) : null;
         List<Parameter> params = Parameters.parse(context.methodNode());
         if (wrapped == null || wrapped.operands().size() > params.size()) {

@@ -12,7 +12,6 @@ import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.locate.Describer;
 import org.sinytra.adapter.pipeline.locate.LocalLocator;
-import org.sinytra.adapter.util.AdapterUtil;
 
 public final class LocalResolver implements Resolver {
     @Override
@@ -30,8 +29,8 @@ public final class LocalResolver implements Resolver {
         if (cleanTarget == null || dirtyTarget == null) {
             return ResolutionResult.pass();
         }
-        AbstractInsnNode cleanInsn = AdapterUtil.getFirstOrNull(context.injections().find(cleanTarget));
-        AbstractInsnNode dirtyInsn = AdapterUtil.getFirstOrNull(context.injections().find(dirtyTarget, InjectionQuery.of(at)));
+        AbstractInsnNode cleanInsn = context.injections().resolveFirst(cleanTarget);
+        AbstractInsnNode dirtyInsn = context.injections().resolveFirst(dirtyTarget, InjectionQuery.of(at));
         if (cleanInsn == null || dirtyInsn == null) {
             return ResolutionResult.pass();
         }

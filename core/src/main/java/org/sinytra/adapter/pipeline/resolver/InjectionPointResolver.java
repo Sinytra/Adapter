@@ -19,7 +19,6 @@ import org.sinytra.adapter.pipeline.locate.SameMethodLocator;
 import org.sinytra.adapter.pipeline.locate.Scope;
 import org.sinytra.adapter.pipeline.locate.ScopeSearch;
 import org.sinytra.adapter.pipeline.locate.SelectedLocator;
-import org.sinytra.adapter.util.AdapterUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -88,7 +87,7 @@ public class InjectionPointResolver implements Resolver {
         if (cleanTarget == null || cleanAt == null || !Describer.isLocalAt(context, cleanAt)) {
             return true;
         }
-        AbstractInsnNode cleanInsn = AdapterUtil.getFirstOrNull(context.injections().find(cleanTarget));
+        AbstractInsnNode cleanInsn = context.injections().resolveFirst(cleanTarget);
         if (cleanInsn == null) {
             return true;
         }

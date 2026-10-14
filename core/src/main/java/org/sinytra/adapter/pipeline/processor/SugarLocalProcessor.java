@@ -28,9 +28,6 @@ import org.sinytra.adapter.util.MixinBridge;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.PROPERTY_ARGS_ONLY;
-import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.PROPERTY_INDEX;
-import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.PROPERTY_ORDINAL;
 
 public class SugarLocalProcessor implements Processor {
     @Override
@@ -49,8 +46,8 @@ public class SugarLocalProcessor implements Processor {
         if (locals.isEmpty() || cleanLocals.size() != locals.size()) {
             return TxResult.PASS;
         }
-        AbstractInsnNode cleanInsn = AdapterUtil.getFirstOrNull(context.injections().find(cleanTarget));
-        AbstractInsnNode dirtyInsn = AdapterUtil.getFirstOrNull(context.injections().find(dirtyTarget, InjectionQuery.of(dirtyAt)));
+        AbstractInsnNode cleanInsn = context.injections().resolveFirst(cleanTarget);
+        AbstractInsnNode dirtyInsn = context.injections().resolveFirst(dirtyTarget, InjectionQuery.of(dirtyAt));
         if (cleanInsn == null || dirtyInsn == null) {
             return TxResult.PASS;
         }
@@ -88,7 +85,7 @@ public class SugarLocalProcessor implements Processor {
                 context.recordCtxAudit("Can't select local %s for @Local parameter %s of type %s", slot, index, type);
                 continue;
             }
-            AnnotationNode newSelector = describeSelector(context, dirtySession, selector, dirtyTarget, dirtyInsn, slot, dirtyType);
+            AnnotationNode newSelector = Describer.describeLocalSelector(context, dirtySession, selector, dirtyTarget, dirtyInsn, slot, dirtyType);
             if (newSelector == null) {
                 context.recordCtxAudit("Can't select local %s for @Local parameter %s", slot, index);
                 continue;
@@ -154,33 +151,6 @@ public class SugarLocalProcessor implements Processor {
         }
         if (inheritance.isClassInherited(type.getInternalName(), dirtyType.getInternalName())) {
             return true;
-        }
-        return null;
-    }
-
-    @Nullable
-    private static AnnotationNode describeSelector(MixinContext context, MixinBridge.Session session, AnnotationNode selector, TargetPair target,
-                                                   AbstractInsnNode insn, int slot, Type type) {
-        boolean argsOnly = Boolean.TRUE.equals(AdapterUtil.getAnnotationValue(selector, PROPERTY_ARGS_ONLY)) && Describer.isParameter(target.methodNode(), slot);
-        AnnotationNode adjusted = new AnnotationNode(selector.desc);
-        if (argsOnly) {
-            adjusted.visit(PROPERTY_ARGS_ONLY, true);
-        }
-        if (AdapterUtil.getAnnotationValue(selector, PROPERTY_INDEX) != null) {
-            adjusted.visit(PROPERTY_INDEX, slot);
-            return session.findLocal(adjusted, type, insn) == slot ? adjusted : null;
-        }
-        if (AdapterUtil.getAnnotationValue(selector, PROPERTY_ORDINAL) == null && session.findLocal(adjusted, type, insn) == slot) {
-            return adjusted;
-        }
-        int ordinal = argsOnly
-            ? Describer.getParameterOrdinal(target.methodNode(), slot, type)
-            : context.locals().resolveLocalOrdinal(target, insn, type, slot);
-        if (ordinal != -1) {
-            adjusted.visit(PROPERTY_ORDINAL, ordinal);
-            if (session.findLocal(adjusted, type, insn) == slot) {
-                return adjusted;
-            }
         }
         return null;
     }

@@ -94,7 +94,7 @@ public final class LocalsAnalyzer {
         return new CapturedLocals(dirtyTarget, isStatic, captured.start(), end, isStatic ? 0 : 1, captured.types(), lvt);
     }
 
-    public record CapturedLocalsInfo(CapturedLocals capturedLocals, LayeredParamsDiffSnapshot diff, List<Type> availableTypes) {
+    public record CapturedLocalsInfo(CapturedLocals capturedLocals, LayeredParamsDiffSnapshot diff) {
     }
 
     @Nullable
@@ -110,7 +110,7 @@ public final class LocalsAnalyzer {
         // Compare expected and available params
         LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(capturedLocals.expected(), availableTypes, this.context.typeRelation()).snapshot();
 
-        return new CapturedLocalsInfo(capturedLocals, diff, availableTypes);
+        return new CapturedLocalsInfo(capturedLocals, diff);
     }
 
     public static List<VarInsnNode> findStoreInsns(MethodNode methodNode, int index) {
@@ -150,7 +150,7 @@ public final class LocalsAnalyzer {
         return insns;
     }
 
-    public record CapturedLocalsTransform(Collection<Integer> used, TransformParameters remover, Collection<LocalVariableNode> usedLocalNodes) {
+    public record CapturedLocalsTransform(Collection<Integer> used, TransformParameters remover) {
     }
 
     public List<LocalCandidate> findSelectableLocals(TargetPair target, AbstractInsnNode insn, Type type) {
@@ -241,7 +241,6 @@ public final class LocalsAnalyzer {
         int paramLocalStart = capturedLocals.paramLocalStart();
         LocalVariableLookup table = capturedLocals.lvt();
         Set<Integer> used = new HashSet<>();
-        Set<LocalVariableNode> usedLocalNodes = new HashSet<>();
         for (AbstractInsnNode insn : methodNode.instructions) {
             if (insn instanceof VarInsnNode varInsn) {
                 LocalVariableNode node = table.getByIndexOrNull(varInsn.var);
@@ -252,7 +251,6 @@ public final class LocalsAnalyzer {
                     continue;
                 if (ordinal >= paramLocalStart && ordinal <= capturedLocals.paramLocalEnd()) {
                     used.add(ordinal);
-                    usedLocalNodes.add(node);
                 }
             }
         }
@@ -263,6 +261,6 @@ public final class LocalsAnalyzer {
                 .boxed().sorted(Collections.reverseOrder())
                 .forEach(b::remove))
             .build();
-        return new CapturedLocalsTransform(used, remover, usedLocalNodes);
+        return new CapturedLocalsTransform(used, remover);
     }
 }

@@ -19,6 +19,7 @@ import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 
 @Mixin(Gui.class)
 public class GuiMixin {
@@ -97,6 +98,34 @@ public class GuiMixin {
     private void cozyBackgroundExpected(GuiGraphics context, DeltaTracker tickCounter, CallbackInfo ci, @Local Holder registryEntry) {
         // Use only a single captured local
         boolean something = registryEntry == null;
+    }
+
+    @Inject(
+        method = "renderEffects",
+        at = @At(
+            value = "INVOKE_ASSIGN",
+            target = "Lnet/minecraft/world/effect/MobEffectInstance;getEffect()Lnet/minecraft/core/Holder;",
+            shift = At.Shift.AFTER
+        ),
+        locals = LocalCapture.CAPTURE_FAILHARD
+    )
+    private void captureSecondInt(GuiGraphics context, DeltaTracker tickCounter, CallbackInfo ci, Collection collection, int i, int j,
+                                  MobEffectTextureManager statusEffectSpriteManager, List list, Iterator var8, MobEffectInstance statusEffectInstance, Holder registryEntry
+    ) {
+        int y = j;
+    }
+
+    @Inject(
+        method = "renderEffects(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
+        at = @At(
+            value = "INVOKE_ASSIGN",
+            target = "Lnet/minecraft/world/effect/MobEffectInstance;getEffect()Lnet/minecraft/core/Holder;",
+            shift = At.Shift.AFTER
+        ),
+        locals = LocalCapture.CAPTURE_FAILHARD
+    )
+    private void captureSecondIntExpected(GuiGraphics context, DeltaTracker tickCounter, CallbackInfo ci, @Local(ordinal = 1) int j) {
+        int y = j;
     }
 
     // https://github.com/SkyblockerMod/Skyblocker/blob/fa67224da0cdcd2325b24f41732e820ff7ef04e8/src/main/java/de/hysky/skyblocker/mixins/InGameHudMixin.java#L97

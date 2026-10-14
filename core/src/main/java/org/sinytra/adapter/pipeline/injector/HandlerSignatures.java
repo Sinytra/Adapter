@@ -21,7 +21,6 @@ import org.sinytra.adapter.model.param.RedirectedInsn;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
-import org.sinytra.adapter.util.AdapterUtil;
 
 import java.util.List;
 
@@ -86,10 +85,7 @@ public final class HandlerSignatures {
 
     @Nullable
     private static RedirectedInsn findRedirected(MixinContext context, Recipe recipe, Configuration dirty) {
-        TargetPair dirtyTarget = recipe.getDirtyTarget();
-        AbstractInsnNode insn = dirtyTarget != null && dirty.getAtData() != null
-            ? AdapterUtil.getFirstOrNull(context.injections().find(dirtyTarget, InjectionQuery.of(dirty.getAtData())))
-            : null;
+        AbstractInsnNode insn = dirty.getAtData() != null ? context.injections().resolveFirst(recipe.getDirtyTarget(), InjectionQuery.of(dirty.getAtData())) : null;
         return insn != null ? RedirectedInsn.of(insn) : null;
     }
 
@@ -99,7 +95,7 @@ public final class HandlerSignatures {
         if (call == null) return null;
 
         TargetPair dirtyTarget = recipe.getDirtyTarget();
-        AbstractInsnNode insn = dirtyTarget != null ? AdapterUtil.getFirstOrNull(context.injections().find(dirtyTarget, InjectionQuery.of(dirty.getAtData()))) : null;
+        AbstractInsnNode insn = context.injections().resolveFirst(dirtyTarget, InjectionQuery.of(dirty.getAtData()));
 
         boolean isStatic;
         String owner;

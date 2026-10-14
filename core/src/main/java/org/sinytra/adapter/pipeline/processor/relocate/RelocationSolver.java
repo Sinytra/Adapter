@@ -130,7 +130,7 @@ public final class RelocationSolver {
             return true;
         }
         AtData at = dirty.getAtData();
-        AbstractInsnNode insn = at != null ? AdapterUtil.getFirstOrNull(context.injections().find(newTarget, InjectionQuery.of(at))) : null;
+        AbstractInsnNode insn = at != null ? context.injections().resolveFirst(newTarget, InjectionQuery.of(at)) : null;
         if (insn == null) {
             return false;
         }

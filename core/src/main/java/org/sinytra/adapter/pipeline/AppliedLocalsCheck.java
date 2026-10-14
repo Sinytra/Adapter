@@ -9,13 +9,12 @@ import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.injector.MixinFlag;
 import org.sinytra.adapter.pipeline.locate.LocalLocator;
 import org.sinytra.adapter.pipeline.processor.SugarLocalProcessor;
-import org.sinytra.adapter.util.AdapterUtil;
 import org.sinytra.adapter.util.MixinBridge;
 
 public final class AppliedLocalsCheck {
     public static void check(Object actor, MixinContext context, TargetPair cleanTarget, TargetPair dirtyTarget) {
-        AbstractInsnNode cleanInsn = AdapterUtil.getFirstOrNull(context.injections().find(cleanTarget));
-        AbstractInsnNode dirtyInsn = AdapterUtil.getFirstOrNull(context.injections().find(dirtyTarget));
+        AbstractInsnNode cleanInsn = context.injections().resolveFirst(cleanTarget);
+        AbstractInsnNode dirtyInsn = context.injections().resolveFirst(dirtyTarget);
         if (cleanInsn == null || dirtyInsn == null) {
             return;
         }
