@@ -122,12 +122,9 @@ public class SugarLocalProcessor implements Processor {
             method.invisibleParameterAnnotations != null ? method.invisibleParameterAnnotations : new List[0],
             method.visibleParameterAnnotations != null ? method.visibleParameterAnnotations : new List[0]
         )) {
-            if (index < annotations.length && annotations[index] != null) {
-                for (AnnotationNode annotation : annotations[index]) {
-                    if (annotation.desc.equals(MixinAnnotations.LOCAL)) {
-                        return annotation;
-                    }
-                }
+            AnnotationNode local = index < annotations.length ? AdapterUtil.getAnnotation(annotations[index], MixinAnnotations.LOCAL) : null;
+            if (local != null) {
+                return local;
             }
         }
         return null;
@@ -164,16 +161,16 @@ public class SugarLocalProcessor implements Processor {
     @Nullable
     private static AnnotationNode describeSelector(MixinContext context, MixinBridge.Session session, AnnotationNode selector, TargetPair target,
                                                    AbstractInsnNode insn, int slot, Type type) {
-        boolean argsOnly = Boolean.TRUE.equals(getValue(selector, PROPERTY_ARGS_ONLY)) && Describer.isParameter(target.methodNode(), slot);
+        boolean argsOnly = Boolean.TRUE.equals(AdapterUtil.getAnnotationValue(selector, PROPERTY_ARGS_ONLY)) && Describer.isParameter(target.methodNode(), slot);
         AnnotationNode adjusted = new AnnotationNode(selector.desc);
         if (argsOnly) {
             adjusted.visit(PROPERTY_ARGS_ONLY, true);
         }
-        if (getValue(selector, PROPERTY_INDEX) != null) {
+        if (AdapterUtil.getAnnotationValue(selector, PROPERTY_INDEX) != null) {
             adjusted.visit(PROPERTY_INDEX, slot);
             return session.findLocal(adjusted, type, insn) == slot ? adjusted : null;
         }
-        if (getValue(selector, PROPERTY_ORDINAL) == null && session.findLocal(adjusted, type, insn) == slot) {
+        if (AdapterUtil.getAnnotationValue(selector, PROPERTY_ORDINAL) == null && session.findLocal(adjusted, type, insn) == slot) {
             return adjusted;
         }
         int ordinal = argsOnly
@@ -183,18 +180,6 @@ public class SugarLocalProcessor implements Processor {
             adjusted.visit(PROPERTY_ORDINAL, ordinal);
             if (session.findLocal(adjusted, type, insn) == slot) {
                 return adjusted;
-            }
-        }
-        return null;
-    }
-
-    @Nullable
-    private static Object getValue(AnnotationNode annotation, String key) {
-        if (annotation.values != null) {
-            for (int i = 0; i + 1 < annotation.values.size(); i += 2) {
-                if (key.equals(annotation.values.get(i))) {
-                    return annotation.values.get(i + 1);
-                }
             }
         }
         return null;

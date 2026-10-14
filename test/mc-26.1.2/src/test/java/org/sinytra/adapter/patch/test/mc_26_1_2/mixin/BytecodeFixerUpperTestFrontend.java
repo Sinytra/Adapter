@@ -17,6 +17,8 @@ import static org.sinytra.adapter.util.AdapterUtil.insnList;
 
 public class BytecodeFixerUpperTestFrontend {
     private static final List<TypeAdapter> FIELD_TYPE_ADAPTERS = List.of(
+        new SimpleTypeAdapter(Type.getObjectType("net/minecraft/world/entity/Mob"), Type.getObjectType("net/minecraft/world/entity/monster/Monster"), (list, insn) ->
+            list.insert(insn, new TypeInsnNode(Opcodes.CHECKCAST, "net/minecraft/world/entity/monster/Monster"))),
         new SimpleTypeAdapter(Type.getObjectType("net/minecraft/world/item/ItemStack"), Type.getObjectType("net/minecraft/world/item/Item"), (list, insn) ->
             list.insert(insn, new MethodInsnNode(Opcodes.INVOKEVIRTUAL, "net/minecraft/world/item/ItemStack", "getItem", "()Lnet/minecraft/world/item/Item;"))),
         new SimpleTypeAdapter(

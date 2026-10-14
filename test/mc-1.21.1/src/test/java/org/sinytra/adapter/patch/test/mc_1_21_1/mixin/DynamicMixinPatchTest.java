@@ -24,7 +24,6 @@ import org.sinytra.adapter.api.RefmapHolder;
 import org.sinytra.adapter.api.TxPhase;
 import org.sinytra.adapter.model.ann.AnnotationHandle;
 import org.sinytra.adapter.patch.test_main.mixin.MinecraftMixinPatchTest;
-import org.sinytra.adapter.types.FieldTypeUsageTransformer;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.FabricUtil;
 
@@ -58,7 +57,7 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
             FabricUtil.COMPATIBILITY_LATEST
         );
         patcher = Patcher.builder(patchEnvironment)
-            .classTransformer(new FieldTypeUsageTransformer())
+            .classTransformers(DynamicPatches.CLASS_PATCHES)
             .methodTransformers(ImmutableMultimap.<TxPhase, MethodTransformer>builder()
                 .putAll(DynamicPatches.methodTransformers(List.of()))
                 .put(TxPhase.VALIDATED, context -> {

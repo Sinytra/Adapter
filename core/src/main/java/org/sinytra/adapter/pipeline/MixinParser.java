@@ -23,7 +23,6 @@ import org.sinytra.adapter.pipeline.injector.MixinTypes;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 public class MixinParser {
 
@@ -63,7 +62,7 @@ public class MixinParser {
 
             MutablePropertyContainer properties = MutablePropertyContainer.parse(handle, template, mapper);
             properties.setProperty(ControlKeys.MIXIN_TYPE, annotation.desc);
-            String targetClass = Objects.requireNonNullElseGet(cls.getSingle(), () -> cls.getTypes().getFirst()).getInternalName();
+            String targetClass = cls.getTypes().getFirst().getInternalName();
             properties.setProperty(ControlKeys.TARGET_CLASS, targetClass);
             properties.setProperty(ControlKeys.RETURN_TYPE, Type.getReturnType(method.desc));
             properties.setProperty(ControlKeys.STATIC, MethodAnalyzer.isStatic(method));

@@ -1,5 +1,6 @@
 package org.sinytra.adapter.api;
 
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
 import org.sinytra.adapter.pipeline.ctx.PatchContextImpl;
@@ -14,6 +15,12 @@ public interface ClassPatchContext {
     ClassNode classNode();
 
     List<Type> targetTypes();
+
+    @Nullable
+    default Type singleTarget() {
+        List<Type> types = targetTypes();
+        return types.size() == 1 ? types.getFirst() : null;
+    }
 
     PatchEnvironment environment();
 

@@ -23,11 +23,6 @@ public class ClassTarget {
         return this.types;
     }
 
-    @Nullable
-    public Type getSingle() {
-        return this.types.size() != 1 ? null : this.types.getFirst();
-    }
-
     public void set(Type type) {
         this.types = List.of(type);
         this.either.ifLeft(h -> h.set(List.of(type)))
@@ -41,7 +36,7 @@ public class ClassTarget {
             .or(() -> handle.<List<String>>getValue(MIXIN_TARGETS).map(v -> {
                 List<Type> types = v.get().stream()
                     .map(mapper::remap)
-                    .map(Type::getObjectType)
+                    .map(name -> Type.getObjectType(name.replace('.', '/')))
                     .toList();
                 return new ClassTarget(types, Either.right(v));
             }))

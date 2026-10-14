@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.assertj.core.api.Assertions;
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.api.ClassLookup;
 import org.sinytra.adapter.api.MixinClassGenerator;
@@ -146,6 +147,17 @@ public abstract class MinecraftMixinPatchTest {
         LOGGER.info("Patched field node: {} {}", patched.name, patched.desc);
 
         assertEquals(patched.desc, expected.desc, "Field types differ");
+    }
+
+    protected final void assertMixinTarget(String className, String testName, String expectedTarget) throws Exception {
+        ClassNode patched = load(className, List.of(testName)).patched();
+        AnnotationNode mixin = patched.invisibleAnnotations.stream().filter(a -> a.desc.equals(MixinAnnotations.MIXIN)).findFirst().orElseThrow();
+        Object targets = new AnnotationHandle(mixin).getValue("targets").or(() -> new AnnotationHandle(mixin).getValue("value"))
+            .orElseThrow().get();
+        List<String> names = ((List<?>) targets).stream()
+            .map(t -> t instanceof Type type ? type.getInternalName() : ((String) t).replace('.', '/'))
+            .toList();
+        assertEquals(List.of(expectedTarget), names, "Mixin targets");
     }
 
     public static class InsnComparator implements Comparator<AbstractInsnNode> {

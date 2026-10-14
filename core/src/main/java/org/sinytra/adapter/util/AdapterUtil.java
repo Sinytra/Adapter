@@ -113,8 +113,33 @@ public final class AdapterUtil {
         return AdapterUtil.hasAnnotation(field.visibleAnnotations, MixinAnnotations.SHADOW);
     }
 
-    public static boolean hasAnnotation(List<AnnotationNode> annotations, String desc) {
-        return annotations != null && annotations.stream().anyMatch(an -> desc.equals(an.desc));
+    public static boolean hasAnnotation(@Nullable List<AnnotationNode> annotations, String desc) {
+        return getAnnotation(annotations, desc) != null;
+    }
+
+    @Nullable
+    public static AnnotationNode getAnnotation(@Nullable List<AnnotationNode> annotations, String desc) {
+        if (annotations != null) {
+            for (AnnotationNode annotation : annotations) {
+                if (desc.equals(annotation.desc)) {
+                    return annotation;
+                }
+            }
+        }
+        return null;
+    }
+
+    @Nullable
+    @SuppressWarnings("unchecked")
+    public static <T> T getAnnotationValue(AnnotationNode annotation, String key) {
+        if (annotation.values != null) {
+            for (int i = 0; i + 1 < annotation.values.size(); i += 2) {
+                if (key.equals(annotation.values.get(i))) {
+                    return (T) annotation.values.get(i + 1);
+                }
+            }
+        }
+        return null;
     }
 
     // Adapted from org.spongepowered.asm.mixin.injection.callback.CallbackInjector summariseLocals
