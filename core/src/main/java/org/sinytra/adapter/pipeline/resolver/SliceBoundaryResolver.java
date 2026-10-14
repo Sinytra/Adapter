@@ -59,7 +59,7 @@ public class SliceBoundaryResolver implements Resolver {
         if (slice.from() != null && from == null || slice.to() != null && to == null) {
             return null;
         }
-        return from == slice.from() && to == slice.to() ? slice : new SliceData(slice.id(), from, to);
+        return from == slice.from() && to == slice.to() ? slice : slice.withBoundaries(from, to);
     }
 
     @Nullable

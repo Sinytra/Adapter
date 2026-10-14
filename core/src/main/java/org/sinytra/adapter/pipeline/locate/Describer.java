@@ -72,7 +72,7 @@ public final class Describer {
             config.setProperty(MixinKeys.SLICES, List.of());
         }
         if (otherMethod && recipe.clean().hasProperty(MixinKeys.SLICE)) {
-            config.setProperty(MixinKeys.SLICE, new SliceData(null, null, null));
+            config.setProperty(MixinKeys.SLICE, SliceData.empty());
         }
 
         if (described != null && isLocalAt(context, described) && candidate.insn() instanceof VarInsnNode var) {
