@@ -24,8 +24,10 @@ public class MixinAnnotations {
     public static final String WRAP_WITH_CONDITION_V2_INTERNAL_NAME = "com/llamalad7/mixinextras/injector/v2/WrapWithCondition";
     public static final String LOCAL = "Lcom/llamalad7/mixinextras/sugar/Local;";
     public static final String SHARE = "Lcom/llamalad7/mixinextras/sugar/Share;";
-    // Adapter custom mixin injectors
-    public static final String MODIFY_INSTANCEOF_VAL = "Lorg/sinytra/adapter/runtime/inject/ModifyInstanceofValue;";
+    public static final String EXPRESSION = "Lcom/llamalad7/mixinextras/expression/Expression;";
+    public static final String EXPRESSIONS = "Lcom/llamalad7/mixinextras/expression/Expressions;";
+    public static final String DEFINITION = "Lcom/llamalad7/mixinextras/expression/Definition;";
+    public static final String DEFINITIONS = "Lcom/llamalad7/mixinextras/expression/Definitions;";
     // Misc
     public static final String MIXIN = "Lorg/spongepowered/asm/mixin/Mixin;";
     public static final String AT = "Lorg/spongepowered/asm/mixin/injection/At;";

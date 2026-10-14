@@ -12,7 +12,7 @@ public class MixinAnnotationConstants {
     public static final String AT_VAL_STORE = "STORE";
     public static final String AT_VAL_LOAD = "LOAD";
     public static final String AT_VAL_CONST = "CONSTANT";
-    public static final String AT_VAL_SINYTRA_INSTANCEOF = "sinytra:INSTANCEOF";
+    public static final String AT_VAL_EXPRESSION = "MIXINEXTRAS:EXPRESSION";
     public static final String AT_SHIFT = "shift";
 
     public static final String PROPERTY_AT = "at";

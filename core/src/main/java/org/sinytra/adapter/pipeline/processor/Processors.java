@@ -20,6 +20,8 @@ public class Processors extends OrderedRegistry<Processor> {
         // === Standard changes ===
         // General annotation props
         add(new PropertyProcessor());
+        // MixinExtras expression of an expression @At before anything evaluates the dirty @At
+        add(new ExpressionProcessor());
         // Target method post processor
         add(new TargetMethodProcessor());
         // Mixin method signature

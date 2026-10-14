@@ -55,6 +55,8 @@ public final class MixinBridge {
     private static final MethodHandle LOCAL_VARIABLE_INJECTION_POINT_FIND;
     private static final VarHandle INJECTION_POINT_TYPES;
     private static final String CLS_REGEX = "^([A-Za-z_][A-Za-z0-9_]*[\\.\\$])+[A-Za-z_][A-Za-z0-9_]*$";
+    private static final String EXPRESSION_POINT_CLASS = "com.llamalad7.mixinextras.expression.impl.point.ExpressionInjectionPoint";
+    private static final String CONFIG_NAME = "adapter.mixinbridge.json";
     private static final Object LOCALS_LOCK = new Object();
 
     static {
@@ -172,7 +174,7 @@ public final class MixinBridge {
         public List<AbstractInsnNode> findInjectionPoint(AnnotationNode parent, AnnotationNode at, @Nullable AnnotationNode slice) {
             try {
                 InjectionPoint point = InjectionPoint.parse(this.mixinContext, this.mixinMethod, parent, at);
-                return find(point, slice);
+                return find(point, parent, slice);
             } catch (Throwable e) {
                 LOGGER.error("Error finding injection insns", e);
                 return List.of();
@@ -181,7 +183,7 @@ public final class MixinBridge {
 
         public List<AbstractInsnNode> findConstant(AnnotationNode constant, String returnDesc, @Nullable AnnotationNode slice) {
             try {
-                return find(new BeforeConstant(this.mixinContext, constant, returnDesc), slice);
+                return find(new BeforeConstant(this.mixinContext, constant, returnDesc), null, slice);
             } catch (Throwable e) {
                 LOGGER.error("Error finding injection insns", e);
                 return List.of();
@@ -223,7 +225,7 @@ public final class MixinBridge {
             }
         }
 
-        private List<AbstractInsnNode> find(InjectionPoint point, @Nullable AnnotationNode slice) throws Throwable {
+        private List<AbstractInsnNode> find(InjectionPoint point, @Nullable AnnotationNode parent, @Nullable AnnotationNode slice) throws Throwable {
             List<AbstractInsnNode> targetInsns = new ArrayList<>();
             if (LOCAL_VARIABLE_INJECTION_POINT_CLASS.isInstance(point)) {
                 // Local variable injection points need a ModifyVariable injector, and always search the whole method
@@ -231,7 +233,11 @@ public final class MixinBridge {
                 LOCAL_VARIABLE_INJECTION_POINT_FIND.invoke(point, info, this.targetMethod.instructions, targetInsns, target());
             } else {
                 InsnList instructions = slice != null ? slice(slice) : this.targetMethod.instructions;
-                point.find(this.targetMethod.desc, instructions, targetInsns);
+                if (parent != null && point.getClass().getName().equals(EXPRESSION_POINT_CLASS)) {
+                    Expressions.find(this, point, parent, instructions, targetInsns);
+                } else {
+                    point.find(this.targetMethod.desc, instructions, targetInsns);
+                }
             }
             return targetInsns;
         }
@@ -246,6 +252,92 @@ public final class MixinBridge {
                 }
             }
             return this.target;
+        }
+    }
+
+    private static final class Expressions {
+        private static final Object LOCK = new Object();
+        private static final String MIN_VERSION = "0.5.0";
+        private static final Map<String, String> INJECTION_INFOS = Map.ofEntries(
+            Map.entry("Lorg/spongepowered/asm/mixin/injection/Inject;", "org.spongepowered.asm.mixin.injection.struct.CallbackInjectionInfo"),
+            Map.entry("Lorg/spongepowered/asm/mixin/injection/ModifyArg;", "org.spongepowered.asm.mixin.injection.struct.ModifyArgInjectionInfo"),
+            Map.entry("Lorg/spongepowered/asm/mixin/injection/ModifyArgs;", "org.spongepowered.asm.mixin.injection.struct.ModifyArgsInjectionInfo"),
+            Map.entry("Lorg/spongepowered/asm/mixin/injection/ModifyConstant;", "org.spongepowered.asm.mixin.injection.struct.ModifyConstantInjectionInfo"),
+            Map.entry("Lorg/spongepowered/asm/mixin/injection/ModifyVariable;", "org.spongepowered.asm.mixin.injection.struct.ModifyVariableInjectionInfo"),
+            Map.entry("Lorg/spongepowered/asm/mixin/injection/Redirect;", "org.spongepowered.asm.mixin.injection.struct.RedirectInjectionInfo"),
+            Map.entry("Lcom/llamalad7/mixinextras/injector/ModifyExpressionValue;", "com.llamalad7.mixinextras.injector.ModifyExpressionValueInjectionInfo"),
+            Map.entry("Lcom/llamalad7/mixinextras/injector/ModifyReceiver;", "com.llamalad7.mixinextras.injector.ModifyReceiverInjectionInfo"),
+            Map.entry("Lcom/llamalad7/mixinextras/injector/ModifyReturnValue;", "com.llamalad7.mixinextras.injector.ModifyReturnValueInjectionInfo"),
+            Map.entry("Lcom/llamalad7/mixinextras/injector/wrapoperation/WrapOperation;", "com.llamalad7.mixinextras.injector.wrapoperation.WrapOperationInjectionInfo"),
+            Map.entry("Lcom/llamalad7/mixinextras/injector/WrapWithCondition;", "com.llamalad7.mixinextras.injector.v2.WrapWithConditionInjectionInfo"),
+            Map.entry("Lcom/llamalad7/mixinextras/injector/v2/WrapWithCondition;", "com.llamalad7.mixinextras.injector.v2.WrapWithConditionInjectionInfo")
+        );
+        private static final VarHandle INFO_METHOD;
+        private static final VarHandle INFO_ANNOTATION;
+        private static final VarHandle INFO_CLASS_NODE;
+        private static final Map<Class<?>, Handles> HANDLES = new ConcurrentHashMap<>();
+
+        private record Handles(VarHandle currentInfo, VarHandle currentTargets, Map<String, Class<? extends InjectionInfo>> injectionInfos) {
+        }
+
+        static {
+            try {
+                INFO_METHOD = TRUSTED_LOOKUP.findVarHandle(AnnotatedMethodInfo.class, "method", MethodNode.class);
+                INFO_ANNOTATION = TRUSTED_LOOKUP.findVarHandle(AnnotatedMethodInfo.class, "annotation", AnnotationNode.class);
+                INFO_CLASS_NODE = TRUSTED_LOOKUP.findVarHandle(SpecialMethodInfo.class, "classNode", ClassNode.class);
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        public static void find(Session session, InjectionPoint point, AnnotationNode parent, InsnList instructions, List<AbstractInsnNode> found) {
+            Handles handles = HANDLES.computeIfAbsent(point.getClass(), Expressions::createHandles);
+            Class<? extends InjectionInfo> infoType = handles.injectionInfos().getOrDefault(parent.desc, CallbackInjectionInfo.class);
+            InjectionInfo info = createInjectionInfo(infoType, session.mixinContext, session.lvtCompatibility);
+            INFO_METHOD.set(info, session.mixinMethod);
+            INFO_ANNOTATION.set(info, parent);
+            INFO_CLASS_NODE.set(info, session.targetClass);
+            synchronized (LOCK) {
+                Object previousInfo = handles.currentInfo().get();
+                Object previousTargets = handles.currentTargets().get();
+                try {
+                    handles.currentInfo().set(info);
+                    handles.currentTargets().set(new ArrayList<>(List.of(session.target())));
+                    point.find(session.targetMethod.desc, instructions, found);
+                } finally {
+                    handles.currentInfo().set(previousInfo);
+                    handles.currentTargets().set(previousTargets);
+                }
+            }
+        }
+
+        @SuppressWarnings("unchecked")
+        private static Handles createHandles(Class<?> pointClass) {
+            try {
+                ClassLoader loader = pointClass.getClassLoader();
+                Class<?> configUtils = Class.forName("com.llamalad7.mixinextras.utils.MixinConfigUtils", true, loader);
+                Class<?> config = Class.forName("com.llamalad7.mixinextras.config.MixinExtrasConfig", true, loader);
+                Map<String, Object> configs = (Map<String, Object>) TRUSTED_LOOKUP.unreflectVarHandle(configUtils.getDeclaredField("CONFIG_CACHE")).get();
+                Object declared = config.getConstructor(String.class, config, String.class).newInstance(CONFIG_NAME, null, MIN_VERSION);
+                synchronized (configs) {
+                    configs.putIfAbsent(CONFIG_NAME, declared);
+                }
+
+                Map<String, Class<? extends InjectionInfo>> injectionInfos = new HashMap<>();
+                for (Map.Entry<String, String> entry : INJECTION_INFOS.entrySet()) {
+                    try {
+                        injectionInfos.put(entry.getKey(), (Class<? extends InjectionInfo>) Class.forName(entry.getValue(), false, loader));
+                    } catch (ClassNotFoundException ignored) {
+                    }
+                }
+                return new Handles(
+                    TRUSTED_LOOKUP.unreflectVarHandle(pointClass.getDeclaredField("CURRENT_INFO")),
+                    TRUSTED_LOOKUP.unreflectVarHandle(pointClass.getDeclaredField("CURRENT_TARGETS")),
+                    injectionInfos
+                );
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
@@ -278,7 +370,8 @@ public final class MixinBridge {
                     TRUSTED_LOOKUP.findVarHandle(SpecialMethodInfo.class, "mixin", targetContext),
                     TRUSTED_LOOKUP.findVarHandle(targetContext, "mixin", mixinInfo),
                     TRUSTED_LOOKUP.findVarHandle(mixinInfo, "parent", mixinConfig),
-                    TRUSTED_LOOKUP.findVarHandle(mixinConfig, "decorations", Map.class)
+                    TRUSTED_LOOKUP.findVarHandle(mixinConfig, "decorations", Map.class),
+                    TRUSTED_LOOKUP.findVarHandle(mixinConfig, "name", String.class)
                 };
                 classes = new Class<?>[]{targetContext, mixinInfo, mixinConfig};
             } catch (Throwable t) {
@@ -298,6 +391,7 @@ public final class MixinBridge {
             try {
                 Object config = UNSAFE.allocateInstance(CLASSES[2]);
                 HANDLES[3].set(config, new HashMap<>(Map.of(FabricUtil.KEY_COMPATIBILITY, lvtCompatibility)));
+                HANDLES[4].set(config, CONFIG_NAME);
                 Object mixinInfo = UNSAFE.allocateInstance(CLASSES[1]);
                 HANDLES[2].set(mixinInfo, config);
                 Object context = UNSAFE.allocateInstance(CLASSES[0]);
@@ -369,7 +463,7 @@ public final class MixinBridge {
         //@formatter:off
         @Override public IMixinConfigSource getSource() {throw new UnsupportedOperationException();}
         @Override public String getCleanSourceId() {return "dummy";}
-        @Override public String getName() {throw new UnsupportedOperationException();}
+        @Override public String getName() {return CONFIG_NAME;}
         @Override public String getMixinPackage() {throw new UnsupportedOperationException();}
         @Override public int getPriority() {return 0;}
         @Override public IMixinConfigPlugin getPlugin() {return null;}

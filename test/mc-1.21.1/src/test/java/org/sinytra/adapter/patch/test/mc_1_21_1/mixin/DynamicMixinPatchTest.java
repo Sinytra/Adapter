@@ -555,7 +555,8 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
             "renderFirstPersonItemMEV",
             assertType(),
             assertTargetMethod(),
-            assertInjectionPoint()
+            assertInjectionPoint(),
+            assertExpression()
         );
     }
 

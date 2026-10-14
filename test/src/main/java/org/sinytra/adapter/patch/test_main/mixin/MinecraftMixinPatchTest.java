@@ -12,6 +12,7 @@ import org.sinytra.adapter.api.ZipClassLookup;
 import org.sinytra.adapter.model.ann.AnnotationHandle;
 import org.sinytra.adapter.model.ann.AnnotationValueHandle;
 import org.sinytra.adapter.model.ann.AtData;
+import org.sinytra.adapter.model.ann.ExpressionData;
 import org.sinytra.adapter.model.constant.MixinAnnotations;
 import org.sinytra.adapter.util.AdapterUtil;
 import org.slf4j.Logger;
@@ -314,6 +315,34 @@ public abstract class MinecraftMixinPatchTest {
                 .as("Injection Point Annotation")
                 .isEqualTo(injectionPointExtractor.apply(expectedMethodAnn));
         };
+    }
+
+    protected AssertCallback assertExpression() {
+        Function<MethodNode, List<String>> expressionExtractor = method -> method.invisibleAnnotations == null ? List.of()
+            : method.invisibleAnnotations.stream()
+                .filter(ExpressionData::isExpressionAnnotation)
+                .map(MinecraftMixinPatchTest::describeAnnotation)
+                .toList();
+
+        return (patched, expected, env) -> Assertions.assertThat(expressionExtractor.apply(patched))
+            .as("Expression Annotations")
+            .isEqualTo(expressionExtractor.apply(expected));
+    }
+
+    private static String describeAnnotation(Object value) {
+        if (value instanceof AnnotationNode node) {
+            List<String> values = new ArrayList<>();
+            if (node.values != null) {
+                for (int i = 0; i + 1 < node.values.size(); i += 2) {
+                    values.add(node.values.get(i) + "=" + describeAnnotation(node.values.get(i + 1)));
+                }
+            }
+            return node.desc + values;
+        }
+        if (value instanceof List<?> list) {
+            return list.stream().map(MinecraftMixinPatchTest::describeAnnotation).toList().toString();
+        }
+        return String.valueOf(value);
     }
 
     protected AssertCallback assertSliceRange() {

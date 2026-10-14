@@ -26,7 +26,7 @@ pluginManagement {
 rootProject.name = "Adapter"
 
 includeBuild("core")
-include("runtime", "test")
+include("test")
 
 include("test:mc-1.21.1")
 project(":test:mc-1.21.1").projectDir = file("test/mc-1.21.1")
