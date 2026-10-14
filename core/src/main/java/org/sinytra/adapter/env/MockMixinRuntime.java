@@ -1,8 +1,12 @@
 package org.sinytra.adapter.env;
 
+import com.mojang.logging.LogUtils;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.env.ctx.PatchEnvironment;
 import org.sinytra.adapter.env.ctx.TargetPair;
+import org.slf4j.Logger;
+import org.spongepowered.asm.mixin.FabricUtil;
 import org.spongepowered.asm.mixin.MixinEnvironment;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfig;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
@@ -19,6 +23,7 @@ import org.spongepowered.asm.mixin.injection.struct.Target;
 import org.spongepowered.asm.mixin.refmap.IMixinContext;
 import org.spongepowered.asm.mixin.refmap.IReferenceMapper;
 import org.spongepowered.asm.mixin.struct.AnnotatedMethodInfo;
+import org.spongepowered.asm.mixin.struct.SpecialMethodInfo;
 import org.spongepowered.asm.mixin.transformer.ClassInfo;
 import org.spongepowered.asm.mixin.transformer.ext.Extensions;
 import org.spongepowered.asm.util.asm.IAnnotationHandle;
@@ -29,11 +34,11 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class MockMixinRuntime {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static final MethodHandles.Lookup TRUSTED_LOOKUP;
     private static final Unsafe UNSAFE;
     private static final MethodHandle TARGET_CTR;
@@ -81,6 +86,7 @@ public class MockMixinRuntime {
             InjectionInfo injectionInfo = (InjectionInfo) UNSAFE.allocateInstance(CallbackInjectionInfo.class);
             IMixinContext context = forClass(className, targetClass, environment);
             ANNOTATED_METHOD_INFO_CONTEXT.set(injectionInfo, context);
+            CompatibilityContexts.attach(injectionInfo, environment.fabricLVTCompatibility());
             return injectionInfo;
         } catch (Throwable t) {
             throw new RuntimeException(t);
@@ -99,7 +105,62 @@ public class MockMixinRuntime {
     public static InjectionInfo createModifyVariableInjectionInfo(IMixinContext mixinContext) throws Exception {
         ModifyVariableInjectionInfo info = (ModifyVariableInjectionInfo) UNSAFE.allocateInstance(ModifyVariableInjectionInfo.class);
         ANNOTATED_METHOD_INFO_CONTEXT.set(info, mixinContext);
+        CompatibilityContexts.attach(info, lvtCompatibility(mixinContext));
         return info;
+    }
+
+    private static int lvtCompatibility(IMixinContext mixinContext) {
+        IMixinConfig config = mixinContext.getMixin().getConfig();
+        return config.hasDecoration(FabricUtil.KEY_COMPATIBILITY) ? config.<Integer>getDecoration(FabricUtil.KEY_COMPATIBILITY) : FabricUtil.COMPATIBILITY_LATEST;
+    }
+
+    private static final class CompatibilityContexts {
+        @Nullable
+        private static final VarHandle[] HANDLES;
+        @Nullable
+        private static final Class<?>[] CLASSES;
+        private static final Map<Integer, Object> CONTEXTS = new ConcurrentHashMap<>();
+
+        static {
+            VarHandle[] handles = null;
+            Class<?>[] classes = null;
+            try {
+                Class<?> targetContext = Class.forName("org.spongepowered.asm.mixin.transformer.MixinTargetContext");
+                Class<?> mixinInfo = Class.forName("org.spongepowered.asm.mixin.transformer.MixinInfo");
+                Class<?> mixinConfig = Class.forName("org.spongepowered.asm.mixin.transformer.MixinConfig");
+                handles = new VarHandle[]{
+                    TRUSTED_LOOKUP.findVarHandle(SpecialMethodInfo.class, "mixin", targetContext),
+                    TRUSTED_LOOKUP.findVarHandle(targetContext, "mixin", mixinInfo),
+                    TRUSTED_LOOKUP.findVarHandle(mixinInfo, "parent", mixinConfig),
+                    TRUSTED_LOOKUP.findVarHandle(mixinConfig, "decorations", Map.class)
+                };
+                classes = new Class<?>[]{targetContext, mixinInfo, mixinConfig};
+            } catch (Throwable t) {
+                LOGGER.debug("Mixin target contexts are unavailable, local variable compatibility uses the selector context", t);
+            }
+            HANDLES = handles;
+            CLASSES = classes;
+        }
+
+        public static void attach(InjectionInfo info, int lvtCompatibility) {
+            if (HANDLES != null) {
+                HANDLES[0].set(info, CONTEXTS.computeIfAbsent(lvtCompatibility, CompatibilityContexts::create));
+            }
+        }
+
+        private static Object create(int lvtCompatibility) {
+            try {
+                Object config = UNSAFE.allocateInstance(CLASSES[2]);
+                HANDLES[3].set(config, new HashMap<>(Map.of(FabricUtil.KEY_COMPATIBILITY, lvtCompatibility)));
+                Object mixinInfo = UNSAFE.allocateInstance(CLASSES[1]);
+                HANDLES[2].set(mixinInfo, config);
+                Object context = UNSAFE.allocateInstance(CLASSES[0]);
+                HANDLES[1].set(context, mixinInfo);
+                return context;
+            } catch (InstantiationException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     private record MethodSliceContext(IMixinContext context, MethodNode methodNode) implements ISliceContext {
@@ -142,10 +203,21 @@ public class MockMixinRuntime {
         //@formatter:on
     }
 
-    private static class DummyMixinConfig implements IMixinConfig {
+    private record DummyMixinConfig(int lvtCompatibility) implements IMixinConfig {
         @Override
         public MixinEnvironment getEnvironment() {
             return MixinEnvironment.getCurrentEnvironment();
+        }
+
+        @Override
+        public boolean hasDecoration(String key) {
+            return FabricUtil.KEY_COMPATIBILITY.equals(key);
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public <V> V getDecoration(String key) {
+            return FabricUtil.KEY_COMPATIBILITY.equals(key) ? (V) (Integer) this.lvtCompatibility : null;
         }
 
         //@formatter:off
@@ -158,8 +230,6 @@ public class MockMixinRuntime {
         @Override public boolean isRequired() {throw new UnsupportedOperationException();}
         @Override public Set<String> getTargets() {throw new UnsupportedOperationException();}
         @Override public <V> void decorate(String key, V value) {}
-        @Override public boolean hasDecoration(String key) {return false;}
-        @Override public <V> V getDecoration(String key) {return null;}
         //@formatter:on
     }
 
@@ -192,7 +262,7 @@ public class MockMixinRuntime {
             this.className = className;
             this.targetClass = targetClass;
             this.referenceRemapper = new ReferenceRemapper(env);
-            this.mixinInfo = new DummyMixinInfo(new DummyMixinConfig());
+            this.mixinInfo = new DummyMixinInfo(new DummyMixinConfig(env.fabricLVTCompatibility()));
         }
 
         @Override
