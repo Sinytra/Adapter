@@ -108,7 +108,7 @@ public final class LocalsAnalyzer {
 
         List<Type> availableTypes = available.stream().map(LocalVariable::type).toList();
         // Compare expected and available params
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(capturedLocals.expected(), availableTypes, this.context.typeRelation()).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(capturedLocals.expected(), availableTypes, this.context.typeRelation());
 
         return new CapturedLocalsInfo(capturedLocals, diff);
     }
@@ -210,7 +210,7 @@ public final class LocalsAnalyzer {
             MethodNode cleanTarget = cleanPair.methodNode();
             MethodNode dirtyTarget = dirtyPair.methodNode();
 
-            LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffParameters(cleanTarget, dirtyTarget, this.context.typeRelation()).snapshot();
+            LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffParameters(cleanTarget, dirtyTarget, this.context.typeRelation());
 
             List<Type> cleanTargetParams = Parameters.getParameterTypes(cleanTarget.desc);
             if (cleanCaptured.size() > cleanTargetParams.size()) return dirtyCaptured;

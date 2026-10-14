@@ -37,7 +37,7 @@ public class RedirectedCallStep implements SignatureStep {
 
         List<Type> cleanParams = recipe.clean().getParameters().getTypes(ParamGroup.METHOD_PARAMS);
         List<Type> dirtyParams = dirtyMethodParams.getTypes(ParamGroup.METHOD_PARAMS);
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(cleanParams, dirtyParams, context.typeRelation()).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(cleanParams, dirtyParams, context.typeRelation());
 
         List<List<AbstractInsnNode>> callInsns = DataFlow.of(context.methodNode(), DataFlow.Producers.COMPUTER).findCallsWithProducers(cleanTargetQual);
         if (callInsns.isEmpty()) {

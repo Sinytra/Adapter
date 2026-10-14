@@ -43,21 +43,20 @@ public final class ParamsEditDistance {
     private record Slot(Type type, int target) {
     }
 
-    public static ParamsDiff diff(List<Param> clean, List<Param> dirty, TypeRelation relation) {
+    public static LayeredParamsDiffSnapshot diff(List<Param> clean, List<Param> dirty, TypeRelation relation) {
         Table table = computeCosts(clean, dirty, relation);
-        List<Step> steps = backtrack(clean, dirty, relation, table);
-        return new ParamsDiff(toSnapshot(clean, dirty, steps), table.costs()[clean.size()][dirty.size()] / 100.0);
+        return toSnapshot(clean, dirty, backtrack(clean, dirty, relation, table));
     }
 
-    public static ParamsDiff diffTypes(List<Type> clean, List<Type> dirty) {
+    public static LayeredParamsDiffSnapshot diffTypes(List<Type> clean, List<Type> dirty) {
         return diffTypes(clean, dirty, TypeRelation.STATIC);
     }
 
-    public static ParamsDiff diffTypes(List<Type> clean, List<Type> dirty, TypeRelation relation) {
+    public static LayeredParamsDiffSnapshot diffTypes(List<Type> clean, List<Type> dirty, TypeRelation relation) {
         return diff(Param.of(clean), Param.of(dirty), relation);
     }
 
-    public static ParamsDiff diffParameters(MethodNode clean, MethodNode dirty, TypeRelation relation) {
+    public static LayeredParamsDiffSnapshot diffParameters(MethodNode clean, MethodNode dirty, TypeRelation relation) {
         return diff(getParameters(clean), getParameters(dirty), relation);
     }
 

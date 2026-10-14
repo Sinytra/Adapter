@@ -37,7 +37,7 @@ public class ParamsDiffRegressionTest {
             Type.BOOLEAN_TYPE
         );
 
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(clean, dirty).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(clean, dirty);
         assertEquals(1, diff.insertions().size());
         assertTrue(diff.replacements().isEmpty());
         assertTrue(diff.removals().isEmpty());
@@ -60,7 +60,7 @@ public class ParamsDiffRegressionTest {
             Type.getObjectType("com/llamalad7/mixinextras/sugar/ref/LocalRef")
         );
 
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(clean, dirty).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(clean, dirty);
         assertTrue(diff.insertions().isEmpty());
         assertEquals(2, diff.replacements().size());
         assertTrue(diff.removals().isEmpty());
@@ -81,7 +81,7 @@ public class ParamsDiffRegressionTest {
             Type.getType("Lnet/minecraft/world/item/Item;")
         );
 
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(clean, dirty).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(clean, dirty);
         assertTrue(diff.insertions().isEmpty());
         assertTrue(diff.replacements().isEmpty());
         assertEquals(1, diff.removals().size());
@@ -105,7 +105,7 @@ public class ParamsDiffRegressionTest {
             Type.getObjectType("net/minecraft/world/item/ItemStack")
         );
 
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified);
         assertTrue(diff.insertions().isEmpty());
         assertTrue(diff.replacements().isEmpty());
         assertTrue(diff.removals().isEmpty());
@@ -128,7 +128,7 @@ public class ParamsDiffRegressionTest {
             Type.getType(Object.class)
         );
 
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified);
         assertEquals(2, diff.insertions().size());
         assertTrue(diff.replacements().isEmpty());
         assertTrue(diff.removals().isEmpty());
@@ -152,7 +152,7 @@ public class ParamsDiffRegressionTest {
             Type.getType(Object.class)
         );
 
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified);
         assertEquals(1, diff.insertions().size());
         assertEquals(2, diff.insertions().getFirst().index());
         assertTrue(diff.replacements().isEmpty());
@@ -186,7 +186,7 @@ public class ParamsDiffRegressionTest {
             new InjectParameterTransform(7, Type.INT_TYPE)
         );
 
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified);
         assertEquals(6, diff.insertions().size());
         assertEquals(expectedInsertions, diff.insertions());
         assertTrue(diff.replacements().isEmpty());
@@ -230,7 +230,7 @@ public class ParamsDiffRegressionTest {
             new InjectParameterTransform(12, Type.getType(String.class))
         );
 
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified);
         assertEquals(9, diff.insertions().size());
         assertEquals(expectedInsertions, diff.insertions());
         assertTrue(diff.replacements().isEmpty());
@@ -271,7 +271,7 @@ public class ParamsDiffRegressionTest {
             Type.INT_TYPE
         );
 
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified);
         assertEquals(5, diff.insertions().size());
         assertEquals(1, diff.insertions().get(0).index());
         assertEquals(9, diff.insertions().get(1).index());
@@ -297,7 +297,7 @@ public class ParamsDiffRegressionTest {
             Type.getType(List.class)
         );
 
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified);
         assertTrue(diff.insertions().isEmpty());
         assertEquals(1, diff.replacements().size());
         assertTrue(diff.removals().isEmpty());
@@ -318,7 +318,7 @@ public class ParamsDiffRegressionTest {
             Type.getType(List.class)
         );
 
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified);
         assertTrue(diff.insertions().isEmpty());
         assertEquals(1, diff.replacements().size());
         assertTrue(diff.removals().isEmpty());
@@ -339,7 +339,7 @@ public class ParamsDiffRegressionTest {
             Type.getObjectType("com/llamalad7/mixinextras/injector/wrapoperation/Operation")
         );
 
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified);
         assertTrue(diff.insertions().isEmpty());
         assertEquals(1, diff.replacements().size());
         assertTrue(diff.removals().isEmpty());
@@ -362,7 +362,7 @@ public class ParamsDiffRegressionTest {
             Type.DOUBLE_TYPE
         );
 
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified);
         assertEquals(2, diff.insertions().size());
         assertEquals(1, diff.replacements().size());
         assertTrue(diff.removals().isEmpty());
@@ -386,7 +386,7 @@ public class ParamsDiffRegressionTest {
             Type.DOUBLE_TYPE
         );
 
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified);
         assertEquals(3, diff.insertions().size());
         assertEquals(new InjectParameterTransform(1, Type.FLOAT_TYPE), diff.insertions().get(0));
         assertEquals(new InjectParameterTransform(4, Type.FLOAT_TYPE), diff.insertions().get(1));
@@ -412,7 +412,7 @@ public class ParamsDiffRegressionTest {
             Type.DOUBLE_TYPE
         );
 
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified);
         assertEquals(1, diff.insertions().size());
         assertEquals(new InjectParameterTransform(3, Type.DOUBLE_TYPE), diff.insertions().getFirst());
         assertTrue(diff.replacements().isEmpty());
@@ -441,7 +441,7 @@ public class ParamsDiffRegressionTest {
             Type.getType(Set.class)
         );
 
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified);
         assertEquals(1, diff.insertions().size());
         assertEquals(new InjectParameterTransform(2, Type.getType(Deque.class)), diff.insertions().getFirst());
         assertTrue(diff.replacements().isEmpty());
@@ -459,7 +459,7 @@ public class ParamsDiffRegressionTest {
             Type.getType(Object.class)
         );
 
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified);
         assertEquals(1, diff.replacements().size());
         assertEquals(new ReplaceParametersTransformer(0, Type.getType(Object.class)), diff.replacements().getFirst());
         assertEquals(1, diff.removals().size());
@@ -480,7 +480,7 @@ public class ParamsDiffRegressionTest {
             Type.getType(String.class)
         );
 
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(original, modified);
         assertEquals(List.of(5, 4, 3, 2, 1), diff.removals().stream().map(RemoveParameterTransformer::index).toList());
     }
 }

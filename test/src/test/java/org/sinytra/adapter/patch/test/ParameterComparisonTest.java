@@ -65,7 +65,7 @@ public class ParameterComparisonTest {
         MethodNode cleanMethod = cleanNode.methods.stream().filter(m -> m.name.equals("namedInsertionTest")).findFirst().orElseThrow();
         MethodNode dirtyMethod = dirtyNode.methods.stream().filter(m -> m.name.equals("namedInsertionTest")).findFirst().orElseThrow();
 
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffParameters(cleanMethod, dirtyMethod, TypeRelation.STATIC).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffParameters(cleanMethod, dirtyMethod, TypeRelation.STATIC);
         assertEquals(1, diff.insertions().size());
         assertEquals(7, diff.insertions().getFirst().index());
         assertEquals(Type.FLOAT_TYPE, diff.insertions().getFirst().type());
@@ -85,6 +85,6 @@ public class ParameterComparisonTest {
     }
 
     private static LayeredParamsDiffSnapshot diff(List<Type> clean, List<Type> dirty) {
-        return ParamsEditDistance.diffTypes(clean, dirty).snapshot();
+        return ParamsEditDistance.diffTypes(clean, dirty);
     }
 }

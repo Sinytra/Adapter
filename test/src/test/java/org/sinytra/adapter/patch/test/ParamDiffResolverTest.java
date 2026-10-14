@@ -65,7 +65,7 @@ public class ParamDiffResolverTest {
     private static void testParams(List<Type> clean, List<Type> dirty, int oldPos, int newPos, Type newType) {
         Type original = clean.get(oldPos);
 
-        LayeredParamsDiffSnapshot snapshot = ParamsEditDistance.diffTypes(clean, dirty).snapshot();
+        LayeredParamsDiffSnapshot snapshot = ParamsEditDistance.diffTypes(clean, dirty);
         ParamEvalResult result = ParamDiffResolver.resolve(clean, snapshot);
 
         ParamState updated = result.getUpdated(original);

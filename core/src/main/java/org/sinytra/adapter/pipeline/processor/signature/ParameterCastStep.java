@@ -48,7 +48,7 @@ public class ParameterCastStep implements SignatureStep {
 
         List<Type> cleanTypes = cleanParams.getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
         List<Type> dirtyTypes = dirtyParams.getTypes(MethodParameters.ParamGroup.METHOD_PARAMS);
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(cleanTypes, dirtyTypes, context.typeRelation()).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(cleanTypes, dirtyTypes, context.typeRelation());
 
         MethodNode methodNode = context.methodNode();
         LocalVariableLookup lookup = LocalVariableLookup.of(context.methodNode());

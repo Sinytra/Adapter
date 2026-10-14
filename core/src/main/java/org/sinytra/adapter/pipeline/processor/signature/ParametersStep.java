@@ -55,7 +55,7 @@ public class ParametersStep implements SignatureStep {
     }
 
     private boolean applyDiff(List<Type> clean, List<Type> dirty, MixinContext context, int offset) {
-        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(clean, dirty, context.typeRelation()).snapshot();
+        LayeredParamsDiffSnapshot diff = ParamsEditDistance.diffTypes(clean, dirty, context.typeRelation());
         if (!diff.isEmpty()) {
             PatchResult result = diff.offset(offset).asParameterTransformer(false)
                 .apply(context);
