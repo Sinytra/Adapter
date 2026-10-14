@@ -1,6 +1,5 @@
 package org.sinytra.adapter.pipeline.injector;
 
-import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.Targets;
 import org.sinytra.adapter.model.ann.AtData;
@@ -51,7 +50,7 @@ public class ModifyReturnValueMixin extends AbstractMixinType {
         }
 
         Targets targets = context.targets(target);
-        return targets == null || MethodAnalyzer.findReturnInsns(targets.clean().methodNode()).size() == MethodAnalyzer.findReturnInsns(targets.dirty().methodNode()).size();
+        return targets == null || context.dataFlow(targets.clean()).findReturns().size() == context.dataFlow(targets.dirty()).findReturns().size();
     }
 
     @Override

@@ -9,6 +9,7 @@ import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.util.AdapterUtil;
+import org.sinytra.adapter.util.OpcodeUtil;
 
 import java.util.*;
 import java.util.function.BiConsumer;
@@ -85,6 +86,27 @@ public final class DataFlow {
     public List<SourceValue> operands(AbstractInsnNode insn) {
         Frame<SourceValue> frame = frame(insn);
         return frame != null ? operands(frame, insn) : List.of();
+    }
+
+    public List<AbstractInsnNode> findReturns() {
+        List<AbstractInsnNode> returns = new ArrayList<>();
+        for (AbstractInsnNode insn : this.method.instructions) {
+            if (OpcodeUtil.isReturnOpcode(insn.getOpcode())) {
+                returns.add(insn);
+            }
+        }
+        return returns;
+    }
+
+    public List<AbstractInsnNode> findReturnedValues() {
+        List<AbstractInsnNode> producers = new ArrayList<>();
+        Set<AbstractInsnNode> seen = new HashSet<>();
+        for (AbstractInsnNode ret : findReturns()) {
+            for (SourceValue value : operands(ret)) {
+                value.insns.stream().filter(seen::add).forEach(producers::add);
+            }
+        }
+        return producers;
     }
 
     /// {@return a single producer of each argument of the call or null if an arg has more producers}

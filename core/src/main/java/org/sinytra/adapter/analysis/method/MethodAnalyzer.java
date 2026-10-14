@@ -8,7 +8,6 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.constant.TypeConstants;
 import org.sinytra.adapter.util.AdapterUtil;
-import org.sinytra.adapter.util.OpcodeUtil;
 
 import java.util.*;
 
@@ -53,16 +52,6 @@ public class MethodAnalyzer {
             }
         }
         return handles;
-    }
-
-    public static List<AbstractInsnNode> findReturnInsns(MethodNode methodNode) {
-        List<AbstractInsnNode> insns = new ArrayList<>();
-        for (AbstractInsnNode insn : methodNode.instructions) {
-            if (OpcodeUtil.isReturnOpcode(insn.getOpcode())) {
-                insns.add(insn);
-            }
-        }
-        return insns;
     }
 
     public static Multimap<String, MethodInsnNode> getMethodCalls(MethodNode node) {
