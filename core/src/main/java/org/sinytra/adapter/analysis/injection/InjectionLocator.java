@@ -97,10 +97,12 @@ public final class InjectionLocator {
 
     private List<AbstractInsnNode> compute(TargetPair target, InjectionQuery query) {
         AnnotationHandle injectionPoint = this.context.injectionPointAnnotation();
-        AnnotationHandle source = switch (query.source()) {
+        InjectionQuery.Source kind = query.source() == InjectionQuery.Source.CURRENT && injectionPoint == null ? InjectionQuery.Source.CONSTANT : query.source();
+        AnnotationHandle source = switch (kind) {
             case CURRENT -> injectionPoint;
             case AT, SLICE_BOUNDARY -> injectionPoint != null ? new AnnotationHandle(Objects.requireNonNull(query.at()).toAnnotationNode()) : null;
-            case CONSTANT -> this.context.methodAnnotation().getNested(PROPERTY_CONSTANT).orElse(null);
+            case CONSTANT -> query.constantData() != null ? new AnnotationHandle(query.constantData().toAnnotationNode())
+                : this.context.methodAnnotation().getNested(PROPERTY_CONSTANT).orElse(null);
         };
         if (source == null) {
             return List.of();
@@ -113,7 +115,7 @@ public final class InjectionLocator {
         MixinBridge.Session session = session(target);
         AnnotationNode slice = query.ignoreSlice() ? null : getSlice();
         AnnotationHandle methodAnnotation = this.context.methodAnnotation();
-        return switch (query.source()) {
+        return switch (kind) {
             case CURRENT, SLICE_BOUNDARY -> session.findInjectionPoint(methodAnnotation.unwrap(), node.unwrap(), slice);
             case AT -> {
                 AnnotationHandle parent = methodAnnotation.copy();

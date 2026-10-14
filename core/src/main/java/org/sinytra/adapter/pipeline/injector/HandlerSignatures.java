@@ -37,7 +37,7 @@ public final class HandlerSignatures {
             }
             case TARGET_RETURN -> dirty.getTargetMethod() != null && dirty.getTargetMethod().desc() != null
                 ? Type.getReturnType(dirty.getTargetMethod().desc()) : null;
-            case CALL_ARG, VARIABLE -> value;
+            case CALL_ARG, VARIABLE, CONSTANT -> value;
         };
         if (valueType == null) {
             return TxResult.FAIL;

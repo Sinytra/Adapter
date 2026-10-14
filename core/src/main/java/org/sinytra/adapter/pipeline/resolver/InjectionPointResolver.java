@@ -7,6 +7,7 @@ import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.Targets;
 import org.sinytra.adapter.model.ann.AtData;
+import org.sinytra.adapter.model.config.key.MixinKeys;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
@@ -75,7 +76,8 @@ public class InjectionPointResolver implements Resolver {
             && selectsSameLocal(context, recipe, dirtyTarget, insns.getFirst())
         ) {
             return dirty.copyClean()
-                .inheritAtData();
+                .inheritAtData()
+                .inheritProperty(MixinKeys.TARGET_CONSTANT);
         }
 
         return null;

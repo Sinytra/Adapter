@@ -64,6 +64,27 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
     }
 
     @Test
+    void testModifyConstantMovedIntoExtension() throws Exception {
+        assertSameCodeExtracted(
+            "org/sinytra/adapter/test/mc_26_1_2/mixin/LivingEntityMixin",
+            "sinkSpeed",
+            "org/sinytra/adapter/test/mc_26_1_2/mixin/adapter_generated_net_neoforged_neoforge_common_extensions_ILivingEntityExtension",
+            assertTargetMethod()
+        );
+    }
+
+    @Test
+    void testWrapOperationMovedIntoExtension() throws Exception {
+        assertSameCodeExtracted(
+            "org/sinytra/adapter/test/mc_26_1_2/mixin/PowderSnowBlockMixin",
+            "walkOnSnow",
+            "org/sinytra/adapter/test/mc_26_1_2/mixin/adapter_generated_net_neoforged_neoforge_common_extensions_IItemExtension",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
     void testAnonymousTargetUnchanged() throws Exception {
         assertMixinTarget("org/sinytra/adapter/test/mc_26_1_2/mixin/DispenseItemBehaviorMixin", "dispense", "net/minecraft/core/dispenser/DispenseItemBehavior$10");
     }

@@ -17,7 +17,7 @@ import java.util.Optional;
 public class AtData extends AnnotationData {
     public static final PropertyContainerTemplate TEMPLATE = PropertyContainerTemplate.builder()
         .require(Keys.VALUE)
-        .keys(Keys.TARGET, Keys.ORDINAL, Keys.OPCODE, Keys.SHIFT, Keys.BY, Keys.ARGS)
+        .keys(Keys.TARGET, Keys.ORDINAL, Keys.SHIFT, Keys.BY, Keys.ARGS)
         .addConstraint(AtData::validateInjectionPointType)
         .build();
 
@@ -135,7 +135,6 @@ public class AtData extends AnnotationData {
             .serializable()
             .build();
         public static final PropertyKey<Integer> ORDINAL = PropertyKey.create("ordinal", Integer.class);
-        public static final PropertyKey<Integer> OPCODE = PropertyKey.create("opcode", Integer.class);
         public static final PropertyKey<At.Shift> SHIFT = PropertyKey.create("shift", At.Shift.class);
         public static final PropertyKey<Integer> BY = PropertyKey.create("by", Integer.class);
         public static final PropertyKey<List<String>> ARGS = (PropertyKey) PropertyKey.create("args", List.class);

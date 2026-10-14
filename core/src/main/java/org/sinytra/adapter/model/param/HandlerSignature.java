@@ -34,7 +34,9 @@ public record HandlerSignature(List<Slot> slots, ValueSource returns) {
         /// A local variable of the target method, chosen by the injector
         VARIABLE,
         /// Whether the wrapped instruction runs
-        CONDITION
+        CONDITION,
+        /// The constant the `@Constant` selects
+        CONSTANT
     }
 
     public record Slot(ParamGroup group, ParamSource source) {

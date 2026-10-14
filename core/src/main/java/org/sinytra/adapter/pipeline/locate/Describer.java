@@ -14,6 +14,7 @@ import org.sinytra.adapter.analysis.injection.InjectionQuery;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.ann.AtData;
+import org.sinytra.adapter.model.ann.ConstantData;
 import org.sinytra.adapter.model.ann.SliceData;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.MutableConfiguration;
@@ -46,14 +47,27 @@ public final class Describer {
     @Nullable
     public static Configuration describe(MixinContext context, Recipe recipe, Candidate candidate) {
         AtData cleanAt = recipe.clean().getAtData();
+        ConstantData cleanConstant = recipe.clean().getProperty(MixinKeys.TARGET_CONSTANT).orElse(null);
         TargetPair origin = recipe.getDirtyTarget();
         boolean otherMethod = origin == null || !candidate.target().isSameMethod(origin);
         Function<AtData, InjectionQuery> query = otherMethod ? at -> InjectionQuery.of(at).ignoringSlice() : InjectionQuery::of;
-        AtData described = cleanAt != null ? describeAt(context, cleanAt, candidate, query) : null;
-        if (described == null) {
+        MutableConfiguration config = MutableConfiguration.create();
+        AtData described = null;
+        if (cleanAt != null) {
+            described = describeAt(context, cleanAt, candidate, query);
+            if (described == null) {
+                return null;
+            }
+            config.setAtData(described);
+        } else if (cleanConstant != null) {
+            ConstantData constant = describeConstant(context, cleanConstant, candidate, otherMethod);
+            if (constant == null) {
+                return null;
+            }
+            config.setProperty(MixinKeys.TARGET_CONSTANT, constant);
+        } else {
             return null;
         }
-        MutableConfiguration config = MutableConfiguration.create().setAtData(described);
         if (otherMethod && recipe.clean().getProperty(MixinKeys.SLICES).map(slices -> !slices.isEmpty()).orElse(false)) {
             config.setProperty(MixinKeys.SLICES, List.of());
         }
@@ -61,7 +75,7 @@ public final class Describer {
             config.setProperty(MixinKeys.SLICE, new SliceData(null, null, null));
         }
 
-        if (isLocalAt(context, described) && candidate.insn() instanceof VarInsnNode var) {
+        if (described != null && isLocalAt(context, described) && candidate.insn() instanceof VarInsnNode var) {
             AbstractInsnNode position = OpcodeUtil.isStoreOpcode(var.getOpcode()) ? var.getNext() : var;
             MutableConfiguration local = describeLocal(context, recipe, candidate.target(), position, var.var);
             if (local == null) {
@@ -81,6 +95,18 @@ public final class Describer {
             }
         }
         return config;
+    }
+
+    @Nullable
+    private static ConstantData describeConstant(MixinContext context, ConstantData cleanConstant, Candidate candidate, boolean otherMethod) {
+        ConstantData constant = otherMethod ? cleanConstant.withProperty(ConstantData.Keys.SLICE, null) : cleanConstant;
+        InjectionQuery query = InjectionQuery.of(constant.withOrdinal(null));
+        List<AbstractInsnNode> selected = context.injections().find(candidate.target(), otherMethod ? query.ignoringSlice() : query);
+        int ordinal = selected.indexOf(candidate.insn());
+        if (ordinal == -1) {
+            return null;
+        }
+        return constant.getOrdinal().isPresent() ? constant.withOrdinal(ordinal) : constant;
     }
 
     @Nullable

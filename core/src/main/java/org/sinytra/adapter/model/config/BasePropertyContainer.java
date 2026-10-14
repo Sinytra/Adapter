@@ -11,6 +11,7 @@ import java.util.*;
 
 public class BasePropertyContainer implements MutablePropertyContainer {
     private final Map<PropertyKey<?>, Object> properties = new HashMap<>();
+    private final List<UnknownValue> unknownValues = new ArrayList<>();
     @Nullable
     protected final PropertyContainerTemplate template;
 
@@ -61,6 +62,9 @@ public class BasePropertyContainer implements MutablePropertyContainer {
     public MutablePropertyContainer copy() {
         MutablePropertyContainer copy = createCopyImpl();
         this.properties.forEach((p, v) -> copy.setProperty((PropertyKey) p, v));
+        if (copy instanceof BasePropertyContainer base) {
+            base.unknownValues.addAll(this.unknownValues);
+        }
         return copy;
     }
 
@@ -91,6 +95,7 @@ public class BasePropertyContainer implements MutablePropertyContainer {
     public AnnotationNode toAnnotationNode(String desc) {
         AnnotationNode node = new AnnotationNode(desc);
         this.properties.forEach((key, value) -> node.visit(key.name(), serialize((PropertyKey) key, value)));
+        this.unknownValues.forEach(value -> node.visit(value.name(), value.value()));
         return node;
     }
 
@@ -98,12 +103,16 @@ public class BasePropertyContainer implements MutablePropertyContainer {
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         BasePropertyContainer container = (BasePropertyContainer) o;
-        return Objects.equals(properties, container.properties) && Objects.equals(template, container.template);
+        return Objects.equals(properties, container.properties) && Objects.equals(unknownValues, container.unknownValues)
+            && Objects.equals(template, container.template);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(properties, template);
+        return Objects.hash(properties, unknownValues, template);
+    }
+
+    private record UnknownValue(String name, Object value) {
     }
 
     protected MutablePropertyContainer createCopyImpl() {
@@ -117,8 +126,17 @@ public class BasePropertyContainer implements MutablePropertyContainer {
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     public static MutablePropertyContainer parse(AnnotationHandle handle, @Nullable PropertyContainerTemplate template, RefMapper mapper) {
-        MutablePropertyContainer container = new BasePropertyContainer(template);
+        BasePropertyContainer container = new BasePropertyContainer(template);
         if (template == null) return container;
+
+        Set<String> known = new HashSet<>();
+        template.getKeys().forEach(key -> known.add(key.name()));
+        List<Object> values = Objects.requireNonNullElse(handle.unwrap().values, List.of());
+        for (int i = 0; i + 1 < values.size(); i += 2) {
+            if (!known.contains((String) values.get(i))) {
+                container.unknownValues.add(new UnknownValue((String) values.get(i), values.get(i + 1)));
+            }
+        }
 
         for (PropertyKey key : template.getKeys()) {
             Object value = handle.getValue(key.name()).map(AnnotationValueHandle::get).orElse(null);

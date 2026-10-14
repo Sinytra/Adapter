@@ -77,7 +77,7 @@ public final class HandlerValidator {
             case CONDITION -> Type.BOOLEAN_TYPE;
             case CALL_RETURN -> redirected != null ? redirected.result() : null;
             case TARGET_RETURN -> targetReturn;
-            case CALL_ARG, VARIABLE -> null;
+            case CALL_ARG, VARIABLE, CONSTANT -> null;
         };
         if (expectedReturn != null && !expectedReturn.equals(handlerReturn)) {
             return "handler returns %s but the injector expects %s".formatted(handlerReturn, expectedReturn);
