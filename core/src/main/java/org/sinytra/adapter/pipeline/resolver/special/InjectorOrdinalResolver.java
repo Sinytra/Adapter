@@ -1,6 +1,5 @@
 package org.sinytra.adapter.pipeline.resolver.special;
 
-import com.google.common.collect.Multimap;
 import com.mojang.datafixers.util.Pair;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
@@ -11,7 +10,6 @@ import org.sinytra.adapter.analysis.compare.InstructionMatcher;
 import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.analysis.locals.LocalsAnalyzer;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
-import org.sinytra.adapter.analysis.method.MethodInsnMatcher;
 import org.sinytra.adapter.mixin.MixinBridge.LocalCandidate;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.TargetPair;
@@ -31,12 +29,11 @@ import org.sinytra.adapter.util.SingleValueHandle;
 import java.util.*;
 import java.util.function.Function;
 
-import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL_INVOKE;
 import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL_RETURN;
 
 public class InjectorOrdinalResolver implements Resolver {
+    // INVOKE ordinals are handled by the locators, see LocatingSubResolver
     private static final Map<String, OffsetUpdateHandler> OFFSET_HANDLERS = Map.of(
-        AT_VAL_INVOKE, InvokeOffsetHandler.INSTANCE,
         AT_VAL_RETURN, ReturnOffsetHandler.INSTANCE
     );
 
@@ -71,7 +68,7 @@ public class InjectorOrdinalResolver implements Resolver {
         at.getProperty(AtData.Keys.ORDINAL).ifPresent(ordinal -> {
             String target = at.getTarget().orElse(null);
             OffsetUpdateHandler handler = OFFSET_HANDLERS.get(at.getValue());
-            if (handler != null && (!handler.requiresTarget() || target != null)) {
+            if (handler != null) {
                 OffsetUpdateHandler.Context handleContext = new OffsetUpdateHandler.Context(target, ordinal);
                 HandlerInstance<?, ?> instance = new HandlerInstance<>(handler, handleContext, i ->
                     MutableConfiguration.create()
@@ -122,10 +119,6 @@ public class InjectorOrdinalResolver implements Resolver {
     private interface OffsetUpdateHandler extends UpdateHandler<OffsetUpdateHandler.Context, Integer> {
         record Context(@Nullable String target, int ordinal) {
         }
-
-        default boolean requiresTarget() {
-            return false;
-        }
     }
 
     private record LocalVar(LocalVariableNode lvn, int ordinal, boolean relative) {
@@ -144,42 +137,6 @@ public class InjectorOrdinalResolver implements Resolver {
                 return this.applicator.apply(value);
             }
             return null;
-        }
-    }
-
-    private static class InvokeOffsetHandler implements OffsetUpdateHandler {
-        public static final InvokeOffsetHandler INSTANCE = new InvokeOffsetHandler();
-
-        @Override
-        public boolean requiresTarget() {
-            return true;
-        }
-
-        @Override
-        public Optional<Integer> apply(MixinContext mixinContext, Recipe recipe, Context context) {
-            TargetPair cleanTarget = recipe.getCleanTarget();
-            TargetPair dirtyTarget = recipe.getDirtyTarget();
-            String target = context.target();
-            int ordinal = context.ordinal();
-
-            Multimap<String, MethodInsnNode> cleanCallsMap = MethodAnalyzer.getMethodCalls(cleanTarget.methodNode());
-            Multimap<String, MethodInsnNode> dirtyCallsMap = MethodAnalyzer.getMethodCalls(dirtyTarget.methodNode());
-
-            String remappedTarget = mixinContext.patchContext().remap(target);
-            Collection<? extends AbstractInsnNode> cleanCalls = cleanCallsMap.get(remappedTarget);
-            Collection<? extends AbstractInsnNode> dirtyCalls = dirtyCallsMap.get(remappedTarget);
-
-            if (cleanCalls.size() != dirtyCalls.size()) {
-                List<InstructionMatcher> cleanMatchers = cleanCalls.stream().map(MethodInsnMatcher::findSurroundingInstructions).toList();
-                List<InstructionMatcher> dirtyMatchers = dirtyCalls.stream().map(MethodInsnMatcher::findSurroundingInstructions).toList();
-
-                if (ordinal >= 0 && ordinal < cleanMatchers.size()) {
-                    InstructionMatcher original = cleanMatchers.get(ordinal);
-                    return AdapterUtil.findOne(dirtyMatchers, original::test).map(dirtyMatchers::indexOf);
-                }
-            }
-
-            return Optional.empty();
         }
     }
 
