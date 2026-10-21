@@ -8,6 +8,7 @@ import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.api.PatchEnvironment;
 import org.sinytra.adapter.api.PatchResult;
+import org.sinytra.adapter.edit.RelocationGenerator;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.constant.MixinAnnotations;
@@ -123,17 +124,11 @@ public class MirrorableExtractMixin {
         for (int argIndex : argIndices) {
             gen.loadArg(argIndex);
         }
-        invokeHandler(gen, methodNode, handlerOwner);
+        RelocationGenerator.invokeHandler(gen, methodNode, handlerOwner);
         gen.newLabel();
         gen.returnValue();
         gen.newLabel();
         gen.endMethod();
         return mirror;
-    }
-
-    static void invokeHandler(GeneratorAdapter gen, MethodNode handler, ClassNode handlerOwner) {
-        boolean isInterface = (handlerOwner.access & Opcodes.ACC_INTERFACE) != 0;
-        int opcode = MethodAnalyzer.isStatic(handler) ? Opcodes.INVOKESTATIC : isInterface ? Opcodes.INVOKEINTERFACE : Opcodes.INVOKEVIRTUAL;
-        gen.visitMethodInsn(opcode, handlerOwner.name, handler.name, handler.desc, isInterface);
     }
 }

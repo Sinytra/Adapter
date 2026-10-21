@@ -28,8 +28,8 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import java.util.stream.Stream;
 import java.util.zip.ZipFile;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -210,6 +210,21 @@ public abstract class MinecraftMixinPatchTest {
         return (patched, expected, env) -> {
             MixinClassGenerator.GeneratedClass generatedClass = env.classGenerator().getGeneratedMixinClasses().get(targetClass);
             assertNotNull(generatedClass, "Missing generated class for " + targetClass);
+            boolean callsPatched = generatedClass.node().methods.stream()
+                .filter(m -> m.visibleAnnotations != null && !m.visibleAnnotations.isEmpty())
+                .anyMatch(m -> StreamSupport.stream(m.instructions.spliterator(), false)
+                    .anyMatch(insn -> insn instanceof MethodInsnNode call && call.name.equals(patched.name) && call.desc.equals(patched.desc)));
+            Assertions.assertThat(callsPatched).as("Generated injector calls " + patched.name).isTrue();
+        };
+    }
+
+    protected AssertCallback assertAudit(String text) {
+        return (patched, expected, env) -> {
+            boolean found = env.auditTrail().getAuditTrail().values().stream()
+                .filter(log -> (patched.name + patched.desc).equals(log.originalMethod()))
+                .flatMap(log -> log.entries().stream())
+                .anyMatch(entry -> entry.second().toString().contains(text));
+            Assertions.assertThat(found).as("Audit log of " + patched.name + " contains \"" + text + "\"").isTrue();
         };
     }
 

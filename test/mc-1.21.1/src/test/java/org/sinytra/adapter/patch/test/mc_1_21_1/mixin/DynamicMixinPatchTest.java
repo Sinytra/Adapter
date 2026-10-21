@@ -499,6 +499,15 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         );
     }
 
+    @Test
+    void testExtractCapturingLocals() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mixin/pipeline/BeaconBlockEntityMixin",
+            "captureBeamBlock",
+            assertAudit("Can't relocate")
+        );
+    }
+
     // The call's owner was narrowed to a subclass
     @Test
     void testNarrowedCallOwner() throws Exception {
