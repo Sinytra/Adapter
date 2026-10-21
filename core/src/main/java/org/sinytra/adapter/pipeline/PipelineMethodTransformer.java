@@ -110,6 +110,9 @@ public class PipelineMethodTransformer implements MethodTransformer {
             String type = dirtyConfig.getMixinType();
             MixinType lateMixinType = MixinTypes.getMixinType(Type.getType(type).getInternalName());
             if (lateMixinType != null) {
+                if (lateMixinType != context.getMixinType()) {
+                    cleanConfig.setParameters(lateMixinType.signature().parse(context.methodNode()));
+                }
                 TxResult postResult = lateMixinType.postProcess(context, cleanConfig, dirtyConfig, recipe);
                 if (postResult == TxResult.FAIL) {
                     LOGGER.debug(MIXINPATCH, "Skipping mixin {} due to failed postProcess", mixinId);

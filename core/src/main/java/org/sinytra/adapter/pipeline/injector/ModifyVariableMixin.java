@@ -22,8 +22,8 @@ import org.sinytra.adapter.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.pipeline.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.pipeline.resolver.injection.ModifyVarInjectionPointSubResolver;
 import org.sinytra.adapter.pipeline.resolver.special.InjectorOrdinalResolver;
-import org.sinytra.adapter.pipeline.resolver.special.ModifyVarAtReturnResolver;
-import org.sinytra.adapter.pipeline.resolver.special.ModifyVarUpgradeResolver;
+import org.sinytra.adapter.pipeline.rewrite.RewriteResolver;
+import org.sinytra.adapter.pipeline.rewrite.ShiftedVariableToExpression;
 
 import java.util.List;
 
@@ -56,9 +56,8 @@ public class ModifyVariableMixin extends AbstractMixinType {
     @Override
     public TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers, Processors processors) {
         resolvers
-            .addFirst(new ModifyVarUpgradeResolver())
-            .addBefore(InjectionPointResolver.class, new InjectorOrdinalResolver())
-            .addBefore(InjectionPointResolver.class, new ModifyVarAtReturnResolver());
+            .addBefore(InjectionPointResolver.class, new RewriteResolver(List.of(new ShiftedVariableToExpression())))
+            .addBefore(InjectionPointResolver.class, new InjectorOrdinalResolver());
         resolvers.getOrThrow(InjectionPointResolver.class)
             .addSubResolver(new ModifyVarInjectionPointSubResolver());
 
