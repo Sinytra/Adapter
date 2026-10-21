@@ -28,7 +28,8 @@ public class MilkBucketItemMixin {
         method = "finishUsingItem",
         at = @At(
             value = "INVOKE",
-            target = "Lnet/minecraft/world/entity/LivingEntity;removeEffectsCuredBy(Lnet/neoforged/neoforge/common/EffectCure;)Z"
+            target = "Lnet/minecraft/world/entity/LivingEntity;removeEffectsCuredBy(Lnet/neoforged/neoforge/common/EffectCure;)Z",
+            shift = At.Shift.BEFORE
         )
     )
     private void onClearStatusEffectExpected(ItemStack stack, Level level, LivingEntity user, CallbackInfoReturnable<ItemStack> cir) {

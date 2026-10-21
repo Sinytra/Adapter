@@ -15,7 +15,6 @@ import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.processor.Processors;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.pipeline.resolver.injection.AtVariableAssignStoreSubResolver;
-import org.sinytra.adapter.pipeline.resolver.injection.ComparingInjectionPointResolver;
 import org.sinytra.adapter.pipeline.rewrite.InstanceofToConstant;
 import org.sinytra.adapter.pipeline.rewrite.RewriteResolver;
 import org.sinytra.adapter.pipeline.resolver.injection.InjectionPointResolver;
@@ -53,7 +52,6 @@ public class WrapOperationMixin extends AbstractMixinType {
     @Override
     public TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers, Processors processors) {
         resolvers.getOrThrow(InjectionPointResolver.class)
-            .addSubResolverFirst(new ComparingInjectionPointResolver.WrapOperation())
             .addSubResolver(new AtVariableAssignStoreSubResolver());
         resolvers.addBefore(InjectionPointResolver.class, new RewriteResolver(List.of(new InstanceofToConstant())));
 

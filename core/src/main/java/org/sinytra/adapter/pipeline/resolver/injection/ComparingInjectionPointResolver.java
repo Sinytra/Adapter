@@ -2,7 +2,6 @@ package org.sinytra.adapter.pipeline.resolver.injection;
 
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.compare.MethodLabelComparator;
 import org.sinytra.adapter.analysis.injection.InjectionQuery;
@@ -18,9 +17,7 @@ import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.resolver.SubResolver;
 
-import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL_INVOKE;
 
@@ -78,83 +75,6 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
                 .setTargetMethod(minsn)
                 .setAtData(clean.getAtData().withOrdinal(null)) // TODO Find new ordinal
                 .setProperty(IntentKeys.RELOCATION, new Relocation.CalledFrom(minsn));
-        }
-    }
-
-    public static class WrapOperation extends ComparingInjectionPointResolver {
-        @Nullable
-        @Override
-        public Configuration resolve(MixinContext context, Recipe recipe) {
-            TargetPair dirtyTarget = recipe.getDirtyTarget();
-            if (dirtyTarget == null || recipe.getCleanTarget() == null) return null;
-
-            AbstractInsnNode cleanInsn = recipe.getCleanInjectionInsn();
-            if (!(cleanInsn instanceof MethodInsnNode minsn)) return null;
-
-            MethodLabelComparator.ComparisonResult comparisonResult = MethodLabelComparator.findPatchedLabels(cleanInsn, recipe);
-            if (comparisonResult == null) return null;
-
-            List<List<AbstractInsnNode>> hunkLabels = comparisonResult.patchedLabels();
-
-            return handleWrapOperationAdaptedTarget(hunkLabels)
-                .or(() -> handleWrapOperationNewInjectionPoint(minsn, comparisonResult.cleanLabel(), hunkLabels))
-                .or(() -> handleTargetModification(hunkLabels, dirtyTarget, context))
-                .orElse(null);
-        }
-
-        private static Optional<Configuration> handleWrapOperationAdaptedTarget(List<List<AbstractInsnNode>> hunkLabels) {
-            if (hunkLabels.size() != 1) return Optional.empty();
-
-            List<MethodInsnNode> methodCalls = hunkLabels.getFirst().stream()
-                .filter(MethodInsnNode.class::isInstance)
-                .map(MethodInsnNode.class::cast)
-                .toList();
-            if (methodCalls.size() != 1) return Optional.empty();
-            MethodInsnNode insn = methodCalls.getLast();
-
-            return Optional.of(MutableConfiguration.create()
-                .setAtData(AtData.create(AT_VAL_INVOKE, insn)));
-        }
-
-        private static Optional<Configuration> handleWrapOperationNewInjectionPoint(MethodInsnNode cleanInjectionInsn, List<AbstractInsnNode> cleanLabel, List<List<AbstractInsnNode>> hunkLabels) {
-            if (hunkLabels.size() != 1)
-                return Optional.empty();
-
-            Type cleanReturnType = Type.getReturnType(cleanInjectionInsn.desc);
-            List<AbstractInsnNode> dirtyLabel = hunkLabels.getFirst();
-            List<String> cleanMethodCalls = cleanLabel.stream()
-                .filter(i -> i instanceof MethodInsnNode m
-                    && m.owner.equals(cleanInjectionInsn.owner)
-                    && Type.getReturnType(m.desc).equals(cleanReturnType))
-                .map(i -> ((MethodInsnNode) i).name)
-                .toList();
-
-            List<MethodInsnNode> methodCalls = dirtyLabel.stream()
-                .filter(i -> i instanceof MethodInsnNode m && m.owner.equals(cleanInjectionInsn.owner)
-                    && Type.getReturnType(m.desc).equals(cleanReturnType)
-                    && !cleanMethodCalls.contains(m.name))
-                .map(MethodInsnNode.class::cast)
-                .toList();
-            if (methodCalls.size() != 1) return Optional.empty();
-
-            MethodInsnNode dirtyMinsn = methodCalls.getFirst();
-            return Optional.of(MutableConfiguration.create()
-                .setAtData(AtData.create(AT_VAL_INVOKE, dirtyMinsn)));
-        }
-
-        private static Optional<Configuration> handleTargetModification(List<List<AbstractInsnNode>> hunkLabels, TargetPair dirtyTarget, MixinContext context) {
-            ClassNode dirtyClass = dirtyTarget.classNode();
-            return hunkLabels.stream()
-                .flatMap(Collection::stream)
-                .filter(insn -> insn instanceof MethodInsnNode minsn && minsn.owner.equals(dirtyClass.name))
-                .map(MethodInsnNode.class::cast)
-                .filter(minsn -> {
-                    TargetPair pair = context.dirtyMethods().resolveDeclared(MethodQualifier.create(minsn));
-                    return pair != null && context.injections().matches(pair);
-                })
-                .<Configuration>map(minsn -> MutableConfiguration.create()
-                    .setAtData(AtData.create(AT_VAL_INVOKE, minsn)))
-                .findFirst();
         }
     }
 }

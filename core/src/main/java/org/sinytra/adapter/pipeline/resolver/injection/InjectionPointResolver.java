@@ -10,6 +10,7 @@ import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.locate.CalledMethodLocator;
 import org.sinytra.adapter.pipeline.locate.LocatingSubResolver;
+import org.sinytra.adapter.pipeline.locate.ReplacedCallLocator;
 import org.sinytra.adapter.pipeline.locate.SameMethodLocator;
 import org.sinytra.adapter.pipeline.resolver.CompoundResolver;
 
@@ -18,7 +19,7 @@ import java.util.List;
 public class InjectionPointResolver extends CompoundResolver {
 
     public InjectionPointResolver() {
-        addSubResolver(new LocatingSubResolver(List.of(new SameMethodLocator(), new CalledMethodLocator())));
+        addSubResolver(new LocatingSubResolver(List.of(new SameMethodLocator(), new CalledMethodLocator(), new ReplacedCallLocator())));
     }
 
     @Override

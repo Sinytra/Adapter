@@ -19,8 +19,6 @@ import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.processor.Processors;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
-import org.sinytra.adapter.pipeline.resolver.injection.ArbitraryInjectionPointSubResolver;
-import org.sinytra.adapter.pipeline.resolver.injection.InjectionPointResolver;
 
 import java.util.List;
 
@@ -51,9 +49,6 @@ public class ModifyArgMixin extends AbstractMixinType {
 
     @Override
     public TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers, Processors processors) {
-        resolvers.getOrThrow(InjectionPointResolver.class)
-            .addSubResolver(new ArbitraryInjectionPointSubResolver());
-
         clean.setParameters(SIGNATURE.parse(context.methodNode()));
 
         return TxResult.SUCCESS;

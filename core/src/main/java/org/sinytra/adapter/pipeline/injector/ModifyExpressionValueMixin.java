@@ -13,7 +13,6 @@ import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
 import org.sinytra.adapter.pipeline.processor.Processors;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
-import org.sinytra.adapter.pipeline.resolver.injection.ArbitraryInjectionPointSubResolver;
 import org.sinytra.adapter.pipeline.resolver.injection.InjectionPointResolver;
 import org.sinytra.adapter.pipeline.rewrite.InstanceofToModifyInstanceofValue;
 import org.sinytra.adapter.pipeline.rewrite.RewriteResolver;
@@ -50,8 +49,6 @@ public class ModifyExpressionValueMixin extends AbstractMixinType {
 
     @Override
     public TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers, Processors processors) {
-        resolvers.getOrThrow(InjectionPointResolver.class)
-            .addSubResolver(new ArbitraryInjectionPointSubResolver());
         resolvers
             .addBefore(InjectionPointResolver.class, new RewriteResolver(List.of(new InstanceofToModifyInstanceofValue())));
 
