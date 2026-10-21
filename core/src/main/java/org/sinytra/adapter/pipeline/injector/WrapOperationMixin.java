@@ -16,7 +16,11 @@ import org.sinytra.adapter.pipeline.processor.Processors;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.pipeline.resolver.injection.AtVariableAssignStoreSubResolver;
 import org.sinytra.adapter.pipeline.resolver.injection.ComparingInjectionPointResolver;
+import org.sinytra.adapter.pipeline.rewrite.InstanceofToConstant;
+import org.sinytra.adapter.pipeline.rewrite.RewriteResolver;
 import org.sinytra.adapter.pipeline.resolver.injection.InjectionPointResolver;
+
+import java.util.List;
 
 
 import static org.sinytra.adapter.model.param.HandlerSignature.ParamSource.*;
@@ -51,6 +55,7 @@ public class WrapOperationMixin extends AbstractMixinType {
         resolvers.getOrThrow(InjectionPointResolver.class)
             .addSubResolverFirst(new ComparingInjectionPointResolver.WrapOperation())
             .addSubResolver(new AtVariableAssignStoreSubResolver());
+        resolvers.addBefore(InjectionPointResolver.class, new RewriteResolver(List.of(new InstanceofToConstant())));
 
         clean.setParameters(SIGNATURE.parse(context.methodNode()));
         

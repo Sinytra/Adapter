@@ -1,31 +1,21 @@
 package org.sinytra.adapter.pipeline.resolver.injection;
 
-import com.google.common.collect.Multimap;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.compare.MethodLabelComparator;
 import org.sinytra.adapter.analysis.injection.InjectionQuery;
-import org.sinytra.adapter.analysis.locals.LocalVariableLookup;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.Relocation;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.Targets;
 import org.sinytra.adapter.model.ann.AtData;
-import org.sinytra.adapter.model.ann.ConstantData;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.MutableConfiguration;
 import org.sinytra.adapter.model.config.key.IntentKeys;
-import org.sinytra.adapter.model.config.key.MixinKeys;
-import org.sinytra.adapter.model.constant.MixinAnnotations;
-import org.sinytra.adapter.model.constant.TypeConstants;
-import org.sinytra.adapter.model.param.MethodParameters;
-import org.sinytra.adapter.model.param.MethodParameters.ParamGroup;
-import org.sinytra.adapter.model.param.Parameter;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
-import org.sinytra.adapter.pipeline.processor.wrapop.WrapOpSurgeon;
 import org.sinytra.adapter.pipeline.resolver.SubResolver;
 
 import java.util.Collection;
@@ -33,7 +23,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL_INVOKE;
-import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.PROPERTY_ORDINAL;
 
 public abstract class ComparingInjectionPointResolver implements SubResolver {
 
@@ -107,97 +96,10 @@ public abstract class ComparingInjectionPointResolver implements SubResolver {
 
             List<List<AbstractInsnNode>> hunkLabels = comparisonResult.patchedLabels();
 
-            return handleWrapOperationToInstanceOf(recipe, minsn, comparisonResult.cleanLabel(), hunkLabels, context)
-                .or(() -> handleWrapOperationAdaptedTarget(hunkLabels))
+            return handleWrapOperationAdaptedTarget(hunkLabels)
                 .or(() -> handleWrapOperationNewInjectionPoint(minsn, comparisonResult.cleanLabel(), hunkLabels))
                 .or(() -> handleTargetModification(hunkLabels, dirtyTarget, context))
                 .orElse(null);
-        }
-
-        private static Optional<Configuration> handleWrapOperationToInstanceOf(Recipe recipe, MethodInsnNode cleanInjectionInsn, List<AbstractInsnNode> cleanLabel, List<List<AbstractInsnNode>> hunkLabels, MixinContext context) {
-            if (hunkLabels.size() != 1 || !(cleanLabel.getLast() instanceof JumpInsnNode) || cleanLabel.stream().anyMatch(i -> i instanceof TypeInsnNode))
-                return Optional.empty();
-
-            List<AbstractInsnNode> dirtyLabel = hunkLabels.getFirst();
-            if (!(dirtyLabel.getLast() instanceof JumpInsnNode)) return Optional.empty();
-
-            List<TypeInsnNode> instanceOfCalls = dirtyLabel.stream()
-                .filter(TypeInsnNode.class::isInstance)
-                .map(TypeInsnNode.class::cast)
-                .toList();
-            if (instanceOfCalls.size() != 1) return Optional.empty();
-            TypeInsnNode instanceOfCall = instanceOfCalls.getFirst();
-
-            MethodNode methodNode = context.methodNode();
-            LocalVariableLookup lvt = LocalVariableLookup.of(methodNode);
-            if (lvt == null) return Optional.empty();
-
-            LocalVariableNode instanceLocal = lvt.getByParameterOrdinalOrNull(0);
-            if (instanceLocal == null) return Optional.empty();
-
-            Configuration clean = recipe.clean();
-            List<Type> inheritedParams = clean.getParameters().getTypes(ParamGroup.METHOD_PARAMS);
-            Multimap<Integer, VarInsnNode> usedVars = WrapOpSurgeon.getUsedVars(lvt, inheritedParams, context);
-
-            MutableConfiguration config = recipe.dirty().copyClean()
-                .removeProperty(MixinKeys.TARGET_AT)
-                .setProperty(MixinKeys.TARGET_CONSTANT, ConstantData.classValue(Type.getObjectType(instanceOfCall.desc)))
-                .inheritSignature();
-            MethodParameters parameters = config.getParameters();
-            Parameter newInstanceParam = Parameter.simple(TypeConstants.OBJECT_TYPE);
-            parameters.set(ParamGroup.METHOD_PARAMS, List.of(newInstanceParam));
-
-            if (usedVars.containsKey(instanceLocal.index)) {
-                TargetPair cleanTarget = recipe.getCleanTarget();
-                LocalVariableLookup cleanLocals = recipe.cleanLocalsTable();
-                LocalVariableLookup dirtyLocals = recipe.dirtyLocalsTable();
-                if (cleanTarget == null || cleanLocals == null || dirtyLocals == null) return Optional.empty();
-
-                List<AbstractInsnNode> originalCallArgs = context.dataFlow(cleanTarget).resolveCallOperandProducers(cleanInjectionInsn);
-                if (originalCallArgs == null || originalCallArgs.isEmpty() || !(originalCallArgs.getFirst() instanceof VarInsnNode originalInstanceInsn))
-                    return Optional.empty();
-                TargetPair dirtyTarget = recipe.getDirtyTarget();
-                LocalVariableNode originalInstanceLocal = cleanLocals.getInScopeOrNull(originalInstanceInsn.var, cleanInjectionInsn);
-                if (dirtyTarget == null || originalInstanceLocal == null) return Optional.empty();
-
-                int cleanOrdinal = context.locals().resolveLocalOrdinal(cleanTarget, cleanInjectionInsn, Type.getType(originalInstanceLocal.desc), originalInstanceInsn.var);
-                if (cleanOrdinal == -1) return Optional.empty();
-
-                int dirtyIndex = context.locals().resolveLocalIndex(dirtyTarget, instanceOfCall, Type.getType(instanceLocal.desc), cleanOrdinal);
-                LocalVariableNode dirtyLocal = dirtyLocals.getInScopeOrNull(dirtyIndex, instanceOfCall);
-                if (dirtyLocal == null) return Optional.empty();
-
-                Parameter replacementInstanceParam = Parameter.builder(dirtyLocal.desc)
-                    .annotate(MixinAnnotations.LOCAL, b -> b
-                        .put(PROPERTY_ORDINAL, cleanOrdinal))
-                    .build();
-                parameters.add(ParamGroup.LOCALS, replacementInstanceParam);
-                // TODO exclude original.call(...) insns from being mapped
-                parameters.mapParameter(newInstanceParam, replacementInstanceParam);
-            }
-
-            // TODO Find a way to get rid of this ugly hack
-            // Use "state.getBlock()" as the new Block parameter
-            if (instanceOfCall.getPrevious() instanceof MethodInsnNode m) {
-                String loadedType = Type.getReturnType(m.desc).getDescriptor();
-                for (int paramVar : usedVars.keySet()) {
-                    if (paramVar == instanceLocal.index) {
-                        continue;
-                    }
-
-                    LocalVariableNode node = lvt.getByIndexOrNull(paramVar);
-                    if (node == null || !loadedType.equals(node.desc)) return Optional.empty();
-
-                    int paramOrdinal = lvt.getParameterOrdinal(node);
-                    List<Parameter> cleanParams = clean.getParameters().get(ParamGroup.METHOD_PARAMS);
-                    if (paramOrdinal < 0 || paramOrdinal >= cleanParams.size()) return Optional.empty();
-
-                    Parameter oldParam = cleanParams.get(paramOrdinal);
-                    parameters.mapParameter(oldParam, newInstanceParam);
-                }
-            }
-
-            return Optional.of(config);
         }
 
         private static Optional<Configuration> handleWrapOperationAdaptedTarget(List<List<AbstractInsnNode>> hunkLabels) {

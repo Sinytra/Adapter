@@ -15,7 +15,10 @@ import org.sinytra.adapter.pipeline.processor.Processors;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.pipeline.resolver.injection.ArbitraryInjectionPointSubResolver;
 import org.sinytra.adapter.pipeline.resolver.injection.InjectionPointResolver;
-import org.sinytra.adapter.pipeline.resolver.special.ResolverSyntheticInstanceof;
+import org.sinytra.adapter.pipeline.rewrite.InstanceofToModifyInstanceofValue;
+import org.sinytra.adapter.pipeline.rewrite.RewriteResolver;
+
+import java.util.List;
 
 import static org.sinytra.adapter.model.constant.MixinAnnotationConstants.AT_VAL_INVOKE;
 import static org.sinytra.adapter.model.param.HandlerSignature.ParamSource.*;
@@ -50,7 +53,7 @@ public class ModifyExpressionValueMixin extends AbstractMixinType {
         resolvers.getOrThrow(InjectionPointResolver.class)
             .addSubResolver(new ArbitraryInjectionPointSubResolver());
         resolvers
-            .addBefore(InjectionPointResolver.class, new ResolverSyntheticInstanceof(true));
+            .addBefore(InjectionPointResolver.class, new RewriteResolver(List.of(new InstanceofToModifyInstanceofValue())));
 
         clean.setParameters(SIGNATURE.parse(context.methodNode()));
 

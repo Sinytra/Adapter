@@ -23,7 +23,8 @@ import org.sinytra.adapter.pipeline.processor.redirect.DivertRedirectProcessor;
 import org.sinytra.adapter.pipeline.processor.signature.SignatureProcessor;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
 import org.sinytra.adapter.pipeline.resolver.injection.InjectionPointResolver;
-import org.sinytra.adapter.pipeline.resolver.special.ResolverSyntheticInstanceof;
+import org.sinytra.adapter.pipeline.rewrite.InstanceofMakesRedirectRedundant;
+import org.sinytra.adapter.pipeline.rewrite.RewriteResolver;
 
 import java.util.List;
 
@@ -55,7 +56,7 @@ public class RedirectMixin extends AbstractMixinType {
     @Override
     public TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers, Processors processors) {
         resolvers.
-            addBefore(InjectionPointResolver.class, new ResolverSyntheticInstanceof(false));
+            addBefore(InjectionPointResolver.class, new RewriteResolver(List.of(new InstanceofMakesRedirectRedundant())));
         processors
             .addAfter(SignatureProcessor.class, new DivertRedirectProcessor());
 
