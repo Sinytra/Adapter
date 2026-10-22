@@ -1,6 +1,7 @@
 package org.sinytra.adapter.patch.test.mc_26_1_2.mixin;
 
 import com.mojang.logging.LogUtils;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,7 @@ import org.sinytra.adapter.api.DynamicPatches;
 import org.sinytra.adapter.api.PatchEnvironment;
 import org.sinytra.adapter.api.Patcher;
 import org.sinytra.adapter.api.RefmapHolder;
+import org.sinytra.adapter.model.ann.AnnotationHandle;
 import org.sinytra.adapter.model.constant.MixinAnnotations;
 import org.sinytra.adapter.patch.test_main.mixin.MinecraftMixinPatchTest;
 import org.sinytra.adapter.util.AdapterUtil;
@@ -206,6 +208,53 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
         assertSameCode(
             "org/sinytra/adapter/test/mc_26_1_2/mixin/LevelRendererMixin",
             "beforeExtractRenderState",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
+    void testSplitPieceOfRemovedTarget() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mc_26_1_2/mixin/GuiMixin",
+            "skipContextualBar",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+        assertSameCode(
+            "org/sinytra/adapter/test/mc_26_1_2/mixin/GuiMixin",
+            "skipContextualBarBackground",
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
+    @Test
+    void testMirrorIntoInstanceCallee() throws Exception {
+        String generatedName = "org/sinytra/adapter/test/mc_26_1_2/mixin/adapter_generated_net_neoforged_neoforge_common_extensions_IBlockExtension";
+        assertSameCode(
+            "org/sinytra/adapter/test/mc_26_1_2/mixin/EntityMixin",
+            "adjustStepSoundVolume",
+            assertUnique(),
+            assertHasGeneratedMethod(generatedName),
+            (patched, expected, env) -> {
+                ClassNode generated = env.classGenerator().getGeneratedMixinClasses().get(generatedName).node();
+                MethodNode mirror = generated.methods.stream().filter(m -> m.name.startsWith("adjustStepSoundVolume$adapter$mirror")).findFirst().orElseThrow();
+                Assertions.assertThat(mirror.desc).isEqualTo("(FLnet/minecraft/world/entity/Entity;)F");
+                AnnotationHandle modifyArg = new AnnotationHandle(mirror.visibleAnnotations.getFirst());
+                Assertions.assertThat(modifyArg.<List<String>>getValue("method").orElseThrow().get())
+                    .containsExactly("playStepSound(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/entity/Entity;FF)V");
+                AnnotationNode local = mirror.invisibleParameterAnnotations[1].getFirst();
+                Assertions.assertThat(local.values).containsExactly("argsOnly", true, "index", 4);
+            }
+        );
+    }
+
+    @Test
+    void testModifyExpressionValueReplacedHook() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mc_26_1_2/mixin/LivingEntityItemMixin",
+            "cancelItemUsing",
             assertTargetMethod(),
             assertInjectionPoint()
         );

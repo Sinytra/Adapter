@@ -26,7 +26,8 @@ public class TargetMethodResolver implements Resolver {
             : List.of();
         OriginLocator.Origin origin = origins.isEmpty() ? null : origins.getFirst();
         boolean hasAt = recipe.clean().getAtData() != null;
-        if (origin == null || hasAt && !origin.matches()) {
+        boolean ambiguousPiece = origin != null && origin.piece() && (!hasAt || origins.stream().filter(OriginLocator.Origin::matches).count() > 1);
+        if (origin == null || hasAt && !origin.matches() || ambiguousPiece) {
             return hasAt ? ResolutionResult.pass() : ResolutionResult.fail();
         }
         context.recordCtxAudit("Located target method %s (similarity %.2f%s)", MethodQualifier.create(origin.method().methodNode()).asDescriptor(),

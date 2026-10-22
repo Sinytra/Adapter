@@ -114,11 +114,12 @@ public final class ScopeSearch {
     @Nullable
     private static Relocation relocation(Callee callee) {
         MethodNode method = callee.method().methodNode();
-        if (callee.method().classNode().name.equals(callee.root().classNode().name) || !MethodAnalyzer.isStatic(method)) {
+        boolean isStatic = MethodAnalyzer.isStatic(method);
+        if (callee.method().classNode().name.equals(callee.root().classNode().name) || !isStatic && callee.originLocals().contains(0)) {
             return null;
         }
         Type[] args = Type.getArgumentTypes(method.desc);
-        int slot = 0;
+        int slot = isStatic ? 0 : 1;
         for (int i = 0; i < args.length; i++) {
             if (callee.originLocals().contains(slot)) {
                 return new Relocation.ReceivesOrigin(i);

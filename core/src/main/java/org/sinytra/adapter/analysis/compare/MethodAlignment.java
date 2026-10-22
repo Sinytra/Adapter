@@ -5,6 +5,7 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.SourceValue;
 import org.sinytra.adapter.analysis.flow.DataFlow;
+import org.sinytra.adapter.util.OpcodeUtil;
 
 import java.util.*;
 import java.util.function.IntFunction;
@@ -60,6 +61,10 @@ public final class MethodAlignment {
         return total == 0 ? 1 : 2.0 * this.pairings.size() / total;
     }
 
+    public double dirtyCoverage() {
+        return this.dirty.isEmpty() ? 0 : (double) this.pairings.size() / this.dirty.size();
+    }
+
     public List<Match> find(AbstractInsnNode cleanInsn) {
         Integer index = indexOf(cleanInsn);
         if (index == null) {
@@ -98,21 +103,24 @@ public final class MethodAlignment {
     private int[] dirtyRangeAround(int index) {
         int from = 0;
         for (int i = index - 1; i >= 0; i--) {
-            Pairing before = this.pairings.get(i);
-            if (before != null && before.inOrder()) {
-                from = before.dirty() + 1;
+            if (isAnchor(i)) {
+                from = this.pairings.get(i).dirty() + 1;
                 break;
             }
         }
         int to = this.dirty.size();
         for (int i = index + 1; i < this.clean.size(); i++) {
-            Pairing after = this.pairings.get(i);
-            if (after != null && after.inOrder()) {
-                to = after.dirty();
+            if (isAnchor(i)) {
+                to = this.pairings.get(i).dirty();
                 break;
             }
         }
         return new int[]{from, to};
+    }
+
+    private boolean isAnchor(int cleanIndex) {
+        Pairing pairing = this.pairings.get(cleanIndex);
+        return pairing != null && pairing.inOrder() && !OpcodeUtil.isLoadOpcode(this.clean.get(cleanIndex).getOpcode());
     }
 
     @Nullable
