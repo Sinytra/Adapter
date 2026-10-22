@@ -74,6 +74,7 @@ public final class HandlerValidator {
 
         Type expectedReturn = switch (signature.returns()) {
             case VOID -> Type.VOID_TYPE;
+            case CONDITION -> Type.BOOLEAN_TYPE;
             case CALL_RETURN -> redirected != null ? redirected.result() : null;
             case TARGET_RETURN -> targetReturn;
             case CALL_ARG, VARIABLE -> null;

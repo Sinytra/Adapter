@@ -30,6 +30,7 @@ public final class HandlerSignatures {
     public static TxResult apply(MixinContext context, HandlerSignature signature, Configuration clean, MutableConfiguration dirty, Recipe recipe, @Nullable Type value) {
         Type valueType = switch (signature.returns()) {
             case VOID -> Type.VOID_TYPE;
+            case CONDITION -> Type.BOOLEAN_TYPE;
             case CALL_RETURN -> {
                 RedirectedInsn redirected = isInvoke(dirty) ? null : findRedirected(context, recipe, dirty);
                 MethodQualifier call = getCallQualifier(dirty);

@@ -20,6 +20,8 @@ public class MixinAnnotations {
     public static final String WRAP_OPERATION = "Lcom/llamalad7/mixinextras/injector/wrapoperation/WrapOperation;";
     public static final String WRAP_OPERATION_INTERNAL_NAME = "com/llamalad7/mixinextras/injector/wrapoperation/WrapOperation";
     public static final String WRAP_WITH_CONDITION = "Lcom/llamalad7/mixinextras/injector/WrapWithCondition;";
+    public static final String WRAP_WITH_CONDITION_INTERNAL_NAME = "com/llamalad7/mixinextras/injector/WrapWithCondition";
+    public static final String WRAP_WITH_CONDITION_V2_INTERNAL_NAME = "com/llamalad7/mixinextras/injector/v2/WrapWithCondition";
     public static final String LOCAL = "Lcom/llamalad7/mixinextras/sugar/Local;";
     public static final String SHARE = "Lcom/llamalad7/mixinextras/sugar/Share;";
     // Adapter custom mixin injectors

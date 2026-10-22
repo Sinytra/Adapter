@@ -32,7 +32,9 @@ public record HandlerSignature(List<Slot> slots, ValueSource returns) {
         /// An argument of the call the `@At` selects, chosen by the injector
         CALL_ARG,
         /// A local variable of the target method, chosen by the injector
-        VARIABLE
+        VARIABLE,
+        /// Whether the wrapped instruction runs
+        CONDITION
     }
 
     public record Slot(ParamGroup group, ParamSource source) {

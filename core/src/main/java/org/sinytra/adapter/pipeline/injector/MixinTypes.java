@@ -14,7 +14,7 @@ public class MixinTypes {
     private static final Map<String, MixinType> MIXIN_TYPES = new HashMap<>();
     
     // TODO:
-    // MixinConstants.MODIFY_ARGS, MixinConstants.MODIFY_CONST, MixinConstants.WRAP_WITH_CONDITION,
+    // MixinConstants.MODIFY_ARGS, MixinConstants.MODIFY_CONST,
     // MixinConstants.OVERWRITE (dont forget special modifyTarget handling)
     // MixinConstants.ACCESSOR
     public static final MixinType INJECT = new InjectMixin();
@@ -24,6 +24,7 @@ public class MixinTypes {
     public static final MixinType REDIRECT = new RedirectMixin();
     public static final MixinType WRAP_OP = new WrapOperationMixin();
     public static final MixinType MODIFY_EXPR_VAL = new ModifyExpressionValueMixin();
+    public static final MixinType WRAP_WITH_CONDITION = new WrapWithConditionMixin();
 
     static {
         registerMixinType(Inject.class, INJECT);
@@ -33,6 +34,8 @@ public class MixinTypes {
         registerMixinType(Redirect.class, REDIRECT);
         registerMixinType(MixinAnnotations.WRAP_OPERATION_INTERNAL_NAME, WRAP_OP);
         registerMixinType(MixinAnnotations.MODIFY_EXPR_VAL_INTERNAL_NAME, MODIFY_EXPR_VAL);
+        registerMixinType(MixinAnnotations.WRAP_WITH_CONDITION_INTERNAL_NAME, WRAP_WITH_CONDITION);
+        registerMixinType(MixinAnnotations.WRAP_WITH_CONDITION_V2_INTERNAL_NAME, WRAP_WITH_CONDITION);
     }
 
     @Nullable
