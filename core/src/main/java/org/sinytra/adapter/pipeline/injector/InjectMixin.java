@@ -1,5 +1,6 @@
 package org.sinytra.adapter.pipeline.injector;
 
+import org.sinytra.adapter.model.RelocationPlan;
 import org.objectweb.asm.Type;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.Targets;
@@ -49,6 +50,11 @@ public class InjectMixin extends AbstractMixinType {
     @Override
     public HandlerSignature signature() {
         return SIGNATURE;
+    }
+
+    @Override
+    public RelocationPlan.Passthrough passthrough(MixinContext context, Configuration config) {
+        return RelocationPlan.Passthrough.SKIP;
     }
 
     @Override

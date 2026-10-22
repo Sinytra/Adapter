@@ -1,5 +1,6 @@
 package org.sinytra.adapter.pipeline.injector;
 
+import org.sinytra.adapter.model.RelocationPlan;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.Targets;
 import org.sinytra.adapter.model.ann.AtData;
@@ -39,6 +40,11 @@ public class ModifyReturnValueMixin extends AbstractMixinType {
     @Override
     public HandlerSignature signature() {
         return SIGNATURE;
+    }
+
+    @Override
+    public RelocationPlan.Passthrough passthrough(MixinContext context, Configuration config) {
+        return RelocationPlan.Passthrough.KEEP_VALUE;
     }
 
     @Override

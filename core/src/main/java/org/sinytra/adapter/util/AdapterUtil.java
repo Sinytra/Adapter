@@ -68,6 +68,21 @@ public final class AdapterUtil {
         }
     }
 
+    public static void shiftLocals(MethodNode methodNode, int delta) {
+        if (methodNode.localVariables != null) {
+            methodNode.localVariables.forEach(lvn -> lvn.index += delta);
+        }
+        replaceLVT(methodNode, index -> Math.max(index + delta, 0));
+    }
+
+    public static void makeStatic(MethodNode methodNode) {
+        methodNode.access |= Opcodes.ACC_STATIC;
+        if (methodNode.localVariables != null) {
+            methodNode.localVariables.removeIf(lvn -> lvn.index == 0);
+        }
+        shiftLocals(methodNode, -1);
+    }
+
     public static boolean canHandleLocalVarInsnValue(AbstractInsnNode insn) {
         return insn instanceof VarInsnNode || insn instanceof IincInsnNode;
     }

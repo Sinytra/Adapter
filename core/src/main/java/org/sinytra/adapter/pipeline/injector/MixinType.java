@@ -1,5 +1,7 @@
 package org.sinytra.adapter.pipeline.injector;
 
+import org.jetbrains.annotations.Nullable;
+import org.sinytra.adapter.model.RelocationPlan;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.MutableConfiguration;
 import org.sinytra.adapter.model.config.PropertyContainerTemplate;
@@ -22,6 +24,11 @@ public interface MixinType {
 
     default Set<MixinFlag> getFlags() {
         return EnumSet.noneOf(MixinFlag.class);
+    }
+
+    @Nullable
+    default RelocationPlan.Passthrough passthrough(MixinContext context, Configuration config) {
+        return null;
     }
 
     default boolean canInject(MixinContext context, Configuration config) {

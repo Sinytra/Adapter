@@ -1,5 +1,6 @@
 package org.sinytra.adapter.pipeline.injector;
 
+import org.sinytra.adapter.model.RelocationPlan;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Type;
 import org.sinytra.adapter.api.TypeAdapter;
@@ -44,6 +45,20 @@ public class ModifyArgMixin extends AbstractMixinType {
     @Override
     public HandlerSignature signature() {
         return SIGNATURE;
+    }
+
+    @Override
+    public RelocationPlan.Passthrough passthrough(MixinContext context, Configuration config) {
+        AtData at = config.getAtData();
+        String desc = at != null ? at.getTargetQualifier().map(MethodQualifier::desc).orElse(null) : null;
+        if (desc == null) {
+            return null;
+        }
+
+        List<Type> callArgs = Parameters.getParameterTypes(desc);
+        List<Type> handlerArgs = Parameters.getParameterTypes(context.methodNode().desc);
+        boolean allArgs = callArgs.size() > 1 && handlerArgs.size() >= callArgs.size() && handlerArgs.subList(0, callArgs.size()).equals(callArgs);
+        return allArgs ? null : RelocationPlan.Passthrough.KEEP_VALUE;
     }
 
     @Override

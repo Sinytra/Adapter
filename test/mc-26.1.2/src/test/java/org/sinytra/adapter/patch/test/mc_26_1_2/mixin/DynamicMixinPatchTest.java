@@ -5,9 +5,14 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.analysis.Analyzer;
+import org.objectweb.asm.tree.analysis.AnalyzerException;
+import org.objectweb.asm.tree.analysis.BasicVerifier;
 import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceMethodVisitor;
 import org.sinytra.adapter.api.ClassLookup;
@@ -23,6 +28,7 @@ import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.FabricUtil;
 
 import java.util.List;
+import java.util.stream.StreamSupport;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -231,21 +237,83 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
 
     @Test
     void testMirrorIntoInstanceCallee() throws Exception {
+        assertMirroredStepSound("adjustStepSoundVolume");
+    }
+
+    @Test
+    void testMirrorFromChangedTarget() throws Exception {
+        assertMirroredStepSound("adjustMuffledStepSoundVolume");
+    }
+
+    @Test
+    void testHandlerUsingThisNotMoved() throws Exception {
+        assertMirroredStepSound("adjustStepSoundVolumeOfThis");
+    }
+
+    @Test
+    void testWrapOperationMirrorGuarded() throws Exception {
         String generatedName = "org/sinytra/adapter/test/mc_26_1_2/mixin/adapter_generated_net_neoforged_neoforge_common_extensions_IBlockExtension";
         assertSameCode(
             "org/sinytra/adapter/test/mc_26_1_2/mixin/EntityMixin",
-            "adjustStepSoundVolume",
+            "wrapStepSound",
             assertUnique(),
             assertHasGeneratedMethod(generatedName),
             (patched, expected, env) -> {
                 ClassNode generated = env.classGenerator().getGeneratedMixinClasses().get(generatedName).node();
-                MethodNode mirror = generated.methods.stream().filter(m -> m.name.startsWith("adjustStepSoundVolume$adapter$mirror")).findFirst().orElseThrow();
+                MethodNode mirror = generated.methods.stream().filter(m -> m.name.startsWith("wrapStepSound$adapter$mirror")).findFirst().orElseThrow();
+                assertVerifies(generated, mirror);
+                Assertions.assertThat(AdapterUtil.methodNodeToString(mirror))
+                    .as("Mirror calls the original operation when it doesn't run the handler")
+                    .contains("INVOKEVIRTUAL net/minecraft/world/entity/Entity.adapter$via$EntityMixin$wrapStepSound ()Z")
+                    .contains("INVOKEINTERFACE com/llamalad7/mixinextras/injector/wrapoperation/Operation.call ([Ljava/lang/Object;)Ljava/lang/Object;");
+            }
+        );
+    }
+
+    private static void assertVerifies(ClassNode owner, MethodNode method) {
+        try {
+            new Analyzer<>(new BasicVerifier()).analyze(owner.name, method);
+        } catch (AnalyzerException e) {
+            throw new AssertionError("Invalid bytecode in " + method.name + "\n" + AdapterUtil.methodNodeToString(method), e);
+        }
+    }
+
+    @Test
+    void testMirrorGuardedByOriginCall() throws Exception {
+        assertMirroredStepSound("adjustCombinationStepSoundVolume");
+        ClassNode guards = patchEnvironment.classGenerator().getGeneratedMixinClasses()
+            .get("org/sinytra/adapter/test/mc_26_1_2/mixin/adapter_generated_net_minecraft_world_entity_Entity").node();
+        MethodNode enter = guards.methods.stream().filter(m -> m.name.equals("adapter$via$EntityMixin$adjustCombinationStepSoundVolume$enter")).findFirst().orElseThrow();
+        AnnotationHandle inject = new AnnotationHandle(enter.visibleAnnotations.getFirst());
+        Assertions.assertThat(inject.<List<String>>getValue("method").orElseThrow().get())
+            .containsExactly("playCombinationStepSounds(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/BlockPos;)V");
+        Assertions.assertThat(AdapterUtil.methodNodeToString(enter)).contains("target=\"Lnet/minecraft/world/level/block/state/BlockState;playStepSound(");
+    }
+
+    private void assertMirroredStepSound(String handler) throws Exception {
+        String generatedName = "org/sinytra/adapter/test/mc_26_1_2/mixin/adapter_generated_net_neoforged_neoforge_common_extensions_IBlockExtension";
+        assertSameCode(
+            "org/sinytra/adapter/test/mc_26_1_2/mixin/EntityMixin",
+            handler,
+            assertUnique(),
+            assertHasGeneratedMethod(generatedName),
+            (patched, expected, env) -> {
+                ClassNode generated = env.classGenerator().getGeneratedMixinClasses().get(generatedName).node();
+                MethodNode mirror = generated.methods.stream().filter(m -> m.name.startsWith(handler + "$adapter$mirror")).findFirst().orElseThrow();
+                assertVerifies(generated, mirror);
                 Assertions.assertThat(mirror.desc).isEqualTo("(FLnet/minecraft/world/entity/Entity;)F");
                 AnnotationHandle modifyArg = new AnnotationHandle(mirror.visibleAnnotations.getFirst());
                 Assertions.assertThat(modifyArg.<List<String>>getValue("method").orElseThrow().get())
                     .containsExactly("playStepSound(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/entity/Entity;FF)V");
                 AnnotationNode local = mirror.invisibleParameterAnnotations[1].getFirst();
                 Assertions.assertThat(local.values).containsExactly("argsOnly", true, "index", 4);
+                MethodInsnNode active = (MethodInsnNode) StreamSupport.stream(mirror.instructions.spliterator(), false)
+                    .filter(MethodInsnNode.class::isInstance)
+                    .findFirst()
+                    .orElseThrow();
+                Assertions.assertThat(active.owner + "." + active.name + active.desc)
+                    .as("Mirror runs only for calls from the original method")
+                    .isEqualTo("net/minecraft/world/entity/Entity.adapter$via$EntityMixin$" + handler + "()Z");
             }
         );
     }
@@ -258,6 +326,19 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
             assertTargetMethod(),
             assertInjectionPoint()
         );
+    }
+
+    @Test
+    void testModifyArgsMovedIntoHook() throws Exception {
+        LoadResult result = load("org/sinytra/adapter/test/mc_26_1_2/mixin/FogRendererMixin", List.of("darkenFogColor"));
+        ClassNode generated = result.env().classGenerator().getGeneratedMixinClasses()
+            .get("org/sinytra/adapter/test/mc_26_1_2/mixin/adapter_generated_net_neoforged_neoforge_client_ClientHooks").node();
+        MethodNode moved = generated.methods.stream().filter(m -> m.name.equals("darkenFogColor")).findFirst().orElseThrow();
+        Assertions.assertThat(moved.access & Opcodes.ACC_STATIC).as("Static handler").isNotZero();
+        Assertions.assertThat(moved.access & Opcodes.ACC_PRIVATE).as("Private static handler").isNotZero();
+        AnnotationHandle modifyArgs = new AnnotationHandle(moved.visibleAnnotations.getFirst());
+        Assertions.assertThat(modifyArgs.<List<String>>getValue("method").orElseThrow().get())
+            .containsExactly("getFogColor(Lnet/minecraft/client/Camera;FLnet/minecraft/client/multiplayer/ClientLevel;IFFFFLorg/joml/Vector4f;)V");
     }
 
     @Override

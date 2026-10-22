@@ -13,6 +13,7 @@ import org.sinytra.adapter.analysis.method.MethodAnalyzer;
 import org.sinytra.adapter.api.PatchEnvironment;
 import org.sinytra.adapter.model.MethodQualifier;
 import org.sinytra.adapter.model.RelocationPlan;
+import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.ValueSource;
 import org.sinytra.adapter.model.constant.MixinAnnotations;
 import org.sinytra.adapter.model.constant.TypeConstants;
@@ -75,12 +76,25 @@ public final class RelocationGenerator {
         GeneratorAdapter gen = new GeneratorAdapter(mirror, mirror.access, mirror.name, mirror.desc);
         gen.newLabel();
         int stack = 0;
-        if (plan.receiver() != null) {
-            stack += load(gen, plan.receiver(), paramIndices);
-            Type ownerType = Type.getObjectType(handlerOwner.name);
-            if (!params.get(argIndex(plan.receiver(), paramIndices)).equals(ownerType)) {
-                gen.checkCast(ownerType);
+        int guardStack = 0;
+        if (plan.receiver() != null && plan.guard() != null) {
+            String active = generateGuard(context, plan.guard());
+            Label run = new Label();
+            guardStack = loadReceiver(gen, plan.receiver(), paramIndices, params, handlerOwner);
+            gen.visitMethodInsn(Opcodes.INVOKEVIRTUAL, handlerOwner.name, active, "()Z", false);
+            gen.visitJumpInsn(Opcodes.IFNE, run);
+            switch (plan.guard().passthrough()) {
+                case SKIP -> {
+                }
+                case KEEP_VALUE -> gen.loadArg(0);
+                case PROCEED -> gen.push(true);
+                case CALL_ORIGINAL -> guardStack = Math.max(guardStack, callOriginal(gen, params));
             }
+            gen.returnValue();
+            gen.visitLabel(run);
+        }
+        if (plan.receiver() != null) {
+            stack += loadReceiver(gen, plan.receiver(), paramIndices, params, handlerOwner);
         }
         for (ValueSource source : plan.params()) {
             stack += load(gen, source, paramIndices);
@@ -90,7 +104,7 @@ public final class RelocationGenerator {
         gen.returnValue();
         gen.newLabel();
         gen.endMethod();
-        mirror.maxStack = Math.max(stack, Type.getReturnType(handler.desc).getSize());
+        mirror.maxStack = Math.max(Math.max(stack, guardStack), Type.getReturnType(handler.desc).getSize());
         mirror.maxLocals = (Type.getArgumentsAndReturnSizes(desc) >> 2) - (isStatic ? 1 : 0);
 
         handler.access = OpcodeUtil.setAccessVisibility(handler.access, Opcodes.ACC_PUBLIC);
@@ -110,6 +124,129 @@ public final class RelocationGenerator {
         return mirror;
     }
 
+    private static int loadReceiver(GeneratorAdapter gen, ValueSource receiver, Map<ValueSource, Integer> paramIndices, List<Type> params, ClassNode handlerOwner) {
+        int size = load(gen, receiver, paramIndices);
+        Type ownerType = Type.getObjectType(handlerOwner.name);
+        if (!params.get(argIndex(receiver, paramIndices)).equals(ownerType)) {
+            gen.checkCast(ownerType);
+        }
+        return size;
+    }
+
+    private static int callOriginal(GeneratorAdapter gen, List<Type> params) {
+        int operation = params.indexOf(TypeConstants.OPERATION_TYPE);
+        gen.loadArg(operation);
+        gen.push(operation);
+        gen.newArray(TypeConstants.OBJECT_TYPE);
+        int operandSize = 1;
+        for (int i = 0; i < operation; i++) {
+            gen.dup();
+            gen.push(i);
+            gen.loadArg(i);
+            gen.box(params.get(i));
+            gen.arrayStore(TypeConstants.OBJECT_TYPE);
+            operandSize = Math.max(operandSize, params.get(i).getSize());
+        }
+        gen.invokeInterface(TypeConstants.OPERATION_TYPE, new Method("call", TypeConstants.OBJECT_TYPE, new Type[]{Type.getType(Object[].class)}));
+        Type returnType = gen.getReturnType();
+        if (returnType == Type.VOID_TYPE) {
+            gen.pop();
+        } else {
+            gen.unbox(returnType);
+        }
+        return 4 + operandSize + 2;
+    }
+
+    private static String generateGuard(MixinContext context, RelocationPlan.Guard guard) {
+        TargetPair origin = guard.via().method();
+        MethodInsnNode call = guard.via().call();
+        int ordinal = 0;
+        for (AbstractInsnNode insn = origin.methodNode().instructions.getFirst(); insn != call; insn = insn.getNext()) {
+            if (insn instanceof MethodInsnNode other && other.owner.equals(call.owner) && other.name.equals(call.name) && other.desc.equals(call.desc)) {
+                ordinal++;
+            }
+        }
+
+        ClassNode generatedTarget = getGeneratedTarget(context, origin.classNode().name);
+        String base = "adapter$via$" + simpleName(context.classNode()) + "$" + context.methodNode().name;
+        FieldNode depth;
+        List<MethodNode> methods;
+        synchronized (generatedTarget) {
+            String name = base;
+            for (int i = 1; hasMethodNamed(generatedTarget, name) || hasFieldNamed(generatedTarget, name); i++) {
+                name = base + "$" + i;
+            }
+            depth = new FieldNode(Opcodes.ACC_PRIVATE, name, Type.INT_TYPE.getDescriptor(), null, null);
+            methods = List.of(
+                generateIsActive(generatedTarget, depth),
+                generateDepthChange(origin, call, ordinal, generatedTarget, depth, 1),
+                generateDepthChange(origin, call, ordinal, generatedTarget, depth, -1)
+            );
+            generatedTarget.fields.add(depth);
+            generatedTarget.methods.addAll(methods);
+        }
+        context.patchContext().onRollback(() -> {
+            synchronized (generatedTarget) {
+                generatedTarget.fields.remove(depth);
+                generatedTarget.methods.removeAll(methods);
+            }
+        });
+        return depth.name;
+    }
+
+    private static MethodNode generateIsActive(ClassNode generatedTarget, FieldNode depth) {
+        MethodNode active = new MethodNode(Opcodes.ACC_PUBLIC, depth.name, "()Z", null, null);
+        GeneratorAdapter gen = new GeneratorAdapter(active, active.access, active.name, active.desc);
+        Label inactive = new Label();
+        gen.loadThis();
+        gen.getField(Type.getObjectType(generatedTarget.name), depth.name, Type.INT_TYPE);
+        gen.visitJumpInsn(Opcodes.IFLE, inactive);
+        gen.push(true);
+        gen.returnValue();
+        gen.visitLabel(inactive);
+        gen.push(false);
+        gen.returnValue();
+        gen.endMethod();
+        active.maxStack = 1;
+        active.maxLocals = 1;
+        return active;
+    }
+
+    private static MethodNode generateDepthChange(TargetPair origin, MethodInsnNode call, int ordinal, ClassNode generatedTarget, FieldNode depth, int change) {
+        Type callback = Type.getReturnType(origin.methodNode().desc) == Type.VOID_TYPE ? TypeConstants.CI_TYPE : TypeConstants.CIR_TYPE;
+        String name = depth.name + (change > 0 ? "$enter" : "$exit");
+        MethodNode inject = new MethodNode(Opcodes.ACC_PRIVATE, name, Type.getMethodDescriptor(Type.VOID_TYPE, callback), null, null);
+        AnnotationVisitor annotation = inject.visitAnnotation(MixinAnnotations.INJECT, true);
+        AnnotationVisitor method = annotation.visitArray("method");
+        method.visit(null, origin.methodNode().name + origin.methodNode().desc);
+        method.visitEnd();
+        AnnotationVisitor ats = annotation.visitArray("at");
+        AnnotationVisitor at = ats.visitAnnotation(null, MixinAnnotations.AT);
+        at.visit("value", "INVOKE");
+        at.visit("target", Type.getObjectType(call.owner).getDescriptor() + call.name + call.desc);
+        at.visit("ordinal", ordinal);
+        if (change < 0) {
+            at.visitEnum("shift", "Lorg/spongepowered/asm/mixin/injection/At$Shift;", "AFTER");
+        }
+        at.visitEnd();
+        ats.visitEnd();
+        annotation.visitEnd();
+
+        Type owner = Type.getObjectType(generatedTarget.name);
+        GeneratorAdapter gen = new GeneratorAdapter(inject, inject.access, inject.name, inject.desc);
+        gen.loadThis();
+        gen.dup();
+        gen.getField(owner, depth.name, Type.INT_TYPE);
+        gen.push(change);
+        gen.math(GeneratorAdapter.ADD, Type.INT_TYPE);
+        gen.putField(owner, depth.name, Type.INT_TYPE);
+        gen.returnValue();
+        gen.endMethod();
+        inject.maxStack = 3;
+        inject.maxLocals = 2;
+        return inject;
+    }
+
     public static void generateMove(MixinContext context, String destinationClass, RelocationPlan.Move plan) {
         ClassNode mixin = context.classNode();
         ClassNode generatedTarget = getGeneratedTarget(context, destinationClass);
@@ -117,6 +254,12 @@ public final class RelocationGenerator {
         moved.addFirst(context.methodNode());
         registerMoveRollback(context, generatedTarget, plan, moved);
 
+        if (plan.makeStatic()) {
+            AdapterUtil.makeStatic(context.methodNode());
+        }
+        if (MethodAnalyzer.isStatic(context.methodNode()) && (context.methodNode().access & Opcodes.ACC_SYNTHETIC) == 0) {
+            context.methodNode().access = OpcodeUtil.setAccessVisibility(context.methodNode().access, Opcodes.ACC_PRIVATE);
+        }
         plan.widenedFields().forEach(field -> field.access = widenAccess(field.access));
         plan.widenedMethods().forEach(method -> method.access = widenAccess(method.access));
         for (MethodNode method : moved) {
@@ -241,6 +384,10 @@ public final class RelocationGenerator {
 
     private static boolean hasMethodNamed(ClassNode cls, String name) {
         return cls.methods.stream().anyMatch(m -> m.name.equals(name));
+    }
+
+    private static boolean hasFieldNamed(ClassNode cls, String name) {
+        return cls.fields.stream().anyMatch(f -> f.name.equals(name));
     }
 
     private static String simpleName(ClassNode cls) {

@@ -1,6 +1,7 @@
 package org.sinytra.adapter.pipeline.processor.relocate;
 
 import org.jetbrains.annotations.Nullable;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.sinytra.adapter.analysis.injection.InjectionQuery;
@@ -55,9 +56,9 @@ public final class RelocationSolver {
             return new Result.Unbound("the new target method doesn't exist");
         }
 
-        TargetPair handlerTarget = recipe.getNewCleanTarget();
-        if (handlerTarget == null) {
-            return new Result.Unbound("the original target method doesn't exist");
+        ClassNode handlerOwner = context.dirtyLookup().getClass(recipe.clean().getTargetClass()).orElse(null);
+        if (handlerOwner == null) {
+            return new Result.Unbound("the original target class doesn't exist");
         }
         boolean isStatic = MethodAnalyzer.isStatic(newTarget.methodNode());
         if (params.stream().anyMatch(Parameter::isShare)) {
@@ -69,13 +70,33 @@ public final class RelocationSolver {
 
         List<ValueSource> forwarded = IntStream.range(0, params.size()).<ValueSource>mapToObj(ValueSource.Forwarded::new).toList();
         if (context.isStatic()) {
-            return new Result.Solved(new RelocationPlan.Mirror(handlerTarget.classNode(), isStatic, null, forwarded));
+            return new Result.Solved(new RelocationPlan.Mirror(handlerOwner, isStatic, null, forwarded, null));
         }
         ValueSource receiver = findReceiver(relocation, newTarget);
         if (receiver == null) {
             return new Result.Unbound("nothing at the new target holds the original instance");
         }
-        return new Result.Solved(new RelocationPlan.Mirror(handlerTarget.classNode(), isStatic, receiver, forwarded));
+        return new Result.Solved(new RelocationPlan.Mirror(handlerOwner, isStatic, receiver, forwarded, findGuard(context, dirty, relocation, handlerOwner)));
+    }
+
+    /// {@return a guard that limits the mirror to calls from the original method, or null if it can't be limited}
+    /// Several original methods may now reach the new target, and the handler only ran for one of them.
+    @Nullable
+    private static RelocationPlan.Guard findGuard(MixinContext context, Configuration dirty, Relocation relocation, ClassNode handlerOwner) {
+        Relocation.OriginCall via = relocation instanceof Relocation.ReceivesOrigin receives ? receives.via() : null;
+        if (via == null) {
+            return null;
+        }
+        ClassNode origin = via.method().classNode();
+        boolean reachable = handlerOwner.name.equals(origin.name)
+            || context.environment().inheritanceHandler(context.dirtyLookup()).isClassInherited(handlerOwner.name, origin.name);
+        if (!reachable || (origin.access & Opcodes.ACC_INTERFACE) != 0 || MethodAnalyzer.isStatic(via.method().methodNode())
+            || !via.method().methodNode().instructions.contains(via.call())
+        ) {
+            return null;
+        }
+        RelocationPlan.Passthrough passthrough = context.getMixinType().passthrough(context, dirty);
+        return passthrough != null ? new RelocationPlan.Guard(via, passthrough) : null;
     }
 
     @Nullable
@@ -85,6 +106,8 @@ public final class RelocationSolver {
         TargetPair cleanTarget = recipe.getCleanTarget();
         String origin = cleanTarget != null ? cleanTarget.classNode().name : destination;
         boolean inherited = context.environment().inheritanceHandler(context.dirtyLookup()).isClassInherited(destination, origin);
+        TargetPair newTarget = recipe.getDirtyTarget();
+        boolean staticTarget = newTarget != null && MethodAnalyzer.isStatic(newTarget.methodNode());
 
         List<MethodNode> lambdas = MethodAnalyzer.findOwnIndyHandles(mixin, handler).stream()
             .filter(lambda -> lambda.handle().getName().startsWith(MethodAnalyzer.LAMBDA_PREFIX + handler.name))
@@ -96,7 +119,12 @@ public final class RelocationSolver {
         List<FieldNode> widenedFields = new ArrayList<>();
         List<MethodNode> widenedMethods = new ArrayList<>();
         for (MethodNode method : moved) {
+            boolean ownInstance = (!inherited || staticTarget) && !MethodAnalyzer.isStatic(method);
             for (AbstractInsnNode insn : method.instructions) {
+                // The moved method's instance becomes the destination's, which isn't the origin class's, or none at a static target
+                if (ownInstance && insn instanceof VarInsnNode varInsn && varInsn.getOpcode() == Opcodes.ALOAD && varInsn.var == 0) {
+                    return null;
+                }
                 if (insn instanceof FieldInsnNode fieldInsn && fieldInsn.owner.equals(mixin.name)) {
                     FieldNode field = AdapterUtil.findOne(mixin.fields, f -> f.name.equals(fieldInsn.name)).orElse(null);
                     if (field == null || !isAvailable(field.visibleAnnotations, inherited)) {
@@ -112,7 +140,7 @@ public final class RelocationSolver {
                 }
             }
         }
-        return new RelocationPlan.Move(lambdas, widenedFields, widenedMethods);
+        return new RelocationPlan.Move(lambdas, widenedFields, widenedMethods, staticTarget && !context.isStatic());
     }
 
     private static boolean isAvailable(@Nullable List<AnnotationNode> annotations, boolean inherited) {
@@ -147,7 +175,8 @@ public final class RelocationSolver {
 
     @Nullable
     private static ValueSource findReceiver(Relocation relocation, TargetPair newTarget) {
-        if (relocation instanceof Relocation.ReceivesOrigin(int argIndex)) {
+        if (relocation instanceof Relocation.ReceivesOrigin receives) {
+            int argIndex = receives.argIndex();
             Type[] args = Type.getArgumentTypes(newTarget.methodNode().desc);
             if (argIndex >= args.length) {
                 return null;

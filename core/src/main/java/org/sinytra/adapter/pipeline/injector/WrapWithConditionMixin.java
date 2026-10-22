@@ -1,5 +1,6 @@
 package org.sinytra.adapter.pipeline.injector;
 
+import org.sinytra.adapter.model.RelocationPlan;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.sinytra.adapter.model.TargetPair;
 import org.sinytra.adapter.model.config.Configuration;
@@ -43,6 +44,11 @@ public class WrapWithConditionMixin extends AbstractMixinType {
     @Override
     public HandlerSignature signature() {
         return SIGNATURE;
+    }
+
+    @Override
+    public RelocationPlan.Passthrough passthrough(MixinContext context, Configuration config) {
+        return RelocationPlan.Passthrough.PROCEED;
     }
 
     @Override

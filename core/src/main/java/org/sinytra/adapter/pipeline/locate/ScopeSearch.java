@@ -31,7 +31,7 @@ public final class ScopeSearch {
     private static final int MAX_DEPTH = 3;
     private static final List<String> IGNORED_PACKAGES = List.of("java/", "javax/", "jdk/", "sun/", "com/sun/");
 
-    private record Callee(TargetPair root, TargetPair method, Set<Integer> originLocals, @Nullable MethodInsnNode calledFrom) {
+    private record Callee(TargetPair root, TargetPair method, Set<Integer> originLocals, @Nullable MethodInsnNode calledFrom, @Nullable MethodInsnNode rootCall) {
     }
 
     private final MixinContext context;
@@ -107,7 +107,7 @@ public final class ScopeSearch {
 
     private List<Callee> findRootCallees(Scope root) {
         Set<MethodInsnNode> newCalls = new HashSet<>(MethodAnalyzer.findDirtyOnlyCalls(this.cleanTarget.methodNode(), root.method().methodNode(), false));
-        Callee start = new Callee(root.method(), root.method(), this.context.isStatic() ? Set.of() : Set.of(0), null);
+        Callee start = new Callee(root.method(), root.method(), this.context.isStatic() ? Set.of() : Set.of(0), null, null);
         return findCallees(start, newCalls::contains, true);
     }
 
@@ -122,7 +122,8 @@ public final class ScopeSearch {
         int slot = isStatic ? 0 : 1;
         for (int i = 0; i < args.length; i++) {
             if (callee.originLocals().contains(slot)) {
-                return new Relocation.ReceivesOrigin(i);
+                Relocation.OriginCall via = callee.rootCall() != null ? new Relocation.OriginCall(callee.root(), callee.rootCall()) : null;
+                return new Relocation.ReceivesOrigin(i, via);
             }
             slot += args[i].getSize();
         }
@@ -145,7 +146,7 @@ public final class ScopeSearch {
             if (method != null && !this.visited.contains(method.methodNode())) {
                 Set<Integer> locals = PassedLocals.findPassedSlots(flow, call, call.getOpcode() != Opcodes.INVOKESTATIC, call.desc, caller.originLocals());
                 boolean mirrorable = fromRoot && call.getOpcode() == Opcodes.INVOKESTATIC && !method.classNode().name.equals(from.classNode().name);
-                addCallee(callees, new Callee(caller.root(), method, locals, mirrorable ? call : null));
+                addCallee(callees, new Callee(caller.root(), method, locals, mirrorable ? call : null, fromRoot ? call : caller.rootCall()));
             }
         }
 
@@ -153,7 +154,7 @@ public final class ScopeSearch {
             if (!this.visited.contains(lambda.method())) {
                 Handle handle = lambda.handle();
                 Set<Integer> locals = PassedLocals.findPassedSlots(flow, lambda.indy(), handle.getTag() != Opcodes.H_INVOKESTATIC, handle.getDesc(), caller.originLocals());
-                addCallee(callees, new Callee(caller.root(), new TargetPair(from.classNode(), lambda.method()), locals, null));
+                addCallee(callees, new Callee(caller.root(), new TargetPair(from.classNode(), lambda.method()), locals, null, fromRoot ? null : caller.rootCall()));
             }
         }
         return callees;

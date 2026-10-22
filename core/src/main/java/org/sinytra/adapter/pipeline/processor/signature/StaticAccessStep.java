@@ -39,11 +39,7 @@ public class StaticAccessStep implements SignatureStep {
             }
 
             context.recordCtxAudit("Made method static");
-            method.access |= Opcodes.ACC_STATIC;
-            if (method.localVariables != null) {
-                method.localVariables.removeIf(lvn -> lvn.index == 0);
-            }
-            shiftLocals(method, -1);
+            AdapterUtil.makeStatic(method);
             return TxResult.SUCCESS;
         }
         if (!dirtyStatic && actuallyStatic) {
@@ -51,7 +47,7 @@ public class StaticAccessStep implements SignatureStep {
             method.access &= ~Opcodes.ACC_STATIC;
             LocalVariableNode firstParam = method.localVariables == null ? null
                 : method.localVariables.stream().filter(lvn -> lvn.index == 0).findFirst().orElse(null);
-            shiftLocals(method, 1);
+            AdapterUtil.shiftLocals(method, 1);
             if (firstParam != null) {
                 method.localVariables.add(new LocalVariableNode("this", Type.getObjectType(context.classNode().name).getDescriptor(), null, firstParam.start, firstParam.end, 0));
             }
@@ -61,10 +57,4 @@ public class StaticAccessStep implements SignatureStep {
         return TxResult.PASS;
     }
 
-    private static void shiftLocals(MethodNode method, int delta) {
-        if (method.localVariables != null) {
-            method.localVariables.forEach(lvn -> lvn.index += delta);
-        }
-        AdapterUtil.replaceLVT(method, index -> Math.max(index + delta, 0));
-    }
 }

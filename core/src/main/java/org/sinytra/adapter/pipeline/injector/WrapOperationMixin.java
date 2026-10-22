@@ -1,14 +1,17 @@
 package org.sinytra.adapter.pipeline.injector;
 
+import org.sinytra.adapter.model.RelocationPlan;
 import org.sinytra.adapter.model.config.Configuration;
 import org.sinytra.adapter.model.config.ConfigurationTemplates;
 import org.sinytra.adapter.model.config.MutableConfiguration;
 import org.sinytra.adapter.model.config.PropertyContainerTemplate;
 import org.sinytra.adapter.model.config.key.MixinKeys;
+import org.sinytra.adapter.model.constant.TypeConstants;
 import org.sinytra.adapter.model.param.HandlerSignature;
 import org.sinytra.adapter.model.param.HandlerSignature.ParamSource;
 import org.sinytra.adapter.model.param.HandlerSignature.ValueSource;
 import org.sinytra.adapter.model.param.MethodParameters;
+import org.sinytra.adapter.model.param.Parameters;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
@@ -45,6 +48,12 @@ public class WrapOperationMixin extends AbstractMixinType {
     @Override
     public HandlerSignature signature() {
         return SIGNATURE;
+    }
+
+    @Override
+    public RelocationPlan.Passthrough passthrough(MixinContext context, Configuration config) {
+        boolean hasOperation = Parameters.getParameterTypes(context.methodNode().desc).contains(TypeConstants.OPERATION_TYPE);
+        return hasOperation ? RelocationPlan.Passthrough.CALL_ORIGINAL : null;
     }
 
     @Override
