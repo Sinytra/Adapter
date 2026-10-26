@@ -1,11 +1,12 @@
 package org.sinytra.adapter.test.mixin.pipeline;
 
+import com.llamalad7.mixinextras.expression.Definition;
+import com.llamalad7.mixinextras.expression.Expression;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import net.minecraft.client.renderer.ItemInHandRenderer;
 import net.minecraft.world.item.CrossbowItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import org.sinytra.adapter.runtime.inject.ModifyInstanceofValue;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -37,12 +38,11 @@ public class ItemInHandRendererMixin {
         return original;
     }
 
-    @ModifyInstanceofValue(
+    @Definition(id = "CrossbowItem", type = CrossbowItem.class)
+    @Expression("? instanceof CrossbowItem")
+    @ModifyExpressionValue(
         method = "renderArmWithItem(Lnet/minecraft/client/player/AbstractClientPlayer;FFLnet/minecraft/world/InteractionHand;FLnet/minecraft/world/item/ItemStack;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",
-        at = @At(
-            value = "sinytra:INSTANCEOF",
-            target = "net/minecraft/world/item/CrossbowItem"
-        )
+        at = @At("MIXINEXTRAS:EXPRESSION")
     )
     private boolean renderFirstPersonItemMEVExpected(boolean original) {
         return original;

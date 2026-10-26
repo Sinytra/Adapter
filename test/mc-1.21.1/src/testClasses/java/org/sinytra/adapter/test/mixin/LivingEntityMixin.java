@@ -4,11 +4,13 @@ import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.Slice;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
@@ -71,6 +73,38 @@ public class LivingEntityMixin {
     @Unique
     public void testFrostWalkerExpected(CallbackInfo ci) {
         ourUniqueMethod();
+    }
+
+    @Inject(method = "baseTick", at = @At(value = "FIELD", target = "Lnet/minecraft/world/level/Level;isClientSide:Z", ordinal = 2))
+    public void failAfterMirror(CallbackInfo ci) {
+        ourUniqueMethod();
+    }
+
+    @Inject(method = "baseTick", at = @At(value = "FIELD", target = "Lnet/minecraft/world/level/Level;isClientSide:Z", ordinal = 2))
+    public void failAfterMirrorExpected(CallbackInfo ci) {
+        ourUniqueMethod();
+    }
+
+    @Redirect(method = "baseTick", at = @At(value = "FIELD", target = "Lnet/minecraft/world/level/Level;isClientSide:Z", ordinal = 2))
+    public boolean redirectClientSide(Level level) {
+        ourUniqueMethod();
+        return level.isClientSide;
+    }
+
+    @Unique
+    public boolean redirectClientSideExpected(Level level) {
+        ourUniqueMethod();
+        return level.isClientSide;
+    }
+
+    @ModifyVariable(method = "actuallyHurt", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;getHealth()F"), argsOnly = true)
+    private float modifyHealthDamage(float amount) {
+        return amount;
+    }
+
+    @ModifyVariable(method = "actuallyHurt", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;getHealth()F"), argsOnly = true)
+    private float modifyHealthDamageExpected(float amount) {
+        return amount;
     }
 
     @Unique

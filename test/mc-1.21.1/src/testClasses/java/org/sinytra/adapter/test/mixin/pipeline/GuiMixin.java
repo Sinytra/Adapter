@@ -24,4 +24,18 @@ public class GuiMixin {
     public void renderSelectedItemNameExpected(GuiGraphics guiGraphics, int adapter_injected_1, CallbackInfo ci) {
 
     }
+
+    @Inject(
+        method = "renderHotbarAndDecorations",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/Gui;renderSelectedItemName(Lnet/minecraft/client/gui/GuiGraphics;)V")
+    )
+    private void beforeSelectedItemName(CallbackInfo ci) {
+    }
+
+    @Inject(
+        method = "maybeRenderSelectedItemName(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/Gui;renderSelectedItemName(Lnet/minecraft/client/gui/GuiGraphics;I)V")
+    )
+    private void beforeSelectedItemNameExpected(CallbackInfo ci) {
+    }
 }

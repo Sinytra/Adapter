@@ -2,11 +2,11 @@ package org.sinytra.adapter.patch.test;
 
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
-import org.sinytra.adapter.env.param.ParamDiffResolver;
-import org.sinytra.adapter.env.param.ParamDiffResolver.ParamEvalResult;
-import org.sinytra.adapter.env.param.ParamDiffResolver.ParamState;
-import org.sinytra.adapter.analysis.params.EnhancedParamsDiff;
+import org.sinytra.adapter.analysis.params.ParamsEditDistance;
 import org.sinytra.adapter.analysis.params.LayeredParamsDiffSnapshot;
+import org.sinytra.adapter.analysis.params.ParamDiffResolver;
+import org.sinytra.adapter.analysis.params.ParamDiffResolver.ParamEvalResult;
+import org.sinytra.adapter.analysis.params.ParamDiffResolver.ParamState;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -65,7 +65,7 @@ public class ParamDiffResolverTest {
     private static void testParams(List<Type> clean, List<Type> dirty, int oldPos, int newPos, Type newType) {
         Type original = clean.get(oldPos);
 
-        LayeredParamsDiffSnapshot snapshot = EnhancedParamsDiff.createLayered(clean, dirty);
+        LayeredParamsDiffSnapshot snapshot = ParamsEditDistance.diffTypes(clean, dirty);
         ParamEvalResult result = ParamDiffResolver.resolve(clean, snapshot);
 
         ParamState updated = result.getUpdated(original);

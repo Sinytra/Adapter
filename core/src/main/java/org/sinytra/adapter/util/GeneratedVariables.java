@@ -1,16 +1,13 @@
 package org.sinytra.adapter.util;
 
-import com.google.common.base.Strings;
 import com.mojang.datafixers.util.Pair;
 import org.objectweb.asm.Type;
 
 import java.util.*;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public class GeneratedVariables {
-    private static final String MOJMAP_PARAM_NAME_PREFIX = "p_";
     // Obfuscated variable names consist of '$$' followed by a number
     private static final String OBF_VAR_PATTERN = "^\\$\\$\\d+$";
     private static final Map<Type, GeneratedVarName> GENERATED_VAR_NAMES = new HashMap<>();
@@ -44,8 +41,8 @@ public class GeneratedVariables {
             });
     }
 
-    public static boolean isGeneratedVariableName(String name, Type type) {
-        if (name.startsWith(MOJMAP_PARAM_NAME_PREFIX) || name.matches(OBF_VAR_PATTERN)) {
+    public static boolean isPositionalName(String name, Type type) {
+        if (name.matches(OBF_VAR_PATTERN)) {
             return true;
         }
         GeneratedVarName generator = GENERATED_VAR_NAMES.get(type);
@@ -58,11 +55,6 @@ public class GeneratedVariables {
             return name.matches(pattern);
         }
         return knownGenerated;
-    }
-
-    public static OptionalInt getGeneratedVariableOrdinal(String name, Type type) {
-        GeneratedVarName generator = GENERATED_VAR_NAMES.get(type);
-        return generator != null ? generator.getOrdinal(name) : OptionalInt.empty();
     }
 
     public static class GeneratedVarName {
@@ -86,19 +78,6 @@ public class GeneratedVariables {
 
         public boolean test(String str) {
             return this.pattern.matcher(str).matches();
-        }
-
-        public OptionalInt getOrdinal(String str) {
-            Matcher matcher = this.pattern.matcher(str);
-            if (matcher.matches()) {
-                String ordinal = matcher.group("index");
-                if (Strings.isNullOrEmpty(ordinal)) {
-                    return OptionalInt.of(0);
-                }
-                int intOrdinal = Integer.parseInt(ordinal);
-                return OptionalInt.of(intOrdinal);
-            }
-            return OptionalInt.empty();
         }
     }
 }

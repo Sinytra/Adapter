@@ -8,6 +8,8 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Constant;
+import org.spongepowered.asm.mixin.injection.ModifyConstant;
 
 @Mixin(LivingEntity.class)
 public class LivingEntityMixin {
@@ -34,5 +36,15 @@ public class LivingEntityMixin {
     )
     private void playSoundCorrectlyForBlocksExpected(LivingEntity instance, SoundEvent sound, float volume, float pitch, Operation<Void> original, @Local BlockState state) {
         original.call(instance, sound, volume, pitch);
+    }
+
+    @ModifyConstant(method = "goDownInWater", constant = @Constant(doubleValue = -0.03999999910593033D))
+    private double sinkSpeed(double speed) {
+        return speed;
+    }
+
+    @ModifyConstant(method = "sinkInFluid(Lnet/neoforged/neoforge/fluids/FluidType;)V", constant = @Constant(doubleValue = -0.03999999910593033D))
+    private double sinkSpeedExpected(double speed) {
+        return speed;
     }
 }

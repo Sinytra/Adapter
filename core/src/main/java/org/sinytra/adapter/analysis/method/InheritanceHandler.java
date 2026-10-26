@@ -1,0 +1,58 @@
+package org.sinytra.adapter.analysis.method;
+
+import org.objectweb.asm.tree.ClassNode;
+import org.sinytra.adapter.api.ClassLookup;
+import org.sinytra.adapter.model.constant.TypeConstants;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class InheritanceHandler {
+    private final ClassLookup classProvider;
+    private final Map<String, Collection<String>> parentCache = new ConcurrentHashMap<>();
+
+    public InheritanceHandler(ClassLookup classProvider) {
+        this.classProvider = classProvider;
+    }
+
+    public boolean isClassInherited(String child, String parent) {
+        if (child.equals(parent)) {
+            return true;
+        }
+        ClassNode childNode = this.classProvider.getClass(child).orElse(null);
+        ClassNode parentNode = this.classProvider.getClass(parent).orElse(null);
+        return childNode != null && parentNode != null && getClassParents(child).contains(parent);
+    }
+
+    public Collection<String> getClassParents(String name) {
+        Collection<String> parents = this.parentCache.get(name);
+        if (parents == null) {
+            parents = computeClassParents(name);
+            Collection<String> existing = this.parentCache.putIfAbsent(name, parents);
+            if (existing != null) {
+                parents = existing;
+            }
+        }
+        return parents;
+    }
+
+    private Collection<String> computeClassParents(String name) {
+        ClassNode node = this.classProvider.getClass(name).orElse(null);
+        Set<String> parents = new HashSet<>();
+        if (node != null) {
+            if (node.superName != null) {
+                parents.add(node.superName);
+                if (!node.superName.equals(TypeConstants.OBJECT_TYPE.getInternalName())) {
+                    parents.addAll(getClassParents(node.superName));
+                }
+            }
+            if (node.interfaces != null) {
+                parents.addAll(node.interfaces);
+                for (String itf : node.interfaces) {
+                    parents.addAll(getClassParents(itf));
+                }
+            }
+        }
+        return Collections.unmodifiableSet(parents);
+    }
+}

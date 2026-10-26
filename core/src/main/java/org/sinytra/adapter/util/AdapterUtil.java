@@ -10,18 +10,13 @@ import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.SourceValue;
 import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceMethodVisitor;
-import org.sinytra.adapter.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.analysis.selector.AnnotationValueHandle;
-import org.sinytra.adapter.env.ctx.PatchEnvironment;
-import org.sinytra.adapter.env.util.MixinAnnotations;
+import org.sinytra.adapter.model.constant.MixinAnnotations;
 import org.slf4j.Marker;
 import org.slf4j.MarkerFactory;
-import org.spongepowered.asm.mixin.gen.AccessorInfo;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.*;
-import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -44,29 +39,9 @@ public final class AdapterUtil {
         return copy;
     }
 
-    public static String randomString(int length) {
-        int leftLimit = 48; // numeral '0'
-        int rightLimit = 122; // letter 'z'
-        Random random = new Random();
-
-        return random.ints(leftLimit, rightLimit + 1)
-            .filter(i -> (i <= 57 || i >= 65) && (i <= 90 || i >= 97))
-            .limit(length)
-            .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
-            .toString();
-    }
-
     public static boolean isAnonymousClass(String name) {
         // Regex: second to last char in class name must be '$', and the class name must end with a number
         return name.matches("^.+\\$\\d+$");
-    }
-
-    public static Optional<String> getAccessorTargetFieldName(String owner, MethodNode method, AnnotationHandle annotationHandle, PatchEnvironment environment) {
-        return annotationHandle.<String>getValue("value")
-            .map(AnnotationValueHandle::get)
-            .filter(str -> !str.isEmpty())
-            .or(() -> Optional.ofNullable(AccessorInfo.AccessorName.of(method.name))
-                .map(name -> environment.refmapHolder().remap(owner, name.name)));
     }
 
     @Nullable
@@ -93,13 +68,23 @@ public final class AdapterUtil {
         }
     }
 
-    public static boolean canHandleLocalVarInsnValue(AbstractInsnNode insn) {
-        return insn instanceof VarInsnNode || insn instanceof IincInsnNode;
+    public static void shiftLocals(MethodNode methodNode, int delta) {
+        if (methodNode.localVariables != null) {
+            methodNode.localVariables.forEach(lvn -> lvn.index += delta);
+        }
+        replaceLVT(methodNode, index -> Math.max(index + delta, 0));
     }
 
-    public static int getInsnIntConstValue(AbstractInsnNode insn) {
-        return getIntConstValue(insn)
-            .orElseThrow(() -> new IllegalArgumentException("Not an int constant opcode: " + insn.getOpcode()));
+    public static void makeStatic(MethodNode methodNode) {
+        methodNode.access |= Opcodes.ACC_STATIC;
+        if (methodNode.localVariables != null) {
+            methodNode.localVariables.removeIf(lvn -> lvn.index == 0);
+        }
+        shiftLocals(methodNode, -1);
+    }
+
+    public static boolean canHandleLocalVarInsnValue(AbstractInsnNode insn) {
+        return insn instanceof VarInsnNode || insn instanceof IincInsnNode;
     }
 
     public static OptionalInt getIntConstValue(AbstractInsnNode insn) {
@@ -143,8 +128,33 @@ public final class AdapterUtil {
         return AdapterUtil.hasAnnotation(field.visibleAnnotations, MixinAnnotations.SHADOW);
     }
 
-    public static boolean hasAnnotation(List<AnnotationNode> annotations, String desc) {
-        return annotations != null && annotations.stream().anyMatch(an -> desc.equals(an.desc));
+    public static boolean hasAnnotation(@Nullable List<AnnotationNode> annotations, String desc) {
+        return getAnnotation(annotations, desc) != null;
+    }
+
+    @Nullable
+    public static AnnotationNode getAnnotation(@Nullable List<AnnotationNode> annotations, String desc) {
+        if (annotations != null) {
+            for (AnnotationNode annotation : annotations) {
+                if (desc.equals(annotation.desc)) {
+                    return annotation;
+                }
+            }
+        }
+        return null;
+    }
+
+    @Nullable
+    @SuppressWarnings("unchecked")
+    public static <T> T getAnnotationValue(AnnotationNode annotation, String key) {
+        if (annotation.values != null) {
+            for (int i = 0; i + 1 < annotation.values.size(); i += 2) {
+                if (key.equals(annotation.values.get(i))) {
+                    return (T) annotation.values.get(i + 1);
+                }
+            }
+        }
+        return null;
     }
 
     // Adapted from org.spongepowered.asm.mixin.injection.callback.CallbackInjector summariseLocals
@@ -214,20 +224,6 @@ public final class AdapterUtil {
             }
         }
         return Optional.ofNullable(match);
-    }
-
-    public static <T> boolean allElementsEqual(Collection<T> list, BiPredicate<T, T> equalityFn) {
-        Iterator<T> iterator = list.iterator();
-        if (!iterator.hasNext()) {
-            return true;
-        }
-        T first = iterator.next();
-        while (iterator.hasNext()) {
-            if (!equalityFn.test(first, iterator.next())) {
-                return false;
-            }
-        }
-        return true;
     }
 
     public static void replaceRangeInclusive(InsnList list, AbstractInsnNode start, AbstractInsnNode end, List<AbstractInsnNode> replacement) {

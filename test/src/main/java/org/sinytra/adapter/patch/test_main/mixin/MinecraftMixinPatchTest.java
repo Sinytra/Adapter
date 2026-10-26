@@ -4,22 +4,25 @@ import com.mojang.logging.LogUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.assertj.core.api.Assertions;
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
-import org.sinytra.adapter.analysis.selector.AnnotationHandle;
-import org.sinytra.adapter.analysis.selector.AnnotationValueHandle;
-import org.sinytra.adapter.env.ann.AtData;
-import org.sinytra.adapter.env.ctx.MixinClassGenerator;
-import org.sinytra.adapter.env.ctx.PatchEnvironment;
-import org.sinytra.adapter.env.util.MixinAnnotations;
+import org.sinytra.adapter.api.ClassLookup;
+import org.sinytra.adapter.api.MixinClassGenerator;
+import org.sinytra.adapter.api.PatchEnvironment;
+import org.sinytra.adapter.api.ZipClassLookup;
+import org.sinytra.adapter.model.ann.AnnotationHandle;
+import org.sinytra.adapter.model.ann.AnnotationValueHandle;
+import org.sinytra.adapter.model.ann.AtData;
+import org.sinytra.adapter.model.ann.ExpressionData;
+import org.sinytra.adapter.model.constant.MixinAnnotations;
 import org.sinytra.adapter.util.AdapterUtil;
-import org.sinytra.adapter.util.provider.ClassLookup;
-import org.sinytra.adapter.util.provider.ZipClassLookup;
 import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -28,8 +31,8 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import java.util.stream.Stream;
 import java.util.zip.ZipFile;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -120,6 +123,15 @@ public abstract class MinecraftMixinPatchTest {
         Stream.of(assertions).forEach(c -> c.accept(patched, expected, result.env()));
     }
 
+    protected final void assertPatched(String className, String testName, AssertCallback... assertions) throws Exception {
+        LoadResult result = load(className, List.of(testName));
+        MethodNode patched = result.patched.methods.stream()
+            .filter(m -> m.name.equals(testName))
+            .findFirst()
+            .orElseThrow();
+        Stream.of(assertions).forEach(c -> c.accept(patched, null, result.env()));
+    }
+
     protected final void assertSameField(
         String className,
         String testName
@@ -135,6 +147,17 @@ public abstract class MinecraftMixinPatchTest {
         LOGGER.info("Patched field node: {} {}", patched.name, patched.desc);
 
         assertEquals(patched.desc, expected.desc, "Field types differ");
+    }
+
+    protected final void assertMixinTarget(String className, String testName, String expectedTarget) throws Exception {
+        ClassNode patched = load(className, List.of(testName)).patched();
+        AnnotationNode mixin = patched.invisibleAnnotations.stream().filter(a -> a.desc.equals(MixinAnnotations.MIXIN)).findFirst().orElseThrow();
+        Object targets = new AnnotationHandle(mixin).getValue("targets").or(() -> new AnnotationHandle(mixin).getValue("value"))
+            .orElseThrow().get();
+        List<String> names = ((List<?>) targets).stream()
+            .map(t -> t instanceof Type type ? type.getInternalName() : ((String) t).replace('.', '/'))
+            .toList();
+        assertEquals(List.of(expectedTarget), names, "Mixin targets");
     }
 
     public static class InsnComparator implements Comparator<AbstractInsnNode> {
@@ -210,6 +233,55 @@ public abstract class MinecraftMixinPatchTest {
         return (patched, expected, env) -> {
             MixinClassGenerator.GeneratedClass generatedClass = env.classGenerator().getGeneratedMixinClasses().get(targetClass);
             assertNotNull(generatedClass, "Missing generated class for " + targetClass);
+            boolean callsPatched = generatedClass.node().methods.stream()
+                .filter(m -> m.visibleAnnotations != null && !m.visibleAnnotations.isEmpty())
+                .anyMatch(m -> StreamSupport.stream(m.instructions.spliterator(), false)
+                    .anyMatch(insn -> insn instanceof MethodInsnNode call && call.name.equals(patched.name) && call.desc.equals(patched.desc)));
+            Assertions.assertThat(callsPatched).as("Generated injector calls " + patched.name).isTrue();
+        };
+    }
+
+    /// The generated class, if there is one, has neither the patched handler and its lambdas nor an injector that calls the handler
+    protected AssertCallback assertNotRelocated(String targetClass) {
+        return (patched, expected, env) -> {
+            MixinClassGenerator.GeneratedClass generatedClass = env.classGenerator().getGeneratedMixinClasses().get(targetClass);
+            if (generatedClass == null) {
+                return;
+            }
+            List<String> leftovers = generatedClass.node().methods.stream()
+                .filter(m -> m.name.equals(patched.name) || m.name.startsWith("lambda$" + patched.name + "$")
+                    || StreamSupport.stream(m.instructions.spliterator(), false)
+                        .anyMatch(insn -> insn instanceof MethodInsnNode call && call.name.equals(patched.name)))
+                .map(m -> m.name)
+                .toList();
+            Assertions.assertThat(leftovers).as("Generated methods left by " + patched.name).isEmpty();
+        };
+    }
+
+    protected AssertCallback assertLocalSelectors() {
+        return (patched, expected, env) -> {
+            Function<MethodNode, List<String>> selectors = method -> {
+                List<String> values = new ArrayList<>();
+                List<AnnotationNode>[] annotations = Objects.requireNonNullElseGet(method.invisibleParameterAnnotations, () -> new List[0]);
+                for (List<AnnotationNode> list : annotations) {
+                    if (list != null) {
+                        list.stream().filter(a -> a.desc.equals(MixinAnnotations.LOCAL)).forEach(a -> values.add(String.valueOf(a.values)));
+                    }
+                }
+                return values;
+            };
+            Assertions.assertThat(selectors.apply(patched)).as("@Local selectors").isEqualTo(selectors.apply(expected));
+        };
+    }
+
+    /// The audit log of the patched method has an entry containing the text
+    protected AssertCallback assertAudit(String text) {
+        return (patched, expected, env) -> {
+            boolean found = env.auditTrail().getAuditTrail().values().stream()
+                .filter(log -> log.originalMethod() != null && log.originalMethod().startsWith(patched.name + "("))
+                .flatMap(log -> log.entries().stream())
+                .anyMatch(entry -> entry.second().toString().contains(text));
+            Assertions.assertThat(found).as("Audit log of " + patched.name + " contains \"" + text + "\"").isTrue();
         };
     }
 
@@ -255,6 +327,34 @@ public abstract class MinecraftMixinPatchTest {
                 .as("Injection Point Annotation")
                 .isEqualTo(injectionPointExtractor.apply(expectedMethodAnn));
         };
+    }
+
+    protected AssertCallback assertExpression() {
+        Function<MethodNode, List<String>> expressionExtractor = method -> method.invisibleAnnotations == null ? List.of()
+            : method.invisibleAnnotations.stream()
+                .filter(ExpressionData::isExpressionAnnotation)
+                .map(MinecraftMixinPatchTest::describeAnnotation)
+                .toList();
+
+        return (patched, expected, env) -> Assertions.assertThat(expressionExtractor.apply(patched))
+            .as("Expression Annotations")
+            .isEqualTo(expressionExtractor.apply(expected));
+    }
+
+    private static String describeAnnotation(Object value) {
+        if (value instanceof AnnotationNode node) {
+            List<String> values = new ArrayList<>();
+            if (node.values != null) {
+                for (int i = 0; i + 1 < node.values.size(); i += 2) {
+                    values.add(node.values.get(i) + "=" + describeAnnotation(node.values.get(i + 1)));
+                }
+            }
+            return node.desc + values;
+        }
+        if (value instanceof List<?> list) {
+            return list.stream().map(MinecraftMixinPatchTest::describeAnnotation).toList().toString();
+        }
+        return String.valueOf(value);
     }
 
     protected AssertCallback assertSliceRange() {

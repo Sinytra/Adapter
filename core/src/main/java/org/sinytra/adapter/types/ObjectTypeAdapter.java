@@ -5,7 +5,8 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.TypeInsnNode;
-import org.sinytra.adapter.env.util.TypeConstants;
+import org.sinytra.adapter.api.TypeAdapter;
+import org.sinytra.adapter.model.constant.TypeConstants;
 
 public class ObjectTypeAdapter implements TypeAdapterProvider {
     public static final TypeAdapterProvider INSTANCE = new ObjectTypeAdapter();

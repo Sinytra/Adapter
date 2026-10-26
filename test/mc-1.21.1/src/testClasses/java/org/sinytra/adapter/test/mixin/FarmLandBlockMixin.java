@@ -26,4 +26,20 @@ public class FarmLandBlockMixin {
     private static boolean isFarmlandNearWaterExpected(boolean original, @Local(ordinal = 0) LevelReader world, @Local(ordinal = 1) BlockPos blockPos) {
         return original;
     }
+
+    @ModifyExpressionValue(
+        method = "(Lnet/minecraft/world/level/LevelReader;Lnet/minecraft/core/BlockPos;)Z",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/material/FluidState;is(Lnet/minecraft/tags/TagKey;)Z")
+    )
+    private static boolean isNearWaterByDescriptor(boolean original) {
+        return original;
+    }
+
+    @ModifyExpressionValue(
+        method = "(Lnet/minecraft/world/level/LevelReader;Lnet/minecraft/core/BlockPos;)Z",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/state/BlockState;canBeHydrated(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/material/FluidState;Lnet/minecraft/core/BlockPos;)Z")
+    )
+    private static boolean isNearWaterByDescriptorExpected(boolean original) {
+        return original;
+    }
 }

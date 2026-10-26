@@ -1,5 +1,0 @@
-{
-  "minVersion": "0.8.5",
-  "plugin": "org.sinytra.adapter.runtime.AdapterMixinPlugin",
-  "package": "org.sinytra.adapter.runtime.mixin"
-}
