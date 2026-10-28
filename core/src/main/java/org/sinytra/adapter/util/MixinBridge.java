@@ -19,6 +19,7 @@ import org.spongepowered.asm.mixin.gen.AccessorInfo;
 import org.spongepowered.asm.mixin.injection.Group;
 import org.spongepowered.asm.mixin.injection.InjectionPoint;
 import org.spongepowered.asm.mixin.injection.code.ISliceContext;
+import org.spongepowered.asm.mixin.injection.code.InsnListEx;
 import org.spongepowered.asm.mixin.injection.code.MethodSlice;
 import org.spongepowered.asm.mixin.injection.modify.InvalidImplicitDiscriminatorException;
 import org.spongepowered.asm.mixin.injection.modify.LocalVariableDiscriminator;
@@ -232,7 +233,7 @@ public final class MixinBridge {
                 InjectionInfo info = createInjectionInfo(ModifyVariableInjectionInfo.class, this.mixinContext, this.lvtCompatibility);
                 LOCAL_VARIABLE_INJECTION_POINT_FIND.invoke(point, info, this.targetMethod.instructions, targetInsns, target());
             } else {
-                InsnList instructions = slice != null ? slice(slice) : this.targetMethod.instructions;
+                InsnList instructions = slice != null ? slice(slice) : new InsnListEx(target());
                 if (parent != null && point.getClass().getName().equals(EXPRESSION_POINT_CLASS)) {
                     Expressions.find(this, point, parent, instructions, targetInsns);
                 } else {
@@ -246,7 +247,9 @@ public final class MixinBridge {
             if (this.target == null) {
                 ClassInfo info = ClassInfo.forName(this.targetClass.name);
                 try {
-                    this.target = (Target) TARGET_CTR.invoke(info, this.targetClass, this.targetMethod);
+                    this.target = info != null && this.targetMethod.name.equals("<init>")
+                        ? new Constructor(info, this.targetClass, this.targetMethod)
+                        : (Target) TARGET_CTR.invoke(info, this.targetClass, this.targetMethod);
                 } catch (Throwable t) {
                     throw new RuntimeException(t);
                 }
