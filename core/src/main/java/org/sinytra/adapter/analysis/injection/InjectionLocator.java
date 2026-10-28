@@ -100,7 +100,7 @@ public final class InjectionLocator {
         InjectionQuery.Source kind = query.source() == InjectionQuery.Source.CURRENT && injectionPoint == null ? InjectionQuery.Source.CONSTANT : query.source();
         AnnotationHandle source = switch (kind) {
             case CURRENT -> injectionPoint;
-            case AT, SLICE_BOUNDARY -> injectionPoint != null ? new AnnotationHandle(Objects.requireNonNull(query.at()).toAnnotationNode()) : null;
+            case AT, SLICE_BOUNDARY -> new AnnotationHandle(Objects.requireNonNull(query.at()).toAnnotationNode());
             case CONSTANT -> query.constantData() != null ? new AnnotationHandle(query.constantData().toAnnotationNode())
                 : this.context.methodAnnotation().getNested(PROPERTY_CONSTANT).orElse(null);
         };

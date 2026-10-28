@@ -7,7 +7,15 @@ public class Configurations {
         .setShouldDelete(true);
 
     public static MutableConfiguration changeMixinType(Configuration dirty, String mixinType, AtData at) {
-        return dirty.copyClean()
+        return changeMixinType(dirty.copyClean(), mixinType, at);
+    }
+
+    public static MutableConfiguration changeMixinType(Configuration dirty, String mixinType, PropertyContainerTemplate template, AtData at) {
+        return changeMixinType(dirty.copyClean(template), mixinType, at);
+    }
+
+    private static MutableConfiguration changeMixinType(MutableConfiguration config, String mixinType, AtData at) {
+        return config
             .setMixinType(mixinType)
             .inheritTargetClass()
             .inheritTargetMethod()

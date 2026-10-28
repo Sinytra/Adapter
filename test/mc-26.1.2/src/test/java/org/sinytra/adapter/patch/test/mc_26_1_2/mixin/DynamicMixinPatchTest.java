@@ -341,6 +341,17 @@ public class DynamicMixinPatchTest extends MinecraftMixinPatchTest {
             .containsExactly("getFogColor(Lnet/minecraft/client/Camera;FLnet/minecraft/client/multiplayer/ClientLevel;IFFFFLorg/joml/Vector4f;)V");
     }
 
+    @Test
+    void testModifyConstantReplacedByField() throws Exception {
+        assertSameCode(
+            "org/sinytra/adapter/test/mc_26_1_2/mixin/GuiMixin",
+            "raiseVehicleHearts",
+            assertType(),
+            assertTargetMethod(),
+            assertInjectionPoint()
+        );
+    }
+
     @Override
     protected LoadResult load(String className, List<String> allowedMethods) throws Exception {
         ClassNode patched = loadClass(className);

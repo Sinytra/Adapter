@@ -7,6 +7,7 @@ public class MixinAnnotationConstants {
     public static final String AT_METHOD = "method";
     public static final String AT_VAL_INVOKE = "INVOKE";
     public static final String AT_VAL_INVOKE_ASSIGN = "INVOKE_ASSIGN";
+    public static final String AT_VAL_FIELD = "FIELD";
     public static final String AT_VAL_RETURN = "RETURN";
     public static final String AT_VAL_NEW = "NEW";
     public static final String AT_VAL_STORE = "STORE";

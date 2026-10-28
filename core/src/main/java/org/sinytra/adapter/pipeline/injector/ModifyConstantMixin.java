@@ -11,7 +11,12 @@ import org.sinytra.adapter.model.param.HandlerSignature.ValueSource;
 import org.sinytra.adapter.pipeline.Recipe;
 import org.sinytra.adapter.pipeline.TxResult;
 import org.sinytra.adapter.pipeline.ctx.MixinContext;
+import org.sinytra.adapter.pipeline.resolver.InjectionPointResolver;
 import org.sinytra.adapter.pipeline.resolver.Resolvers;
+import org.sinytra.adapter.pipeline.resolver.rewrite.ReplacedConstantToExpression;
+import org.sinytra.adapter.pipeline.resolver.rewrite.RewriteResolver;
+
+import java.util.List;
 
 import static org.sinytra.adapter.model.param.HandlerSignature.ParamSource.CAPTURED_TARGET_ARGS;
 import static org.sinytra.adapter.model.param.HandlerSignature.ParamSource.VALUE;
@@ -48,6 +53,9 @@ public class ModifyConstantMixin extends AbstractMixinType {
 
     @Override
     public TxResult preProcess(MixinContext context, MutableConfiguration clean, Resolvers resolvers) {
+        resolvers
+            .addBefore(InjectionPointResolver.class, new RewriteResolver(List.of(new ReplacedConstantToExpression())));
+
         clean.setParameters(SIGNATURE.parse(context.methodNode()));
         return TxResult.SUCCESS;
     }

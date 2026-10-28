@@ -1,5 +1,6 @@
 package org.sinytra.adapter.test.mc_26_1_2.mixin;
 
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.DeltaTracker;
@@ -8,6 +9,8 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.contextualbar.ContextualBarRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Constant;
+import org.spongepowered.asm.mixin.injection.ModifyConstant;
 
 @Mixin(Gui.class)
 public class GuiMixin {
@@ -53,5 +56,18 @@ public class GuiMixin {
     )
     private void skipContextualBarBackgroundExpected(ContextualBarRenderer instance, GuiGraphicsExtractor graphics, DeltaTracker tracker, Operation<Void> original) {
         original.call(instance, graphics, tracker);
+    }
+
+    @ModifyConstant(method = "extractVehicleHealth", constant = @Constant(intValue = 39))
+    private int raiseVehicleHearts(int bottom) {
+        return bottom + 10;
+    }
+
+    @ModifyExpressionValue(
+        method = "extractVehicleHealth(Lnet/minecraft/client/gui/GuiGraphicsExtractor;)V",
+        at = @At(value = "FIELD", target = "Lnet/minecraft/client/gui/Gui;rightHeight:I", ordinal = 0)
+    )
+    private int raiseVehicleHeartsExpected(int bottom) {
+        return bottom + 10;
     }
 }
